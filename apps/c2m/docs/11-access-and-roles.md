@@ -195,3 +195,12 @@ People and access (platform piece 1b, 21 Oct 2026): the C2M column lists the rol
 Rules the Roles screen enforces when a role is saved (found in the independent review): the "places" tick (Approvals, Products, Prices, Margin, Setup) needs Recipes, Costs, Prices and margin, and Settings and targets ticked; "Mark a list row" needs "Link or rename a list row"; a role cannot both save rates and do the monthly rate check (the check stays with a second person); a role name that matches a reserved word gets "-role" added to its key.
 
 Other points: Approve is shown only on an item an administrator proposed, for anyone below the administrator (state items carry byAdmin). Refusing or sending back a colleague's item is not restricted by the proposer rule. The administrator holds every recipe step and can take a recipe through all 4 steps alone (ruled by Tahir, D-96). The notices still go to the CFO and COO roles by name; a new role does not receive notices.
+
+## 11.12 Access in piece 3: client.add and variant.add (owner: Tahir; D-94, D-98)
+
+| Action | What it allows | Starting roles |
+|---|---|---|
+| client.add | Add a client, a client product and its packs; make a product follow a VAN product | CFO, COO |
+| variant.add | Add a variant of a VAN product (a new VAN product with a recipe copy); tag a product's variant; create a new family or variant name | CFO, Production Manager, COO |
+
+Other rules: approving a follower's cost needs recipe.step.cost (the CFO step); rates for a variant need labour.manage (Yawar). Majid has no Setup: he adds a variant from a VAN product's page. A role you made yourself gets no new action until you tick it in Roles. Migration 003 adds the actions to the starting cfo and production rows; the COO holds every action.

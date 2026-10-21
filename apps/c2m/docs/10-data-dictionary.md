@@ -247,3 +247,16 @@ Changed in 0.3.0 and 0.3.1: rs_per_kg fixed (1 rate of 1 kind, labour or FOH). A
 | admin (state.me) | true for a person holding the administrator role | true or false |
 | actions (state.me) | the keys the person's role holds | list |
 | grantee (state.people) | a person whose role may print granted lists, so Setup lists them for list and client grants | true or false |
+
+## 10.12 Added in piece 3 (owner: Tahir; D-94, D-95, D-98)
+
+| Term | Meaning |
+|---|---|
+| Product family | A VAN product that has variants, for example Humi Grow or Fusion Potash (c2m_product_family) |
+| Variant | A form of a family: Powder, Pellets, Granular. Each variant is its own VAN product with its own recipe, packs, cost and rates (c2m_product_variant) |
+| Follows | A white label product takes the approved recipe, the material cost only, of a VAN product. Its packing, labour and overhead stay its own |
+| Follower | A product that follows a VAN product |
+| Only for this client | A pack tagged with 1 client and kept off the VAN lists (c2m_pack_ext) |
+| Who supplies the packing | VAN (VAN packs it, needs a packing bill), Client (the client supplies the packing), Bulk (the client packs it; no VAN packing) |
+| Group | VAN brand, White label or Both; it follows the client's products |
+| client.add, variant.add | The actions: add a client, product and pack; add or tag a variant |

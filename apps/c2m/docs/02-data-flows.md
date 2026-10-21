@@ -244,3 +244,7 @@ flowchart LR
 | user_module_roles (platform) | the person's role key | C2M, each request | every request |
 | c2m_role | the role's actions | C2M, each request | every request; if the table is missing the 6 built-in roles are used |
 | C2M | actions, admin, nav | the page (state.me, /me) | page load and after each change |
+
+## 2.22 Clients, products, variants (piece 3; owner: Tahir; D-94, D-95, D-98)
+
+The forms write to c2m_customer, c2m_client_product, c2m_client_pack and the 5 link tables (c2m_product_family, c2m_product_variant, c2m_product_ext, c2m_pack_ext, c2m_rule_variant); every write is also a row in c2m_audit. The engine reads the link tables in loadAll (empty when migration 003 has not run). A follower's cost reads the followed product's approved recipe (recipeOwner), its own packs and bills, and the rate picked by client pack, variant, type, general. O2S is read only: a brand name O2S writes is matched to a product by the matcher, and the variant is carried in the name.

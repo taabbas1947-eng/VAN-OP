@@ -55,6 +55,8 @@ module.exports = function mountC2mRoutes(app, deps) {
     finally { c.release(); }
   }
   const moved = () => Object.assign(new Error('Someone else changed this a moment ago. Check before retrying.'), { status: 409 });
+  /** A query on the piece 3 link tables: [] if migration 003 has not been run yet. */
+  const softQ = async (sql, p) => { try { return await q(sql, p); } catch (e) { if (e && (e.code === 'ER_NO_SUCH_TABLE' || e.errno === 1146)) return [[]]; throw e; } };
   const isDate = d => /^\d{4}-\d{2}-\d{2}$/.test(String(d || '')) && !isNaN(Date.parse(d));
 
   /* ---------- Access: c2m role from the platform's role registry ---------- */
@@ -132,7 +134,7 @@ module.exports = function mountC2mRoutes(app, deps) {
     for (const p of D.packs) {
       if (filter && !filter(p)) continue;
       const cp = D.cpById.get(p.client_product_id); if (!cp) continue;
-      const cv = lib.conversionFor({ clientProductId: cp.id, baseProductId: cp.base_product_id, form: cp.form, reprocessed: cp.reprocessed, packSize: Number(p.pack_size), onDate: today() }, D.rules);
+      const cv = lib.conversionFor({ clientProductId: cp.id, variantId: (D.ext.get(cp.id) || {}).pvariantId || null, baseProductId: cp.base_product_id, form: cp.form, reprocessed: cp.reprocessed, packSize: Number(p.pack_size), onDate: today() }, D.rules);
       const noL = !cv.labour || !(Number(cv.labour.rsPerKg) > 0), noF = !cv.foh || !(Number(cv.foh.rsPerKg) > 0); // Rs 0 = missing (I-20)
       if (noL || noF) out.push(`${cp.brand} ${Number(p.pack_size)} ${cp.sold_per} (no ${noL ? 'labour' : 'FOH'} rate)`);
     }
@@ -207,7 +209,7 @@ module.exports = function mountC2mRoutes(app, deps) {
            the last O2S PO price, so it shows on "costed, no price" (ruling 3; cost review 18 Oct 2026, D-62). */
         const ended = ap ? null : prices.filter(x => x.client_pack_id === p.id && x.status === 'approved' && String(x.valid_from).slice(0, 10) <= today() && x.valid_to && String(x.valid_to).slice(0, 10) < today()).sort((a, b) => String(b.valid_to).localeCompare(String(a.valid_to)))[0] || null;
         const price = ap ? Number(ap.price) : ended ? null : (lastPo.get(p.id) ?? null);
-        const out = { id: p.id, size: Number(p.pack_size), billId: p.packing_bill_id };
+        const out = { id: p.id, size: Number(p.pack_size), billId: p.packing_bill_id, clientOnly: D.packExt.has(p.id) ? D.packExt.get(p.id) : null };
         if (seeCost) Object.assign(out, { cost: c && c.costed ? { materials: c.materials, packing: c.packing, conversion: c.conversion, freight: c.freight, total: c.total, rule: c.rule ? c.rule.name : null } : null, costGaps: c && !c.costed ? c.gaps : null,
           approvedCost: av ? Number(av.total) : null, floor: c && c.costed ? lib.contributionFloor(c) : null, labour: c && c.costed ? c.labour : null,
           sheet: (() => { const v = (D.verByPack.get(p.id) || []).filter(x => /^Yawar's Master Cost Sheet/.test(x.cause)).pop(); return v ? { materials: Number(v.materials), packing: Number(v.packing), conversion: Number(v.conversion), total: Number(v.total) } : null; })() });
@@ -217,7 +219,7 @@ module.exports = function mountC2mRoutes(app, deps) {
         return out;
       });
       return { id: cp.id, customer: cust.name, customerId: cust.id, typeId: cp.base_product_id, fam: lib.familyColour(cp.base_product_id, D.productTypes), typeName: ((D.productTypes || []).find(t => Number(t.id) === Number(cp.base_product_id)) || {}).name || null, reprocessed: !!Number(cp.reprocessed), grp: cp.channel === 'White label' ? 'White label' : 'VAN brand', channel: cp.channel, brand: cp.brand, spec: cp.spec, o2sNames: role === 'cfo' || role === 'coo' ? String(cp.o2s_brand).split('|').filter(Boolean) : undefined,
-        form: cp.form, soldPer: cp.sold_per, packingMode: cp.packing_mode, target: seePrice ? (cp.target_gp == null ? null : Number(cp.target_gp)) : undefined,
+        familyId: (D.ext.get(cp.id) || {}).familyId || null, pvariantId: (D.ext.get(cp.id) || {}).pvariantId || null, followsId: (D.ext.get(cp.id) || {}).followsId || null, followsBrand: (D.ext.get(cp.id) || {}).followsId ? ((D.cpById.get(D.ext.get(cp.id).followsId) || {}).brand || null) : null, form: cp.form, soldPer: cp.sold_per, packingMode: cp.packing_mode, target: seePrice ? (cp.target_gp == null ? null : Number(cp.target_gp)) : undefined,
         budget: seePrice ? (cp.budget_gp == null ? null : Number(cp.budget_gp)) : undefined, budgetKg: seePrice && cp.budget_kg_year != null ? Number(cp.budget_kg_year) : undefined, recipeState: latest ? latest.state : null, approvedVersionId: appr ? appr.id : null, latestVersionId: latest ? latest.id : null, packs };
     });
 
@@ -231,7 +233,7 @@ module.exports = function mountC2mRoutes(app, deps) {
     });
 
     // Settings (budget and ambition GP, thresholds) go to Yawar and Tahir only (review S9)
-    const out = { me: meOf(acc, user), settings: has('see.settings') ? D.settings.rows : [], fedPct: lib.fedPct(D.settings.values.fed_pct), products, recipes, today: today() };
+    const out = { variantsReady: D.variantsReady, families: D.families.map(f => ({ id: f.id, name: f.name, variants: D.pvariants.filter(v => v.family_id === f.id).map(v => ({ id: v.id, name: v.name })) })), me: meOf(acc, user), settings: has('see.settings') ? D.settings.rows : [], fedPct: lib.fedPct(D.settings.values.fed_pct), products, recipes, today: today() };
     if (has('see.materials')) {
       // Material master without rates: Himayat's screen (ruled 16 Oct)
       out.materials = [...D.rates.values()].map(g => ({ gradeId: g.gradeId, materialId: g.materialId, name: g.name, grade: g.grade, unit: g.unit, typeId: g.typeId, type: g.type, role: g.role, fields: g.fields, nutrients: g.nutrients }));
@@ -405,6 +407,7 @@ module.exports = function mountC2mRoutes(app, deps) {
   app.post('/api/c2m/recipes/new', can('recipe.start'), wrap(async (req, res) => {
     const { clientProductId, fromVersionId, note } = req.body || {};
     const [[cp]] = await q('SELECT id, active FROM c2m_client_product WHERE id=?', [clientProductId]); if (!cp) throw bad('Pick a client product.');
+    { const [ex] = await softQ('SELECT follows_product_id FROM c2m_product_ext WHERE client_product_id=?', [cp.id]); if (ex && ex[0] && ex[0].follows_product_id) throw bad('This product follows a VAN product\'s recipe, so it has no recipe of its own. Change the recipe of the VAN product it follows.'); }
     const outOfUse = () => bad('This product is out of use (Setup, Product names): put it back in use before writing a recipe version.'); if (!Number(cp.active)) throw outOfUse();
     if (fromVersionId) { const [[fv]] = await q('SELECT id FROM c2m_recipe_version WHERE id=? AND client_product_id=?', [fromVersionId, cp.id]); if (!fv) throw bad('Copy from a version of the same product.'); }
     const id = await tx(async () => {
@@ -466,6 +469,17 @@ module.exports = function mountC2mRoutes(app, deps) {
         const c = engine.packCost(D, p); if (!c || !c.costed) { const cpx = D.cpById.get(p.client_product_id); throw bad(`The cost cannot be approved: ${cpx ? cpx.brand + ' ' : ''}${Number(p.pack_size)} ${cpx ? cpx.sold_per : ''} is not fully costed (${c ? c.gaps.join(', ') : 'product inactive'}). Nothing was saved.`); } // checked again inside the transaction
         await q('INSERT INTO c2m_cost_version (client_pack_id, valid_from, materials, packing, conversion, freight, total, recipe_version_id, cause, approved_by) VALUES (?,?,?,?,?,?,?,?,?,?)',
           [p.id, now(), c.materials, c.packing, c.conversion, c.freight, c.total, v.id, `Recipe version ${v.version_no} approved`, req.c2m.user]);
+      }
+      /* D-98: a product that follows this one takes its approved recipe. Each of its packs that is fully costed gets a new approved cost at once
+         (its own packing, labour and overhead). A pack of a follower that is not fully costed does not hold up this approval: it waits for its own approval. */
+      for (const [fid, e] of D.ext) if (Number(e.followsId) === Number(v.client_product_id)) {
+        const fcp = D.cpById.get(fid); if (!fcp) continue;
+        for (const p of D.packs.filter(p => p.client_product_id === fid)) {
+          const c = engine.packCost(D, p); if (!c || !c.costed) continue;
+          await q('INSERT INTO c2m_cost_version (client_pack_id, valid_from, materials, packing, conversion, freight, total, recipe_version_id, cause, approved_by) VALUES (?,?,?,?,?,?,?,?,?,?)',
+            [p.id, now(), c.materials, c.packing, c.conversion, c.freight, c.total, v.id, `Recipe of ${D.cpById.get(v.client_product_id).brand} version ${v.version_no} approved (followed by ${fcp.brand})`, req.c2m.user]);
+          await audit(req.c2m.user, 'client_pack', p.id, 'cost_approved', null, { total: c.total, recipeVersion: v.id }, `Followed recipe of ${D.cpById.get(v.client_product_id).brand} approved (D-98)`);
+        }
       }
     }
     await audit(req.c2m.user, 'recipe', v.id, act, v.state, next, null);
@@ -664,13 +678,16 @@ module.exports = function mountC2mRoutes(app, deps) {
       if (!ids.length) throw bad('Pick at least 1 product for this rate.');
       const [ok] = await q(`SELECT id FROM c2m_client_product WHERE id IN (${qs(ids)})`, ids); if (ok.length !== new Set(ids).size) throw bad('A product on this list is not in C2M.');
     } else ids = [];
+    let pvId = null;
+    if (scope === 'variant') { const D0 = await needVariants(); pvId = Number(b.pvariantId); if (!D0.pvariants.some(v => Number(v.id) === pvId)) throw bad('Pick the variant this rate applies to.'); }
     if (scope === 'type') { const [[t]] = await q('SELECT id FROM c2m_base_product WHERE id=?', [b.baseProductId]); if (!t) throw bad('Pick the product type.'); }
-    if (!['general', 'type', 'list'].includes(scope)) throw bad('Assign the rate to all products, a product type, or a list of products.');
+    if (!['general', 'type', 'list', 'variant'].includes(scope)) throw bad("Assign the rate to all products, a product type, a variant, or a client's pack.");
     let id, re = 0;
     await tx(async () => {
       const [r] = await q('INSERT INTO c2m_conversion_rule (name, kind, rs_per_kg, scope_client_product_id, scope_base_product_id, scope_form, scope_reprocessed, scope_pack_min, scope_pack_max, valid_from, source) VALUES (?,?,?,?,?,?,?,?,?,?,?)',
         [String(b.name).slice(0, 160), b.kind, strictNum(b.rsPerKg), null, scope === 'type' ? Number(b.baseProductId) : null, b.form || null, b.reprocessed == null || b.reprocessed === '' ? null : Number(b.reprocessed), b.packMin ? strictNum(b.packMin) : null, b.packMax ? strictNum(b.packMax) : null, b.validFrom || today(), String(b.source || 'Entered by Yawar').slice(0, 200)]);
       id = r.insertId;
+      if (scope === 'variant') await q('INSERT INTO c2m_rule_variant (rule_id, pvariant_id) VALUES (?,?)', [id, pvId]);
       for (const cpId of new Set(ids)) await q('INSERT INTO c2m_conversion_rule_product (rule_id, client_product_id) VALUES (?,?)', [id, cpId]);
       await audit(req.c2m.user, 'conversion_rule', id, 'create', null, b, null);
       re = await reapprovalFor(`Conversion rule "${String(b.name).slice(0, 80)}" added, ${today()}`);
@@ -705,6 +722,233 @@ module.exports = function mountC2mRoutes(app, deps) {
     });
     res.json({ ok: true, reapproval: re });
   }));
+  /* ---------- Piece 3 (Tahir, 21 Oct 2026; D-94, D-95, D-98): add client, add product, variants, follows ----------
+   * Five link tables (migration 003) hold the family, the variant, the product followed and the client a pack is for.
+   * Until the migration is run these routes answer with a plain notice and everything else works as before. */
+  const needVariants = async () => { const D = await engine.loadAll(q); if (!D.variantsReady) throw bad('This needs migration 003 (apps/c2m/migrations/003_c2m_variants_clients.sql). Run it in phpMyAdmin first, then try again.'); return D; };
+  const GROUPS = ['VAN brand', 'White label', 'Both'];
+  const cleanName = (s, max, what) => { if (s != null && typeof s !== 'string') throw bad(`Write the ${what} as text.`); const v = nmClean(s); if (!v) throw bad(`Write the ${what}.`); if (v.length > max) throw bad(`The ${what} can be at most ${max} characters.`); if (/[|]/.test(v)) throw bad(`The ${what} cannot hold the sign |.`); return v; };
+  const spellings = (v, first) => { if (v != null && typeof v !== 'string' && !(Array.isArray(v) && v.every(x => typeof x === 'string'))) throw bad('O2S spellings must be text.'); if (Array.isArray(v) && v.some(x => /[|]/.test(x))) throw bad('A name cannot hold the sign |.'); const raw = Array.isArray(v) ? v : String(v == null ? '' : v).split('|'); const seen = new Set(); return [first].concat(raw).map(nmClean).filter(s => s && !seen.has(nmK(s)) && seen.add(nmK(s))); };
+  /** The group of a client follows its products (D-94): white label products make it include White label; it never loses a kind it was made with. */
+  async function recomputeGroup(customerId, user) {
+    const [[c]] = await q('SELECT id, grp FROM c2m_customer WHERE id=?', [customerId]); if (!c) return;
+    const [ps] = await q('SELECT channel FROM c2m_client_product WHERE customer_id=? AND active=1', [customerId]);
+    const wl = ps.some(p => p.channel === 'White label'), van = ps.some(p => p.channel === 'VAN brand');
+    let g = c.grp;
+    if (wl && g === 'VAN brand') g = 'Both';
+    else if (wl && van && g === 'White label') g = 'Both';
+    if (g !== c.grp) { await q('UPDATE c2m_customer SET grp=? WHERE id=?', [g, c.id]); await audit(user, 'customer', c.id, 'group', c.grp, g, 'The group follows the products (D-94)'); }
+  }
+  /** Find or create a family and a variant by id or name. Creating one needs variant.add. */
+  async function pickFamilyVariant(req, b) {
+    const fid = b.familyId ? Number(b.familyId) : null, fname = nmClean(b.family), vid = b.pvariantId ? Number(b.pvariantId) : null, vname = nmClean(b.variant);
+    if (!fid && !fname && !vid && !vname) return { familyId: null, pvariantId: null };
+    let fam = null, pv = null;
+    if (vid) { [[pv]] = await q('SELECT * FROM c2m_product_variant WHERE id=?', [vid]); if (!pv) throw bad('That variant is not in C2M.'); [[fam]] = await q('SELECT * FROM c2m_product_family WHERE id=?', [pv.family_id]); return { familyId: fam.id, pvariantId: pv.id }; }
+    if (fid) { [[fam]] = await q('SELECT * FROM c2m_product_family WHERE id=?', [fid]); if (!fam) throw bad('That product family is not in C2M.'); }
+    else if (fname) {
+      [[fam]] = await q('SELECT * FROM c2m_product_family WHERE name=?', [fname]);
+      if (!fam) { if (!mayDo(req, 'variant.add')) throw Object.assign(new Error('Your role cannot add a new product family or variant.'), { status: 403 }); cleanName(fname, 120, 'family name'); const [r] = await q('INSERT INTO c2m_product_family (name, created_by, created_at) VALUES (?,?,?)', [fname, req.c2m.user, now()]); fam = { id: r.insertId, name: fname }; await audit(req.c2m.user, 'product_family', fam.id, 'add', null, fname, null); }
+    }
+    if (!fam) throw bad('Pick the product the variant belongs to.');
+    if (!vname) return { familyId: fam.id, pvariantId: null };
+    [[pv]] = await q('SELECT * FROM c2m_product_variant WHERE family_id=? AND name=?', [fam.id, vname]);
+    if (!pv) { if (!mayDo(req, 'variant.add')) throw Object.assign(new Error('Your role cannot add a new variant.'), { status: 403 }); cleanName(vname, 80, 'variant name'); const [r] = await q('INSERT INTO c2m_product_variant (family_id, name, created_by, created_at) VALUES (?,?,?,?)', [fam.id, vname, req.c2m.user, now()]); pv = { id: r.insertId }; await audit(req.c2m.user, 'product_variant', pv.id, 'add', null, { family: fam.name, variant: vname }, null); }
+    return { familyId: fam.id, pvariantId: pv.id };
+  }
+  const setExt = async (cpId, e) => q('INSERT INTO c2m_product_ext (client_product_id, family_id, pvariant_id, follows_product_id) VALUES (?,?,?,?) ON DUPLICATE KEY UPDATE family_id=VALUES(family_id), pvariant_id=VALUES(pvariant_id), follows_product_id=VALUES(follows_product_id)', [cpId, e.familyId || null, e.pvariantId || null, e.followsId || null]);
+  /** Check and read the packs of a form: [{size, billId, clientOnly}]. */
+  async function readPacks(list, mode) {
+    const packs = Array.isArray(list) ? list : []; const seen = new Set(); const out = [];
+    for (const k of packs) {
+      if (!k || typeof k !== 'object') throw bad('Every pack needs a size.');
+      const size = strictNum(k.size); if (!(size >= 0.001)) throw bad('Every pack needs a size of 0.001 or more (digits only).'); if (size >= 99999.9995) throw bad('That pack size is too large.');
+      if (Math.abs(size * 1000 - Math.round(size * 1000)) > 1e-6) throw bad('A pack size has at most 3 decimals.');
+      if (seen.has(size)) throw bad(`The ${size} pack is listed twice.`); seen.add(size);
+      let billId = k.billId ? Number(k.billId) : null;
+      if (k.billId && !(Number.isInteger(billId) && billId > 0)) throw bad('A packing bill you picked is not in C2M.');
+      if (billId) { const [[b]] = await q('SELECT id FROM c2m_packing_bill WHERE id=?', [billId]); if (!b) throw bad('A packing bill you picked is not in C2M.'); }
+      if (mode === 'bulk') billId = null; // a bulk product carries no VAN packing (D-98)
+      out.push({ size, billId, clientOnly: !!k.clientOnly });
+    }
+    return out;
+  }
+  async function insertPacks(cpId, customerId, packs, user) {
+    for (const k of packs) {
+      const [r] = await q('INSERT INTO c2m_client_pack (client_product_id, pack_size, packing_bill_id) VALUES (?,?,?)', [cpId, k.size, k.billId]);
+      if (k.clientOnly) await q('INSERT INTO c2m_pack_ext (client_pack_id, client_only_id) VALUES (?,?)', [r.insertId, customerId]);
+      await audit(user, 'client_pack', r.insertId, 'add', null, { productId: cpId, size: k.size, billId: k.billId, clientOnly: !!k.clientOnly }, null);
+    }
+  }
+  /** The followed product must be an active VAN brand product that follows nothing itself. */
+  async function checkFollow(D, followsId, selfId) {
+    const f = D.cpById.get(Number(followsId)); if (!f || !engine.isVanBrand(f)) throw bad('A product can follow only an active VAN brand product.');
+    if (Number(followsId) === Number(selfId)) throw bad('A product cannot follow itself.');
+    const e = D.ext.get(f.id); if (e && e.followsId) throw bad(`${f.brand} follows another product itself: follow the product that has the recipe.`);
+    return f;
+  }
+  const modeOk = m => ['VAN', 'client', 'bulk'].includes(m);
+
+  /** Add a client (D-94). Step 1: the name, what it buys, the O2S names. Products are added next, one by one. */
+  app.post('/api/c2m/clients', can('client.add'), wrap(async (req, res) => {
+    await needVariants();
+    const b = req.body || {}; const name = cleanName(b.name, 120, 'client name');
+    if (!GROUPS.includes(b.kind)) throw bad('Pick what the client buys: VAN brand, White label or Both.');
+    const o2s = spellings(b.o2sNames, name).join('|'); if (o2s.length > 600) throw bad('The O2S names together can be at most 600 characters.');
+    const SEG = ['Distributor', 'Dealer', 'COBO', 'VGreen', 'Farmer']; const seg = b.kind === 'White label' ? 'White label' : (b.segment ? String(b.segment) : 'Distributor');
+    if (b.kind !== 'White label' && !SEG.includes(seg)) throw bad('Pick the segment of the client.');
+    const id = await tx(async () => {
+      const [all] = await q('SELECT id, name, o2s_names FROM c2m_customer FOR UPDATE'); const mine = o2s.split('|').map(nmK);
+      for (const c of all) { const theirs = [c.name].concat(String(c.o2s_names).split('|')).map(nmK); if (nmK(c.name) === nmK(name)) throw bad(`A client called "${name}" is already in C2M.`); const hit = mine.find(m => theirs.includes(m)); if (hit) throw bad(`The name "${hit}" is already a name of the client ${c.name}: an O2S line could not tell them apart.`); }
+      let r; try { [r] = await q('INSERT INTO c2m_customer (name, o2s_names, grp, segment, price_rule, price_cycle, region, active) VALUES (?,?,?,?,?,?,?,1)', [name, o2s, b.kind, seg, b.kind === 'White label' ? 'po' : null, null, null]); }
+      catch (e) { if (dupName(e)) throw bad(`A client called "${name}" is already in C2M.`); throw e; }
+      await audit(req.c2m.user, 'customer', r.insertId, 'add', null, { name, kind: b.kind, segment: seg, o2sNames: o2s }, 'Add client (D-94)');
+      return r.insertId;
+    });
+    res.json({ id });
+  }));
+
+  /** Add a product to a client, with its packs (D-94, D-95, D-98). A product that follows a VAN product has no recipe of its own. */
+  app.post('/api/c2m/clients/:id/products', can('client.add'), wrap(async (req, res) => {
+    const D0 = await needVariants(); const b = req.body || {};
+    const [[cust]] = await q('SELECT * FROM c2m_customer WHERE id=?', [req.params.id]); if (!cust) throw bad('Client not found.');
+    { const [[ov]] = await q("SELECT COUNT(*) n FROM c2m_client_product WHERE customer_id=? AND channel='VAN brand'", [cust.id]); if (Number(ov.n)) throw bad(`${cust.name} owns the VAN brand products: a client's own brand is added to a client, not to the VAN brand owner.`); }
+    const brand = cleanName(b.brand, 120, 'brand name'); const names = spellings(b.o2sNames, brand); const o2s = names.join('|'); if (o2s.length > 120) throw bad(`The brand name and spellings together can be at most 120 characters (now ${o2s.length}).`);
+    const typeId = Number(b.typeId); const [[ty]] = await q('SELECT id FROM c2m_base_product WHERE id=?', [typeId]); if (!ty) throw bad('Pick the product type: it decides which labour and overhead rates apply.');
+    const form = b.form || 'solid', soldPer = b.soldPer || (form === 'liquid' ? 'L' : 'kg'); if (!['solid', 'liquid'].includes(form)) throw bad('Form is solid or liquid.'); if (!['kg', 'L'].includes(soldPer)) throw bad('Sold per is kg or L.'); if ((form === 'liquid') !== (soldPer === 'L')) throw bad('A liquid is sold per L and a solid per kg.');
+    const mode = b.packingMode || 'VAN'; if (!modeOk(mode)) throw bad('Who supplies the packing: VAN, Client or Bulk.');
+    const packs = await readPacks(b.packs, mode);
+    const id = await tx(async () => {
+      const D = await engine.loadAll(q); let fam = { familyId: null, pvariantId: null }, followsId = null;
+      if (b.followsId) { const f = await checkFollow(D, b.followsId, 0); followsId = f.id; const fe = D.ext.get(f.id) || {}; fam = { familyId: fe.familyId || null, pvariantId: fe.pvariantId || null }; if (form !== f.form || soldPer !== f.sold_per) throw bad(`${f.brand} is ${f.form}, sold per ${f.sold_per}: a product that follows its recipe has the same form.`); }
+      if (b.family || b.variant || b.familyId || b.pvariantId) fam = await pickFamilyVariant(req, b); // the variant it is sold as can differ from the one it follows (FMC: Pellets for now)
+      const clash = [...D.cps.filter(c => Number(c.customer_id) === Number(cust.id) && c.channel === 'White label')].find(c => namesOf(c).some(n => names.some(m => nmK(m) === nmK(n))) && D.packs.some(k => Number(k.client_product_id) === Number(c.id) && packs.some(z => Math.abs(Number(k.pack_size) - z.size) < 1e-9)));
+      if (clash) throw bad(`${cust.name} already has ${clash.brand} under a name and pack size you used: an O2S line could not tell them apart.`);
+      let r; try { [r] = await q("INSERT INTO c2m_client_product (customer_id, channel, brand, o2s_brand, base_product_id, form, sold_per, packing_mode, reprocessed, active) VALUES (?,'White label',?,?,?,?,?,?,0,1)", [cust.id, brand, o2s, ty.id, form, soldPer, mode]); }
+      catch (e) { if (dupName(e)) throw bad(`${cust.name} already has a product with these names.`); throw e; }
+      await setExt(r.insertId, { ...fam, followsId });
+      await insertPacks(r.insertId, cust.id, packs, req.c2m.user);
+      await recomputeGroup(cust.id, req.c2m.user);
+      await audit(req.c2m.user, 'client_product', r.insertId, 'add', null, { client: cust.name, brand, o2s, typeId: ty.id, form, soldPer, mode, follows: followsId, family: fam.familyId, variant: fam.pvariantId, packs }, 'Add a product (D-94)');
+      return r.insertId;
+    });
+    res.json({ id });
+  }));
+
+  /** Add a pack to a white label product (a pack of its own, maybe for this client only, with its own packing bill). */
+  app.post('/api/c2m/products/:id/packs', can('client.add'), wrap(async (req, res) => {
+    await needVariants();
+    const [[cp]] = await q('SELECT * FROM c2m_client_product WHERE id=?', [req.params.id]); if (!cp) throw bad('Product not found.');
+    if (cp.channel !== 'White label') throw bad('A pack of a VAN brand product is added through a price list revision (Client prices, VAN brand prices).');
+    const packs = await readPacks([req.body || {}], cp.packing_mode);
+    await tx(async () => {
+      const [[have]] = await q('SELECT id FROM c2m_client_pack WHERE client_product_id=? AND ABS(pack_size-?)<0.0005', [cp.id, packs[0].size]); if (have) throw bad(`${cp.brand} has the ${packs[0].size} pack already.`);
+      await insertPacks(cp.id, cp.customer_id, packs, req.c2m.user);
+    });
+    res.json({ ok: true });
+  }));
+
+  /** Tag a product with its family and variant (existing products such as Fusion Potash Granular and Powder keep their recipes, packs and cost: D-98). */
+  app.post('/api/c2m/products/:id/variant', can('variant.add'), wrap(async (req, res) => {
+    await needVariants(); const b = req.body || {}; let re = 0;
+    const [[cp]] = await q('SELECT * FROM c2m_client_product WHERE id=?', [req.params.id]); if (!cp) throw bad('Product not found.');
+    await tx(async () => {
+      const [[old]] = await q('SELECT * FROM c2m_product_ext WHERE client_product_id=?', [cp.id]);
+      const fam = b.clear ? { familyId: null, pvariantId: null } : await pickFamilyVariant(req, b);
+      if (!b.clear && !fam.familyId) throw bad('Pick the product and the variant.');
+      await setExt(cp.id, { ...fam, followsId: old ? old.follows_product_id : null });
+      await audit(req.c2m.user, 'client_product', cp.id, 'variant', old ? { family: old.family_id, variant: old.pvariant_id } : null, fam, 'Variant tag (D-98)');
+      re = await reapprovalFor(`Variant of ${cp.brand} changed, ${today()}`, k => k.client_product_id === cp.id); // a rate set for the variant may now apply
+      await costNotice(req.c2m.user, `Variant of ${cp.brand} changed`, re);
+    });
+    res.json({ ok: true, reapproval: re });
+  }));
+
+  /** Add a variant of a VAN product as a new VAN product (D-98). Its recipe starts as a copy of the main product's, a draft that goes
+   * through the normal steps and can be changed. Majid, Tahir and Yawar may add it; the rates stay with Yawar. */
+  app.post('/api/c2m/variants', can('variant.add'), wrap(async (req, res) => {
+    await needVariants(); const b = req.body || {};
+    const vname = cleanName(b.variant, 80, 'variant name');
+    const id = await tx(async () => {
+      await lockNames(); const D = await engine.loadAll(q);
+      const main = D.cpById.get(Number(b.fromProductId)); if (!main || !engine.isVanBrand(main)) throw bad('Pick the VAN product this is a variant of.');
+      const me = D.ext.get(main.id) || {};
+      if (me.followsId) throw bad(`${main.brand} follows another product: add the variant to the product that has the recipe.`);
+      /* the family: the main product's, or a new one named after it; the main product then needs its own variant name */
+      let familyId = me.familyId, mainVar = me.pvariantId;
+      if (!familyId) { const fam = await pickFamilyVariant(req, { family: nmClean(b.family) || main.brand }); familyId = fam.familyId; }
+      if (!mainVar) { const mv = nmClean(b.mainVariant); if (!mv) throw bad(`${main.brand} has no variant yet: say what its own variant is (for example Powder).`); mainVar = (await pickFamilyVariant(req, { familyId, variant: mv })).pvariantId; }
+      const [[dupV]] = await q('SELECT id FROM c2m_product_variant WHERE family_id=? AND name=?', [familyId, vname]); if (dupV) throw bad(`The variant "${vname}" is already there for this product.`);
+      const nv = (await pickFamilyVariant(req, { familyId, variant: vname })).pvariantId;
+      const [[fam]] = await q('SELECT name FROM c2m_product_family WHERE id=?', [familyId]);
+      const brand = cleanName(b.brand || `${fam.name} ${vname}`, 120, 'brand name'); const names = spellings(b.o2sNames, brand); const o2s0 = names.join('|');
+      const typeId = b.typeId ? Number(b.typeId) : main.base_product_id; const form = b.form || main.form, soldPer = b.soldPer || main.sold_per, mode = b.packingMode || main.packing_mode;
+      if (!['solid', 'liquid'].includes(form) || !['kg', 'L'].includes(soldPer) || !modeOk(mode)) throw bad('Check the form, sold per and who supplies the packing.'); if ((form === 'liquid') !== (soldPer === 'L')) throw bad('A liquid is sold per L and a solid per kg.');
+      const packs = (await readPacks(b.packs, mode)).map(k => ({ ...k, clientOnly: false })); // a VAN pack is on the VAN lists; a pack for 1 client belongs to that client's own product
+      const clash = nameClash(D, 0, names, packs.map(p => p.size)); if (clash) throw bad(clash);
+      { const off = await offNames(packs.map(p => p.size)); const hit = names.map(x => ({ x, h: off.find(o => o.names.some(s => nmK(s) === nmK(x))) })).find(y => y.h); if (hit) throw bad(`"${hit.x}" is a name of ${hit.h.brand}, which is out of use and has a pack of the same size.`); }
+      let r; const cpNew = { customer_id: main.customer_id, channel: 'VAN brand' };
+      const o2s = await storeO2s({ ...cpNew, id: 0 }, names);
+      try { [r] = await q("INSERT INTO c2m_client_product (customer_id, channel, brand, o2s_brand, base_product_id, form, sold_per, packing_mode, reprocessed, active) VALUES (?,?,?,?,?,?,?,?,?,1)", [main.customer_id, 'VAN brand', brand, o2s, typeId, form, soldPer, mode, main.reprocessed]); }
+      catch (e) { if (dupName(e)) throw bad('Another product of the VAN brand owner already has exactly these O2S spellings: change one.'); throw e; }
+      await setExt(main.id, { familyId, pvariantId: mainVar, followsId: null }); await setExt(r.insertId, { familyId, pvariantId: nv, followsId: null });
+      await insertPacks(r.insertId, main.customer_id, packs, req.c2m.user);
+      /* the recipe starts as a copy of the main product's approved recipe (else its latest), a draft with the usual steps after it */
+      const src = engine.approvedVersion(D, main.id) || engine.latestVersion(D, main.id); let rid = null;
+      if (src && src.lines.length) {
+        const [iv] = await q("INSERT INTO c2m_recipe_version (client_product_id, version_no, state, note, created_by, created_at) VALUES (?,1,'draft',?,?,?)", [r.insertId, `Copied from ${main.brand} version ${src.version_no}; change what differs`, req.c2m.user, now()]);
+        rid = iv.insertId; for (const l of src.lines) await q('INSERT INTO c2m_recipe_line (recipe_version_id, grade_id, qty) VALUES (?,?,?)', [rid, l.gradeId, l.qty]);
+        await step(rid, 'written', req.c2m.user, `Copied from ${main.brand} version ${src.version_no}`);
+      }
+      await audit(req.c2m.user, 'client_product', r.insertId, 'add_variant', null, { main: main.brand, brand, variant: vname, recipeCopiedFrom: src ? src.id : null, packs }, 'Add a variant (D-98)');
+      return { id: r.insertId, recipeVersionId: rid };
+    });
+    res.json(id);
+  }));
+
+  /** Set or clear the VAN product a white label product follows. It then takes that product's approved recipe (material cost only). */
+  app.post('/api/c2m/products/:id/follow', can('client.add'), wrap(async (req, res) => {
+    await needVariants(); const b = req.body || {}; let re = 0;
+    await tx(async () => {
+      const D = await engine.loadAll(q); const cp = D.cpById.get(Number(req.params.id)); if (!cp) throw bad('Product not found.');
+      if (cp.channel !== 'White label') throw bad('Only a white label product follows a VAN product.');
+      const [[old]] = await q('SELECT * FROM c2m_product_ext WHERE client_product_id=?', [cp.id]);
+      let followsId = null, fam = { familyId: old ? old.family_id : null, pvariantId: old ? old.pvariant_id : null };
+      if (b.followsId) { const f = await checkFollow(D, b.followsId, cp.id); followsId = f.id; if (f.form !== cp.form || f.sold_per !== cp.sold_per) throw bad(`${f.brand} is ${f.form}, sold per ${f.sold_per}: this product is ${cp.form}, sold per ${cp.sold_per}.`);
+        const own = [...D.recipes.byCp.get(cp.id) || []].filter(v => ['draft', 'review', 'endorse', 'cost'].includes(v.state)); if (own.length) throw bad('This product has a recipe version in progress. Finish or send it back first.');
+        const fe = D.ext.get(f.id) || {}; if (!fam.familyId) fam = { familyId: fe.familyId || null, pvariantId: fe.pvariantId || null }; }
+      await setExt(cp.id, { ...fam, followsId });
+      await audit(req.c2m.user, 'client_product', cp.id, 'follow', old ? old.follows_product_id : null, followsId, 'Follows a VAN product (D-98)');
+      re = await reapprovalFor(`${cp.brand} now ${followsId ? 'follows ' + D.cpById.get(followsId).brand : 'follows no VAN product'}, ${today()}`, p => p.client_product_id === cp.id);
+      await costNotice(req.c2m.user, `${cp.brand} ${followsId ? 'now follows the recipe of ' + D.cpById.get(followsId).brand : 'no longer follows a VAN recipe'}`, re);
+    });
+    res.json({ ok: true, reapproval: re });
+  }));
+
+  /** Approve the cost of a product that follows a VAN recipe (the CFO step; the recipe itself was approved on the VAN product).
+   * Every pack must be fully costed; a pack whose cost has not moved is left as it is. */
+  app.post('/api/c2m/products/:id/approve-cost', can('recipe.step.cost'), wrap(async (req, res) => {
+    await needVariants(); let wrote = 0;
+    await tx(async () => {
+      await q('SELECT id FROM c2m_client_product WHERE id=? FOR UPDATE', [Number(req.params.id)]);
+      const D = await engine.loadAll(q); const cp = D.cpById.get(Number(req.params.id)); if (!cp) throw bad('Product not found.');
+      const e = D.ext.get(cp.id); if (!e || !e.followsId) throw bad('This product has its own recipe: approve its cost on the recipe.');
+      const ver = engine.approvedVersion(D, cp.id); if (!ver) throw bad(`${D.cpById.get(e.followsId).brand} has no approved recipe yet: its cost has to be approved first.`);
+      const packs = D.packs.filter(p => p.client_product_id === cp.id); if (!packs.length) throw bad('This product has no pack yet.');
+      const notCosted = []; const calc = [];
+      for (const p of packs) { const c = engine.packCost(D, p); if (!c || !c.costed) notCosted.push(`${Number(p.pack_size)} ${cp.sold_per}: ${c ? c.gaps.join(', ') : 'inactive'}`); else calc.push({ p, c }); }
+      if (notCosted.length) throw bad(`The cost cannot be approved until every pack is fully costed. ${notCosted.join('; ')}.`);
+      for (const { p, c } of calc) {
+        const av = engine.latestApproved(D, p.id); if (av && Math.abs(Number(av.total) - c.total) < 0.005 && av.recipe_version_id === ver.id) continue;
+        await q('INSERT INTO c2m_cost_version (client_pack_id, valid_from, materials, packing, conversion, freight, total, recipe_version_id, cause, approved_by) VALUES (?,?,?,?,?,?,?,?,?,?)',
+          [p.id, now(), c.materials, c.packing, c.conversion, c.freight, c.total, ver.id, `Cost approved on the recipe of ${D.cpById.get(e.followsId).brand} version ${ver.version_no}`, req.c2m.user]); wrote++;
+      }
+      if (!wrote) throw bad('Nothing to approve: the approved cost of every pack is already today\'s cost.');
+      await audit(req.c2m.user, 'client_product', cp.id, 'cost_approved', null, { packs: wrote, recipeVersion: ver.id }, 'Follows a VAN product (D-98)');
+    });
+    res.json({ ok: true, packs: wrote });
+  }));
+
   app.post('/api/c2m/rules/conversion/:id/retire', can('labour.manage'), wrap(async (req, res) => {
     const why = String((req.body || {}).why || '').trim(); if (!why) throw bad('Write why the rule is retired.');
     let re = 0;
@@ -1272,6 +1516,7 @@ module.exports = function mountC2mRoutes(app, deps) {
       const packIds = D.packs.filter(k => Number(k.client_product_id) === id).map(k => Number(k.id));
       let D2;
       if (!inUse) {
+        { const [fl] = await softQ('SELECT p.brand FROM c2m_product_ext e JOIN c2m_client_product p ON p.id=e.client_product_id WHERE e.follows_product_id=? AND p.active=1', [id]); if (fl.length) throw bad(`${cp.brand} is followed by ${fl.slice(0, 3).map(x => x.brand).join(', ')}: they take its recipe. Stop them following it first (their product page).`); }
         const [rows] = await q("SELECT list_name, data_json FROM c2m_list_price WHERE list_name IN ('dist','dealer','farmer')"); const on = rows.map(r => ({ l: r.list_name, d: JSON.parse(r.data_json) })).filter(x => packIds.includes(Number(x.d.packId)));
         if (on.length) throw bad(`${cp.brand} is on ${on.length} price list ${on.length === 1 ? 'row' : 'rows'} (${on.slice(0, 3).map(x => x.d.p + (x.d.pack ? ' ' + x.d.pack : '')).join('; ')}). ${(await masterOn()) ? `Take ${on.length === 1 ? 'it' : 'them'} off the ${on.length === 1 ? 'list' : 'lists'} first (Client prices, VAN brand prices, Take off a list), or move ${on.length === 1 ? 'that price' : 'those prices'} to another pack` : `Take ${on.length === 1 ? 'that row' : 'those rows'} off the list, link ${on.length === 1 ? 'it' : 'them'} to the right pack, or unlink, first`}: a list row cannot point to a product out of use.`);
         const [pend] = await q("SELECT items_json FROM c2m_list_revision WHERE status='proposed' OR (status='approved' AND applied=0)"); if (pend.some(r => JSON.parse(r.items_json).some(it => it.id == null && it.added && packIds.includes(Number(it.packId))))) throw bad(`A list revision adds a pack of ${cp.brand}: take it out of use after the revision is decided or takes effect.`);

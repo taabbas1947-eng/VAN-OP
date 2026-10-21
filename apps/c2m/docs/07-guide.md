@@ -181,3 +181,10 @@ Also:
 
 - Tahir (COO role, the administrator): Setup, Roles. Pick a role or press New role, tick what it may do, then Create role or Save role. A role holding people cannot be deleted. Ahmer Shehzad holds the same role and can do the same. Logins stay in the platform's People and access.
 - A role made in Setup, Roles: you may do what is ticked on it and you see the places that follow. Anything you approve must have been proposed by an administrator, never by you or a colleague.
+
+## What is new in piece 3: Add client and variants (D-94, D-95, D-98)
+
+- Yawar and Tahir: Setup, Clients and buyer lines has Add client. Give the name, what it buys, then its first product: the brand name exactly as O2S writes it, the product type, whether it follows a VAN product's recipe, who supplies the packing (VAN, Client or Bulk) and each pack with its packing bill. A pack can be for 1 client only (own packing bill and price). The group follows the products.
+- A product that follows a VAN product has no recipe of its own: the material cost comes from the VAN recipe; its packing, labour and overhead are its own. Yawar presses Approve cost on its page (the Approve cost button) when its own cost moves.
+- Setup, Variants: each VAN product's variants. Add a variant, or tag an existing product's variant. A rate can apply to 1 variant (Labour, FOH and targets, "2 · A variant").
+- Majid: on a VAN product's page press Add a variant; the recipe starts as a copy of the main product's, as a draft. Change what differs and send it on as always.

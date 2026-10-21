@@ -331,3 +331,13 @@ Places (D-76): ROLES gives cfo and coo nav [approvals, products, prices, margin,
 - Copy from another manager: delete every grant of the target, insert the source's, 1 change record line with both sets; the target must be a KAM too. An empty source clears the target.
 - Tick all clients grants every white label client (never VAN brand ones); a client added later is not ticked by itself.
 - See what this person sees: GET /state?as=: only grants.give, only for a KAM; the reply is built for that KAM, so it holds nothing he could not see himself. The page sets a preview flag; api() refuses every POST while it is set; Back to KAM lists restores the earlier place.
+
+## 3.23 Piece 3 logic (owner: Tahir; D-94, D-95, D-98; code c2m-routes block "Piece 3", c2m-engine recipeOwner, c2m-lib pickConversionRule, c2m.html p3 block)
+
+- Add client: name and O2S spellings must not be a name or spelling of another client (checked under a lock). The group is the kind chosen, then follows the products (recomputeGroup).
+- Add product: a white label product only; refused for the owner of the VAN brand products. Names are checked against the client's other products for the same pack size. Pack sizes have at most 3 decimals. Form and sold per must agree.
+- Follows: engine recipeOwner(cpId) gives the followed product when set; approvedVersion and latestVersion read its recipes. A follower cannot start a recipe. A followed product cannot go out of use.
+- Cost versions for followers: written when the followed recipe is approved (fully costed packs only, never blocks the VAN approval) and by Approve cost (blocks unless every pack is fully costed; locks the product).
+- Variants: Add a variant copies the main product's approved recipe into a draft version 1 of the new VAN product; the main product must have a variant tag first. Tagging runs the cost check.
+- Rates: see doc 09.
+- Screens: p3Variants, p3ClientForm, p3ProdForm, p3VarForm, p3FollowNote; each form keeps what was typed in the p3 object; saves go through act().

@@ -75,21 +75,31 @@ async function loadAll(q) {
   const [types] = await q('SELECT id, name FROM c2m_base_product ORDER BY name');
   const [freight] = await q('SELECT * FROM c2m_freight_rate ORDER BY valid_from DESC');
   const [versions] = await q('SELECT * FROM c2m_cost_version ORDER BY client_pack_id, valid_from');
+  // Piece 3 (D-98): families, variants, follows and client-only packs live in 5 link tables (migration 003). Until it is run they read as empty.
+  const soft = async sql => { try { return (await q(sql))[0]; } catch (e) { if (e && (e.code === 'ER_NO_SUCH_TABLE' || e.errno === 1146)) return null; throw e; } };
+  const fam = await soft('SELECT id, name FROM c2m_product_family ORDER BY name'), pvs = await soft('SELECT id, family_id, name FROM c2m_product_variant ORDER BY family_id, name');
+  const exts = await soft('SELECT * FROM c2m_product_ext'), pexts = await soft('SELECT * FROM c2m_pack_ext'), rvs = await soft('SELECT * FROM c2m_rule_variant');
+  const variantsReady = fam != null && pvs != null && exts != null && pexts != null && rvs != null;
+  const ext = new Map((exts || []).map(e => [e.client_product_id, { familyId: e.family_id, pvariantId: e.pvariant_id, followsId: e.follows_product_id }]));
+  const packExt = new Map((pexts || []).map(e => [e.client_pack_id, e.client_only_id]));
+  const ruleVar = new Map((rvs || []).map(e => [e.rule_id, e.pvariant_id]));
   const custById = new Map(customers.map(c => [c.id, c]));
   const cpById = new Map(cps.map(c => [c.id, c]));
   const verByPack = new Map();
   versions.forEach(v => { if (!verByPack.has(v.client_pack_id)) verByPack.set(v.client_pack_id, []); verByPack.get(v.client_pack_id).push(v); });
-  const ruleObjs = rules.map(r => ({ id: r.id, name: r.name, kind: r.kind, isBase: r.is_base, products: ruleProducts.filter(x => x.rule_id === r.id).map(x => x.client_product_id), rsPerKg: Number(r.rs_per_kg), scopeClientProductId: r.scope_client_product_id, scopeBaseProductId: r.scope_base_product_id,
+  const ruleObjs = rules.map(r => ({ id: r.id, name: r.name, kind: r.kind, isBase: r.is_base, products: ruleProducts.filter(x => x.rule_id === r.id).map(x => x.client_product_id), scopePvariantId: ruleVar.has(r.id) ? ruleVar.get(r.id) : null, rsPerKg: Number(r.rs_per_kg), scopeClientProductId: r.scope_client_product_id, scopeBaseProductId: r.scope_base_product_id,
     scopeForm: r.scope_form, scopeReprocessed: r.scope_reprocessed, scopePackMin: r.scope_pack_min, scopePackMax: r.scope_pack_max, validFrom: r.valid_from, active: r.active, source: r.source }));
-  return { settings, rates, packing, recipes, customers, custById, cps, cpById, packs, rules: ruleObjs, productTypes: types, freight, verByPack };
+  return { settings, rates, packing, recipes, customers, custById, cps, cpById, packs, rules: ruleObjs, productTypes: types, freight, verByPack, families: fam || [], pvariants: pvs || [], ext, packExt, variantsReady };
 }
 
+/** The product whose recipe a product uses: itself, or the VAN product it follows (D-98: material cost only; packing, labour and overhead stay its own). */
+function recipeOwner(D, cpId) { const e = D.ext && D.ext.get(cpId); return e && e.followsId ? e.followsId : cpId; }
 function approvedVersion(D, cpId) {
-  const list = D.recipes.byCp.get(cpId) || [];
+  const list = D.recipes.byCp.get(recipeOwner(D, cpId)) || [];
   const appr = list.filter(v => v.state === 'approved');
   return appr.length ? appr[appr.length - 1] : null;
 }
-function latestVersion(D, cpId) { const list = D.recipes.byCp.get(cpId) || []; return list.length ? list[list.length - 1] : null; }
+function latestVersion(D, cpId) { const list = D.recipes.byCp.get(recipeOwner(D, cpId)) || []; return list.length ? list[list.length - 1] : null; }
 
 /** Materials cost of a recipe version at today's rates; also returns the priced lines. */
 function priceRecipe(D, ver, rateOverride) {
@@ -153,7 +163,7 @@ function packCost(D, pack, opts = {}) {
       packing = lib.packingPerUnit(lines, size);
     }
   }
-  const cv = lib.conversionFor({ clientProductId: cp.id, baseProductId: cp.base_product_id, form: cp.form, reprocessed: cp.reprocessed, packSize: Number(pack.pack_size), onDate: today() }, D.rules);
+  const cv = lib.conversionFor({ clientProductId: cp.id, variantId: (D.ext.get(cp.id) || {}).pvariantId || null, baseProductId: cp.base_product_id, form: cp.form, reprocessed: cp.reprocessed, packSize: Number(pack.pack_size), onDate: today() }, D.rules);
   const conversion = cv.rsPerKg;
   const rule = cv.labour || cv.foh ? { name: [cv.labour ? `Labour: ${cv.labour.name} (Rs ${Number(cv.labour.rsPerKg)})` : 'Labour: none', cv.foh ? `FOH: ${cv.foh.name} (Rs ${Number(cv.foh.rsPerKg)})` : 'FOH: none'].join(' · '), labour: cv.labour, foh: cv.foh } : null;
   const freight = freightFor(D, cp);
@@ -205,4 +215,4 @@ function isVanBrand(cp) { return !!cp && cp.channel === 'VAN brand'; }
 /** O2S channel words as C2M shows them. */
 const CHANNEL_NAME = { Cobo: 'COBO', Vgreen: 'VGreen', 'White Label': 'White label' };
 
-module.exports = { loadAll, packCost, priceRecipe, nutrients, costOnDate, versionOnDate, latestApproved, approvedVersion, latestVersion, matcher, isVanBrand, CHANNEL_NAME, freightFor, today };
+module.exports = { recipeOwner, loadAll, packCost, priceRecipe, nutrients, costOnDate, versionOnDate, latestApproved, approvedVersion, latestVersion, matcher, isVanBrand, CHANNEL_NAME, freightFor, today };

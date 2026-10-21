@@ -430,3 +430,12 @@ Next: Tahir's rulings in rounds of 4; then fix the 5 wrong-price defects and def
 - Tests (cloud test database): 36 route checks, browser run on desktop and phone, 270 route by role checks still 0 differences, 37 roles checks. Independent review: see 12.4.
 - To do at push: set the version number. Run C2M's own suites c2m100 to c2m103 (not run here). After the push Claude checks it live.
 - Next: piece 3, Add client and variants (D-94, D-95).
+
+## 21 Oct 2026 (6) - Piece 3 of 4: Add client and variants (D-94, D-95, D-98) built on local (MODULE: C2M) - NOT PUSHED
+
+- What: Add client, Add a product with packs (follows a VAN product, who supplies the packing, only for this client), Setup Variants (add, tag), rate by variant, follower cost, group follows products. 13 rulings recorded as D-98.
+- Files: apps/c2m/c2m-routes.js, c2m.html, c2m-lib.js, c2m-engine.js, c2m-access.js, migrations/003_c2m_variants_clients.sql and .PRODUCTION.sql, docs 01 to 12.
+- Tahir does: run 003 (the PRODUCTION file) in phpMyAdmin BEFORE or at the push (C2M works without it but the new screens say it is needed); set the version number at the push; push.
+- Then test on live: see 08 release notes, What to test after.
+- Reviewed by an independent agent: 9 defects, all fixed (12.4). Not done: C2M's own suites c2m100 to c2m103 (outside the repo).
+- Next: piece 4, the new look (Silver skin, Home, Products client chips; D-92, D-93), picture first.

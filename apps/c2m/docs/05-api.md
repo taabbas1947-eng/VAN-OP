@@ -245,3 +245,20 @@ Every route that was guarded by role names is now guarded by 1 action key (for e
 | POST /api/c2m/roles/:key/delete (DELETE on the same path also works) | roles.manage | delete; 400 while a person holds the role, and for the administrator role |
 
 Changed replies: GET /me and state.me add admin (true for the administrator role) and actions (the keys the role holds); nav and more now follow from the actions. state.people adds roleLabel and grantee (true when the role may print granted lists). Approving a price, list revision, settings request or target request: the administrator may approve his own; anyone else must not be the proposer and the proposer must hold an administrator role, else 403 "You approve only what an administrator proposed (D-89)." Recipe steps check recipe.step.draft, review, endorse or cost.
+
+## 5.15 Add client, add product, variants, follows (piece 3; owner: Tahir; D-94, D-95, D-98)
+
+All answer 400 with "This needs migration 003" until migration 003 is run. Body numbers are digits; names cannot hold the sign |.
+
+| Route | Action needed | Body | What it does |
+|---|---|---|---|
+| POST /api/c2m/clients | client.add | name, kind (VAN brand, White label, Both), o2sNames (text), segment (not for White label) | Adds a client. Refused when the name or an O2S spelling is already a name of another client. Returns id |
+| POST /api/c2m/clients/:id/products | client.add | brand, o2sNames, typeId, form, soldPer (liquid is L, solid is kg), packingMode (VAN, client, bulk), followsId, pvariantId or family and variant, packs [size, billId, clientOnly] | Adds a white label product with its packs. A follower takes its family and variant from the product it follows unless given. Refused for the VAN brand owner, a duplicate name and pack of the same client, a followed product that is not an active VAN brand product, a form different from the followed one. Packs: 0.001 or more, at most 3 decimals, no pack twice; a bulk product keeps no bill. Group recomputed |
+| POST /api/c2m/products/:id/packs | client.add | size, billId, clientOnly | Adds 1 pack to a white label product |
+| POST /api/c2m/products/:id/variant | variant.add | family or familyId, variant or pvariantId, or clear true | Tags a product with its variant (new family or variant created by name); runs the cost check and a notice, as a rate change does; moves no recipe |
+| POST /api/c2m/variants | variant.add | fromProductId, variant, mainVariant (when the main product has none), brand, o2sNames, typeId, packs | New VAN brand product as a variant; its recipe is a copy of the main product's approved recipe (else latest) as a draft version 1 |
+| POST /api/c2m/products/:id/follow | client.add | followsId or null | Sets or clears the followed VAN product; cost check and notice |
+| POST /api/c2m/products/:id/approve-cost | recipe.step.cost | none | The CFO step for a follower: every pack must be fully costed; writes a cost version for each pack whose cost moved; locks the product row, so a double press writes once |
+| POST /api/c2m/rules/conversion | labour.manage | scope variant with pvariantId | A rate for 1 variant |
+
+Changed: recipes/new refuses a follower; recipes/:id/advance writes cost versions (and a change record row) for the fully costed packs of followers when a followed recipe is approved; names/product/:id/use refuses taking a followed product out of use; GET /state adds variantsReady, families, and on each product familyId, pvariantId, followsId, followsBrand, and on each pack clientOnly; rules carry scopePvariantId.

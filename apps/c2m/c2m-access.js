@@ -37,6 +37,8 @@ const CATALOGUE = [
     ['targets.propose', 'Propose a margin target'],
     ['targets.approve', 'Approve or refuse a margin target'],
     ['customer.edit', 'Change customer details'],
+    ['client.add', 'Add a client, a client product and its packs'],
+    ['variant.add', 'Add a variant of a VAN product, or tag a product\'s variant'],
     ['freight.edit', 'Change freight'],
     ['grants.give', 'Give price lists and clients to a person'],
     ['lists.link', 'Link or rename a list row'],
@@ -68,7 +70,7 @@ const ALL_KEYS = CATALOGUE.flatMap(g => g.items.map(i => i[0]));
 const LABEL = Object.fromEntries(CATALOGUE.flatMap(g => g.items));
 
 const CFO = ['price.propose', 'list.revise', 'pricedoc.all', 'recipe.start', 'recipe.step.cost', 'reapproval.decide', 'rate.save', 'material.save', 'nutrient.edit',
-  'packing.manage', 'labour.manage', 'product.classify', 'settings.edit', 'targets.propose', 'customer.edit', 'freight.edit', 'grants.give', 'lists.link', 'lists.mark',
+  'packing.manage', 'labour.manage', 'product.classify', 'settings.edit', 'targets.propose', 'customer.edit', 'client.add', 'variant.add', 'freight.edit', 'grants.give', 'lists.link', 'lists.mark',
   'lists.carry', 'lists.remove', 'o2s.sync', 'import.decide', 'actuals.enter', 'actuals.tiebooks', 'notices.see',
   'see.products', 'see.cost', 'see.price', 'see.margin', 'see.settings', 'see.materials', 'guide.all'];
 
@@ -76,7 +78,7 @@ const CFO = ['price.propose', 'list.revise', 'pricedoc.all', 'recipe.start', 're
 const SEED = {
   cfo: { label: 'CFO', admin: false, actions: CFO },
   coo: { label: 'COO', admin: true, actions: ALL_KEYS },
-  production: { label: 'Production Manager', admin: false, actions: ['recipe.start', 'recipe.edit', 'recipe.step.draft', 'see.products', 'see.cost'] },
+  production: { label: 'Production Manager', admin: false, actions: ['recipe.start', 'variant.add', 'recipe.edit', 'recipe.step.draft', 'see.products', 'see.cost'] },
   qc: { label: 'QC Head', admin: false, actions: ['nutrient.edit', 'recipe.step.review', 'see.products', 'see.materials'] },
   plant: { label: 'Plant Manager', admin: false, actions: ['recipe.step.endorse', 'see.products', 'see.cost'] },
   viewer: { label: 'Price list viewer', admin: false, actions: ['pricedoc.granted', 'see.granted_lists'] },

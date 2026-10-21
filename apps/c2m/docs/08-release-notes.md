@@ -16,6 +16,31 @@ Changed in 0.6.0: entry 0.6.0 added.
 Changed in 0.5.0: entry 0.5.0 added; real figures removed from earlier entries (public repo).
 Format: Keep a Changelog, semantic versions. Live: 1.0.0 (pushed 19 Oct about 22:09, checked live by Claude as Tahir the same evening; Yawar's view checked in the cloud copy only); 0.9.3 pushed 19 Oct 14:38, checked live; 0.9.2 pushed 19 Oct 12:43, checked live; first data load 19 Oct 2026 about 13:17, checked live. Before: 0.9.1 (pushed 19 Oct 09:39, checked live). apps/c2m first pushed by Tahir on 17 Oct and the live migration run the same day (39 empty c2m_ tables); 0.6.0 and 0.7.0 pushed on 18 Oct (17:29), 0.8.0 (20:16) and 0.9.0 (22:03), each checked live by Claude. The folder tabs (D-59) were built after the 0.9.0 push and ship in 0.9.1. No data loaded yet: the first data load runs on Monday 19 Oct 2026.
 
+## [Next version, piece 3] · 21 Oct 2026 · Add client and variants (D-94, D-95, D-98) · Who: Claude built; Tahir ruled and approves the push
+### Added
+- Setup, Clients and buyer lines: Add client (step 1: name, other O2S spellings, what it buys: VAN brand, White label or Both) and, on each client that can have its own brands, Add a product (step 2: brand name as O2S writes it, product type, follows a VAN product's recipe or not, variant, form, who supplies the packing: VAN, Client or Bulk, other O2S spellings, packs with size, packing bill and "only for this client"). A Products column shows how many products each client has. The group follows the products (Excel, a VAN brand client, becomes Both when it gets its own brand).
+- Setup, Variants: each VAN product's variants, the packs, the rates set per variant, Add a variant, and Tag an existing product's variant (Fusion Potash Granular and Powder stay separate products; no recipe, pack or cost moves). Majid adds a variant from a VAN product's page (he has no Setup).
+- Add a variant makes a new VAN product whose recipe starts as a copy of the main product's approved recipe, as a draft that goes through the usual 4 steps.
+- A white label product can follow a VAN product's recipe: 1 recipe, 1 approved cost for the material part; its packing, labour and overhead are its own. When the followed recipe is approved, each fully costed pack of its followers gets a new approved cost; a follower's own Approve cost (CFO step) covers a change of its own packing or rates.
+- Labour, FOH and targets: a rate can apply to a variant. Rate order: the client's pack, the variant, the product type, the general rate.
+- New actions client.add (Add a client, product or pack: CFO, COO) and variant.add (Add or tag a variant: CFO, Production Manager, COO).
+- Routes: POST /api/c2m/clients, /clients/:id/products, /products/:id/packs, /products/:id/variant, /variants, /products/:id/follow, /products/:id/approve-cost; POST /rules/conversion takes scope variant.
+### Changed
+- A follower has no recipe of its own: Write a new recipe version is refused for it; its product page says what it follows. The Recipe in progress filter leaves followers out.
+- A VAN product that has followers cannot be taken out of use until they stop following it.
+- State carries families, variants, follows and the pack's client tag (ST.families, ST.variantsReady).
+### Known limits
+- Migration 003 must be run first (5 tables); before it the screens say so and everything else works as before. A role you edited that lost its anchor action (customer.edit, recipe.start) does not get the new action from the migration: tick it in Roles.
+- A follower pack that is not fully costed when its followed recipe is approved keeps its old approved cost until it is costed and Approve cost is pressed; nothing flags it (a possible later change).
+- Re-running migration 002 to restore a deleted starting role gives it no client.add or variant.add: run 003 again.
+- Add a product is offered on every client row that can have its own brand (the picture showed it on Excel and not on Kashmir).
+### Database
+- 5 new tables (45 in all): c2m_product_family, c2m_product_variant, c2m_product_ext, c2m_pack_ext, c2m_rule_variant. No existing table or column changed.
+### Tests
+- p3.test.js 93 checks (rate order, add client, add product, packs, follows and cost arithmetic, variants and recipe copy, rate by variant, tags, permissions, group rule, the 12 review fixes, and the app with migration 003 not run), p3ui.js 59 checks on desktop and phone (screens, typed values kept across redraws, no page errors, no sideways scroll, Majid's page); the 270 role checks, roles and KAM suites still pass.
+### What to test after (on live)
+- Run migration 003 in phpMyAdmin (003_c2m_variants_clients.PRODUCTION.sql). Add Pellets as a variant of Humi Grow (the recipe is a copy); add a product to FMC (Humi Grow, Pellets, follows) and to Excel Chemical (Humic Grow, Powder, follows; 8 kg and a 25 kg pack only for Excel); approve the Pellets recipe and see FMC's pack get its approved cost; set a rate for a variant and see only that variant's packs move; Excel's group reads Both.
+
 ## [Next version, piece 2] · 21 Oct 2026 · KAM lists (D-91, D-97) · Who: Claude built; Tahir ruled and approves the push
 ### Added
 - Setup, KAM lists: 1 manager at a time, the price lists he may see and print, and the white label clients as chips; Tick all clients, Clear clients, Copy from another manager (asks to confirm when he has ticks), See what this person sees (his own screen, read only).

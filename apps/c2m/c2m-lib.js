@@ -60,7 +60,7 @@ function packingPerUnit(lines, packSize) {
 /**
  * Labour and FOH rate choice (ruled 14 Oct; revised by Tahir 16 Oct 2026, Design Record 5i 7 and 5j 10).
  * Every rate is labour or FOH. For each kind C2M picks 1 rate per product and the 2 are added.
- * Levels, first match wins: (1) the product is listed on the rate, (2) its product type,
+ * Levels, first match wins: (1) the product is listed on the rate (a client pack), (1b, D-95) its variant, (2) its product type,
  * (3) a rate Yawar added for all products (optionally a form, reprocessed, a pack range),
  * (4) the base bands (values set by Yawar, loaded at the first load; not written here: public repo). So any rate Yawar adds beats the bands for the products it covers.
  * Within a level the more specific wins: more conditions first, then the latest valid_from, then the
@@ -80,11 +80,13 @@ function pickConversionRule(product, rules, kind) {
   const listed = r => (r.products && r.products.length) || r.scopeClientProductId != null;
   const onList = r => (r.products || []).map(Number).includes(Number(product.clientProductId)) || Number(r.scopeClientProductId) === Number(product.clientProductId);
   const base = r => !!Number(r.isBase || 0);
+  const noVar = r => r.scopePvariantId == null; // a rate for one variant is used only at the variant level (D-95)
   const levels = [
     r => listed(r) && onList(r) && inPack(r) && formOk(r),
-    r => !listed(r) && r.scopeBaseProductId != null && Number(r.scopeBaseProductId) === Number(product.baseProductId) && inPack(r) && formOk(r),
-    r => !listed(r) && r.scopeBaseProductId == null && !base(r) && inPack(r) && formOk(r),
-    r => !listed(r) && r.scopeBaseProductId == null && base(r) && inPack(r) && formOk(r),
+    r => !listed(r) && r.scopePvariantId != null && product.variantId != null && Number(r.scopePvariantId) === Number(product.variantId) && inPack(r) && formOk(r),
+    r => !listed(r) && noVar(r) && r.scopeBaseProductId != null && Number(r.scopeBaseProductId) === Number(product.baseProductId) && inPack(r) && formOk(r),
+    r => !listed(r) && noVar(r) && r.scopeBaseProductId == null && !base(r) && inPack(r) && formOk(r),
+    r => !listed(r) && noVar(r) && r.scopeBaseProductId == null && base(r) && inPack(r) && formOk(r),
   ];
   const conds = r => ['scopeForm', 'scopeReprocessed', 'scopePackMin', 'scopePackMax'].filter(k => r[k] != null).length;
   const width = r => (r.scopePackMax == null ? 1e9 : Number(r.scopePackMax)) - (r.scopePackMin == null ? 0 : Number(r.scopePackMin));

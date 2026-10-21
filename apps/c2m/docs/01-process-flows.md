@@ -558,3 +558,22 @@ flowchart LR
 ```
 
 A manager with nothing ticked sees "No price list is granted to you yet. Ask Tahir or Yawar". Nobody is told when something is granted: Tahir or Yawar tells the manager.
+
+## 1.22 Add a client, add a product, add a variant (owner: Tahir rules; Tahir or Yawar add; Majid adds a variant; D-94, D-95, D-98; piece 3)
+
+```mermaid
+flowchart TD
+  A["Setup, Clients and buyer lines: Add client (Tahir or Yawar)"] --> B{"What does it buy?"}
+  B -->|VAN brand| C["Saved: matched by the name O2S writes"]
+  B -->|White label or Both| D["Step 2: Add a product"]
+  D --> E{"Follows a VAN product's recipe?"}
+  E -->|yes| F["Takes the approved material cost of that VAN product"]
+  E -->|no| G["Majid writes its own recipe; Himayat, Fahim, Yawar approve"]
+  F --> H["Packs: size, packing bill, who supplies the packing, only for this client"]
+  G --> H
+  H --> I["Yawar approves the packing bill and, for a follower, presses Approve cost; Yawar sets the price"]
+  V["Add a variant (Majid, Tahir or Yawar)"] --> W["New VAN product; recipe is a copy of the main one, a draft"]
+  W --> G
+```
+
+Rate order for a pack: the client's pack, the variant, the product type, the general rate. When a followed VAN recipe is approved, each fully costed pack of its followers gets a new approved cost.

@@ -831,8 +831,11 @@ function nsuLines() {
   S0.forEach(r => { if (['dist', 'dealer'].includes(r.cat) && !seen.has(r.cat + '|' + r.cust)) { seen.add(r.cat + '|' + r.cust); named.push({ c: r.cust, cat: r.cat, rs: rs(r.cat, r.cust) }); } });
   const lines = [['cobo', 'COBO', 'buys on Farmer, Sindh and Sindh credit'], ['vg', 'VGreen', 'buys on the farmer price'], ['farm', 'Farmers and other', 'every farmer and any other buyer, not named']].map(([cat, c, note]) => ({ c, cat, rs: rs(cat), note }));
   const ORD = { wl: 0, dist: 1, dealer: 2, cobo: 3, vg: 4, farm: 5 }; const all = named.concat(lines).sort((a, b) => ORD[a.cat] - ORD[b.cat] || b.rs - a.rs || a.c.localeCompare(b.c));
-  return `<p class="ans"><b>Sync rule (D-74):</b> the category comes from O2S on each PO. A new distributor or dealer appears here by itself. Farmer buyers never become C2M clients; their sales come in as 1 total. A buyer that buys both sits in 2 places, split by what it bought: its own-brand products under White label, its VAN brand buys under Distributors or Dealers.</p>
-  <div class="box wrapx"><table class="wt"><thead><tr><th>Client or buyer line</th><th>Category</th><th class="r">Sales FY to date, Rs</th></tr></thead><tbody>${all.map(x => `<tr><td>${esc(x.c)}${x.note ? `<span class="sub2">${esc(x.note)}</span>` : ''}</td><td>${CAT1[x.cat]}</td><td class="r num">${x.rs ? n0(x.rs) : '–'}</td></tr>`).join('')}</tbody></table></div>
+  const add = CAN('client.add') ? (p3Ready() ? '<div class="next"><span>A client that O2S has not sent yet, or a new white label client, is added here. Its group follows its products.</span><button class="btn" data-p3copen>Add client</button></div>' : p3Notice()) : '';
+  return `${add}${p3ClientForm()}${p3ProdForm()}<p class="ans"><b>Sync rule (D-74):</b> the category comes from O2S on each PO. A new distributor or dealer appears here by itself. Farmer buyers never become C2M clients; their sales come in as 1 total. A buyer that buys both sits in 2 places, split by what it bought: its own-brand products under White label, its VAN brand buys under Distributors or Dealers.</p>
+  <div class="box wrapx"><table class="wt"><thead><tr><th>Client or buyer line</th><th>Category</th><th class="r">Products</th><th class="r">Sales FY to date, Rs</th>${CAN('client.add') ? '<th></th>' : ''}</tr></thead><tbody>${all.map(x => { const cu = C.find(c => c.name === x.c && !x.note); const own = cu ? (ST.products || []).filter(p => p.customerId === cu.id) : []; // the owner of the VAN brand products is not a client with brands
+    const mine = !!cu && !own.some(p => p.channel === 'VAN brand') && (x.cat === 'wl' || cu.grp === 'VAN brand'); const np = mine ? own.filter(p => p.channel === 'White label').length : null;
+    return `<tr><td>${esc(x.c)}${x.note ? `<span class="sub2">${esc(x.note)}</span>` : ''}</td><td>${CAT1[x.cat]}</td><td class="r num">${np == null ? '' : np || '<span class="ans">no products yet</span>'}</td><td class="r num">${x.rs ? n0(x.rs) : '–'}</td>${CAN('client.add') ? `<td>${mine && p3Ready() ? `<button class="btn ghost" data-p3popen="${cu.id}">Add a product</button>` : ''}</td>` : ''}</tr>`; }).join('')}</tbody></table></div>
   <p class="ans">Price rules, other spellings and regions of each client are kept in More, Back office, Customers.</p>`;
 }
 function nsuO2s() {
@@ -904,13 +907,162 @@ function vNames() {
   ${(ST.vanOff || []).length ? `<h2>Out of use: ${pl(ST.vanOff.length, 'product', 'products')}</h2><div class="box wrapx"><table class="wt cards" id="pnoff"><thead><tr><th>Name</th><th>Packs</th><th></th></tr></thead><tbody>${ST.vanOff.map(o => `<tr><td data-l="Name">${esc(o.brand)}</td><td data-l="Packs">${o.sizes.map(z => esc(packTxt(z, o.soldPer))).join(', ')}</td><td><button class="btn ghost" data-pnon="${o.id}">Put back in use</button></td></tr>${useBox(o.id)}`).join('')}</tbody></table></div>` : ''}`;
 }
 function vSetup2() {
-  const T = [['settings', 'Settings'], ['rates', 'Material rates'], ['packing', 'Packing'], ['conv', 'Labour, FOH and targets'], ['lines', 'Clients and buyer lines'], ['people', 'KAM lists']].concat(CAN('roles.manage') ? [['roles', 'Roles']] : [], [['o2s', 'From O2S'], ['names', 'Product names'], ['sheet', 'Sheet items'], ['checks', 'Monthly checks'], ['audit', 'Change record']]);
+  const T = [['settings', 'Settings'], ['rates', 'Material rates'], ['packing', 'Packing'], ['conv', 'Labour, FOH and targets'], ['lines', 'Clients and buyer lines'], ['variants', 'Variants'], ['people', 'KAM lists']].concat(CAN('roles.manage') ? [['roles', 'Roles']] : [], [['o2s', 'From O2S'], ['names', 'Product names'], ['sheet', 'Sheet items'], ['checks', 'Monthly checks'], ['audit', 'Change record']]);
   if (!T.some(x => x[0] === nsu)) nsu = 'settings';
-  const B = { settings: () => boSettings(true), rates: nsuRates, packing: () => vInputs('packing') + '<h2>Packing bills</h2>' + vInputs('bills'), conv: boRules, lines: nsuLines, people: boAccess, roles: vRoles, o2s: nsuO2s, names: vNames, sheet: () => boImport(true), checks: () => (CAN('actuals.enter') || CAN('actuals.tiebooks') || CAN('actuals.ratecheck') ? `<div class="next"><span>${CAN('actuals.enter') ? 'Enter or correct actual labour and FOH, or tie a month to the books' : 'Mark the rate check'} in its panel.</span><button class="btn ghost" data-panact>Enter or correct a month</button></div>` : '') + boActuals(false), audit: boAudit };
+  const B = { settings: () => boSettings(true), rates: nsuRates, packing: () => vInputs('packing') + '<h2>Packing bills</h2>' + vInputs('bills'), conv: boRules, lines: nsuLines, variants: p3Variants, people: boAccess, roles: vRoles, o2s: nsuO2s, names: vNames, sheet: () => boImport(true), checks: () => (CAN('actuals.enter') || CAN('actuals.tiebooks') || CAN('actuals.ratecheck') ? `<div class="next"><span>${CAN('actuals.enter') ? 'Enter or correct actual labour and FOH, or tie a month to the books' : 'Mark the rate check'} in its panel.</span><button class="btn ghost" data-panact>Enter or correct a month</button></div>` : '') + boActuals(false), audit: boAudit };
   return `${head('Setup', `The inputs behind every cost, in 1 place${CAN('settings.approve') ? '; setting and target changes from Yawar wait for you on Approvals' : ''}.`, 'Every change is dated and logged in the change record. Threshold and target changes wait for Tahir\'s approval.')}
   <nav class="subnav" aria-label="Setup sections">${T.map(([k, l]) => `<button data-nsu="${k}" aria-current="${k === nsu}">${l}</button>`).join('')}</nav><div>${B[nsu]()}</div>`;
 }
 
+
+/* ---------- Piece 3 (Tahir, 21 Oct 2026; D-94, D-95, D-98): add client, add a product with packs, variants, follows ----------
+   Setup, Clients and buyer lines gets Add client and, per client, Add a product. Setup, Variants lists each VAN product's variants.
+   A white label product can follow a VAN product's recipe (one recipe, one approved cost; its packing, labour and overhead stay its own).
+   Each form keeps what was typed in p3 and saves in 1 call; every save goes into the change record. */
+let p3 = { client: null, prod: null, vform: null, tag: null };
+const p3Ready = () => !!(ST && ST.variantsReady);
+const p3Fams = () => ST.families || [];
+const p3VName = id => { for (const f of p3Fams()) { const v = f.variants.find(x => x.id === id); if (v) return `${f.name} · ${v.name}`; } return ''; };
+const p3Van = () => (ST.products || []).filter(p => p.channel === 'VAN brand' && p.active !== false && !p.followsId).slice().sort((a, b) => a.brand.localeCompare(b.brand));
+const p3VanTxt = p => `${p.brand}${p.pvariantId ? ' · ' + (p3VName(p.pvariantId).split(' · ')[1] || '') : ''}`;
+const p3Kinds = [['VAN brand', 'Buys our own packs. It has no products of its own: it is matched by the name O2S writes.'], ['White label', 'Buys packs under its own brand. You add its brands, product type, variant and packs.'], ['Both', 'Pick this only if it has its own brands and also buys VAN packs.']];
+const p3Notice = () => '<div class="warnbox" style="display:block">This needs migration 003 (apps/c2m/migrations/003_c2m_variants_clients.sql). Run it in phpMyAdmin first; nothing else in C2M changes until then.</div>';
+const p3Mode = [['VAN', 'VAN packs it'], ['client', 'Client supplies the packing'], ['bulk', 'Bulk: the client packs it']];
+function p3NewProd(cust) { return { cust, brand: '', o2s: '', typeId: '', follows: '', pvariant: '', family: '', variant: '', form: 'solid', mode: 'VAN', packs: [{ size: '', billId: '', only: false }] }; }
+
+function p3ClientForm() {
+  const c = p3.client; if (!c) return '';
+  const SEG = ['Distributor', 'Dealer', 'COBO', 'VGreen', 'Farmer'];
+  return `<div class="box form" id="p3cf"><b>Add client · step 1 of 2</b>
+  <div class="row"><label for="p3cn" style="flex:1 1 240px">Client name<input id="p3cn" data-p3f="client.name" value="${esc(c.name)}" autocomplete="off"><span class="ans">The short name people use in C2M. Use the same name O2S shows on its POs, so the two match.</span></label>
+  <label for="p3co" style="flex:1 1 240px">Other O2S spellings<input id="p3co" data-p3f="client.o2s" value="${esc(c.o2s)}" placeholder="separate with |" autocomplete="off"><span class="ans">Only if O2S writes the name another way too.</span></label></div>
+  <b>What does this client buy?</b>
+  <div class="chips" role="group" aria-label="What the client buys">${p3Kinds.map(([k]) => `<button data-p3kind="${k}" aria-pressed="${c.kind === k}">${k}</button>`).join('')}</div>
+  <p class="ans" style="margin:2px 0 6px">${esc((p3Kinds.find(x => x[0] === c.kind) || [, ''])[1])} The group is not asked after this: it follows the products.</p>
+  ${c.kind === 'White label' ? '<p class="ans">Region is not asked for a white label client.</p>' : `<label for="p3cs">Segment<select id="p3cs" data-p3f="client.seg">${SEG.map(s => `<option${c.seg === s ? ' selected' : ''}>${s}</option>`).join('')}</select></label>`}
+  <div><button class="btn" data-p3csave>${c.kind === 'VAN brand' ? 'Save client' : 'Next: its first product'}</button> <button class="btn ghost" data-p3cx>Cancel</button></div></div>`;
+}
+
+function p3ProdForm() {
+  const f = p3.prod; if (!f) return '';
+  const cust = (ST.customers || []).find(c => c.id === f.cust); if (!cust) return '';
+  const types = ST.productTypes || [], bills = ST.packingBills || [];
+  const fol = f.follows ? (ST.products || []).find(p => p.id === +f.follows) : null;
+  const liquid = fol ? fol.form === 'liquid' : f.form === 'liquid';
+  const vsel = `<select id="p3pv" data-p3f="prod.pvariant" data-p3r="1" aria-label="Variant"><option value="">${fol && fol.pvariantId ? 'Same as the VAN product: ' + esc(p3VName(fol.pvariantId)) : 'None: it has only one'}</option>${p3Fams().flatMap(x => x.variants.map(v => `<option value="${v.id}"${String(f.pvariant) === String(v.id) ? ' selected' : ''}>${esc(x.name)} · ${esc(v.name)}</option>`)).join('')}<option value="new"${f.pvariant === 'new' ? ' selected' : ''}>+ Add a variant</option></select>`;
+  return `<div class="box form" id="p3pf"><b>Add a product for ${esc(cust.name)} · step 2 of 2</b>
+  <div class="row"><label for="p3pb" style="flex:1 1 240px">Brand name on the pack<input id="p3pb" data-p3f="prod.brand" value="${esc(f.brand)}" autocomplete="off"><span class="ans">As printed on the pack. This is the name O2S will write on the PO line: write it exactly.</span></label>
+  <label for="p3pt" style="flex:1 1 240px">Product type<select id="p3pt" data-p3f="prod.typeId"><option value="">Pick</option>${types.map(t => `<option value="${t.id}"${String(f.typeId) === String(t.id) ? ' selected' : ''}>${esc(t.name)}</option>`).join('')}</select><span class="ans">Decides which labour and overhead rates apply.</span></label></div>
+  <div class="row"><label for="p3pfo" style="flex:1 1 300px">Follows a VAN product's recipe<select id="p3pfo" data-p3f="prod.follows" data-p3r="1"><option value="">No: it has its own recipe</option>${p3Van().map(p => `<option value="${p.id}"${String(f.follows) === String(p.id) ? ' selected' : ''}>VAN brand · ${esc(p3VanTxt(p))}</option>`).join('')}</select><span class="ans">If yes, there is 1 recipe and 1 approved cost. No second cost sheet. Its packing, labour and overhead stay its own.</span></label>
+  <label for="p3pv" style="flex:1 1 220px">Variant${vsel}<span class="ans">What it is sold as. It can differ from the VAN product's, and can be changed later.</span></label></div>
+  ${f.pvariant === 'new' ? `<div class="row"><label for="p3pfa" style="flex:1 1 220px">Product the variant belongs to<input id="p3pfa" data-p3f="prod.family" list="p3fl" value="${esc(f.family)}" placeholder="e.g. Humi Grow" autocomplete="off"><datalist id="p3fl">${p3Fams().map(x => `<option value="${esc(x.name)}">`).join('')}</datalist></label><label for="p3pvn" style="flex:1 1 180px">Variant name<input id="p3pvn" data-p3f="prod.variant" value="${esc(f.variant)}" placeholder="e.g. Pellets" autocomplete="off"></label>${CAN('variant.add') ? '' : '<p class="ans">Your role cannot add a new variant: pick one from the list.</p>'}</div>` : ''}
+  <div class="row"><label for="p3pfm">Form<select id="p3pfm" data-p3f="prod.form" data-p3r="1"${fol ? ' disabled' : ''}><option value="solid"${liquid ? '' : ' selected'}>Solid, sold per kg</option><option value="liquid"${liquid ? ' selected' : ''}>Liquid, sold per L</option></select>${fol ? '<span class="ans">Same as the VAN product.</span>' : ''}</label>
+  <label for="p3pm" style="flex:1 1 240px">Who supplies the packing<select id="p3pm" data-p3f="prod.mode" data-p3r="1">${p3Mode.map(([k, l]) => `<option value="${k}"${f.mode === k ? ' selected' : ''}>${l}</option>`).join('')}</select><span class="ans">${f.mode === 'VAN' ? 'VAN packs it, so each pack needs a packing bill.' : 'No VAN packing bill. Humic in 25 or 40 kg, liquid in 200 L drums the client supplies.'}</span></label>
+  <label for="p3po" style="flex:1 1 220px">Other O2S spellings<input id="p3po" data-p3f="prod.o2s" value="${esc(f.o2s)}" placeholder="separate with |" autocomplete="off"></label></div>
+  <b>Packs</b>${f.packs.map((k, i) => `<div class="row" style="align-items:flex-end"><label for="p3k${i}">Pack size, ${liquid ? 'L' : 'kg'}<input id="p3k${i}" data-p3pk="${i}.size" value="${esc(k.size)}" inputmode="decimal" style="width:100px" autocomplete="off"></label>
+    ${f.mode === 'bulk' ? '' : `<label for="p3b${i}" style="flex:1 1 220px">Packing bill<select id="p3b${i}" data-p3pk="${i}.billId"><option value="">${f.mode === 'VAN' ? 'None yet: ask Yawar to make one' : 'None'}</option>${bills.map(b => `<option value="${b.id}"${String(k.billId) === String(b.id) ? ' selected' : ''}>${esc(b.name)}</option>`).join('')}</select></label>`}
+    <label style="flex:0 0 auto;flex-direction:row;align-items:center;gap:8px"><input type="checkbox" data-p3pk="${i}.only" ${k.only ? 'checked' : ''}><span>Only for this client<br><span class="ans">tagged, kept off the VAN lists</span></span></label>${f.packs.length > 1 ? `<button class="btn ghost" data-p3kdel="${i}">Remove</button>` : ''}</div>`).join('')}
+  <div><button class="btn ghost" data-p3kadd>Add a pack</button></div>
+  <p class="ans">After saving: ${fol ? 'its recipe is the VAN product\'s; Yawar approves its cost' : 'Majid writes the recipe, then Himayat, Fahim and Yawar approve'}, Yawar approves the packing bill and sets the price.</p>
+  <div><button class="btn" data-p3psave>Save product</button> <button class="btn ghost" data-p3px>Cancel</button></div></div>`;
+}
+
+/** Add a variant of a VAN product: a new VAN product whose recipe starts as a copy of the main product's. */
+function p3VarForm() {
+  const f = p3.vform; if (!f) return '';
+  const van = p3Van(), main = van.find(p => p.id === +f.from);
+  const types = ST.productTypes || [], bills = ST.packingBills || [];
+  return `<div class="box form" id="p3vf"><b>Add a variant</b>
+  <p class="ans" style="margin:0">A variant is a new VAN product with its own recipe, packs, cost and rates. Its recipe starts as a copy of the main product's, and can be changed.</p>
+  <div class="row"><label for="p3vm" style="flex:1 1 260px">Main product<select id="p3vm" data-p3f="vform.from" data-p3r="1"><option value="">Pick</option>${van.map(p => `<option value="${p.id}"${String(f.from) === String(p.id) ? ' selected' : ''}>${esc(p.brand)}${p.pvariantId ? ' · ' + esc(p3VName(p.pvariantId)) : ''}</option>`).join('')}</select></label>
+  ${main && !main.pvariantId ? `<label for="p3vmv" style="flex:1 1 180px">Its own variant<input id="p3vmv" data-p3f="vform.mainVariant" value="${esc(f.mainVariant)}" placeholder="e.g. Powder" autocomplete="off"><span class="ans">${esc(main.brand)} has no variant yet.</span></label>` : ''}
+  <label for="p3vn" style="flex:1 1 180px">New variant<input id="p3vn" data-p3f="vform.variant" value="${esc(f.variant)}" placeholder="e.g. Pellets" autocomplete="off"></label></div>
+  <div class="row"><label for="p3vb" style="flex:1 1 260px">Brand name<input id="p3vb" data-p3f="vform.brand" value="${esc(f.brand)}" placeholder="${esc(main ? main.brand + ' ' + (f.variant || '…') : '')}" autocomplete="off"><span class="ans">The name O2S writes for this variant. Leave empty to use the product name and the variant.</span></label>
+  <label for="p3vt" style="flex:1 1 220px">Product type<select id="p3vt" data-p3f="vform.typeId"><option value="">Same as the main product</option>${types.map(t => `<option value="${t.id}"${String(f.typeId) === String(t.id) ? ' selected' : ''}>${esc(t.name)}</option>`).join('')}</select></label></div>
+  <b>Packs</b>${f.packs.map((k, i) => `<div class="row" style="align-items:flex-end"><label for="p3vk${i}">Pack size<input id="p3vk${i}" data-p3vk="${i}.size" value="${esc(k.size)}" inputmode="decimal" style="width:100px" autocomplete="off"></label><label for="p3vb${i}" style="flex:1 1 220px">Packing bill<select id="p3vb${i}" data-p3vk="${i}.billId"><option value="">None yet</option>${bills.map(b => `<option value="${b.id}"${String(k.billId) === String(b.id) ? ' selected' : ''}>${esc(b.name)}</option>`).join('')}</select></label>${f.packs.length > 1 ? `<button class="btn ghost" data-p3vkdel="${i}">Remove</button>` : ''}</div>`).join('')}
+  <div><button class="btn ghost" data-p3vkadd>Add a pack</button></div>
+  <p class="ans">After saving: the recipe copy is a draft with Majid; he can change it, then Himayat, Fahim and Yawar approve as for any product. Labour and overhead may differ for a variant: Yawar sets them in Labour, FOH and targets, "A variant".</p>
+  <div><button class="btn" data-p3vsave>Save variant</button> <button class="btn ghost" data-p3vx>Cancel</button></div></div>`;
+}
+
+/** Setup, Variants (Tahir or Yawar; Majid adds a variant from a VAN product's page). */
+function p3Variants() {
+  if (!p3Ready()) return p3Notice();
+  const van = (ST.products || []).filter(p => p.channel === 'VAN brand' && p.active !== false), fams = p3Fams(), can = CAN('variant.add');
+  const rules = ST.rules || [];
+  const sizes = ps => [...new Set(ps.flatMap(p => p.packs.map(k => `${k.size} ${p.soldPer}`)))].join(', ') || 'none';
+  const rows = fams.map(f => { const ps = van.filter(p => p.familyId === f.id); const vids = f.variants.map(v => v.id); const rr = rules.filter(r => vids.includes(r.scopePvariantId));
+    return `<tr><td data-l="Product"><b>${esc(f.name)}</b></td><td data-l="Variants">${f.variants.map(v => { const n = ps.filter(p => p.pvariantId === v.id).length; return `<span class="pill p-none">${esc(v.name)}${n > 1 ? ' · ' + n + ' products' : ''}</span>`; }).join(' ') || 'none yet'}</td><td data-l="Products">${ps.map(p => `<button class="btn ghost" data-openprod="${p.id}">${esc(p.brand)}</button>`).join(' ') || '<span class="ans">no VAN product tagged yet</span>'}</td><td data-l="Packs">${esc(sizes(ps))}</td><td data-l="Rates set per variant">${rr.length ? esc(rr.map(r => `${r.name} (${(f.variants.find(v => v.id === r.scopePvariantId) || {}).name})`).join(', ')) : 'none yet'}</td></tr>`; }).join('');
+  const untagged = van.filter(p => !p.familyId).length;
+  return `<details class="how"><summary>How this works</summary><div>A variant is a form of 1 VAN product (Humi Grow: Powder, Pellets). Each variant is its own VAN product, with its own recipe, packs, cost and rates, so nothing is shared by accident. The brand name O2S writes on the PO line carries the variant, and C2M links each brand name to a product and variant. A white label product can follow a VAN product's recipe: it then takes that approved material cost, and its packing, labour and overhead stay its own. A rate can be set for 1 variant (Labour, FOH and targets, "A variant"); a client's pack rate beats it, and it beats the product type.</div></details>
+  ${can ? '<div class="next"><span>Each product keeps its own list of variants, and you can add to it.</span><button class="btn" data-p3vopen>Add a variant</button></div>' : ''}${p3VarForm()}${p3TagForm()}
+  <h2>Products and their variants: ${fams.length}</h2>
+  <div class="box wrapx"><table class="wt cards"><thead><tr><th>Product</th><th>Variants</th><th>VAN products</th><th>Packs</th><th>Rates set per variant</th></tr></thead><tbody>${rows || '<tr><td colspan="5">No variant yet. Add a variant, or tag an existing VAN product below.</td></tr>'}</tbody></table></div>
+  <p class="ans">${untagged ? pl(untagged, 'VAN product has', 'VAN products have') + ' no variant tag. Tagging one changes no recipe, pack or cost.' : 'Every VAN product is tagged.'}</p>`;
+}
+function p3TagForm() {
+  if (!CAN('variant.add')) return '';
+  const t = p3.tag; if (!t) return '<div style="margin:6px 0"><button class="btn ghost" data-p3tagopen>Tag an existing product\'s variant</button></div>';
+  return `<div class="box form" id="p3tf"><b>Tag a product's variant</b><p class="ans" style="margin:0">For products that already exist as separate products, such as Fusion Potash Granular and Powder. Nothing else about the product changes: no recipe, pack or cost moves.</p>
+  <div class="row"><label for="p3tp" style="flex:1 1 260px">VAN product<select id="p3tp" data-p3f="tag.id"><option value="">Pick</option>${(ST.products || []).filter(p => p.channel === 'VAN brand' && p.active !== false).sort((a, b) => a.brand.localeCompare(b.brand)).map(p => `<option value="${p.id}"${String(t.id) === String(p.id) ? ' selected' : ''}>${esc(p.brand)}${p.pvariantId ? ' (' + esc(p3VName(p.pvariantId)) + ')' : ''}</option>`).join('')}</select></label>
+  <label for="p3tfa" style="flex:1 1 200px">Product<input id="p3tfa" data-p3f="tag.family" list="p3fl2" value="${esc(t.family)}" placeholder="e.g. Fusion Potash" autocomplete="off"><datalist id="p3fl2">${p3Fams().map(x => `<option value="${esc(x.name)}">`).join('')}</datalist></label>
+  <label for="p3tv" style="flex:1 1 160px">Variant<input id="p3tv" data-p3f="tag.variant" value="${esc(t.variant)}" placeholder="e.g. Granular" autocomplete="off"></label></div>
+  <div><button class="btn" data-p3tsave>Save tag</button> <button class="btn ghost" data-p3tclear>Remove its tag</button> <button class="btn ghost" data-p3tx>Close</button></div></div>`;
+}
+
+/** Product page: the variant, what it follows, and the cost approval of a follower. */
+function p3ProdLine(p) {
+  const parts = []; if (p.pvariantId) parts.push(p3VName(p.pvariantId)); if (p.followsId) parts.push(`follows the recipe of VAN ${p.followsBrand}`);
+  return parts.length ? ' · ' + esc(parts.join(' · ')) : '';
+}
+function p3FollowPending(p) { return !!p.followsId && p.packs.length > 0 && p.packs.every(k => k.cost) && p.packs.some(k => k.approvedCost == null || Math.abs(k.approvedCost - k.cost.total) > 0.005); }
+function p3FollowNote(p) {
+  const f = (ST.products || []).find(x => x.id === p.followsId);
+  return `<div class="box form"><b>This product follows ${esc(p.followsBrand)}'s recipe</b><p class="ans" style="margin:0">There is 1 recipe and 1 approved cost: this product takes the approved material cost from ${esc(p.followsBrand)}. Its packing, labour and overhead are its own. To change the recipe, change ${esc(p.followsBrand)}'s.${p.packs.every(k => k.cost) ? '' : ' Not fully costed yet: ' + esc(p.packs.filter(k => !k.cost).map(k => `${k.size} ${p.soldPer}: ${(k.costGaps || []).join(', ')}`).join('; ')) + '.'}</p>
+  <div>${f ? `<button class="btn ghost" data-openprod="${f.id}">Open ${esc(f.brand)}</button> ` : ''}${CAN('recipe.step.cost') ? (p3FollowPending(p) ? `<button class="btn" data-p3appr="${p.id}">Approve cost</button>` : p.packs.every(k => k.cost) ? '<span class="ans">The approved cost of every pack is today\'s cost.</span>' : '') : ''}${CAN('client.add') ? ` <button class="btn ghost" data-p3unfollow="${p.id}">Stop following</button>` : ''}</div></div>`;
+}
+
+/* ---- events ---- */
+const p3Path = (o, path, v) => { const a = path.split('.'); let t = o; for (let i = 0; i < a.length - 1; i++) { t = t[a[i]]; if (t == null) return; } t[a[a.length - 1]] = v; };
+document.addEventListener('input', e => { const t = e.target, d = t.dataset || {}; if (!d) return;
+  if (d.p3f) { const [k, f] = d.p3f.split('.'); if (p3[k]) p3[k][f] = t.value; }
+  else if (d.p3pk && p3.prod) { const [i, f] = d.p3pk.split('.'); if (p3.prod.packs[+i]) p3.prod.packs[+i][f] = t.type === 'checkbox' ? t.checked : t.value; }
+  else if (d.p3vk && p3.vform) { const [i, f] = d.p3vk.split('.'); if (p3.vform.packs[+i]) p3.vform.packs[+i][f] = t.value; } });
+document.addEventListener('change', e => { const t = e.target, d = t.dataset || {}; if (!d) return;
+  if (d.p3f) { const [k, f] = d.p3f.split('.'); if (p3[k]) p3[k][f] = t.value; if (d.p3r) { if (d.p3f === 'prod.follows' && p3.prod) { const fo = (ST.products || []).find(p => p.id === +t.value); if (fo) { p3.prod.form = fo.form; if (!p3.prod.typeId && fo.typeId) p3.prod.typeId = String(fo.typeId); } } render(); } }
+  else if (d.p3pk && p3.prod) { const [i, f] = d.p3pk.split('.'); if (p3.prod.packs[+i]) p3.prod.packs[+i][f] = t.type === 'checkbox' ? t.checked : t.value; }
+  else if (d.p3vk && p3.vform) { const [i, f] = d.p3vk.split('.'); if (p3.vform.packs[+i]) p3.vform.packs[+i][f] = t.value; } });
+document.addEventListener('click', async e => {
+  const t = e.target.closest('button'); if (!t || !ST) return; const d = t.dataset; if (d.confirm && !d.armed) return;
+  const keys = Object.keys(d).filter(k => k.startsWith('p3')); if (!keys.length) return;
+  if (d.p3kind) { p3.client.kind = d.p3kind; if (d.p3kind === 'White label') p3.client.seg = 'White label'; else if (p3.client.seg === 'White label') p3.client.seg = 'Distributor'; }
+  else if ('p3copen' in d) { p3 = { client: { name: '', o2s: '', kind: 'White label', seg: 'White label' }, prod: null, vform: null, tag: null }; }
+  else if ('p3cx' in d) p3.client = null;
+  else if ('p3csave' in d) { const c = p3.client; const j = await act('/api/c2m/clients', { name: c.name, o2sNames: c.o2s, kind: c.kind, segment: c.kind === 'White label' ? undefined : c.seg }, 'Client added.'); if (!j) return; p3.client = null; if (c.kind !== 'VAN brand') p3.prod = p3NewProd(j.id); }
+  else if (d.p3popen) { p3 = { client: null, prod: p3NewProd(+d.p3popen), vform: null, tag: null }; }
+  else if ('p3px' in d) p3.prod = null;
+  else if ('p3kadd' in d) p3.prod.packs.push({ size: '', billId: '', only: false });
+  else if (d.p3kdel != null) p3.prod.packs.splice(+d.p3kdel, 1);
+  else if ('p3psave' in d) { const f = p3.prod; const fo = f.follows ? (ST.products || []).find(p => p.id === +f.follows) : null; const liquid = fo ? fo.form === 'liquid' : f.form === 'liquid';
+    const body = { brand: f.brand, o2sNames: f.o2s, typeId: f.typeId, form: liquid ? 'liquid' : 'solid', soldPer: liquid ? 'L' : 'kg', packingMode: f.mode, followsId: f.follows || null,
+      packs: f.packs.filter(k => String(k.size).trim() !== '' || k.billId).map(k => ({ size: k.size, billId: k.billId || null, clientOnly: !!k.only })) };
+    if (f.pvariant === 'new') { body.family = f.family; body.variant = f.variant; } else if (f.pvariant) body.pvariantId = f.pvariant;
+    const j = await act(`/api/c2m/clients/${f.cust}/products`, body, 'Product added.'); if (!j) return; p3.prod = null; }
+  else if ('p3vopen' in d) { p3.vform = { from: d.p3vopen || '', mainVariant: '', variant: '', brand: '', typeId: '', packs: [{ size: '', billId: '' }] }; p3.client = null; p3.prod = null; }
+  else if ('p3vx' in d) p3.vform = null;
+  else if ('p3vkadd' in d) p3.vform.packs.push({ size: '', billId: '' });
+  else if (d.p3vkdel != null) p3.vform.packs.splice(+d.p3vkdel, 1);
+  else if ('p3vsave' in d) { const f = p3.vform; const body = { fromProductId: f.from, variant: f.variant, mainVariant: f.mainVariant || undefined, brand: f.brand || undefined, typeId: f.typeId || undefined, packs: f.packs.filter(k => String(k.size).trim() !== '' || k.billId).map(k => ({ size: k.size, billId: k.billId || null })) };
+    const j = await act('/api/c2m/variants', body, j => j.recipeVersionId ? 'Variant added. Its recipe is a copy of the main product\'s, as a draft: change what differs.' : 'Variant added. The main product has no recipe yet, so there is nothing to copy.'); if (!j) return; p3.vform = null; }
+  else if ('p3tagopen' in d) p3.tag = { id: '', family: '', variant: '' };
+  else if ('p3tx' in d) p3.tag = null;
+  else if ('p3tsave' in d) { const x = p3.tag; if (!x.id) return toast('Pick the product first.', true); const j = await act(`/api/c2m/products/${x.id}/variant`, { family: x.family, variant: x.variant }, 'Variant tag saved. No recipe, pack or cost changed.'); if (!j) return; p3.tag = null; }
+  else if ('p3tclear' in d) { const x = p3.tag; if (!x.id) return toast('Pick the product first.', true); const j = await act(`/api/c2m/products/${x.id}/variant`, { clear: true }, 'Variant tag removed.'); if (!j) return; p3.tag = null; }
+  else if (d.p3appr) { await act(`/api/c2m/products/${d.p3appr}/approve-cost`, {}, j => `Cost approved on ${pl(j.packs, 'pack', 'packs')}.`); return; }
+  else if (d.p3unfollow) { await act(`/api/c2m/products/${d.p3unfollow}/follow`, { followsId: null }, j => 'It no longer follows a VAN recipe.' + (j.reapproval ? ' ' + pl(j.reapproval, 'pack', 'packs') + ' went to re-approval.' : '')); return; }
+  else return;
+  render();
+});
 
 /* ---------- Roles (D-89, D-90): created and edited by the administrator role; logins stay in the platform's People and access ---------- */
 const RL = { data: null, loading: false, sel: null, draft: null, err: '' };
@@ -1147,7 +1299,7 @@ function vRecipes() {
 let newRec = null;
 function newRecForm() {
   if (!newRec) return '';
-  const prods = (ST.products || []).filter(p => p.grp === 'White label' || p.recipeState || p.id === newRec.cp);
+  const prods = (ST.products || []).filter(p => !p.followsId && (p.grp === 'White label' || p.recipeState || p.id === newRec.cp));
   return `<div class="box form" id="nrf"><b>New recipe version</b><label for="nrp">Client product<select id="nrp"><option value="">Pick</option>${prods.map(p => `<option value="${p.id}" ${p.id === newRec.cp ? 'selected' : ''}>${esc(prodNm(p.id, p.brand))} for ${esc(p.customer)}${p.recipeState ? ' (has ' + stepTxt(p.recipeState) + ')' : ''}</option>`).join('')}</select></label>
   <label for="nrn">What changes and why (e.g. one-time change: TSP replaced by DAP)<input id="nrn"></label><div><button class="btn" data-nrsave>Start from the current recipe</button> <button class="btn ghost" data-nrcancel>Cancel</button></div></div>`;
 }
@@ -1316,6 +1468,7 @@ function tReqBox(id) {
 /* ---------- 0.8.0: Products, 1 page per client product (ruling 3) ---------- */
 const RANKS = { 'p-red': 0, 'p-amber': 1, 'p-none': 2, 'p-green': 3 };
 function recState(p) {
+  if (p.followsId) return p.approvedVersionId ? ['p-green', `follows ${p.followsBrand}`] : ['p-none', `follows ${p.followsBrand}: no approved recipe`];
   if (!p.recipeState) return ['p-none', 'no recipe in C2M'];
   if (STEP_ROLE[p.recipeState]) return ['p-amber', `${p.approvedVersionId ? 'new version: ' : ''}${stepTxt(p.recipeState)}`];
   return p.approvedVersionId ? ['p-green', 'approved'] : ['p-none', stepTxt(p.recipeState)];
@@ -1330,7 +1483,7 @@ const prodState = p => p.packs.length ? p.packs.map(k => packState(p, k)).sort((
 function vProducts() {
   const P = (ST.products || []).find(x => x.id === openProd); if (openProd && P) return vProduct(P); openProd = null;
   const R = ST.me.role; const all = (ST.products || []).slice().sort((a, b) => a.customer.localeCompare(b.customer) || a.brand.localeCompare(b.brand));
-  const F = { all: () => true, wl: p => p.grp === 'White label', van: p => p.channel === 'VAN brand', progress: p => !!STEP_ROLE[p.recipeState], notcosted: p => p.packs.some(k => !k.cost), below: p => p.packs.some(k => ['below cost', 'below floor', 'below target'].includes(packState(p, k)[1])) };
+  const F = { all: () => true, wl: p => p.grp === 'White label', van: p => p.channel === 'VAN brand', progress: p => !p.followsId && !!STEP_ROLE[p.recipeState], notcosted: p => p.packs.some(k => !k.cost), below: p => p.packs.some(k => ['below cost', 'below floor', 'below target'].includes(packState(p, k)[1])) };
   const L = { all: 'All', wl: 'White label', van: 'VAN brand', progress: 'Recipe in progress', notcosted: 'Not costed', below: 'Below cost or target' };
   const q = prodQ.trim().toLowerCase(); const list = all.filter(F[prodF] || F.all).filter(p => !q || `${p.brand} ${p.customer}`.toLowerCase().includes(q));
   const nc = all.filter(F.notcosted).length, bl = all.filter(F.below).length, ip = all.filter(F.progress).length;
@@ -1361,7 +1514,7 @@ function vProduct(p) {
   const sel = vers.find(v => v.id === recSel) || inProg || appr || vers[0];
   const k0 = p.packs.find(k => k.cost && k.price != null) || p.packs.find(k => k.cost) || p.packs[0];
   let ans;
-  if (!appr) ans = `No approved recipe yet${inProg ? `: version ${inProg.version} is with ${ROLE_NAME[STEP_ROLE[inProg.state]]}` : ''}.`;
+  if (!appr && !(p.followsId && p.approvedVersionId)) ans = `No approved recipe yet${inProg ? `: version ${inProg.version} is with ${ROLE_NAME[STEP_ROLE[inProg.state]]}` : ''}.`;
   else if (!k0 || !k0.cost) ans = `Not costed: ${((k0 && k0.costGaps) || ['no pack']).join(', ')}.`;
   else { const gp = k0.price != null ? (k0.price - k0.cost.total) / k0.price * 100 : null; ans = `Cost ${rs2(k0.cost.total)} per ${p.soldPer} on the ${k0.size} ${p.soldPer} pack; ${p.channel === 'VAN brand' ? 'priced in the VAN brand lists' : `price ${k0.price != null ? rs2(k0.price) : 'none'}; GP ${pc(gp)} against ${pc(p.target)} target`}.`; }
   if (ptab === 'price') ptab = 'cost';
@@ -1371,7 +1524,7 @@ function vProduct(p) {
   const canProp = k => yw && !van && k && k.cost && !k.waitingProposal;
   let b = '';
   if (ptab === 'recipe') {
-    b = vers.length ? `<div class="chips" aria-label="Versions">${vers.map(v => `<button data-recver="${v.id}" aria-pressed="${v.id === sel.id}">Version ${v.version} · ${esc(stepTxt(v.state))}</button>`).join('')}</div>${vRecipe(sel, { product: true })}` : '<p class="ans">No recipe in C2M yet. Majid writes the first version.</p>';
+    b = p.followsId ? p3FollowNote(p) + (appr ? '' : '') + (vers.length ? '' : '') : vers.length ? `<div class="chips" aria-label="Versions">${vers.map(v => `<button data-recver="${v.id}" aria-pressed="${v.id === sel.id}">Version ${v.version} · ${esc(stepTxt(v.state))}</button>`).join('')}</div>${vRecipe(sel, { product: true })}` : '<p class="ans">No recipe in C2M yet. Majid writes the first version.</p>';
   } else if (ptab === 'cost') {
     const bills = ST.packingBills || []; const costed = p.packs.filter(k => k.cost); const wk = costed.find(k => k.id === wfPack) || (k0 && k0.cost ? k0 : costed[0]);
     const tp = k => k.cost && p.target != null ? k.cost.total / (1 - p.target / 100) : null; const gpk = k => k.cost && k.price != null ? (k.price - k.cost.total) / k.price * 100 : null;
@@ -1406,7 +1559,7 @@ function vProduct(p) {
   const chipV = inProg || appr;
   return `<p class="crumb"><button data-prodback>All products</button> › ${esc(p.customer)} › ${esc(p.brand)}</p><h1 class="topic"><i class="fam" style="background:${p.fam || '#8796A5'}" title="${esc(p.typeName || 'no product type')}"></i>${esc(p.brand)} · ${esc(p.customer)}</h1><p class="answer">${esc(ans)}</p>
   ${chipV && ptab !== 'recipe' ? stepChips(chipV) : ''}
-  <div class="next"><span>${esc(p.typeName || 'No product type')} · ${p.grp === 'White label' ? 'White label' : 'VAN brand'} · sold per ${p.soldPer}${p.spec ? ' · ' + esc(p.spec) : ''}${chipV ? ' · recipe version ' + chipV.version : ''}</span>${CAN('recipe.start') ? `<button class="btn ghost" data-newrec="${p.id}">Write a new recipe version</button>` : ''}${canProp(k0) ? `<button class="btn" data-propose="${k0.id}">Propose a price</button>` : ''}</div>${CAN('recipe.start') ? newRecForm() : ''}
+  <div class="next"><span>${esc(p.typeName || 'No product type')} · ${p.grp === 'White label' ? 'White label' : 'VAN brand'} · sold per ${p.soldPer}${p.spec ? ' · ' + esc(p.spec) : ''}${chipV ? ' · recipe version ' + chipV.version : ''}${p3ProdLine(p)}</span>${CAN('recipe.start') && !p.followsId ? `<button class="btn ghost" data-newrec="${p.id}">Write a new recipe version</button>` : ''}${p3Ready() && CAN('variant.add') && p.channel === 'VAN brand' && !p.followsId ? `<button class="btn ghost" data-p3vopen="${p.id}">Add a variant</button>` : ''}${p.followsId && CAN('recipe.step.cost') && p3FollowPending(p) ? `<button class="btn" data-p3appr="${p.id}">Approve cost</button>` : ''}${canProp(k0) ? `<button class="btn" data-propose="${k0.id}">Propose a price</button>` : ''}</div>${CAN('recipe.start') ? newRecForm() : ''}${p3VarForm()}
   <nav class="subnav" aria-label="Product page">${T.map(([k, l]) => `<button data-ptab="${k}" aria-current="${ptab === k}">${l}</button>`).join('')}</nav>${b}`;
 }
 
@@ -1958,6 +2111,7 @@ function ruleScope(r) {
   const P = new Map((ST.products || []).map(p => [p.id, p])); const T = new Map((ST.productTypes || []).map(t => [t.id, t.name]));
   const extra = [r.scopeForm ? r.scopeForm + 's' : '', r.scopeReprocessed == null ? '' : Number(r.scopeReprocessed) ? 'reprocessed' : 'not reprocessed', r.scopePackMin != null ? 'packs from ' + Number(r.scopePackMin) : '', r.scopePackMax != null ? 'packs below ' + Number(r.scopePackMax) : ''].filter(Boolean).join(', ');
   if ((r.products || []).length) return pl(r.products.length, 'product', 'products') + ': ' + r.products.map(id => P.get(id) ? `${P.get(id).brand} (${P.get(id).customer})` : id).join(', ') + (extra ? '; ' + extra : '');
+  if (r.scopePvariantId != null) return 'Variant: ' + (p3VName(r.scopePvariantId) || '?') + (extra ? '; ' + extra : '');
   if (r.scopeBaseProductId != null) return 'Product type: ' + (T.get(r.scopeBaseProductId) || '?') + (extra ? '; ' + extra : '');
   return (Number(r.isBase) ? 'Base band, all products' : 'All products (beats the bands)') + (extra ? ': ' + extra : '');
 }
@@ -1965,7 +2119,8 @@ function rateForm(prods) {
   const types = ST.productTypes || [];
   return `<div class="box form" style="margin-top:10px"><b>Add a labour or FOH rate</b>
   <div class="row"><label for="crn">Name<input id="crn" placeholder="e.g. Liquid filling labour" value="${esc(rf.name || '')}"></label><label for="crk">Kind<select id="crk"><option value="labour">Labour</option><option value="foh" ${rf.kind === 'foh' ? 'selected' : ''}>FOH</option></select></label><label for="crr">Rs per kg or L<input id="crr" type="number" step="0.01" value="${esc(rf.rs || '')}"></label><label for="crv">From (today or earlier)<input id="crv" type="date" max="${ST.today}" value="${rf.from || ST.today}"></label></div>
-  <b>Applies to</b><div class="chips" style="margin:0">${[['general', 'All products'], ['type', 'A product type'], ['list', 'A list of products']].map(([k, l]) => `<button data-rfs="${k}" aria-pressed="${rf.scope === k}">${l}</button>`).join('')}</div>
+  <b>Applies to</b><div class="chips" style="margin:0">${[['list', "1 · A client's pack, or a list of products"], ['variant', '2 · A variant'], ['type', '3 · A product type'], ['general', '4 · Every product']].filter(x => x[0] !== 'variant' || p3Ready()).map(([k, l]) => `<button data-rfs="${k}" aria-pressed="${rf.scope === k}">${l}</button>`).join('')}</div>
+  ${rf.scope === 'variant' ? `<label for="crvar">Variant<select id="crvar"><option value="">Pick</option>${p3Fams().flatMap(f => f.variants.map(v => `<option value="${v.id}">${esc(f.name)} · ${esc(v.name)}</option>`)).join('')}</select><span class="ans">e.g. Humi Grow, Powder. A client's pack rate beats it; it beats the product type.</span></label>` : ''}
   ${rf.scope === 'type' ? `<label for="crt">Product type<select id="crt">${types.map(t => `<option value="${t.id}">${esc(t.name)}</option>`).join('')}</select></label>` : ''}
   ${rf.scope === 'list' ? `<div class="row"><label for="crq" style="flex:1 1 200px">Find<input id="crq" value="${esc(rf.q || '')}" placeholder="brand, client or liquid"></label><button class="btn ghost" data-rfall>Tick all shown</button><button class="btn ghost" data-rfnone>Clear</button></div><div class="cols" style="margin:0;max-height:220px;overflow-y:auto">${(ST.products || []).filter(p => !rf.q || `${p.brand} ${p.customer} ${p.form}`.toLowerCase().includes(rf.q.toLowerCase())).map(p => `<label><input type="checkbox" data-rfp="${p.id}" ${rf.picks[p.id] ? 'checked' : ''}> ${esc(p.brand)} for ${esc(p.customer)} <span class="ans">${p.form}</span></label>`).join('')}</div><p class="ans" style="margin:0">${Object.values(rf.picks).filter(Boolean).length} ticked</p>` : ''}
   <div class="row"><label for="crf">Only form<select id="crf"><option value="">Any</option><option value="solid">Solids</option><option value="liquid">Liquids</option></select></label><label for="crp2">Reprocessed<select id="crp2"><option value="">Any</option><option value="1">Yes</option><option value="0">No</option></select></label><label for="crmin">Pack size from, kg or L<input id="crmin" type="number"></label><label for="crmax">Pack size below, kg or L<input id="crmax" type="number"></label><button class="btn" data-crsave>Save rate</button></div></div>`;
@@ -1973,7 +2128,7 @@ function rateForm(prods) {
 function boRules() {
   const prods = (ST.products || []).filter(costProd);
   return `<details class="how"><summary>How this works</summary><div>The rules cost and price follow: labour and FOH rates, target GP by client product, and freight.</div></details>
-  <h2>Labour and FOH rates, Rs per kg</h2><p class="ans">Each product takes 1 labour rate and 1 FOH rate, and adds them. Order: products listed on a rate, then the product type, then rates you add for all products, then the base bands. Any rate you add beats the bands for the products it covers; among your own rates the more specific wins. Small solid packs (a 1 kg pouch takes more labour per kg than a 50 kg bag) can have their own labour rate: add a rate for solids with "pack size below", e.g. 10 kg.</p>
+  <h2>Labour and FOH rates, Rs per kg</h2><p class="ans">Each product takes 1 labour rate and 1 FOH rate, and adds them. Order, first match wins: a client's pack (products listed on a rate), then the variant, then the product type, then rates you add for all products, then the base bands. Any rate you add beats the bands for the products it covers; among your own rates the more specific wins. Small solid packs (a 1 kg pouch takes more labour per kg than a 50 kg bag) can have their own labour rate: add a rate for solids with "pack size below", e.g. 10 kg.</p>
   <div class="box wrapx"><table><tr><th>Rate</th><th>Kind</th><th class="r">Rs per kg or L</th><th>Applies to</th><th>From</th>${CAN('labour.manage') ? '<th></th>' : ''}</tr>${(ST.rules || []).slice().sort((a, b) => (a.kind || '').localeCompare(b.kind || '') || String(a.name).localeCompare(String(b.name))).map(r => `<tr><td>${esc(r.name)}<br><span class="ans">${esc(r.source || '')}</span></td><td>${r.kind === 'labour' ? 'Labour' : 'FOH'}</td><td class="r num">${Number(r.rsPerKg).toFixed(2)}</td><td>${esc(ruleScope(r))}</td><td class="mono nw">${esc(fmtD(String(r.validFrom).slice(0, 10)))}</td>${CAN('labour.manage') ? `<td><button class="btn ghost" data-retire="${r.id}">Retire</button></td>` : ''}</tr>${ask && ask.kind === 'retire' && ask.id === r.id ? `<tr><td colspan="6">${askBox('Why retire this rate? (a rate cannot be retired if it leaves a product with no labour or FOH rate)')}</td></tr>` : ''}`).join('') || '<tr><td colspan="6">Nothing recorded yet: the base bands come with the first load.</td></tr>'}</table></div>
   ${CAN('labour.manage') ? rateForm(prods) : ''}
   <h2>Target GP by client product</h2><div class="box wrapx"><table><tr><th>Client product</th><th class="r">Target</th><th class="r">Budget</th>${CAN('targets.propose') ? '<th>Change target</th>' : ''}</tr>${prods.map(p => `<tr><td>${esc(p.brand)} for ${esc(p.customer)}</td><td class="r num">${pc(p.target)}${p.targetDefault ? ' <span class="ans">company target</span>' : ''}</td><td class="r num">${pc(p.budget)}</td>${CAN('targets.propose') ? `<td><input type="number" step="0.1" id="tg-${p.id}" aria-label="New target" style="width:80px"> <input id="tr-${p.id}" placeholder="why" aria-label="Why"> <button class="btn ghost" data-treq="${p.id}">Send to Tahir</button></td>` : ''}</tr>`).join('')}</table></div>
@@ -2063,6 +2218,9 @@ const GUIDE = {
   plant: ['Today shows recipes to endorse; each opens in a panel.', 'Check the recipe, nutrients and cost, then endorse or send back with a reason and advice.'],
   viewer: ['Price lists shows the lists granted to you.', 'Download the PDF to share. Prices are approved prices only.', 'If no list shows, none is granted to you yet: ask Tahir or Yawar.'],
 };
+GUIDE.cfo.push('Setup, Clients and buyer lines: Add client (name, what it buys: VAN brand, white label or both), then Add a product for it: brand name as O2S writes it, product type, variant, whether it follows a VAN product\'s recipe, who supplies the packing (VAN, Client or Bulk) and its packs. A pack can be for 1 client only, with its own packing bill and price. The client\'s group follows its products. A product that follows a VAN product needs your Approve cost on its own page.', 'Setup, Variants: each VAN product keeps its list of variants (Humi Grow: Powder, Pellets). Add a variant, or tag an existing product\'s variant. In Labour, FOH and targets a rate can apply to 1 variant. A pack takes the first matching rate: the client\'s pack, then the variant, then the product type, then the general rate.');
+GUIDE.coo.push('Setup, Clients and buyer lines: Add client and Add a product, as Yawar does. Setup, Variants: each VAN product\'s variants, Add a variant, and tagging an existing product. A rate can apply to 1 variant (Labour, FOH and targets). A white label product can follow a VAN product\'s recipe: 1 recipe, 1 approved cost, with its own packing, labour and overhead.');
+GUIDE.production.push('Add a variant: open the VAN product\'s page and press Add a variant. Name the variant and its packs; its recipe starts as a copy of the main product\'s, as a draft. Change what differs and send it on like any recipe. Labour and overhead for a variant are set by Yawar.');
 const GUIDE_CUSTOM = ['This role was set up by the administrator in Setup, Roles. What you may do is what is ticked on it: the places you see are the places you may use.', 'Every change you make is dated and logged in the change record.'];
 function vGuide() {
   return `${head('Guide', `Your job in C2M, ${esc(ST.me.label)}.`, 'The full system documentation is in Setup, System documentation, for Yawar and Tahir.')}
@@ -2195,7 +2353,7 @@ document.addEventListener('click', async e => {
   else if (d.rfp) { Object.assign(rf, { name: val('crn'), kind: val('crk'), rs: val('crr'), from: val('crv') }); rf.picks[d.rfp] = t.checked; render(); return; }
   else if ('rfall' in d) { document.querySelectorAll('[data-rfp]').forEach(x => { rf.picks[x.dataset.rfp] = true; }); }
   else if ('rfnone' in d) rf.picks = {};
-  else if ('crsave' in d) { const j0 = await act('/api/c2m/rules/conversion', { name: val('crn'), kind: val('crk'), rsPerKg: val('crr'), validFrom: val('crv'), scope: rf.scope, baseProductId: val('crt') || null, productIds: Object.keys(rf.picks).filter(k => rf.picks[k]).map(Number), form: val('crf') || null, reprocessed: val('crp2'), packMin: val('crmin') || null, packMax: val('crmax') || null }, j => j.reapproval ? `Rate saved and applied. ${pl(j.reapproval, 'pack', 'packs')} moved over ${SET('reapprove_pct')}%: re-approval added.` : 'Rate saved and applied'); if (j0) { rf = { scope: 'general', picks: {} }; render(); } return; }
+  else if ('crsave' in d) { const j0 = await act('/api/c2m/rules/conversion', { name: val('crn'), kind: val('crk'), rsPerKg: val('crr'), validFrom: val('crv'), scope: rf.scope, pvariantId: val('crvar') || null, baseProductId: val('crt') || null, productIds: Object.keys(rf.picks).filter(k => rf.picks[k]).map(Number), form: val('crf') || null, reprocessed: val('crp2'), packMin: val('crmin') || null, packMax: val('crmax') || null }, j => j.reapproval ? `Rate saved and applied. ${pl(j.reapproval, 'pack', 'packs')} moved over ${SET('reapprove_pct')}%: re-approval added.` : 'Rate saved and applied'); if (j0) { rf = { scope: 'general', picks: {} }; render(); } return; }
   else if ('actsave' in d) { await act('/api/c2m/actuals', { month: val('am'), labour: Number(val('al')), foh: Number(val('af')) }, 'Saved'); return; }
   else if (d.chk) { const m = addDays(ST.today.slice(0, 7) + '-01', -1).slice(0, 7); const C = c2mMonth(m);
     const data = d.chk === 'tie_books' ? { erpSales: val('tbs'), erpCogs: val('tbc') } : { rates: topRates(m).map((r, i) => ({ gradeId: r.gradeId, name: r.name, c2m: r.c2m, date: r.date, source: r.source, rs: Math.round(r.rs), register: val('rgr-' + i) != null ? val('rgr-' + i) : (document.querySelector(`[data-rgr="${i}"]`) || {}).value })) };

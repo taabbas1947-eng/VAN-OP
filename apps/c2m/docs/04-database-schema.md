@@ -1,7 +1,7 @@
 # 4. Database schemas
 
 Version 1.0.3 · 20 Oct 2026 · Owner: Tahir (C2M module owner); Claude records · Rule: R-5h item 4 (D-20)
-Changed in the next version (21 Oct 2026; piece 1 of 4 after Tahir's rulings D-89 to D-95; the version number is set at the push; 1.0.3 is live): 4.10 added: new table c2m_role (migration 002_c2m_roles.sql and its PRODUCTION version): 40 tables. No other table or column changed.
+Changed in piece 3 (21 Oct 2026; D-94, D-95, D-98): 4.11 added: 5 new tables (migration 003_c2m_variants_clients.sql and its PRODUCTION version): 45 tables; no existing table or column changed. Changed in the next version (21 Oct 2026; piece 1 of 4 after Tahir's rulings D-89 to D-95; the version number is set at the push; 1.0.3 is live): 4.10 added: new table c2m_role (migration 002_c2m_roles.sql and its PRODUCTION version): 40 tables. No other table or column changed.
 Changed in 1.0.3 (20 Oct 2026; 1.0.2 went live on 20 Oct at 11:24): after review, D-88 (take off a list, the description, rows leaving chosen). no table, column or migration. c2m_list_price.list_name may also hold dist_old, dealer_old, farmer_old (rows not carried into the master, read only); data_json.left {at, by, why} on those rows; c2m_audit entity list_master, action carried is the flag of the carry-over (D-87).
 Changed in 1.0.2 (19 to 20 Oct 2026; 1.0.1 went live on its own on 19 Oct at 23:19): no table, column or migration. c2m_client_product.brand (the official name) and o2s_brand (O2S spellings) are edited from Setup, Product names; c2m_list_price.data_json may hold listName, listP and listPack (the name a row had before it was renamed); a renamed row updates the columns product and pack too (D-85). 20 Oct 2026: the unique key uq_cp (customer_id, channel, o2s_brand) answers a clear 400 when 2 VAN brand products would have exactly the same spellings; 2 VAN brand products may share brand when their pack sizes differ (no key on brand); the second of 2 products with exactly the same spellings is stored with a leading | (an empty spelling, ignored everywhere). c2m_client_product.active is set from Setup, Product names (Take out of use, Put back in use, D-86).
 Changed in 1.0.1 (19 Oct 2026): no table, column or migration. c2m_list_price.data_json may hold noPack, noPackBy and noPackAt (D-80).
@@ -768,3 +768,19 @@ Migration 002_c2m_roles.sql (and 002_c2m_roles.PRODUCTION.sql, with the USE line
 | c2m_role | updated_by, updated_at | VARCHAR(60), DATETIME | who last changed it, and when |
 
 c2m_audit: entity role, actions create, edit and delete, with the label and actions before and after. Kept and deleted: a role is deleted only when nobody holds it (logged); nothing else is deleted.
+
+## 4.11 Changed in piece 3: families, variants, follows (owner: Tahir; D-94, D-95, D-98; migration 003_c2m_variants_clients.sql)
+
+Migration 003 (and 003_c2m_variants_clients.PRODUCTION.sql, same content with USE in front): CREATE TABLE IF NOT EXISTS for 5 tables, safe to run twice, no ALTER, no change to any existing table. It also adds the actions client.add (to the cfo role, next to customer.edit) and variant.add (to cfo and production) with UPDATE ... REPLACE guarded by NOT LIKE, so a second run changes nothing; a role Tahir edited without its anchor action is left alone. Check after: 45 c2m_ tables. Before it is run C2M works as before; the new screens say it is needed.
+
+| Table | Column | Type | Meaning |
+|---|---|---|---|
+| c2m_product_family | id, name | INT, VARCHAR(120) | a VAN product that can have variants (Humi Grow, Fusion Potash); name unique; created_by, created_at |
+| c2m_product_variant | id, family_id, name | INT, INT, VARCHAR(80) | a variant of a family (Powder, Pellets); unique on family_id and name; created_by, created_at |
+| c2m_product_ext | client_product_id (key) | INT | the client product |
+| c2m_product_ext | family_id, pvariant_id | INT, null | its family and variant (a white label product carries the variant it is sold as) |
+| c2m_product_ext | follows_product_id | INT, null | the VAN brand product whose approved recipe it uses: material cost only |
+| c2m_pack_ext | client_pack_id (key), client_only_id | INT, INT | a pack made for 1 client only (c2m_customer.id), kept off the VAN lists |
+| c2m_rule_variant | rule_id (key), pvariant_id | INT, INT | a labour or FOH rate that applies to 1 variant |
+
+Why link tables and not new columns: the live tables stay untouched and migration 003 can be run twice. The older table c2m_variant (under the product type) and c2m_client_product.variant_id stay unused. A client's group (c2m_customer.grp) is derived: adding a white label product to a VAN brand client makes it Both; nothing makes it lose a kind. A bulk product keeps no packing bill on its packs (packing_mode bulk). c2m_audit entities added: customer (add, group), client_product (add, add_variant, variant, follow, cost_approved), client_pack (add, cost_approved), product_family (add), product_variant (add).

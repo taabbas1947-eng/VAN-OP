@@ -1,6 +1,7 @@
 # 1. Process flow diagrams
 
 Version 1.0.3 · 20 Oct 2026 · Owner: Yawar (CFO) keeps it current; Tahir approves changes · Rule: R-5h item 1 (D-20)
+Changed in the next version (21 Oct 2026; piece 1 of 4; the number is set at the push): 1.21 added: a role is made or changed (D-89, D-90).
 Changed in 1.0.3 (20 Oct 2026; 1.0.2 went live on 20 Oct at 11:24): after review, 1.20: take a pack off a list, the description, rows leaving chosen (D-88). 1.20 added: 1 master list and the carry-over into it (D-87); 1.19 Product names keeps official names and O2S spellings only, list rows are no longer settled there.
 Changed in 1.0.2 (19 to 20 Oct 2026; 1.0.1 went live on its own on 19 Oct at 23:19): 1.19 added: product names, 1 name everywhere (D-85). 20 Oct 2026: the check of trucks before saving a name change.
 Changed in 1.0.1 (19 Oct 2026): 1.17 a list row can be marked "not a C2M pack" and the report colours against each product's target (D-80, D-81); 1.18 the Not placed step in the VAN brand price flow (D-80).
@@ -517,3 +518,26 @@ flowchart LR
 | After the carry-over | Yawar types, Tahir approves | prices in the grid | D-77 | list revisions as before; a price on the wrong pack is moved in the VAN brand list margin report (2 rows swap in 1 save) |
 | Take a pack off a list | Tahir or Yawar, no approval | Take off a list (grid row), why | D-88 | POST /lists/remove: the row stops printing, kept read only with its prices under "Off the lists"; logged; the other is told |
 | Description on the lists | Tahir or Yawar | Setup, Product names, Edit, "Description on the price lists" | D-88 | POST /names/product/:id/spec: all 3 lists print it |
+
+## 1.21 A role is made or changed (next version; D-89, D-90)
+
+```mermaid
+flowchart TD
+  A[Tahir or Ahmer Shehzad opens Setup, Roles] --> B{New role or an existing one?}
+  B -->|New| C[Name it and tick what it may do]
+  B -->|Existing| D[Pick it and change the ticks]
+  C --> E[Create role]
+  D --> F[Save role]
+  E --> G[(c2m_role, change record)]
+  F --> G
+  G --> H[Takes effect at the next request of everyone holding it]
+  D --> I{Delete?}
+  I -->|a person holds it| J[Refused: move them first in People and access]
+  I -->|nobody holds it| K[Deleted, logged]
+```
+
+| Step | Owner | Input | Rule | Feeds |
+|---|---|---|---|---|
+| Open Setup, Roles | Administrator role | pick or New role | D-89, D-90 | GET /roles |
+| Tick actions | Administrator role | the ticks and the name | D-90 | POST /roles or /roles/:key |
+| Give the role to a person | Tahir, platform People and access | the person and the role | D-90 | user_module_roles |

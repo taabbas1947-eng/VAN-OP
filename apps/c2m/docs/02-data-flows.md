@@ -1,6 +1,7 @@
 # 2. Data flow diagrams
 
 Version 1.0.3 · 20 Oct 2026 · Owner: Yawar; data links set by Tahir and Yawar in Setup, From O2S · Rule: R-5h item 2 (D-20)
+Changed in the next version (21 Oct 2026; piece 1 of 4): 2.21 added: roles (D-89, D-90).
 Changed in 1.0.3 (20 Oct 2026; 1.0.2 went live on 20 Oct at 11:24): 2.20 added: the carry-over into the master and printing from the master (D-87).
 Changed in 1.0.2 (19 to 20 Oct 2026; 1.0.1 went live on its own on 19 Oct at 23:19): 2.19 added: product names (D-85). 20 Oct 2026: row 8 (the check of trucks).
 Changed in 1.0.1 (19 Oct 2026): 2.18 added: the "not a C2M pack" mark on a list row (D-80).
@@ -232,3 +233,12 @@ flowchart LR
 | 8 | Take off a list (POST /api/c2m/lists/remove) | c2m_list_price list_name <list>_old, data_json.left; c2m_audit left_list with the prices; c2m_notice to the other person | the row off the list, its prices kept | D-88 |
 | 9 | Product names, Edit (POST /api/c2m/names/product/:id/spec) | c2m_client_product.spec; c2m_audit product_name spec (before and after) | the description all 3 lists print | D-88 |
 | 10 | carry route | c2m_list_revision status replaced (revisions Tahir sent back); c2m_notice to Yawar and to the other person | closed at the carry-over; told | D-87 |
+
+## 2.21 Roles (next version; D-89, D-90)
+
+| From | Data | To | When |
+|---|---|---|---|
+| Administrator (Setup, Roles) | label, ticked actions | c2m_role (and c2m_audit) | on Create, Save, Delete |
+| user_module_roles (platform) | the person's role key | C2M, each request | every request |
+| c2m_role | the role's actions | C2M, each request | every request; if the table is missing the 6 built-in roles are used |
+| C2M | actions, admin, nav | the page (state.me, /me) | page load and after each change |

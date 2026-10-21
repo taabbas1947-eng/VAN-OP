@@ -1,6 +1,7 @@
 # 11. Access and roles matrix
 
 Version 1.0.3 · 20 Oct 2026 · Owner: Tahir (grants roles in the platform's People and access); Yawar grants lists · Rule: R-5h item 11 (D-20), R-2 People and rights
+Changed in the next version (21 Oct 2026; piece 1 of 4 after Tahir's rulings D-89 to D-95; the version number is set at the push; 1.0.3 is live): 11.11 added: roles are editable (D-89, D-90); the COO role is the administrator with every action; the action list replaces the role names in the code; 11.7 and 11.3 corrected for the administrator. Until migration 002 is run nothing changes.
 Changed in 1.0.3 (20 Oct 2026; 1.0.2 went live on 20 Oct at 11:24): after review, D-88 (take off a list, the description, rows leaving chosen). 11.10: the carry-over into the master is Tahir's or Yawar's; moving a price to another pack likewise (D-87).
 Changed in 1.0.2 (19 to 20 Oct 2026; 1.0.1 went live on its own on 19 Oct at 23:19): 11.9: Tahir links list rows and edits product names, as Yawar does; the mark stays Yawar's (D-85). 20 Oct 2026: Tahir links on Client prices and the VAN brand list margin report too.
 Changed in 1.0.1 (19 Oct 2026): 11.9: "Link a list row or mark it not a C2M pack" is cfo only; Tahir sees the marks (D-80). No other right changed.
@@ -14,7 +15,7 @@ Changed in 0.8.0: 11.1 and 11.2 rewritten for the 0.8.0 screens (D-45 to D-52). 
 Changed in 0.4.0 and 0.5.0: withdraw a waiting price or list revision is coo only; Tahir sees re-approvals under "For your information" and read only on Recipes; stuck recipes on Tahir's Today; Sign out.
 Changed in 0.3.0 and 0.3.1: Materials row added; Back Office sections by role; Tahir receives re-approvals but cannot approve; documents by role; what a KAM can never receive; settings only to Yawar and Tahir; how a role is given and removed.
 
-Roles live in user_module_roles, module 'c2m'. Code: ROLES, SEES_COST, SEES_PRICE and docAllowed in c2m-routes.js. The server filters every reply by role; the page only hides buttons.
+Roles live in user_module_roles, module 'c2m' (who holds which role). What each role may do is the list of ticked actions in the table c2m_role (from the next version; before migration 002 is run, the 6 roles built into c2m-access.js apply, with the same rights as before). Code: c2m-access.js (the actions and the 6 starting roles), can() and notSelf in c2m-routes.js. The server filters every reply by what the role may do; the page only hides buttons. Sections 11.1 to 11.10 describe the 6 starting roles; 11.11 says what changed for them.
 
 ## 11.1 Role against screen (0.9.0)
 
@@ -117,9 +118,9 @@ Anything else returns 403 "Not available to your role." Known limit: a viewer's 
 - Nobody can print cost or margin on a price list; those fields do not exist for any audience.
 - A KAM (viewer) never receives cost, margin, settings, products, recipes, or list columns he is not granted. He cannot set notes, dates or reasons on a document.
 - Settings go only to cfo and coo.
-- cfo cannot approve his own price or list revision, withdraw a waiting approval, approve a threshold change, or do the second-person rate check.
-- Nobody can approve a price, list revision, setting request or target request they proposed, whatever role they hold at the time (0.9.1, D-63).
-- coo cannot save rates or approve or close a re-approval.
+- cfo cannot approve his own price or list revision, withdraw a waiting approval, approve a threshold change, or do the second-person rate check (unless Tahir ticks those actions on the CFO role; see 11.11).
+- Nobody below the administrator can approve a price, list revision, setting request or target request they proposed, whatever role they hold at the time (0.9.1, D-63). The administrator role is exempt (D-89).
+- (Until the next version) coo cannot save rates or approve or close a re-approval. From the next version the COO role is the administrator and holds every action (D-89).
 - production, qc and plant never see prices or margin; qc never sees cost or rates.
 - C2M never writes to O2S or to any platform table.
 
@@ -164,3 +165,32 @@ No right changed: the server checks each action by role as before; ROLES only ch
 | Print a granted list (master order, official names, C2M's description) | yes | yes | no | yes |
 
 A KAM never receives a row's master pack id, nor a row that left the lists.
+
+## 11.11 Roles are editable; the COO role is the administrator (next version; owner: Tahir; D-89, D-90)
+
+| Item | Rule | Decision |
+|---|---|---|
+| Administrator | The COO role holds every action, always, and cannot be edited or deleted. Tahir and Ahmer Shehzad hold it. It is exempt from "nobody approves what they proposed" (ruling 19) and from the second-person rate check | D-89 |
+| Create, edit and delete roles | Only the administrator role: Setup, Roles. Each action is a tick. The 6 starting roles can be edited too. A role cannot be deleted while a person holds it. Creating and editing roles ("roles.manage") can never be ticked on another role | D-89, D-90 |
+| Approve what an administrator proposed | A person below the administrator who is given an approve right (price, list revision, settings, targets) approves only an item an administrator proposed: never his own, never a colleague's. The recipe cost step and re-approvals have no proposer, so the rule does not apply to them (to confirm with Tahir) | D-89 |
+| Who holds a role | Still given and removed in the platform's People and access (user_module_roles). C2M never writes it | D-90 |
+| Screens | Follow from the ticks: a role that sees margin gets the 5 places and More; a role with only recipe and cost actions gets Today and Recipes; a role with only granted lists gets Price lists | D-90 |
+| Before migration 002 | C2M runs on the 6 built-in roles with the old rights; the Roles screen says the migration has not been run and saves nothing | D-90 |
+
+What changed for the 6 starting roles: none, except the COO role. It can now do everything the others can: save rates, approve or close a re-approval, propose prices and list revisions, enter actuals, tie to the books, mark a row "not a C2M pack", and so on. Tested: 45 routes against the 6 roles, the old and the new code give the same answer (270 checks).
+
+The actions (key, plain meaning), grouped as on the Roles screen. The 6 starting roles hold these: CFO the set in the first column that follows; production, qc, plant and viewer as in 11.1 to 11.3.
+
+| Group | Actions |
+|---|---|
+| Prices and lists | price.propose, price.approve, price.withdraw, list.revise, list.approve, list.withdraw, pricedoc.all, pricedoc.granted |
+| Costs and recipes | recipe.start, recipe.edit, recipe.step.draft, recipe.step.review, recipe.step.endorse, recipe.step.cost, reapproval.decide, rate.save, material.save, nutrient.edit, packing.manage, labour.manage, product.classify |
+| Setup | settings.edit, settings.approve, targets.propose, targets.approve, customer.edit, freight.edit, grants.give, lists.link, lists.mark, lists.carry, lists.remove, o2s.sync, import.decide, actuals.enter, actuals.tiebooks, actuals.ratecheck, notices.see |
+| What the role sees | see.products, see.cost, see.price, see.margin, see.settings, see.materials, see.granted_lists, guide.all |
+| Administration | roles.manage (administrator only) |
+
+Known limit: the platform's People and access lists only the 6 roles it knows. A role made here can be edited and held by people already holding that role, but cannot yet be given to a person from People and access until the platform piece (module PLATFORM, separate change) reads the C2M roles table.
+
+Rules the Roles screen enforces when a role is saved (found in the independent review): the "places" tick (Approvals, Products, Prices, Margin, Setup) needs Recipes, Costs, Prices and margin, and Settings and targets ticked; "Mark a list row" needs "Link or rename a list row"; a role cannot both save rates and do the monthly rate check (the check stays with a second person); a role name that matches a reserved word gets "-role" added to its key.
+
+Other points: Approve is shown only on an item an administrator proposed, for anyone below the administrator (state items carry byAdmin). Refusing or sending back a colleague's item is not restricted by the proposer rule. The administrator holds every recipe step and can take a recipe through all 4 steps alone: to confirm with Tahir whether this stays (open item). The notices still go to the CFO and COO roles by name; a new role does not receive notices.

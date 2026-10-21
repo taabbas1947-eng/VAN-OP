@@ -1,6 +1,7 @@
 # 7. The Guide
 
 Version 1.0.3 · 20 Oct 2026 · Owner: Yawar; Tahir approves changes · Rule: R-5h item 7 (D-20)
+Changed in the next version (21 Oct 2026; piece 1 of 4 after Tahir's rulings D-89 to D-95; the version number is set at the push; 1.0.3 is live): Tahir's line and a new line for any role made in Setup, Roles (D-89, D-90); the in-app Guide carries the same.
 Changed in 1.0.3 (20 Oct 2026; 1.0.2 went live on 20 Oct at 11:24): after review, D-88 (take off a list, the description, rows leaving chosen). Yawar and Tahir: 1 master list and the carry-over (D-87); Product names keeps names only; the in-app Guide carries the same lines.
 Changed in 1.0.2 (19 to 20 Oct 2026; 1.0.1 went live on its own on 19 Oct at 23:19): Yawar line 7 and Tahir line 4: Setup, Product names (D-85); the in-app Guide carries the same lines. 20 Oct 2026: the check before a name change, trade names, Tahir links on Client prices.
 Changed in 1.0.1 (19 Oct 2026): Yawar line 4 and Tahir lines 3 and 5 (D-80 to D-83); the in-app Guide carries the same lines.
@@ -175,3 +176,8 @@ Also:
 - Yawar, "Revise and resend" after Tahir moved a row to another pack: that row's old price is not filled in, and the row says what was typed for which pack. Type its price again for the pack it is on now, or leave it empty. Every price that changed since you typed (a row taken off, a row moved, a new pack that now has a row) is listed in 1 box above the form, with what you had typed; nothing is filled in for those.
 - Setup, Product names keeps the official names (the trade name only), the description and O2S spellings.
 - KAMs: the lists you print come out in master order under the official names from the carry-over on.
+
+## 7.x Roles (next version)
+
+- Tahir (COO role, the administrator): Setup, Roles. Pick a role or press New role, tick what it may do, then Create role or Save role. A role holding people cannot be deleted. Ahmer Shehzad holds the same role and can do the same. Logins stay in the platform's People and access.
+- A role made in Setup, Roles: you may do what is ticked on it and you see the places that follow. Anything you approve must have been proposed by an administrator, never by you or a colleague.

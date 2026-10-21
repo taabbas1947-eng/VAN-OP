@@ -1,6 +1,7 @@
 # 4. Database schemas
 
 Version 1.0.3 · 20 Oct 2026 · Owner: Tahir (C2M module owner); Claude records · Rule: R-5h item 4 (D-20)
+Changed in the next version (21 Oct 2026; piece 1 of 4 after Tahir's rulings D-89 to D-95; the version number is set at the push; 1.0.3 is live): 4.10 added: new table c2m_role (migration 002_c2m_roles.sql and its PRODUCTION version): 40 tables. No other table or column changed.
 Changed in 1.0.3 (20 Oct 2026; 1.0.2 went live on 20 Oct at 11:24): after review, D-88 (take off a list, the description, rows leaving chosen). no table, column or migration. c2m_list_price.list_name may also hold dist_old, dealer_old, farmer_old (rows not carried into the master, read only); data_json.left {at, by, why} on those rows; c2m_audit entity list_master, action carried is the flag of the carry-over (D-87).
 Changed in 1.0.2 (19 to 20 Oct 2026; 1.0.1 went live on its own on 19 Oct at 23:19): no table, column or migration. c2m_client_product.brand (the official name) and o2s_brand (O2S spellings) are edited from Setup, Product names; c2m_list_price.data_json may hold listName, listP and listPack (the name a row had before it was renamed); a renamed row updates the columns product and pack too (D-85). 20 Oct 2026: the unique key uq_cp (customer_id, channel, o2s_brand) answers a clear 400 when 2 VAN brand products would have exactly the same spellings; 2 VAN brand products may share brand when their pack sizes differ (no key on brand); the second of 2 products with exactly the same spellings is stored with a leading | (an empty spelling, ignored everywhere). c2m_client_product.active is set from Setup, Product names (Take out of use, Put back in use, D-86).
 Changed in 1.0.1 (19 Oct 2026): no table, column or migration. c2m_list_price.data_json may hold noPack, noPackBy and noPackAt (D-80).
@@ -722,7 +723,7 @@ Every table also has its primary key (section 4.4).
 - A retired labour or FOH rate stays with active = 0.
 
 ## 4.7 Platform tables C2M reads (not owned)
-auth_users (name), user_module_roles (module 'c2m': cfo, coo, production, qc, plant, viewer), app_state row 1 (O2S data, read only). C2M writes none of them (D-12, D-21).
+auth_users (name), user_module_roles (module 'c2m': the role_key of a row in c2m_role; from the next version more than the 6 starting keys), app_state row 1 (O2S data, read only). C2M writes none of them (D-12, D-21).
 
 ## 4.8 Changed in 1.0.0 (owner: Tahir; D-75, D-77; version 1.0.0, 19 Oct 2026)
 
@@ -752,3 +753,18 @@ No table, column, index or migration; no production SQL.
 | c2m_client_product | spec | edited by Tahir or Yawar for VAN brand products (at most 200 characters; empty means none) | the description all 3 lists print |
 
 Kept and deleted: rows of the _old lists are kept; nothing is deleted.
+
+## 4.10 Changed in the next version (owner: Tahir; D-89, D-90)
+
+Migration 002_c2m_roles.sql (and 002_c2m_roles.PRODUCTION.sql, with the USE line; keep both in step) creates 1 table, c2m_role, and loads the 6 starting roles with INSERT IGNORE. Safe to run twice. It changes no O2S, PD or platform table. Until it is run C2M uses the 6 roles built into c2m-access.js and the Roles screen cannot save.
+
+| Table | Column | Type | Plain meaning |
+|---|---|---|---|
+| c2m_role | role_key | VARCHAR(30), primary key | the value kept in user_module_roles.role for the people who hold it (cfo, coo, production, qc, plant, viewer, or the key made from the name of a new role) |
+| c2m_role | label | VARCHAR(60) | the name shown on screens |
+| c2m_role | is_admin | TINYINT(1) | 1 for the administrator role (COO): every action, locked |
+| c2m_role | actions_json | TEXT | JSON list of action keys ticked on the role (empty for the administrator) |
+| c2m_role | builtin | TINYINT(1) | 1 for the 6 starting roles |
+| c2m_role | updated_by, updated_at | VARCHAR(60), DATETIME | who last changed it, and when |
+
+c2m_audit: entity role, actions create, edit and delete, with the label and actions before and after. Kept and deleted: a role is deleted only when nobody holds it (logged); nothing else is deleted.

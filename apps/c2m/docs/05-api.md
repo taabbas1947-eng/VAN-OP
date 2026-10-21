@@ -1,6 +1,7 @@
 # 5. API documentation
 
 Version 1.0.3 · 20 Oct 2026 · Owner: Tahir (C2M module owner); Claude records · Rule: R-5h item 5 (D-20)
+Changed in the next version (21 Oct 2026; piece 1 of 4 after Tahir's rulings D-89 to D-95; the version number is set at the push; 1.0.3 is live): 5.14 added: GET and POST /api/c2m/roles, POST /api/c2m/roles/:key, POST (and DELETE) /api/c2m/roles/:key/delete; the 45 route guards now check an action (can) not a role name; /me and state.me carry admin and actions; state.people carries roleLabel and grantee.
 Changed in 1.0.3 (20 Oct 2026; 1.0.2 went live on 20 Oct at 11:24): 5.13 added: POST /lists/master/preview and /lists/master/carry; /lists/links refuses an unlink or mark after the carry-over; /lists/revise words its refusal for the carry-over (D-87).
 Changed in 1.0.2 (19 to 20 Oct 2026; 1.0.1 went live on its own on 19 Oct at 23:19): POST /api/c2m/lists/links open to coo and renames a linked row (unlink gives its name back), takes wasPack per row (20 Oct 2026); POST /api/c2m/lists/revise and /lists/revisions/:id/approve answer 400 when an added pack's product is out of use (20 Oct 2026, D-86); POST /api/c2m/names/rename-linked, /api/c2m/names/product/:id and /api/c2m/names/o2s added; GET /api/c2m/state gives products o2sNames and nameLog to cfo and coo (D-85).
 Changed in 1.0.1 (19 Oct 2026): POST /api/c2m/lists/links takes {id, noPack: true or false} (D-80).
@@ -229,3 +230,16 @@ After the re-check (20 Oct 2026): POST /lists/revise takes wasPack on each row i
 After the third check (20 Oct 2026): revision rows store packAt (the pack each price was typed for); POST /lists/revise checks wasPack again with the rows locked; an added row's keep holds back [fields that came back] and terms. State: closedAtCarry [{id, list, reason, back, items}]; listOld packId only when the row fits its pack. Distributor rows moved after the carry-over carry prevPack in data_json (the pack the previous price was for). Notices write prices in words (price, NSV, discount %, FRP, MRP, Punjab, Sindh, Sindh credit).
 
 After the fourth check (20 Oct 2026): POST /lists/revise refuses (409) a price that adds a pack when a row was moved onto that pack at the same moment (checked with the rows locked); a pack brought back takes the prices of the row that left last, never one with left.dup. POST /lists/links writes several notices when the moves do not fit 1 ("part 1 of 2"). State: listOld[].left may carry ts and dup. After the fifth check: an added distributor row's keep may hold prev (the price distributors last saw), written as the row's prev on approval; issuing a distributor list sets keep.prev of added packs in an approved revision waiting for its date to the price printed.
+
+## 5.14 Roles (next version; owner: Tahir; D-89, D-90)
+
+Every route that was guarded by role names is now guarded by 1 action key (for example POST /prices/propose needs price.propose). A role that lacks the action gets 403 "Your role cannot do this in C2M." The administrator role holds every action.
+
+| Route | Needs | Does |
+|---|---|---|
+| GET /api/c2m/roles | roles.manage | {ready, catalogue, roles[{key, label, admin, builtin, actions, holders}]}; ready is false until migration 002 is run |
+| POST /api/c2m/roles | roles.manage | create {label, actions[]}; the key is made from the name; 400 on a name already used, an unknown action, or roles.manage; 409 before migration 002 |
+| POST /api/c2m/roles/:key | roles.manage | edit {label, actions[]}; 400 for the administrator role |
+| POST /api/c2m/roles/:key/delete (DELETE on the same path also works) | roles.manage | delete; 400 while a person holds the role, and for the administrator role |
+
+Changed replies: GET /me and state.me add admin (true for the administrator role) and actions (the keys the role holds); nav and more now follow from the actions. state.people adds roleLabel and grantee (true when the role may print granted lists). Approving a price, list revision, settings request or target request: the administrator may approve his own; anyone else must not be the proposer and the proposer must hold an administrator role, else 403 "You approve only what an administrator proposed (D-89)." Recipe steps check recipe.step.draft, review, endorse or cost.

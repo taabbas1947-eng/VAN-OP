@@ -1,6 +1,7 @@
 # 10. Data dictionary and glossary
 
 Version 1.0.3 · 20 Oct 2026 · Owner: Yawar; Himayat for material classes · Rule: R-5h item 10 (D-20)
+Changed in the next version (21 Oct 2026; piece 1 of 4 after Tahir's rulings D-89 to D-95; the version number is set at the push; 1.0.3 is live): 10.11 added: role, action, administrator, grantee (D-89, D-90).
 Changed in 1.0.3 (20 Oct 2026; 1.0.2 went live on 20 Oct at 11:24): after review, D-88 (take off a list, the description, rows leaving chosen). 10.10 added (D-87).
 Changed in 1.0.2 (19 to 20 Oct 2026; 1.0.1 went live on its own on 19 Oct at 23:19): 10.9 added (D-85); 20 Oct 2026: trucks moved, wasPack.
 Changed in 1.0.1 (19 Oct 2026): 10.8 added (D-80).
@@ -233,3 +234,16 @@ Changed in 0.3.0 and 0.3.1: rs_per_kg fixed (1 rate of 1 kind, labour or FOH). A
 | Description on the price lists | C2M's spec of a VAN brand product, printed on all 3 lists | at most 200 characters |
 | listOld (state) | the rows off the lists: {id, list, name, prices, left} | |
 | Waiting (carry-over) | a row whose picked product has no pack of its size: its pack or "Leaves the lists" is chosen | |
+
+## 10.11 Roles (next version; D-89, D-90)
+
+| Word or field | Meaning here | Values |
+|---|---|---|
+| Role | a named set of ticked actions; people hold 1 role in C2M | the 6 starting roles, or one made in Setup, Roles |
+| Action | 1 thing a role may do or see, as a key such as price.propose | see 11.11 |
+| Administrator | the COO role: every action, locked; creates and edits roles | Tahir, Ahmer Shehzad |
+| role_key | the stored name of a role, made from its name (lower case, hyphens) | text, at most 30 characters |
+| holders | the people who hold a role now (from user_module_roles) | user names |
+| admin (state.me) | true for a person holding the administrator role | true or false |
+| actions (state.me) | the keys the person's role holds | list |
+| grantee (state.people) | a person whose role may print granted lists, so Setup lists them for list and client grants | true or false |

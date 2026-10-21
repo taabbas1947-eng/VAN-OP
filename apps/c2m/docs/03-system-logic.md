@@ -1,6 +1,7 @@
 # 3. System logic
 
 Version 1.0.3 · 20 Oct 2026 · Owner: Yawar; Tahir approves changes · Rule: R-5h item 3 (D-20)
+Changed in the next version (21 Oct 2026; piece 1 of 4 after Tahir's rulings D-89 to D-95; the version number is set at the push; 1.0.3 is live): 3.22 added: how a person's rights are worked out (actions on a role, the administrator, the proposer rule, the fallback before migration 002).
 Changed in 1.0.3 (20 Oct 2026; 1.0.2 went live on 20 Oct at 11:24): 3.21 added: the carry-over into the master and the lists printed from it (D-87).
 Changed in 1.0.2 (19 to 20 Oct 2026; 1.0.1 went live on its own on 19 Oct at 23:19): 3.20 added: product names (D-85). 20 Oct 2026, after review: 2 people saving at once, the check of trucks before a name change, names before a rename kept, a trade name shared across pack sizes, revisions shown under today's names.
 Changed in 1.0.1 (19 Oct 2026): 3.19 added: the "not a C2M pack" mark, the report against each product's target, the Margin left-out line and the History tab (D-80 to D-83).
@@ -311,3 +312,15 @@ Places (D-76): ROLES gives cfo and coo nav [approvals, products, prices, margin,
 | After the carry-over | The carry-over cannot run again; a row cannot be unlinked or marked "not a C2M pack"; it can be moved to another pack of the same size (the VAN brand list margin report); a pack is added to a list by a list revision as before | D-87 |
 | Printing | Every list prints each row under its master pack's official name and pack (500 ml under 1 L or 1 kg), products A to Z, packs small to large; a rename prints at once; the description stays the list's own | D-86, D-87 |
 | The distributor list is issued | Each row's previous price is set from the printed price, matched by master pack after the carry-over and by name before it | D-42, D-87 |
+
+## 3.22 Access: rights come from ticked actions (next version; D-89, D-90)
+
+| Moment | What C2M does | Decision |
+|---|---|---|
+| Each request | Reads the person's role key from user_module_roles, then that role from c2m_role; the actions ticked give what they may do and see. The administrator role gets every action | D-90 |
+| The table is missing (migration 002 not run) | Uses the 6 roles built into c2m-access.js, so nobody is locked out; the Roles screen says so and saves nothing | D-90 |
+| The person's role no longer exists | 403 "You do not have access to C2M." | D-90 |
+| Approve a price, list revision, settings request or target request | Administrator: allowed, even his own. Anyone else: refused if he proposed it, and refused unless the proposer holds an administrator role | D-63, D-89 |
+| Recipe steps | Advance and send back check recipe.step.<state>; the administrator may do any step, but is not shown as the person waited on | D-89 |
+| Screens | nav and more follow from the actions (navFor in c2m-access.js) | D-90 |
+| Create, edit, delete a role | Only roles.manage (administrator); delete refused while a person holds the role; every change in the change record | D-90 |

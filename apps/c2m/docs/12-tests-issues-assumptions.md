@@ -1,6 +1,7 @@
 # 12. Tests, issues and assumptions
 
 Version 1.0.3 · 20 Oct 2026 · Owner: Claude records; Tahir and Yawar confirm assumptions · Rule: R-5h item 12 (D-20)
+Changed in the next version (21 Oct 2026; piece 1 of 4 after Tahir's rulings D-89 to D-95; the version number is set at the push; 1.0.3 is live): 12.1e added: tests for the roles change (piece 1) run against a test database; known limits for it in 12.3. The earlier suites c2m100 to c2m103 could not be run in the session that built it: run them before the push.
 Changed in 1.0.3 (20 Oct 2026; 1.0.2 went live on 20 Oct at 11:24): 12.1d added: suite c2m103.test (M-01 to M-07) and the tests changed for D-87; totals 221, after the 7 review rounds 229 (M-08 to M-15); known limits in 12.3; the 1.0.3 reviews in 12.4.
 Changed in 1.0.2 (19 Oct 2026; review fixes 20 Oct): 12.1c added: suite c2m102.test (X-01 to X-17) and the tests changed for D-85; totals 203; known limits for product names in 12.3; the 1.0.2 review in 12.4.
 Changed in 1.0.1 (19 Oct 2026): 12.1b added: suite c2m101.test (W-01 to W-07) and the tests changed for D-80 to D-82; totals 198; I-39, I-40, I-41 and I-45 closed (D-81, D-84, D-80); the 1.0.1 review in 12.4.
@@ -224,6 +225,7 @@ A-xx: assumptions decided overnight 15 to 16 Oct under Tahir's instruction "deci
 | I-45 | A VAN brand list row with no matching pack in C2M cannot be linked, so that list cannot take an added pack (the guard waits for every row to be linked). Action: Tahir to say: a "not a C2M pack" mark, or a way to remove the row | Tahir | 19 Oct 2026 | closed 19 Oct 2026: the "not a C2M pack" mark (D-80, 1.0.1) |
 
 ## 12.3 Known limits
+- Next version (piece 1, roles): a role made in Setup, Roles cannot yet be given to a person from People and access (platform change, module PLATFORM). The home screen shows job lists for the 6 starting roles; a new role shows the recipe steps it holds and its places. The recipe cost step and re-approvals have no proposer, so the rule "approve only what an administrator proposed" does not apply to them (to confirm with Tahir).
 - The stand-in platform (harness) never moves to VAN Systems.
 - 1.0.3: a distributor pack brought back while a row moved off it is still on the list prints "new" (that row keeps the previous price for when it moves back); 2 rows leaving in the same second are ordered by row number.
 - 1.0.3: a revision form refused because a row was moved meanwhile keeps refusing until it is opened again, and what was typed is lost (never priced on the other product). Before the carry-over, a distributor list issued ahead of a newly added pack's date does not set that pack's previous price (as in 1.0.2).
@@ -473,3 +475,16 @@ Round 7 (seventh check, 1 fresh reviewer, run not only read): "push, but know th
 
 Round 8 (eighth check, 1 fresh reviewer, run side by side with live 1.0.2 before the carry-over): "push, but know this"; no wrong price or previous price, no data lost; every round-7 fix held and matched 1.0.2 where it should; R48 fixed (wording only, covered by the tests, not re-reviewed), R49 and R50 listed.
 
+## 12.1e Tests in the next version, piece 1 (owner: Claude records; D-89, D-90)
+
+The suites c2m100 to c2m103 and their loader are outside the repository and were not available in this session, so they were not run. New tests were written against a throw-away MariaDB database with the real c2m-routes.js mounted on a test server with a stub sign-in:
+
+| Test | What it proves | Result |
+|---|---|---|
+| Route by role (regress) | for each of the 45 guarded routes and each of the 6 starting roles the new code allows exactly what the old code allowed, except that the COO role (administrator) is allowed everywhere; the 6 roles get the same screens | 270 checks, 0 differences |
+| Roles (roles.test) | only the administrator opens, creates, edits, deletes roles; a new role gives exactly the ticked rights and takes effect at once; the 6 roles can be edited; the administrator role is locked; a role held by a person is not deleted; the administrator may approve his own item; Yawar may approve an item Tahir proposed and not his own or a colleague's; a person below the administrator with an approve right cannot approve Yawar's item; before migration 002 the 6 roles still work, the Roles screen says so, creating a role is refused (409); an unknown role gets no access | 40 checks, all passed (including the review fixes: dependency rules, rate check separation, reserved keys, byAdmin) |
+| Screen (browser) | every role opens the page with no script error; Tahir creates a role on the Roles screen and it is saved with the ticked actions | passed |
+
+Not tested: the earlier suites; the screens with real data (the test database holds none); Render with the real platform sign-in.
+
+Independent review of piece 1 (21 Oct 2026): 2 blockers (page screens and job lists still keyed to role names) and 8 should-fix points; all fixed except: the administrator can take a recipe through all 4 steps alone (to confirm with Tahir), notices go to the CFO and COO roles by name only, roles are last-write-wins, and the platform hand-off (People and access must read c2m_role, and user_module_roles.role must hold 30 characters).

@@ -26,7 +26,7 @@ Format: Keep a Changelog, semantic versions. Live: 1.0.0 (pushed 19 Oct about 22
 - The 45 route guards and about 50 checks in the page now look at ticked actions, not at the role's name. The 6 starting roles keep exactly their old rights (270 route checks, 0 differences).
 ### Known limits
 - A new role cannot yet be given to a person from the platform's People and access: that is a separate change in module PLATFORM. Until then a role made here can be held by people who already hold a role of the same key, and the 6 starting roles can be edited at once.
-- The administrator can take a recipe through all 4 steps alone (to confirm with Tahir). Notices still go to the CFO and COO roles by name.
+- The administrator can take a recipe through all 4 steps alone (ruled by Tahir, D-96). Notices still go to the CFO and COO roles by name.
 - The earlier test suites (c2m100 to c2m103) were not run in the session that built this.
 
 ## [1.0.3] · 20 Oct 2026 · 1 master list: the 3 price lists print from the master (D-87) · Who: Claude built; Tahir ruled and approves the push

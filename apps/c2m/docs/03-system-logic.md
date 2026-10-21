@@ -69,7 +69,7 @@ stateDiagram-v2
   dismissed --> [*]: packs still moved for another cause make a new open item
   approved --> [*]
 ```
-Tahir sees open items under "Waiting on others" on his Today (with Yawar, re-approve, with their age; not counted as jobs); Open shows the packs read only (0.9.0, D-54). He cannot approve or close them (403).
+Tahir sees open items under "Waiting on others" on his Today (with Yawar, re-approve, with their age; not counted as jobs); Open shows the packs read only (0.9.0, D-54). Since D-96 he may approve or close them himself, because the administrator holds every action.
 Each pack in an item shows from = its last approved cost, to = its cost after the change, and % against the approved cost (D-41, 0.6.0). On approval C2M recosts each pack today and checks it again: a pack now within reapprove_pct of its approved cost, or no longer fully costed, keeps its approved cost; the reply lists it under "left" and the change record says "left: within threshold" or "left: not costed". A costed pack with no approved cost yet joins an item made by any other trigger (e.g. a packing bill assigned) as "first cost" (from blank); approving it sets its first approved cost without the % check.
 
 ## 3.5 VAN list revision states (owner: Yawar and Tahir; D-28)

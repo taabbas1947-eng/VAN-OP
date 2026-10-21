@@ -98,7 +98,7 @@ flowchart TB
     Q -- Close: the change was wrong --> Z1[Write why in the box · R-2 Cost] --> Z2[Item closed, approved costs unchanged · R-2 Cost]
   end
   subgraph COO [Tahir, COO]
-    V[Sees open items under 'Waiting on others' on Today: with Yawar, re-approve, with its age; Open shows the packs read only; cannot approve or close · R-2 Cost, D-54]
+    V[Sees open items under 'Waiting on others' on Today: with Yawar, re-approve, with its age; Open shows the packs read only; the administrator may approve or close from the route (D-96, replaces D-54)]
   end
   Z2 --> Z3{Packs still differ for another cause? · R-2 Cost}
   Z3 -- yes --> I

@@ -487,4 +487,4 @@ The suites c2m100 to c2m103 and their loader are outside the repository and were
 
 Not tested: the earlier suites; the screens with real data (the test database holds none); Render with the real platform sign-in.
 
-Independent review of piece 1 (21 Oct 2026): 2 blockers (page screens and job lists still keyed to role names) and 8 should-fix points; all fixed except: the administrator can take a recipe through all 4 steps alone (to confirm with Tahir), notices go to the CFO and COO roles by name only, roles are last-write-wins, and the platform hand-off (People and access must read c2m_role, and user_module_roles.role must hold 30 characters).
+Independent review of piece 1 (21 Oct 2026): 2 blockers (page screens and job lists still keyed to role names) and 8 should-fix points; all fixed except (the administrator and recipe steps question is closed by D-96): notices go to the CFO and COO roles by name only, roles are last-write-wins, and the platform hand-off (People and access must read c2m_role, and user_module_roles.role must hold 30 characters).

@@ -61,7 +61,7 @@ Only cfo and coo open Setup. "edit" = forms and buttons; "view" = read only. Wor
 | Set product type, reprocessed flag | cfo | D-25 |
 | Add material or grade with rate | cfo | D-23 |
 | Set material class, nutrient % | qc, cfo | D-23 |
-| Approve or close a re-approval | cfo only. coo receives the open items with the state data but cannot approve or close (403) | R-2 Cost |
+| Approve or close a re-approval | cfo, and the administrator (coo), who holds every action (D-96 replaces D-54 for the administrator) | R-2 Cost |
 | Propose price | cfo | D-06 |
 | Approve or send back price | coo | D-06 |
 | Withdraw a price approved for a later date, with why | coo only (cfo gets 403) | D-34 |
@@ -172,7 +172,7 @@ A KAM never receives a row's master pack id, nor a row that left the lists.
 |---|---|---|
 | Administrator | The COO role holds every action, always, and cannot be edited or deleted. Tahir and Ahmer Shehzad hold it. It is exempt from "nobody approves what they proposed" (ruling 19) and from the second-person rate check | D-89 |
 | Create, edit and delete roles | Only the administrator role: Setup, Roles. Each action is a tick. The 6 starting roles can be edited too. A role cannot be deleted while a person holds it. Creating and editing roles ("roles.manage") can never be ticked on another role | D-89, D-90 |
-| Approve what an administrator proposed | A person below the administrator who is given an approve right (price, list revision, settings, targets) approves only an item an administrator proposed: never his own, never a colleague's. The recipe cost step and re-approvals have no proposer, so the rule does not apply to them (to confirm with Tahir) | D-89 |
+| Approve what an administrator proposed | A person below the administrator who is given an approve right (price, list revision, settings, targets) approves only an item an administrator proposed: never his own, never a colleague's. The recipe cost step and re-approvals have no proposer, so the rule does not apply to them (ruled by Tahir, 21 Oct 2026) | D-89, D-96 |
 | Who holds a role | Still given and removed in the platform's People and access (user_module_roles). C2M never writes it | D-90 |
 | Screens | Follow from the ticks: a role that sees margin gets the 5 places and More; a role with only recipe and cost actions gets Today and Recipes; a role with only granted lists gets Price lists | D-90 |
 | Before migration 002 | C2M runs on the 6 built-in roles with the old rights; the Roles screen says the migration has not been run and saves nothing | D-90 |
@@ -193,4 +193,4 @@ Known limit: the platform's People and access lists only the 6 roles it knows. A
 
 Rules the Roles screen enforces when a role is saved (found in the independent review): the "places" tick (Approvals, Products, Prices, Margin, Setup) needs Recipes, Costs, Prices and margin, and Settings and targets ticked; "Mark a list row" needs "Link or rename a list row"; a role cannot both save rates and do the monthly rate check (the check stays with a second person); a role name that matches a reserved word gets "-role" added to its key.
 
-Other points: Approve is shown only on an item an administrator proposed, for anyone below the administrator (state items carry byAdmin). Refusing or sending back a colleague's item is not restricted by the proposer rule. The administrator holds every recipe step and can take a recipe through all 4 steps alone: to confirm with Tahir whether this stays (open item). The notices still go to the CFO and COO roles by name; a new role does not receive notices.
+Other points: Approve is shown only on an item an administrator proposed, for anyone below the administrator (state items carry byAdmin). Refusing or sending back a colleague's item is not restricted by the proposer rule. The administrator holds every recipe step and can take a recipe through all 4 steps alone (ruled by Tahir, D-96). The notices still go to the CFO and COO roles by name; a new role does not receive notices.

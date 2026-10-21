@@ -6947,3 +6947,12 @@ Tests: full suite before and after on a clean clone at 4195f6f: identical except
 Known limits written in TS-05: a retry after a save whose reply was lost can, on a 409, put back a field someone else changed in those seconds (a save id would close it); the instant alert for such a save may wait for the 15 minute sweep. Every save still sends the whole data, so it is slow on a weak line.
 After the push: test on the live site (normal save, Saving note, Saved), then tell the warehouse to wait for Saved before refreshing.
 Not touched: the morning view prototype (separate, not in O2S, nothing in git).
+
+## 21 Oct 2026 (23:50) - RESUME HERE: 21a pushed and checked live (MODULE: O2S)
+Pushed by Tahir: 83920be (the 9 O2S files of 21a, each byte for byte as delivered) and b97c856 (C2M files plus this handoff note; nothing removed). server.js and launcher.html not touched. Live /o2s serves BUILD_ID 2026-10-21a, byte for byte the pushed o2s.html; launcher and /c2m answer 200. In a signed-in browser: the 21a functions are loaded, both Sign out buttons call logoutAsk, the note draws at the bottom left (shown and hidden by hand, no save made), the What's changed notice shows the 21a entry, and saves are landing (rev 15276 to 15284 during the evening). A failed save was not forced on live; it was tested on a local copy (32 of 32).
+Next for 21a: the warehouse's next gate pass is the first real check; Zain and Saad to wait for Saved before refreshing. Ask Zain: phone or PC, Wi-Fi or data, how long he waited, who pressed Review on DC 5255 (Zain may not review a truck he loaded).
+Open, designed with Tahir 21 Oct, NOT built (pictures only, no code):
+- Header: add a Morning view tab to the existing O2S header, no other layout change; clicking it opens a clean morning view in its own skin (steel, ash, graphite, light tones).
+- FOC samples leaves the header; "+ New order" on Today becomes "+ New entry" with a choice: Commercial order or FOC sample (each person sees only what their role allows); the list of all samples becomes a Back Office tile.
+- Morning view reads the October target from Sales & Budget, Client monthly sales targets (masters.salesTargetsMonthly[client][fy][YYYY-MM]); a client with no figure shows not set and stays out of the total. Tahir to enter the monthly targets from 22 Oct.
+The morning view itself is still a prototype outside O2S (a private claude.ai page on the 19 Oct data); nothing of it is in git, by Tahir's ruling.

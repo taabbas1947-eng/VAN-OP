@@ -193,10 +193,35 @@ module.exports = function mountC2mRoutes(app, deps) {
     const seeCost = has('see.cost'), seePrice = has('see.price');
     const match = engine.matcher(D);
     await applyDueRevisions();
-    const [prices] = await q('SELECT * FROM c2m_price ORDER BY id');
+    // Speed: the reads below do not depend on each other, so all are sent together (one wait, not one after another).
+    // They start after applyDueRevisions so they see what it applied. A read nobody uses is harmless; its error is ignored. A list-only role (it returns early) prefetches nothing and reads as before.
+    const pre = new Map(); const pq = sql => (pre.has(sql) ? pre.get(sql) : q(sql));
+    if (has('see.products') || !has('see.granted_lists')) for (const sql of ['SELECT * FROM c2m_price ORDER BY id',
+      'SELECT * FROM c2m_o2s_po_line ORDER BY received, po',
+      'SELECT id, name, nutrient_fields, nutrient_role FROM c2m_material_type ORDER BY nutrient_role, name',
+      'SELECT list_name, data_json, issued, valid_till FROM c2m_list_price ORDER BY id',
+      "SELECT * FROM c2m_reapproval WHERE status='open' ORDER BY id",
+      "SELECT MIN(at) at FROM c2m_recipe_step WHERE action='imported'",
+      'SELECT * FROM c2m_import_item ORDER BY status, id',
+      'SELECT * FROM c2m_setting_request ORDER BY id DESC LIMIT 20',
+      'SELECT r.*, c.brand, cu.name customer FROM c2m_target_request r JOIN c2m_client_product c ON c.id=r.client_product_id JOIN c2m_customer cu ON cu.id=c.customer_id ORDER BY r.id DESC LIMIT 30',
+      'SELECT * FROM c2m_list_grant ORDER BY username',
+      "SELECT a.username, a.name, r.role FROM user_module_roles r JOIN auth_users a ON a.username=r.username WHERE r.module='c2m'",
+      'SELECT * FROM c2m_monthly_actual ORDER BY month',
+      'SELECT month, kind, data_json, done_by, done_at FROM c2m_monthly_check ORDER BY month',
+      'SELECT * FROM c2m_source ORDER BY id',
+      'SELECT * FROM c2m_field_map ORDER BY id',
+      'SELECT * FROM c2m_sync_run ORDER BY id DESC LIMIT 1',
+      'SELECT at, by_user, entity, entity_id, action, why FROM c2m_audit ORDER BY id DESC LIMIT 60',
+      "SELECT entity_id, by_user, at FROM c2m_audit WHERE entity='product_name' ORDER BY id DESC LIMIT 400",
+      "SELECT c.id, c.brand, c.o2s_brand, c.sold_per, GROUP_CONCAT(k.pack_size ORDER BY k.pack_size) sizes FROM c2m_client_product c LEFT JOIN c2m_client_pack k ON k.client_product_id=c.id WHERE c.channel='VAN brand' AND c.active=0 GROUP BY c.id, c.brand, c.o2s_brand, c.sold_per ORDER BY c.brand",
+      'SELECT id, list_name, data_json FROM c2m_list_price ORDER BY id',
+      "SELECT * FROM c2m_list_revision WHERE (status='approved' AND applied=0) OR id > (SELECT COALESCE(MAX(id), 0) - 30 FROM c2m_list_revision) ORDER BY id DESC",
+      "SELECT entity_id FROM c2m_audit WHERE entity='list_revision' AND action='replaced' AND why LIKE 'Closed at the carry-over%'"]) { const pr = q(sql); pr.catch(() => {}); pre.set(sql, pr); }
+    const [prices] = await pq('SELECT * FROM c2m_price ORDER BY id');
     const approvedPrice = inForce(prices, today()); const nextPrice = new Map();
     prices.filter(p => p.status === 'approved' && String(p.valid_from).slice(0, 10) > today()).sort((a, b) => String(b.valid_from).localeCompare(String(a.valid_from))).forEach(p => nextPrice.set(p.client_pack_id, p)); // earliest wins
-    const [poLines] = await q('SELECT * FROM c2m_o2s_po_line ORDER BY received, po');
+    const [poLines] = await pq('SELECT * FROM c2m_o2s_po_line ORDER BY received, po');
     const lastPo = new Map(); poLines.forEach(l => { const p = match(l.customer_name, l.brand, l.channel, l.pack); if (p && l.net_price > 0 && !engine.isVanBrand(D.cpById.get(p.client_product_id))) lastPo.set(p.id, Number(l.net_price)); }); // a VAN brand pack is priced per channel by its lists (D-44)
 
     const products = D.cps.map(cp => {
@@ -237,12 +262,12 @@ module.exports = function mountC2mRoutes(app, deps) {
     if (has('see.materials')) {
       // Material master without rates: Himayat's screen (ruled 16 Oct)
       out.materials = [...D.rates.values()].map(g => ({ gradeId: g.gradeId, materialId: g.materialId, name: g.name, grade: g.grade, unit: g.unit, typeId: g.typeId, type: g.type, role: g.role, fields: g.fields, nutrients: g.nutrients }));
-      const [mt] = await q('SELECT id, name, nutrient_fields, nutrient_role FROM c2m_material_type ORDER BY nutrient_role, name'); out.materialTypes = mt;
+      const [mt] = await pq('SELECT id, name, nutrient_fields, nutrient_role FROM c2m_material_type ORDER BY nutrient_role, name'); out.materialTypes = mt;
     }
     if (!has('see.products') && has('see.granted_lists')) {
       const [grants] = await q('SELECT grant_kind, grant_value FROM c2m_list_grant WHERE username=?', [user]);
       out.grants = grants;
-      const [lp] = await q('SELECT list_name, data_json, issued, valid_till FROM c2m_list_price ORDER BY id');
+      const [lp] = await pq('SELECT list_name, data_json, issued, valid_till FROM c2m_list_price ORDER BY id');
       const lg = grants.filter(g => g.grant_kind === 'list').map(g => g.grant_value);
       const farmerCols = [['farmer_pb', 'pb'], ['web', 'pb'], ['farmer_sn', 'sn'], ['farmer_snc', 'snc']].filter(([a]) => lg.includes(a)).map(([, c]) => c);
       const L = groupLists(lp, farmerCols, await listMaster()), may = new Set(lg.map(g => PL.AUDIENCES[g] ? listOf(g) : null));
@@ -251,7 +276,7 @@ module.exports = function mountC2mRoutes(app, deps) {
       out.products = []; out.recipes = [];
       return out;
     }
-    const [rv] = await q("SELECT * FROM c2m_reapproval WHERE status='open' ORDER BY id");
+    const [rv] = await pq("SELECT * FROM c2m_reapproval WHERE status='open' ORDER BY id");
     if (has('see.margin')) out.reapprovals = rv.map(r => ({ id: r.id, cause: r.cause, items: JSON.parse(r.items_json), createdAt: r.created_at }));
     if (seeCost) {
       out.rates = [...D.rates.values()].map(g => ({ gradeId: g.gradeId, name: g.name, grade: g.grade, unit: g.unit, type: g.type, fields: g.fields, nutrients: g.nutrients, rate: g.rate, date: g.date, source: g.source, history: g.history.slice(0, 6) }));
@@ -259,7 +284,7 @@ module.exports = function mountC2mRoutes(app, deps) {
       out.packingBills = [...D.packing.billById.values()];
       out.rules = D.rules;
       out.productTypes = D.productTypes;
-      if (!out.materialTypes) { const [mt] = await q('SELECT id, name, nutrient_fields, nutrient_role FROM c2m_material_type ORDER BY nutrient_role, name'); out.materialTypes = mt; }
+      if (!out.materialTypes) { const [mt] = await pq('SELECT id, name, nutrient_fields, nutrient_role FROM c2m_material_type ORDER BY nutrient_role, name'); out.materialTypes = mt; }
     }
     if (has('see.margin')) {
       const [sales] = await q(`SELECT t.id, t.truck_date, t.kg, t.po, t.dc, p.customer_name, p.channel, p.brand, p.pack, p.net_price FROM c2m_o2s_truck t JOIN c2m_o2s_po_line p ON p.line_id=t.line_id ORDER BY t.truck_date`);
@@ -305,31 +330,31 @@ module.exports = function mountC2mRoutes(app, deps) {
       out.poLines = poLines.filter(l => l.received && String(l.received).slice(0, 10) >= fy0).map(l => { const p = match(l.customer_name, l.brand, l.channel, l.pack); const cp = p ? D.cpById.get(p.client_product_id) : null; const cust = cp && !engine.isVanBrand(cp) ? D.custById.get(cp.customer_id) : custOf(l.customer_name);
         const pgrp = l.channel === 'White Label' ? 'White label' : 'VAN brand', pbl = lib.buyerLine(pgrp, cp && !engine.isVanBrand(cp) ? cp.channel : (engine.CHANNEL_NAME[l.channel] || l.channel), cust ? cust.name : l.customer_name);
         return { po: l.po, received: l.received ? String(l.received).slice(0, 10) : null, cust: pbl.line, cat: pbl.cat, grp: pgrp, brand: l.brand, pack: Number(l.pack), packId: p ? p.id : null, kg: Number(l.ordered_kg), price: Number(l.net_price), foc: !(Number(l.net_price) > 0) }; });
-      const [[ia]] = await q("SELECT MIN(at) at FROM c2m_recipe_step WHERE action='imported'"); out.importedAt = ia && ia.at ? String(ia.at) : null; // the day Yawar's sheets were loaded: age of the sheet items
+      const [[ia]] = await pq("SELECT MIN(at) at FROM c2m_recipe_step WHERE action='imported'"); out.importedAt = ia && ia.at ? String(ia.at) : null; // the day Yawar's sheets were loaded: age of the sheet items
       const [[nd]] = await q('SELECT COUNT(*) n FROM c2m_price_doc WHERE ref LIKE ?', [`VAN/PL/${today().slice(0, 4)}/%`]); out.nextDocRef = `VAN/PL/${today().slice(0, 4)}/${String(Number(nd.n) + 1).padStart(3, '0')}`;
-      const [imp] = await q('SELECT * FROM c2m_import_item ORDER BY status, id'); out.imports = imp;
-      const [sreq] = await q('SELECT * FROM c2m_setting_request ORDER BY id DESC LIMIT 20'); out.settingRequests = sreq.map(r => ({ ...r, byAdmin: byAd(r.by_user) }));
-      const [treq] = await q('SELECT r.*, c.brand, cu.name customer FROM c2m_target_request r JOIN c2m_client_product c ON c.id=r.client_product_id JOIN c2m_customer cu ON cu.id=c.customer_id ORDER BY r.id DESC LIMIT 30'); out.targetRequests = treq.map(r => ({ ...r, byAdmin: byAd(r.by_user) }));
+      const [imp] = await pq('SELECT * FROM c2m_import_item ORDER BY status, id'); out.imports = imp;
+      const [sreq] = await pq('SELECT * FROM c2m_setting_request ORDER BY id DESC LIMIT 20'); out.settingRequests = sreq.map(r => ({ ...r, byAdmin: byAd(r.by_user) }));
+      const [treq] = await pq('SELECT r.*, c.brand, cu.name customer FROM c2m_target_request r JOIN c2m_client_product c ON c.id=r.client_product_id JOIN c2m_customer cu ON cu.id=c.customer_id ORDER BY r.id DESC LIMIT 30'); out.targetRequests = treq.map(r => ({ ...r, byAdmin: byAd(r.by_user) }));
       const [nt] = await q("SELECT * FROM c2m_notice WHERE for_role=? ORDER BY id DESC LIMIT 20", [role]); out.notices = nt;
-      const [gr] = await q('SELECT * FROM c2m_list_grant ORDER BY username'); out.grants = gr;
-      const [people] = await q("SELECT a.username, a.name, r.role FROM user_module_roles r JOIN auth_users a ON a.username=r.username WHERE r.module='c2m'"); const RR = await loadRoles(); out.people = people.map(p => { const r = RR.get(p.role); return { ...p, roleLabel: r ? r.label : p.role, grantee: isViewerRole(r) }; });
-      const [lp] = await q('SELECT list_name, data_json, issued, valid_till FROM c2m_list_price ORDER BY id'); out.lists = groupLists(lp, null, await listMaster());
+      const [gr] = await pq('SELECT * FROM c2m_list_grant ORDER BY username'); out.grants = gr;
+      const [people] = await pq("SELECT a.username, a.name, r.role FROM user_module_roles r JOIN auth_users a ON a.username=r.username WHERE r.module='c2m'"); const RR = await loadRoles(); out.people = people.map(p => { const r = RR.get(p.role); return { ...p, roleLabel: r ? r.label : p.role, grantee: isViewerRole(r) }; });
+      const [lp] = await pq('SELECT list_name, data_json, issued, valid_till FROM c2m_list_price ORDER BY id'); out.lists = groupLists(lp, null, await listMaster());
       out.wlLists = await wlListData(D, approvedPrice, D.customers.filter(c => c.grp !== 'VAN brand').map(c => c.name));
-      const [ma] = await q('SELECT * FROM c2m_monthly_actual ORDER BY month'); out.actuals = ma;
-      const [mc] = await q('SELECT month, kind, data_json, done_by, done_at FROM c2m_monthly_check ORDER BY month'); out.checks = mc.map(c => ({ ...c, data: (() => { try { return c.data_json ? JSON.parse(c.data_json) : null; } catch (_) { return null; } })(), data_json: undefined }));
-      const [src] = await q('SELECT * FROM c2m_source ORDER BY id'); out.sources = src;
-      const [fm] = await q('SELECT * FROM c2m_field_map ORDER BY id'); out.fieldMap = fm;
-      const [sr] = await q('SELECT * FROM c2m_sync_run ORDER BY id DESC LIMIT 1'); out.lastSync = sr[0] || null;
-      const [au] = await q('SELECT at, by_user, entity, entity_id, action, why FROM c2m_audit ORDER BY id DESC LIMIT 60'); out.audit = au;
-      const [nl] = await q("SELECT entity_id, by_user, at FROM c2m_audit WHERE entity='product_name' ORDER BY id DESC LIMIT 400"); out.nameLog = {}; for (const x of nl) if (!out.nameLog[x.entity_id]) out.nameLog[x.entity_id] = { by: x.by_user, at: x.at }; // last name change per product (D-85)
-      { const [off] = await q("SELECT c.id, c.brand, c.o2s_brand, c.sold_per, GROUP_CONCAT(k.pack_size ORDER BY k.pack_size) sizes FROM c2m_client_product c LEFT JOIN c2m_client_pack k ON k.client_product_id=c.id WHERE c.channel='VAN brand' AND c.active=0 GROUP BY c.id, c.brand, c.o2s_brand, c.sold_per ORDER BY c.brand"); out.vanOff = off.map(r => ({ id: r.id, brand: r.brand, names: namesOf(r), soldPer: r.sold_per, sizes: String(r.sizes || '').split(',').filter(Boolean).map(Number) })); } // VAN brand products out of use (Tahir, 20 Oct 2026)
+      const [ma] = await pq('SELECT * FROM c2m_monthly_actual ORDER BY month'); out.actuals = ma;
+      const [mc] = await pq('SELECT month, kind, data_json, done_by, done_at FROM c2m_monthly_check ORDER BY month'); out.checks = mc.map(c => ({ ...c, data: (() => { try { return c.data_json ? JSON.parse(c.data_json) : null; } catch (_) { return null; } })(), data_json: undefined }));
+      const [src] = await pq('SELECT * FROM c2m_source ORDER BY id'); out.sources = src;
+      const [fm] = await pq('SELECT * FROM c2m_field_map ORDER BY id'); out.fieldMap = fm;
+      const [sr] = await pq('SELECT * FROM c2m_sync_run ORDER BY id DESC LIMIT 1'); out.lastSync = sr[0] || null;
+      const [au] = await pq('SELECT at, by_user, entity, entity_id, action, why FROM c2m_audit ORDER BY id DESC LIMIT 60'); out.audit = au;
+      const [nl] = await pq("SELECT entity_id, by_user, at FROM c2m_audit WHERE entity='product_name' ORDER BY id DESC LIMIT 400"); out.nameLog = {}; for (const x of nl) if (!out.nameLog[x.entity_id]) out.nameLog[x.entity_id] = { by: x.by_user, at: x.at }; // last name change per product (D-85)
+      { const [off] = await pq("SELECT c.id, c.brand, c.o2s_brand, c.sold_per, GROUP_CONCAT(k.pack_size ORDER BY k.pack_size) sizes FROM c2m_client_product c LEFT JOIN c2m_client_pack k ON k.client_product_id=c.id WHERE c.channel='VAN brand' AND c.active=0 GROUP BY c.id, c.brand, c.o2s_brand, c.sold_per ORDER BY c.brand"); out.vanOff = off.map(r => ({ id: r.id, brand: r.brand, names: namesOf(r), soldPer: r.sold_per, sizes: String(r.sizes || '').split(',').filter(Boolean).map(Number) })); } // VAN brand products out of use (Tahir, 20 Oct 2026)
       out.freight = D.freight;
-      const [li0] = await q('SELECT id, list_name, data_json FROM c2m_list_price ORDER BY id'); const li = li0.filter(r => MASTER_LISTS.includes(r.list_name)); out.listItems = li.map(r => ({ id: r.id, list: r.list_name, data: JSON.parse(r.data_json) }));
+      const [li0] = await pq('SELECT id, list_name, data_json FROM c2m_list_price ORDER BY id'); const li = li0.filter(r => MASTER_LISTS.includes(r.list_name)); out.listItems = li.map(r => ({ id: r.id, list: r.list_name, data: JSON.parse(r.data_json) }));
       out.listMaster = { carried: await masterOn(), old: li0.length - li.length }; // 1.0.3 (D-87): the carry-over, and the rows kept read only that left the lists
       out.listOld = li0.filter(r => !MASTER_LISTS.includes(r.list_name)).map(r => { const d = JSON.parse(r.data_json); const l = String(r.list_name).replace(/_old$/, ''); const pk1 = d.packId != null ? D.packs.find(k => Number(k.id) === Number(d.packId)) : null; const c1 = pk1 ? D.cps.find(c => Number(c.id) === Number(pk1.client_product_id)) : null; const z1 = lib.rowSize(l, d); const fitsP = pk1 && (!z1 || !c1 || (Math.abs(z1.v - Number(pk1.pack_size)) < 1e-6 && z1.u === (c1.sold_per || 'kg')));
         return { id: r.id, list: l, packId: fitsP ? Number(d.packId) : null, name: `${d.p || ''}${l !== 'farmer' && d.pack ? ' ' + d.pack : ''}`, prices: Object.fromEntries((LIST_FIELDS[l] || []).map(f => [f, d[f] ?? null])), left: d.left || null }; }); // rows off the lists, with their prices, read only (Tahir, 20 Oct 2026)
-      const [lr] = await q("SELECT * FROM c2m_list_revision WHERE (status='approved' AND applied=0) OR id > (SELECT COALESCE(MAX(id), 0) - 30 FROM c2m_list_revision) ORDER BY id DESC"); const liById = new Map(li.map(r => [r.id, JSON.parse(r.data_json)]));
-      { const [cc] = await q("SELECT entity_id FROM c2m_audit WHERE entity='list_revision' AND action='replaced' AND why LIKE 'Closed at the carry-over%'"); const ccs = new Set(cc.map(x => Number(x.entity_id))); // revisions closed at the carry-over, shown with their prices (review 1.0.3, third check)
+      const [lr] = await pq("SELECT * FROM c2m_list_revision WHERE (status='approved' AND applied=0) OR id > (SELECT COALESCE(MAX(id), 0) - 30 FROM c2m_list_revision) ORDER BY id DESC"); const liById = new Map(li.map(r => [r.id, JSON.parse(r.data_json)]));
+      { const [cc] = await pq("SELECT entity_id FROM c2m_audit WHERE entity='list_revision' AND action='replaced' AND why LIKE 'Closed at the carry-over%'"); const ccs = new Set(cc.map(x => Number(x.entity_id))); // revisions closed at the carry-over, shown with their prices (review 1.0.3, third check)
         const [crv] = ccs.size ? await q(`SELECT id, list_name, items_json, reason, back_reason, valid_from FROM c2m_list_revision WHERE id IN (${qs([...ccs])})`, [...ccs]) : [[]]; out.closedAtCarry = crv.map(r => ({ id: r.id, list: r.list_name, reason: r.reason, back: r.back_reason, items: JSON.parse(r.items_json).map(it => ({ product: it.product, pack: it.pack, to: it.to })) })); }
       out.listRevisions = lr.map(r => { const open = r.status === 'proposed' || r.status === 'sent_back' || (r.status === 'approved' && !Number(r.applied));
         return { ...r, byAdmin: byAd(r.proposed_by), items: JSON.parse(r.items_json).map(it => open ? itemNow(D, liById, it) : it), items_json: undefined }; }); /* a revision still open shows each row under its name today (review 1.0.2, design finding 5) */

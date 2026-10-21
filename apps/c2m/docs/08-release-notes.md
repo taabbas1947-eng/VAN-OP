@@ -1,5 +1,5 @@
 # 8. Release notes and change log
-- **Speed fix (21 Oct 2026, after piece 3):** the state call took about 4.6 seconds on live because loadAll asked the database 16 questions one after another. They now run together in one wait (c2m-engine.js, loadAll). Nothing else changed; all suites pass.
+- **Speed fix (21 Oct 2026, after piece 3):** the state call took about 4.6 seconds on live because loadAll asked the database 16 questions one after another. They now run together in one wait (c2m-engine.js, loadAll). Nothing else changed; all suites pass. Second step: in c2m-routes.js (build) the 22 plain reads of the state call now start together after applyDueRevisions, instead of one after another; a list-only role (KAM) reads as before. The state output was compared before and after for 3 roles and is identical; independent review found no defect.
 
 Version 1.0.3 · 20 Oct 2026 · Owner: Claude records; Tahir approves releases · Rule: R-5h item 8 (D-20)
 Changed in 1.0.3 (20 Oct 2026; 1.0.2 went live on 20 Oct at 11:24): entry 1.0.3 added; 1.0.2 went live on 20 Oct at 11:24.

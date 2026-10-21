@@ -6933,3 +6933,17 @@ For each problem raised: read it, check it against live data (read-only), ask Ta
 Known limits not built (minor): Defer allowed on the new jobs; truck release sign sheet has no HA pending; divert and stock move do not carry the provisional mark; a referred truck goes on a complaint only after its delivery is confirmed.
 Still open from before: DC 5244 follow-up from (20); held items in (20).
 RESUME HERE: team feedback on 17b and 17c.
+
+## 21 Oct 2026 (late) - RESUME HERE: build 2026-10-21a, a save is shown, kept and tried again (MODULE: O2S). NOT PUSHED.
+Raised by Zain Ghaffar via Tahir, 22:40: gate pass "issued", then back after a refresh; the same with review.
+Found (read-only, live data): DC 5255, QA passed 21:38:51, GP-0180 logged once at 21:53:51 by Zain; no review recorded; nothing saved by anyone after 21:53. Each click writes its log line in the same save, so the earlier tries never reached the server. A guarded test save (X-Base-Rev 0, refused, rev 15276 before and after, nothing changed) took 9.3 s for the 2.7 MB data. Cause in the code: saveNow caught a dropped connection and any non-OK answer (500/502/503/413, 409 without a copy) and ignored them; a refresh while the upload was out lost it; no message. Also on the 19 Oct data: 5 cases (Aug to Sep, Plant Manager) of the same gate pass number logged twice 4 to 13 s apart, i.e. saved then undone; these are before the 26c baseline fix (26 Sep) and not seen since.
+Built (app only, no server change), Tahir's yes 23:00:
+- Saving note after 1.2 s; red Not saved yet with Try now; retries 3, 6, 12, 24, then every 30 s, +-20%; the same 4xx (not 408/429) or a 409 without a copy stops after 5 tries and says so; Saved when it lands.
+- Change counter (_saveChg): pending clears only when the newest change has landed; a late older reply cannot clear it.
+- Leave site question while unsaved (beforeunload); Sign out buttons call logoutAsk (confirm), logout() unchanged; sign in and boot start clean (saveStateReset); a reply that comes back after a new sign-in is ignored (_saveSess).
+- Guide (How the app works: When you press a button), changelog 2026-10-21a, BUILD_ID 2026-10-21a; System documentation LG-22, D-331, TS-01, TS-05 via build_sysdoc.py.
+Files: apps/o2s/o2s.html; apps/o2s/tests/savestate21a.test.js (new, 82 checks); audit17c.test.js (9n build pin == to >=, as audit16a); fixes26c.test.js (sandbox gets the 21a helpers); guide.test.js (+1); shell.test.js (Sign out pins accept logoutAsk); docs/System Documentation/decisions.json, logic.json, tests.json.
+Tests: full suite before and after on a clean clone at 4195f6f: identical except guide +1 and the new file; 13 files that already failed in that environment fail the same way. End to end on a local server with the 19 Oct data, desktop and phone, line cut and slowed on purpose: 32 of 32. Independent review: ship with changes, then ship after the changes.
+Known limits written in TS-05: a retry after a save whose reply was lost can, on a 409, put back a field someone else changed in those seconds (a save id would close it); the instant alert for such a save may wait for the 15 minute sweep. Every save still sends the whole data, so it is slow on a weak line.
+After the push: test on the live site (normal save, Saving note, Saved), then tell the warehouse to wait for Saved before refreshing.
+Not touched: the morning view prototype (separate, not in O2S, nothing in git).

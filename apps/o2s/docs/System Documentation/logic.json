@@ -2333,7 +2333,17 @@
     "tests/firstsave.test.js",
     "tests/fixes26c.test.js",
     "tests/fixesA.test.js",
-    "tests/audit15g.test.js"
+    "tests/audit15g.test.js",
+    "fn saveFailed",
+    "fn saveStateBusy",
+    "fn saveStateDone",
+    "fn saveTryNow",
+    "fn saveUnsaved",
+    "tests/savestate21a.test.js",
+    "D-331",
+    "fn saveStateReset",
+    "fn doLogin",
+    "fn logoutAsk"
    ],
    "blocks": [
     {
@@ -2408,11 +2418,14 @@
     {
      "list": [
       "The baseline after a clash is a copy of the server's own data at that rev, so my unsent change still counts as mine (26c). After a clean save the baseline is exactly what was sent (2026-07-30).",
-      "Retries: up to 5 straight away, then every 3 seconds, so a change is never left unsent.",
+      "Retries after a clash (409 with the server copy): up to 5 straight away, then every 3 seconds, so a change is never left unsent.",
       "New ids carry a random suffix per tab (nid), so 2 tabs cannot mint the same id (2026-07-28).",
       "DC and gate pass numbers are 'highest + 1' in each copy. After a merge, a number on 2 trucks is said once and logged, and Supply Chain gets a Duplicate number job until one is changed.",
       "Counters are not added up: a pack lost to a clash is caught by lineIssues ('lost') and goes on Needs you (07e).",
-      "Records that must survive 2 people at once carry ids: wait marks, close history, sent-back history, COA returns."
+      "Records that must survive 2 people at once carry ids: wait marks, close history, sent-back history, COA returns.",
+      "21a (21 Oct 2026): a save that fails (the line drops, no internet, the server answers 500, 502, 503, 413, or 409 without its copy, or O2S hits an error while saving) is not dropped. The change stays pending, a red note says Not saved yet with a Try now button, and O2S tries again after about 3, 6, 12 and 24 seconds, then every 30 seconds (each wait +-20%, so waiting tabs do not all send at once), until the server has it (saveFailed, SAVE_RETRY_MS). The same 4xx answer (not 408 or 429), or a 409 without a copy, is tried 5 times; then O2S stops trying by itself and says to press Try now or tell the COO. Before 21a all of these were caught and ignored, and the tab stopped pulling other people's changes.",
+      "21a: a save still out after 1.2 seconds shows Saving, do not refresh or close O2S yet (saveStateBusy). Each save() counts a change (_saveChg); a save that lands clears the pending mark, and says Saved, only when no newer change was made after its body was taken; otherwise the newer save keeps the page pending and shows its own state (saveStateDone). When the newest save lands, any retry still waiting is cancelled.",
+      "21a: refresh, close or sign out while a change is pending or out asks first (beforeunload, saveUnsaved; the Sign out buttons ask with confirm, logoutAsk). Most desktop browsers show the question; a phone browser may not, so the Guide says to wait for Saved. Not asked when O2S was updated (the Refresh banner) or when signed out: both say Not saved and to do the step again. Signing in, and opening O2S, start clean (saveStateReset), so no retry of the last person's page can fire under the new login. A reply that comes back after someone signed in again on the same page (for example the last person's sign-out save) is ignored (_saveSess), so it cannot move the new page's rev or baseline."
      ]
     },
     {

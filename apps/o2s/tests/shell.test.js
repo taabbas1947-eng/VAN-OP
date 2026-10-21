@@ -22,7 +22,7 @@ ok('Report Center is gone from the header (its screens are links under Plant)', 
 const rtn = grab('renderTopNav');
 ok('renderTopNav fills the header from NAV_GROUPS', /NAV_GROUPS\.forEach/.test(rtn) && /canView\(state\.role,id\)/.test(rtn));
 ok('the person pill shows name and TITLE, and explains role vs title', /personTitle\(/.test(rtn) && /decides your buttons/.test(rtn) && /what you are called/.test(rtn));
-ok('the person pill has Sign out', /onclick="logout\(\)"/.test(rtn));
+ok('the person pill has Sign out', /onclick="logout(Ask)?\(\)"/.test(rtn));   /* 21a: logoutAsk asks first while a change is unsaved */
 const rnd = grab('render');
 ok('render() stamps the screen on <body> and fills the header', /setAttribute\('data-screen',state\.screen\)/.test(rnd) && /renderTopNav\(\)/.test(rnd));
 ok('the old sidebar render no longer assumes #nav exists', /if\(\$\('nav'\)\) \$\('nav'\)\.innerHTML=html;/.test(grab('renderNav')));
@@ -523,7 +523,7 @@ ok('a browser that remembered All actions or the Dashboard lands on Today', /if\
 }
 /* 24p: a person changes their own password from the name menu (PLATFORM: POST /api/me/password) */
 {
-  ok('the name menu offers Change my password beside Sign out', /onclick="openMyPassword\(\)">Change my password<\/button><button class="qs-btn sm" onclick="logout\(\)">Sign out/.test(html));
+  ok('the name menu offers Change my password beside Sign out', /onclick="openMyPassword\(\)">Change my password<\/button><button class="qs-btn sm" onclick="logout(Ask)?\(\)">Sign out/.test(html));   /* 21a: the button asks first while a change is unsaved (logoutAsk) */
   const f = grab('openMyPassword'), sv = (() => { const i = html.indexOf('\nasync function saveMyPassword('); return i < 0 ? '' : H.matchBlock(i + 1, 'saveMyPassword'); })();
   ok('the sheet asks current, new, new again', /id="mp_cur"/.test(f) && /id="mp_new"/.test(f) && /id="mp_again"/.test(f) && /type="password"/.test(f) && /onclick="saveMyPassword\(\)"/.test(f));
   ok('it refuses a short or mismatched new password before calling the server', /nw\.length<6/.test(sv) && /nw!==ag/.test(sv));

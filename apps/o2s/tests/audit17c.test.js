@@ -194,7 +194,7 @@ const R = require('../notify-routes.js');
 ok('9k alerts: who', R.JOB_ROLES['Release provisionally'].join() === 'AQCM,QCM' && R.JOB_ROLES['Provisional lot UNFIT'].join() === 'Plant Manager' && R.JOB_ROLES['Provisional lot referred'].join() === 'COO');
 ok('9l Guide rule R-043', /<h3>Releasing a lot before the full certificate<\/h3>/.test(html) && /'Releasing a lot before the full certificate':'R-043'/.test(html));
 ok('9m RULES.txt', /R-043\tReleasing a lot before the full certificate/.test(fs.readFileSync(path.join(__dirname, '..', 'docs', 'System Documentation', 'RULES.txt'), 'utf8')));
-ok('9n change log and build', /ver:'2026-10-17c'/.test(html) && /var BUILD_ID='2026-10-17c'/.test(html));
+ok('9n change log and build', /ver:'2026-10-17c'/.test(html) && ((/var BUILD_ID='([^']+)'/.exec(html)||[])[1]||'')>='2026-10-17c');   /* 21a: a later build keeps 17c in the log; pinned like 16a */
 ok('9o My job notes for the lab, the Plant Manager and the COO', /var _n17c=\{'AQCM':/.test(html) && /'Plant Manager':'A Potassium Humate lot may be released provisionally/.test(html));
 ok('9q the final approval ends the release; a leave cover sees the release job', /h\.prov\.final=\{at:/.test(fnSrc('coaApprove')) && /Release provisionally/.test(fnSrc('labCoverSees')));
 ok('9r the button shows only when the lot may be released', /st==='draft'&&!provWhyNot\(b,_pvh\)/.test(html));

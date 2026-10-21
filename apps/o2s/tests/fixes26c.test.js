@@ -25,7 +25,7 @@ function world() {
   const timers = [];
   const ctx = { console, JSON, Math, Array, Object, String, Date,
     setTimeout: (f) => { timers.push(f); return timers.length; }, clearTimeout() {},
-    document: { activeElement: null, hidden: false }, toast() {}, render() {}, authed: () => true,
+    document: { activeElement: null, hidden: false, getElementById: () => null }, toast() {}, render() {}, authed: () => true,
     authHdr: () => ({}), setSession() {}, renderApp() {}, $: () => null, ensureState: s => s,
     tdAfterSave() {}, tdLastTaken: null, SESSION_KEYS: ['currentUser', 'role', 'screen', 'expanded'] };
   ctx.fetch = async (url, opt) => {
@@ -42,7 +42,10 @@ function world() {
     'let _baseSnapshot=null, _saveRetries=0;',
     grab('mergeDupNumbers'), 'function logAction(){}',
     grab('dataOnly'), grab('_srvCopy'), grab('_snapBase'), grab('_arrId'), grab('_eq'), grab('merge3'),
-    grab('save'), grab('saveNow')].join('\n'), ctx);
+    grab('save'), grab('saveNow'),
+    /* 21a: the save state note and the retry, which saveNow now calls */
+    (/\nvar _savesOut=[^\n]*;/.exec(H.html)||[''])[0], (/\nvar SAVE_RETRY_MS=[^\n]*;/.exec(H.html)||[''])[0],
+    ['saveRetryMs','saveStateEl','saveStateShow','saveStateHide','saveStateBusy','saveStateDone','saveFailed','saveTryNow','saveUnsaved'].map(grab).join('\n')].join('\n'), ctx);
   ctx.state = C(server.data); ctx.state.currentUser = { name: 'Abdul Majid' }; ctx.state.role = 'Production Manager';
   vm.runInContext('_snapBase()', ctx);
   const other = (n) => { server.data.orders[0].x = n; server.rev++; };   // someone else saves

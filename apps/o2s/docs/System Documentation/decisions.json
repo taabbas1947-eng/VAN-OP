@@ -18617,6 +18617,57 @@
      }
     }
    ]
+  },
+  {
+   "id": "D-331",
+   "title": "A save is shown, kept and tried again (21a)",
+   "owner": "COO (Tahir)",
+   "rules": [],
+   "status": "confirmed",
+   "src": [
+    "Zain Ghaffar's report, relayed by Tahir in chat, 21 Oct 2026 22:40 (gate pass issued, then back after a refresh; the same with review)",
+    "Live action log, 21 Oct 2026: GP-0180 on DC 5255 logged once, 21:53:51; QA passed 21:38:51",
+    "Tahir in chat, 21 Oct 2026 23:00 (yes to the app-only fix)",
+    "o2s.html changelog 2026-10-21a",
+    "fn saveNow, saveFailed, saveStateBusy, saveStateDone, saveUnsaved",
+    "tests/savestate21a.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-21"
+       ],
+       [
+        "Ruled by",
+        "Tahir (COO)"
+       ],
+       [
+        "Decision",
+        "Fix in the app only, no server change: show Saving when a save takes more than 1.2 seconds; on any failed save keep the change, say Not saved yet and try again by itself (3, 6, 12, 24, then every 30 seconds) with a Try now button; ask before a refresh or close while a change is unsaved; say Saved when it lands."
+       ],
+       [
+        "Why",
+        "Each save sends the whole O2S data (about 2.7 MB; 9.3 seconds on a good line, measured on the live server on 21 Oct). A refresh before it landed, or a dropped line or a 500/502/503 answer, lost the change in silence: the screen said done, the server never had it."
+       ],
+       [
+        "Not changed",
+        "The save still sends the whole data, so a save is still slow on a weak line; sending only what changed is a server change and was not part of this ruling."
+       ],
+       [
+        "After the review",
+        "The independent review (21 Oct 2026, ship with changes) found that a newer change could lose its pending mark when an older save landed, and that signing out could leave a stuck note and a false Leave site question. Fixed before the push: a change counter, a clean start at sign in, a question at sign out, +-20% on the waits, and a stop after 5 identical 4xx answers."
+       ]
+      ]
+     }
+    }
+   ]
   }
  ]
 }

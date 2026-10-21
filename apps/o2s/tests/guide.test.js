@@ -156,4 +156,5 @@ ok('The Rules: the month on the bag (16 Oct, 16b)', /<h3>The month on the bag<\/
 ok('My job: a New on 16 Oct (16b) note for every role touched', ['Production','Production Manager','QA Inspector','Plant Manager','COO'].every(r => new RegExp("var _n16b=\\{[\\s\\S]*'" + r + "':").test(grab('guideMyJob'))));
 ok('The Rules: the truck checks the Mfg month on the bag (16b)', /the Mfg month on the bag/.test(grab('guideRules')));
 ok('Guide has a System documentation tab for everyone (16a)', /\['sysdoc','System documentation'\]/.test(grab('guideTabsHTML')));
+ok('How the app works: Saving, Not saved yet, Try now and Saved (21 Oct, 21a)', /<h2>When you press a button<\/h2>/.test(grab('guideHow')) && /Not saved yet/.test(grab('guideHow')) && /Try now/.test(grab('guideHow')) && /a refresh before it is saved loses the change/i.test(grab('guideHow')) && /on a phone, wait for <b>Saved<\/b>/.test(grab('guideHow')));
 process.exitCode = report('The Guide keeps up (24z)') ? 1 : 0;

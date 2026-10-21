@@ -697,6 +697,12 @@
         "The What's changed notice shows once per version per person.",
         "-",
         "21 passed, 0 failed"
+       ],
+       [
+        "savestate21a.test.js",
+        "A failed save (dropped line, no internet, 500, 502, 503, 413, a 409 without the server copy, an error in the merge) is shown as Not saved and tried again until it lands; a slow save says Saving; 2 saves at once keep the page pending until the newest lands; sign out and sign in start clean; the same 4xx stops after 5 tries.",
+        "-",
+        "82 passed, 0 failed (21 Oct 2026)"
        ]
       ]
      }
@@ -970,7 +976,10 @@
       "Reports show the first 500 rows; older rows need the period buttons or export.",
       "If Saad loads and Shoaib issues the gate pass (or the reverse), only the COO can review, or the 2 hour lapse lets the Plant Manager release.",
       "A fresh install needs the Setup steps for the Production Manager as Production lead (13 Oct (7)).",
-      "17b: a batch held for another client’s expected PO stops only the batch from showing stuck; an order line still waiting keeps its own clock (Pack from base stuck after 7 days, Stuck at packing for Supply Chain). Confirmed by Tahir in D-327."
+      "17b: a batch held for another client’s expected PO stops only the batch from showing stuck; an order line still waiting keeps its own clock (Pack from base stuck after 7 days, Stuck at packing for Supply Chain). Confirmed by Tahir in D-327.",
+      "Every save sends the whole O2S data (about 2.7 MB on 21 Oct 2026; 9.3 seconds measured on a good line). Since 21a a slow or failed save is shown and tried again, but it is still slow on a weak line.",
+      "21a known risk: if a save reached the server but its reply was lost (a timeout after the server took it), the automatic retry comes back as a clash and merges with mine wins; if someone else changed the same field in that gap (for example Saad reviewing the same truck), the retry can put the field back. It needs a save that landed with a lost reply plus a change to the same field within seconds; it was possible before 21a on the person's next click. Not fixed in 21a; a save id on each upload would close it.",
+      "21a: when a retry follows a save whose reply was lost, the instant alert for that save may not go out; the 15 minute sweep may still send it."
      ]
     }
    ]

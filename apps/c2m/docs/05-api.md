@@ -267,3 +267,7 @@ Changed: recipes/new refuses a follower; recipes/:id/advance writes cost version
 
 - POST /api/c2m/prices/propose: a price with paise is refused (400) before the pack is read: "A client price is a whole rupee. Type 257 (the next whole rupee) or another whole number."
 - GET /api/c2m/pricedocs/:id/pdf and the list preview: the white label list has a field ppack (Price per pack, Rs ex FED); the farmer and website lists have a field pack; every list prints 1 signature (Issued by Yawar Hussain). State wlLists rows now carry size (kg or L), famName and pack in C2M's form (500 ml). Documents issued earlier reprint from their saved fields: without Pack size the pack stays in the product name; the title month is the issue month; the Approved by line is gone.
+
+## 5.17 Name on price lists (22 Oct 2026; owner: Tahir; D-109)
+
+- POST /api/c2m/customers/:id takes printName (text, up to 160, empty clears; right customer.edit). With migration 004 not run it answers 409 and saves nothing. GET /api/c2m/state: customers[].printName and printNameReady. The white label list and its document print printName, else the C2M name; the issued document stores the name it printed.

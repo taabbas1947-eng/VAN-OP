@@ -358,7 +358,7 @@ module.exports = function mountC2mRoutes(app, deps) {
         const [crv] = ccs.size ? await q(`SELECT id, list_name, items_json, reason, back_reason, valid_from FROM c2m_list_revision WHERE id IN (${qs([...ccs])})`, [...ccs]) : [[]]; out.closedAtCarry = crv.map(r => ({ id: r.id, list: r.list_name, reason: r.reason, back: r.back_reason, items: JSON.parse(r.items_json).map(it => ({ product: it.product, pack: it.pack, to: it.to })) })); }
       out.listRevisions = lr.map(r => { const open = r.status === 'proposed' || r.status === 'sent_back' || (r.status === 'approved' && !Number(r.applied));
         return { ...r, byAdmin: byAd(r.proposed_by), items: JSON.parse(r.items_json).map(it => open ? itemNow(D, liById, it) : it), items_json: undefined }; }); /* a revision still open shows each row under its name today (review 1.0.2, design finding 5) */
-      out.customers = D.customers.map(c => ({ id: c.id, name: c.name, grp: c.grp, segment: c.segment, priceRule: c.price_rule, cycle: c.price_cycle, region: c.region, o2sNames: c.o2s_names }));
+      out.customers = D.customers.map(c => ({ id: c.id, name: c.name, grp: c.grp, segment: c.segment, priceRule: c.price_rule, cycle: c.price_cycle, region: c.region, o2sNames: c.o2s_names, printName: c.print_name || '' })); out.printNameReady = D.customers.length > 0 && 'print_name' in D.customers[0];
       const [docs] = [fs.readdirSync(path.join(__dirname, 'docs')).filter(f => f.endsWith('.md')).sort()]; out.docs = docs;
     } else {
       out.docs = fs.readdirSync(path.join(__dirname, 'docs')).filter(f => docAllowed(acc, f)).sort();
@@ -392,7 +392,7 @@ module.exports = function mountC2mRoutes(app, deps) {
         const ap = approvedPrice.get(p.id); if (!ap) continue;
         rows.push({ packId: p.id, typeId: cp.base_product_id == null ? null : Number(cp.base_product_id), fam: lib.familyColour(cp.base_product_id, D.productTypes), famName: cp.base_product_id == null ? 'Other' : ((D.productTypes.find(t => Number(t.id) === Number(cp.base_product_id)) || {}).name || 'Other'), size: Number(p.pack_size), brand: cp.brand, spec: cp.spec, pack: lib.officialPack(p.pack_size, cp.sold_per), cur: Number(ap.price), prev: ap.prev_price == null ? null : Number(ap.prev_price), reason: ap.reason, from: String(ap.valid_from).slice(0, 10) });
       }
-      out[name] = { name: cust.name, rule: cust.price_rule, rows };
+      out[name] = { name: cust.print_name || cust.name, rule: cust.price_rule, rows }; // the name the list prints (D-109)
     }
     return out;
   }
@@ -1195,11 +1195,17 @@ module.exports = function mountC2mRoutes(app, deps) {
     res.json({ ok: true });
   }));
   app.post('/api/c2m/customers/:id', can('customer.edit'), wrap(async (req, res) => {
-    const { priceRule, cycle, region, o2sNames } = req.body || {};
+    const { priceRule, cycle, region, o2sNames, printName } = req.body || {};
     const [[c]] = await q('SELECT * FROM c2m_customer WHERE id=?', [req.params.id]); if (!c) throw bad('Customer not found.');
     if (priceRule && !['time', 'po', 'list'].includes(priceRule)) throw bad('Price rule is time based, per PO, or list.');
     const names = o2sNames == null ? c.o2s_names : String(o2sNames).split('|').map(x => x.trim()).filter(Boolean).join('|');
     if (!names) throw bad('Keep at least 1 O2S name.');
+    if (printName != null) {
+      if (typeof printName !== 'string') throw bad('The name on price lists must be text.'); // D-109: the name price lists print; empty = the C2M name
+      const pn = String(printName).replace(/\s+/g, ' ').trim().slice(0, 160);
+      try { await q('UPDATE c2m_customer SET print_name=? WHERE id=?', [pn || null, c.id]); } catch (e) { if (e && e.code === 'ER_BAD_FIELD_ERROR') throw Object.assign(new Error('The name on price lists cannot be saved yet: migration 004 (c2m_customer.print_name) has not been run. Ask IT to run it.'), { status: 409 }); throw e; }
+      if ((c.print_name || null) !== (pn || null)) await audit(req.c2m.user, 'customer', c.id, 'print_name', c.print_name || null, pn || null, 'Name on price lists (D-109)');
+    }
     await q('UPDATE c2m_customer SET price_rule=?, price_cycle=?, region=?, o2s_names=? WHERE id=?', [priceRule || c.price_rule, cycle == null ? c.price_cycle : String(cycle).slice(0, 40) || null, region == null ? c.region : String(region).slice(0, 40) || null, names.slice(0, 600), c.id]);
     await audit(req.c2m.user, 'customer', c.id, 'update', { rule: c.price_rule, cycle: c.price_cycle, region: c.region, o2s: c.o2s_names }, { priceRule, cycle, region, o2sNames: names }, null);
     res.json({ ok: true });
@@ -1934,7 +1940,7 @@ module.exports = function mountC2mRoutes(app, deps) {
       const wl = (await wlListData(D, ap, [b.client]))[b.client]; if (!wl) throw bad('Pick a white label client.');
       // Effective date: Yawar's date if he set one, else the latest start date of this client's approved prices (review M3)
       const last = wl.rows.map(r => String(ap.get(r.packId).valid_from).slice(0, 10)).sort().pop();
-      return { ...base, eff: base.eff || last || today(), addressee: D.customers.find(c => c.name === b.client).name, rule: wl.rule, wl: wl.rows };
+      return { ...base, eff: base.eff || last || today(), addressee: (() => { const cu = D.customers.find(c => c.name === b.client); return cu.print_name || cu.name; })(), rule: wl.rule, wl: wl.rows };
     }
     const list = aud === 'dist' ? L.dist : aud === 'dealer' ? L.dealer : L.farmer;
     return { ...base, list };

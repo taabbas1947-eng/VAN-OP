@@ -129,6 +129,7 @@ The full record with every option and discussion is "E:\Cost and Pricing\Costing
 | D-106 | 22 Oct 2026 | Tahir | A client price is a whole rupee: a proposal with paise is refused with the next whole rupee named. Prices already approved with paise stay and still print. | print as approved; round to 0.50 | built 22 Oct 2026, awaiting push |
 | D-107 | 22 Oct 2026 | Tahir | A white label list with no Valid till prints: Valid until replaced by a later list. | valid to end of month | built 22 Oct 2026, awaiting push |
 | D-108 | 22 Oct 2026 | Tahir | Spelling is Sulfur everywhere. Found live: 5 specifications written Sulphur (Max Sulfur, Germinator Pro Sulfur, Nutrivant Urea, Green Sulfur, Vital Urea) and 3 internal material names. Not changed: waits for his list approval. | Sulphur; keep both | ruled, not built |
+| D-109 | 22 Oct 2026 | Tahir | Each client has a separate Name on price lists (and documents), typed in Customers, Edit, by anyone with Change customer details. C2M keeps its own short name for screens, grants and matching. Empty = the C2M name prints. Documents already issued keep their printed name. First use: Arysta (UPL) prints as Arysta Life Science Pvt Ltd (UPL). Needs migration 004 (1 column, c2m_customer.print_name). | renaming the client itself | built 22 Oct 2026, awaiting push and migration 004 |
 
 ## 6.2 Why, and what it changes, D-40 to D-59 (owner: Tahir rules; Claude records; R-5k; version 0.9.1, 18 Oct 2026)
 
@@ -197,3 +198,4 @@ The full record with every option and discussion is "E:\Cost and Pricing\Costing
 | D-99 | Tahir chose the side by side Home and the client list on the left for Products | the Home screen and the Products screen layout (c2m.html) |
 | D-100 | Tahir chose Silver cool after the UX review found that client colours clashed with status colours and that status was shown by colour alone | skins, Home jobs list, Products table (c2m.html) |
 | D-101 to D-107 | Tahir's answers on the white label price list review (22 Oct 2026) | c2m-pricelist.js, c2m-routes.js (propose), c2m.html (list preview) |
+| D-109 | Tahir asked to print each client's full legal name on its price list | c2m-routes.js (customers, wlListData, docData), c2m.html (Customers edit form, preview), migrations/004 |

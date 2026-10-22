@@ -466,3 +466,7 @@ Next: Tahir's rulings in rounds of 4; then fix the 5 wrong-price defects and def
 - Built: 1 signature (Yawar), price per pack column, issue month in title, colour key, farmer Pack size, whole rupee prices, Valid until note. Files: c2m-pricelist.js, c2m-routes.js, c2m.html, docs 05, 06, 08, 12.
 - Open: Sulfur spelling needs Tahir to approve the 5 specifications and 3 material names; customer name, group and segment cannot be edited anywhere (Edit form only has price rule, cycle, region, O2S names; it is under More, Back office, Customers): to build next, with care for grants held by client name.
 - Next: Tahir pushes; Claude checks a white label PDF live.
+
+## 22 Oct 2026 (11) Name on price lists built (D-109). NOT PUSHED. Needs migration 004 (MODULE: C2M)
+- Ahmer runs migrations/004_c2m_customer_print_name.PRODUCTION.sql in phpMyAdmin once, after the push. Then Tahir: More, Back office, Customers, Edit, type the name (Arysta Life Science Pvt Ltd (UPL)).
+- Files: c2m-routes.js, c2m.html, c2m-pricelist.js, migrations 004 (2 files), docs 04, 05, 06, 07, 08, 12. Open: Sulfur list (D-108); name, group and segment of the client itself still cannot be edited.

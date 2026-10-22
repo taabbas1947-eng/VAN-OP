@@ -60,6 +60,10 @@ Open your name's section below ("Yawar", "Tahir", "Majid", "Himayat", "Fahim", "
 - Colours: red means act or it is stuck; amber means waiting; green means fine; grey is information. Every colour comes with a word. The small coloured square beside a client is only that client's colour.
 - Home: left, the white label margin verdict and 6 month trend (Yawar, Tahir); right, your jobs, red and stuck first, then the oldest. Products: pick a client on the left; the To do column says what each product needs.
 
+## Changing the name a price list prints (22 Oct 2026)
+
+- Open More, Back office, Customers (or Setup, Clients and buyer lines, Open Customers). Click Edit on the client's row. Type the full name in Name on price lists and documents, then Save. Empty means the C2M name prints. Lists already issued keep their old name. The O2S names box is only for matching O2S trucks and POs and never prints.
+
 ## Where things are (0.8.0)
 
 | Before 0.8.0 | Now |

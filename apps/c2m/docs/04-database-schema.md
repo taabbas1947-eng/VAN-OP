@@ -784,3 +784,7 @@ Migration 003 (and 003_c2m_variants_clients.PRODUCTION.sql, same content with US
 | c2m_rule_variant | rule_id (key), pvariant_id | INT, INT | a labour or FOH rate that applies to 1 variant |
 
 Why link tables and not new columns: the live tables stay untouched and migration 003 can be run twice. The older table c2m_variant (under the product type) and c2m_client_product.variant_id stay unused. A client's group (c2m_customer.grp) is derived: adding a white label product to a VAN brand client makes it Both; nothing makes it lose a kind. A bulk product keeps no packing bill on its packs (packing_mode bulk). c2m_audit entities added: customer (add, group), client_product (add, add_variant, variant, follow, cost_approved), client_pack (add, cost_approved), product_family (add), product_variant (add).
+
+## c2m_customer.print_name (migration 004, 22 Oct 2026, D-109)
+
+- print_name VARCHAR(160) NULL, after name. The name the client's price lists and documents print; NULL means the C2M name prints. Not used for matching, grants or any screen except Customers and the price list. Run migrations/004_c2m_customer_print_name.sql (PRODUCTION file for phpMyAdmin) once; a second run says Duplicate column, harmless.

@@ -530,3 +530,8 @@ An independent agent reviewed the change and found 9 defects, none high; all fix
 
 - All suites pass on local; sample PDFs rendered (white label, farmer) and the preview checked for the 7 changes. An independent review found: old farmer documents losing the pack, a zero size printing 0.00, key order, paise still allowed on screens, spacing of the pack text, key height and phone signature: all fixed.
 - Not tested: the PDF with the real logo and live data; a printed copy. Not yet live.
+
+## 12.8 Name on price lists (22 Oct 2026)
+
+- Tested: save, clear, refusal for Majid, state, screen, and migration not run (409, nothing saved, other edits still work). Independent review fixed: half saved edit before a 409, a non text value, audit row when nothing changed. All 6 suites pass.
+- Known: an older document made before snapshots existed would print today's name on reprint; the PDF font cannot print Urdu names.

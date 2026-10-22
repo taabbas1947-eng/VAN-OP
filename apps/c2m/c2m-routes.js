@@ -1195,19 +1195,34 @@ module.exports = function mountC2mRoutes(app, deps) {
     res.json({ ok: true });
   }));
   app.post('/api/c2m/customers/:id', can('customer.edit'), wrap(async (req, res) => {
-    const { priceRule, cycle, region, o2sNames, printName } = req.body || {};
-    const [[c]] = await q('SELECT * FROM c2m_customer WHERE id=?', [req.params.id]); if (!c) throw bad('Customer not found.');
+    const { priceRule, cycle, region, o2sNames, printName, name: newName } = req.body || {};
     if (priceRule && !['time', 'po', 'list'].includes(priceRule)) throw bad('Price rule is time based, per PO, or list.');
-    const names = o2sNames == null ? c.o2s_names : String(o2sNames).split('|').map(x => x.trim()).filter(Boolean).join('|');
-    if (!names) throw bad('Keep at least 1 O2S name.');
-    if (printName != null) {
-      if (typeof printName !== 'string') throw bad('The name on price lists must be text.'); // D-109: the name price lists print; empty = the C2M name
-      const pn = String(printName).replace(/\s+/g, ' ').trim().slice(0, 160);
-      try { await q('UPDATE c2m_customer SET print_name=? WHERE id=?', [pn || null, c.id]); } catch (e) { if (e && e.code === 'ER_BAD_FIELD_ERROR') throw Object.assign(new Error('The name on price lists cannot be saved yet: migration 004 (c2m_customer.print_name) has not been run. Ask IT to run it.'), { status: 409 }); throw e; }
-      if ((c.print_name || null) !== (pn || null)) await audit(req.c2m.user, 'customer', c.id, 'print_name', c.print_name || null, pn || null, 'Name on price lists (D-109)');
-    }
-    await q('UPDATE c2m_customer SET price_rule=?, price_cycle=?, region=?, o2s_names=? WHERE id=?', [priceRule || c.price_rule, cycle == null ? c.price_cycle : String(cycle).slice(0, 40) || null, region == null ? c.region : String(region).slice(0, 40) || null, names.slice(0, 600), c.id]);
-    await audit(req.c2m.user, 'customer', c.id, 'update', { rule: c.price_rule, cycle: c.price_cycle, region: c.region, o2s: c.o2s_names }, { priceRule, cycle, region, o2sNames: names }, null);
+    if (printName != null && typeof printName !== 'string') throw bad('The name on price lists must be text.'); // D-109: the name price lists print; empty = the C2M name
+    const nn = newName == null ? null : cleanName(newName, 100, 'client name'); // D-110; 100: a grant holds at most 100 characters
+    // Everything validates first, then all writes happen in one transaction on a row read under lock, so a failure or a second rename never leaves a half save.
+    await tx(async () => {
+      const [all] = await q('SELECT * FROM c2m_customer FOR UPDATE');
+      const c = all.find(x => String(x.id) === String(req.params.id)); if (!c) throw bad('Customer not found.');
+      const names = o2sNames == null ? c.o2s_names : String(o2sNames).split('|').map(x => x.trim()).filter(Boolean).join('|');
+      if (!names) throw bad('Keep at least 1 O2S name.');
+      const rename = nn != null && nn !== c.name;
+      if (rename) for (const o of all) { if (o.id === c.id) continue; const theirs = [o.name].concat(String(o.o2s_names).split('|')).map(nmK); if (theirs.includes(nmK(nn))) throw bad(`"${nn}" is already a name of ${o.name}.`); }
+      if (rename) {
+        try { await q('UPDATE c2m_customer SET name=? WHERE id=?', [nn, c.id]); } catch (e) { if (dupName(e)) throw bad(`A client called "${nn}" is already in C2M.`); throw e; }
+        await q("DELETE FROM c2m_list_grant WHERE grant_kind='client' AND grant_value=?", [nn]); // a leftover grant on a name that was no client
+        const [g] = await q("UPDATE c2m_list_grant SET grant_value=? WHERE grant_kind='client' AND grant_value=?", [nn, c.name]);
+        const [docs] = await q("SELECT id, fields_json FROM c2m_price_doc WHERE audience='wl'");
+        let nd = 0; for (const d of docs) { try { const m = JSON.parse(d.fields_json); if (m && m.client === c.name) { m.client = nn; await q('UPDATE c2m_price_doc SET fields_json=? WHERE id=?', [JSON.stringify(m), d.id]); nd++; } } catch (_) { /* leave a document we cannot read */ } }
+        await audit(req.c2m.user, 'customer', c.id, 'name', c.name, nn, `Rename (D-110): ${g.affectedRows} grant(s) and ${nd} document link(s) moved; printed text of issued documents is unchanged`);
+      }
+      if (printName != null) {
+        const pn = String(printName).replace(/\s+/g, ' ').trim().slice(0, 160);
+        try { await q('UPDATE c2m_customer SET print_name=? WHERE id=?', [pn || null, c.id]); } catch (e) { if (e && e.code === 'ER_BAD_FIELD_ERROR') throw Object.assign(new Error('The name on price lists cannot be saved yet: migration 004 (c2m_customer.print_name) has not been run. Ask IT to run it.'), { status: 409 }); throw e; }
+        if ((c.print_name || null) !== (pn || null)) await audit(req.c2m.user, 'customer', c.id, 'print_name', c.print_name || null, pn || null, 'Name on price lists (D-109)');
+      }
+      await q('UPDATE c2m_customer SET price_rule=?, price_cycle=?, region=?, o2s_names=? WHERE id=?', [priceRule || c.price_rule, cycle == null ? c.price_cycle : String(cycle).slice(0, 40) || null, region == null ? c.region : String(region).slice(0, 40) || null, names.slice(0, 600), c.id]);
+      await audit(req.c2m.user, 'customer', c.id, 'update', { rule: c.price_rule, cycle: c.price_cycle, region: c.region, o2s: c.o2s_names }, { priceRule, cycle, region, o2sNames: names }, null);
+    });
     res.json({ ok: true });
   }));
   app.post('/api/c2m/freight', can('freight.edit'), wrap(async (req, res) => {

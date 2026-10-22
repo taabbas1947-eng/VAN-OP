@@ -551,3 +551,7 @@ Format: Keep a Changelog, semantic versions. Live: 1.0.0 (pushed 19 Oct about 22
 - Doc 07 starts with the same text, "Who does what, and how C2M works (read this first)", with how a thing moves through C2M and a new clients, products and variants part.
 - Changed: c2m.html (WHO list and vGuide), docs 03 (3.24), 07, 08, 11, 12. No migration, no route change.
 
+
+## Rename a client (22 Oct 2026)
+- Customers, Edit has a new box, Customer name in C2M. A rename moves KAM grants and issued-document links in the same save and is written in the audit trail.
+- Changed: c2m-routes.js, c2m.html (Customers edit form, Guide). No migration.

@@ -271,3 +271,6 @@ Changed: recipes/new refuses a follower; recipes/:id/advance writes cost version
 ## 5.17 Name on price lists (22 Oct 2026; owner: Tahir; D-109)
 
 - POST /api/c2m/customers/:id takes printName (text, up to 160, empty clears; right customer.edit). With migration 004 not run it answers 409 and saves nothing. GET /api/c2m/state: customers[].printName and printNameReady. The white label list and its document print printName, else the C2M name; the issued document stores the name it printed.
+
+### 5.18 Rename a client (D-110)
+`POST /api/c2m/customers/:id` now also takes `name` (text, 1 to 100 characters). Needs Change customer details. The whole save (name, print name, price rule, cycle, region, O2S names) is one transaction on a row read under lock, so a failed check never leaves a half save. The name is set, KAM grants (`c2m_list_grant`, kind client) and `fields_json.client` of white label documents move to the new name, and one audit row (`customer`, `name`) records old, new and the counts moved. Errors 400: empty, not text, too long, or a clash with another client's name or O2S names. Sending the unchanged name does nothing.

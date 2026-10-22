@@ -233,3 +233,6 @@ Also:
 - A product that follows a VAN product has no recipe of its own: the material cost comes from the VAN recipe; its packing, labour and overhead are its own. Yawar presses Approve cost on its page (the Approve cost button) when its own cost moves.
 - Setup, Variants: each VAN product's variants. Add a variant, or tag an existing product's variant. A rate can apply to 1 variant (Labour, FOH and targets, "2 · A variant").
 - Majid: on a VAN product's page press Add a variant; the recipe starts as a copy of the main product's, as a draft. Change what differs and send it on as always.
+
+## Renaming a client (D-110)
+Setup, Customers, Edit, box "Customer name in C2M". The new name shows on all C2M screens, in KAM lists and in the client picker; the client's KAM access moves with it. Price lists already issued keep the name they were printed with. To change only what price lists print, use "Name on price lists and documents". Group and segment are not edited here: the group follows the client's products.

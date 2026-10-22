@@ -535,3 +535,9 @@ An independent agent reviewed the change and found 9 defects, none high; all fix
 
 - Tested: save, clear, refusal for Majid, state, screen, and migration not run (409, nothing saved, other edits still work). Independent review fixed: half saved edit before a 409, a non text value, audit row when nothing changed. All 6 suites pass.
 - Known: an older document made before snapshots existed would print today's name on reprint; the PDF font cannot print Urdu names.
+
+## 12.9 Rename a client (D-110, 22 Oct 2026)
+- Tests (local, rn.js): Majid refused; duplicate name, clash with an O2S name, empty, too long and non-text all refused; rename keeps O2S names; grant moves; document link moves while printed text stays; unchanged name is a no-op; edit form renames from the screen. All suites pass.
+- Not tested live. Assumption: no other table holds the client name (checked in code and migrations). A name over 100 characters is refused because a grant holds 100.
+- Independent review found 3 points, all fixed: validation ran after the rename committed; a stale read could orphan grants on two renames at once; the open price list builder kept the old client name. Tests added for each.
+- Open: Tahir asked what Group means; segment edit ruled out.

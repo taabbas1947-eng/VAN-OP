@@ -512,3 +512,10 @@ An independent agent read the change and ran the tests. No blocker. Fixed before
 
 ### 12.4 addition: independent review of piece 3 (21 Oct 2026)
 An independent agent reviewed the change and found 9 defects, none high; all fixed and each covered by a test: (1) a pack size with more than 3 decimals or under 0.001 was stored wrongly or gave a 500; (2) 2 clients could share an O2S spelling; (3) re-tagging a variant moved costs with no re-approval or notice; (4) a followed VAN product could be taken out of use; (5) a white label product could be added to the VAN brand owner; (6) a double press of Approve cost wrote cost versions twice; (7) liquid could be saved sold per kg; (8) weak input checks (null pack, text bill id, non text names, a | inside a spelling); (9) cost versions written for followers had no change record row. Suspected, not changed: a follower pack not fully costed keeps a stale approved cost until it is costed and approved (listed in Known limits); a variant added under a family named like an unrelated product merges into it (the family name is shown on the form).
+
+## 12.5 Speed change and Guide (22 Oct 2026)
+- Speed: the state output was compared before and after for the cfo, coo and production roles (hash of the full response): identical. All suites run again (regress, roles, KAM, KAM screens, piece 3: route and browser): pass. Independent review: no defect. Its note on database load for list-only roles was acted on (they prefetch nothing).
+- Measured on live (22 Oct 2026): state call about 3 seconds, was 3.7 to 6 seconds; the plain health call about 0.4 seconds, so most of the rest is database waits.
+- Guide: checked on desktop and phone as Tahir, Yawar, Majid, Himayat and Fahim: Who does what shows 6 boxes, the reader's own box is marked, no sideways scroll, no page error.
+- Not done: C2M's own suites c2m100 to c2m103 (outside the repo).
+

@@ -204,3 +204,7 @@ Other points: Approve is shown only on an item an administrator proposed, for an
 | variant.add | Add a variant of a VAN product (a new VAN product with a recipe copy); tag a product's variant; create a new family or variant name | CFO, Production Manager, COO |
 
 Other rules: approving a follower's cost needs recipe.step.cost (the CFO step); rates for a variant need labour.manage (Yawar). Majid has no Setup: he adds a variant from a VAN product's page. A role you made yourself gets no new action until you tick it in Roles. Migration 003 adds the actions to the starting cfo and production rows; the COO holds every action.
+
+## 11.13 Who does what, in one place (22 Oct 2026)
+The app Guide and doc 07 now carry a Who does what part for every role. It is the plain-words version of this document: what each role does and who comes next. If a role's rights change in Setup, Roles, keep that part in step. The 6 starting roles are the ones named in it; a role made by the administrator reads "set up by the administrator" in its own Guide.
+

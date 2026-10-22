@@ -341,3 +341,10 @@ Places (D-76): ROLES gives cfo and coo nav [approvals, products, prices, margin,
 - Variants: Add a variant copies the main product's approved recipe into a draft version 1 of the new VAN product; the main product must have a variant tag first. Tagging runs the cost check.
 - Rates: see doc 09.
 - Screens: p3Variants, p3ClientForm, p3ProdForm, p3VarForm, p3FollowNote; each form keeps what was typed in the p3 object; saves go through act().
+
+## 3.24 Speed of the state call (22 Oct 2026, after piece 3)
+GET /api/c2m/state asks the database about 54 times. On live each question costs 100 to 200 ms (the database is far from the server), so asking one after another took about 4 to 6 seconds. 2 changes, with the output unchanged (compared byte for byte for the cfo, coo and production roles):
+1. engine.loadAll sends its 17 reads together (Promise.all) and waits once. The 5 piece 3 link tables are still read softly: a missing table reads as empty.
+2. routes build() sends 22 plain reads together after applyDueRevisions, through a small map (pre, pq). A list-only role (it returns early) prefetches nothing. No write happens in build after the prefetch starts.
+On live the state call is now about 3 seconds. About 15 waits remain in a row (helper loaders such as wlListData, listMaster, loadRoles, the sales read, and reads with a user or role). Tahir ruled 22 Oct 2026 to leave it at that for now. A further step would be to send those together too, or to keep each role's state for 10 seconds (risk: another person's change shows up to 10 seconds late).
+

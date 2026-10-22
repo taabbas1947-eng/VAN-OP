@@ -439,3 +439,14 @@ Next: Tahir's rulings in rounds of 4; then fix the 5 wrong-price defects and def
 - Then test on live: see 08 release notes, What to test after.
 - Reviewed by an independent agent: 9 defects, all fixed (12.4). Not done: C2M's own suites c2m100 to c2m103 (outside the repo).
 - Next: piece 4, the new look (Silver skin, Home, Products client chips; D-92, D-93), picture first.
+
+## 22 Oct 2026 (7) - Piece 3 pushed and live; speed fix; Guide Who does what (MODULE: C2M) - Guide and docs NOT PUSHED
+
+- Done and live: piece 3 (Add client, Add a product, Variants, rate by variant, follows). Ahmer ran migration 003 (variantsReady true). Checked live 22 Oct 2026: Add client, Add a product on 18 client rows, the Variants tab (empty: no variant added yet). The full flow with data (add a Pellets variant to Humi Grow, add products for FMC and Excel, approve a follower's cost, rate by variant, Excel's group reads Both) is NOT yet tested on live: it writes real rows, so Tahir decides who runs it.
+- Done and pushed: speed fix in c2m-engine.js (loadAll reads together) and c2m-routes.js (build prefetch). State call about 3 seconds on live, was 3.7 to 6. Tahir ruled to leave it there for now (22 Oct 2026). Further option: send the remaining about 15 waits together, or a 10 second per role cache (a change by someone else could show up to 10 seconds late).
+- Not pushed (to push in the morning): c2m.html (Guide: new Who does what part; wider How C2M works) and docs 03 (3.24), 07 (Who does what, read this first), 08, 11 (11.13), 12 (12.5), and this handoff. No migration, no route change. Set the version number at the push.
+- After the push Claude checks the Guide live (Who does what shows for each role, own box marked) and then runs the piece 3 data test if Tahir says so.
+- Known and not mine: /favicon.ico on the platform is about 1 MB and takes about 3.8 seconds (not C2M). C2M's own suites c2m100 to c2m103 not run (outside the repo).
+- Choices to check: Add a product shows on every client row that can take its own brand (the picture showed it on Excel, not on Kashmir). Majid has no Setup, so he adds a variant from a VAN product's page. The rate for a variant is set by Yawar (labour.manage, assumed).
+- Next: piece 4, the new look (Home, Products client chips, Silver skin; D-92, D-93), picture first. Later: KAM tick "saving, second click ignored" fix; live test of KAM Copy, Tick all and Clear.
+

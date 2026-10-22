@@ -512,3 +512,9 @@ Format: Keep a Changelog, semantic versions. Live: 1.0.0 (pushed 19 Oct about 22
 - 001_c2m_core.sql (local: npm run migrate; production: by hand, see C2M Go Live Plan.md).
 ### What to test after
 - npm test (builds c2m_test and runs everything); then click through as each of the 6 people.
+
+## Guide: Who does what (22 Oct 2026)
+- In the app, Guide shows a new part "Who does what" to every role: 6 boxes (Majid, Himayat, Fahim, Yawar, Tahir, KAMs and managers), the reader's own box marked "(this is you)". "How C2M works" now also covers new clients and products, variants, KAM lists and the change record.
+- Doc 07 starts with the same text, "Who does what, and how C2M works (read this first)", with how a thing moves through C2M and a new clients, products and variants part.
+- Changed: c2m.html (WHO list and vGuide), docs 03 (3.24), 07, 08, 11, 12. No migration, no route change.
+

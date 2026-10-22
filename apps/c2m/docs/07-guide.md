@@ -19,6 +19,41 @@ Changed in 0.3.0 and 0.3.1: matched word for word to the app's Guide screen (the
 
 How to read this: items marked "App Guide" are the exact lines on the app's Guide screen. Items marked "Also" are jobs that are not on the app's Guide screen in these words; the GUIDE list in c2m.html should get them in a later code change (open issue I-07 in 12).
 
+## Who does what, and how C2M works (read this first) (22 Oct 2026; the same text is in the app, Guide, Who does what)
+
+C2M turns a recipe into a cost, a cost into a price, and a price into the margin on real trucks. Each step has 1 person. Nobody approves their own work.
+
+| Person (role) | What they do | Who comes next |
+|---|---|---|
+| Majid (Production Manager, production) | Writes each recipe and every new version. Adds a variant from the VAN product's page. | Himayat reviews it. |
+| Himayat (QC Head, qc) | Gives each material its class and nutrient %. Reviews the recipe and its nutrient analysis. | Fahim endorses it. |
+| Fahim (Plant Manager, plant) | Checks the recipe, nutrients and cost. Endorses it, or sends it back with a reason. | Yawar approves the cost. |
+| Yawar (CFO, cfo) | Approves the cost of every recipe. Keeps rates, packing and labour current. Adds clients and products, and a rate for 1 variant. Proposes prices and VAN brand list revisions. Gives KAMs their lists. | Tahir approves his prices, list revisions and setting changes. |
+| Tahir (COO, coo) | Approves prices, list revisions, targets and thresholds. Adds clients, products and variants. Makes the roles and decides who sees what. Does the monthly rate check. | He cannot approve what he proposed himself. |
+| KAMs and managers (viewer) | See only the price lists and clients they are given, and download the PDF. They never see cost or margin. | If no list shows, ask Yawar or Tahir. |
+
+A role the administrator makes in Setup, Roles can do what is ticked on it, and sees the places that follow from it.
+
+### How a thing moves through C2M
+1. **Rates and sheets.** Yawar's sheets are imported; he settles every conflict in the import queue. He keeps material rates, packing, labour and FOH current. C2M recosts every recipe and groups the re-approvals by cause.
+2. **Recipe to cost.** Majid writes, Himayat reviews, Fahim endorses, Yawar approves the cost. A product that follows a VAN product takes that recipe and its approved material cost; its packing, labour and overhead stay its own, and Yawar approves its cost on its own page (Approve cost).
+3. **Cost to price.** Yawar proposes a price (white label client) or a list revision (VAN brand). Tahir approves, or sends it back with a reason. A price or list dated ahead waits for its date.
+4. **Price to lists.** Managers and KAMs see the approved lists they are given, as a PDF.
+5. **Trucks to margin.** O2S trucks and open POs are costed at the approved cost, so Margin shows GP by client, product and PO against each product's target.
+
+### New clients, products and variants (from piece 3, D-94, D-95, D-98)
+- **Add client** (Setup, Clients and buyer lines): Tahir or Yawar. Name, and what it buys: VAN brand, white label or both. A white label client has no region. The client's group follows its products.
+- **Add a product** for a client: brand name as O2S writes it, product type, variant, whether it follows a VAN product's recipe, who supplies the packing (VAN, Client or Bulk), and its packs. A pack can be for 1 client only, with its own packing bill and price.
+- **Variants** (Setup, Variants, or the VAN product's page): a VAN product keeps a list of variants (Humi Grow: Powder, Pellets). Majid, Tahir or Yawar adds one; its recipe starts as a copy of the main product's, as a draft. Yawar sets the labour and overhead rates, and a rate for 1 variant.
+- **Which rate a pack takes:** the client's own pack, then the variant, then the product type, then the general rate.
+- **KAM lists** (Setup, KAM lists): Yawar or Tahir gives each KAM the lists and clients they may see, and can open the screen as that KAM sees it.
+
+### How to use it, per person
+Open your name's section below ("Yawar", "Tahir", "Majid", "Himayat", "Fahim", "KAMs and managers"). Each is the same list as the Guide in the app. The 3 rules that apply to everyone:
+- Approve or send back inside the panel that opens from your list; a send back always carries a reason and advice.
+- "Someone else changed this a moment ago. Check before retrying." means another person acted first. Look again.
+- Every change is dated and logged in the change record (Setup).
+
 ## Where things are (0.8.0)
 
 | Before 0.8.0 | Now |

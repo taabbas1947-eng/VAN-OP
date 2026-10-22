@@ -14,10 +14,10 @@ const AUDIENCES = {
   farmer_pb: 'Farmer, Punjab', farmer_sn: 'Farmer, Sindh', farmer_snc: 'Farmer, Sindh credit', web: 'Website',
 };
 const FIELDS = {
-  wl: [['product', 'Product', 1], ['spec', 'Specification', 1], ['pack', 'Pack size', 1], ['cur', 'Current price, Rs per kg or L', 1], ['prev', 'Previous price', 1], ['chg', '% change', 1], ['reason', 'Reason for change', 1], ['eff', 'Effective date', 1]],
+  wl: [['product', 'Product', 1], ['spec', 'Specification', 1], ['pack', 'Pack size', 1], ['cur', 'Current price, Rs per kg or L', 1], ['ppack', 'Price per pack, Rs ex FED', 1], ['prev', 'Previous price', 1], ['chg', '% change', 1], ['reason', 'Reason for change', 1], ['eff', 'Effective date', 1]],
   dist: [['product', 'Product', 1], ['spec', 'Specification', 1], ['pack', 'Pack size', 1], ['cur', 'Price ex FED, Rs per pack', 1], ['fed', 'Price with FED', 1], ['prev', 'Previous price', 0], ['chg', '% change', 0], ['reason', 'Reason for change', 0], ['mrp', 'Benchmark MRP', 1], ['terms', 'Payment terms', 1]],
   dealer: [['product', 'Product', 1], ['spec', 'Specification', 1], ['pack', 'Pack size', 1], ['cur', 'Net price ex FED', 1], ['disc', 'Additional discount', 1], ['netfed', 'Net price with FED', 1], ['frp', 'FRP', 1], ['mrp', 'MRP', 1]],
-  farmer: [['product', 'Product', 1], ['spec', 'Specification', 1], ['cur', 'Sale price, Rs', 1]],
+  farmer: [['product', 'Product', 1], ['spec', 'Specification', 1], ['pack', 'Pack size', 1], ['cur', 'Sale price, Rs', 1]],
 };
 const fieldsFor = a => FIELDS[a.startsWith('farmer') || a === 'web' ? 'farmer' : a];
 const rs = v => v == null || isNaN(v) ? '' : 'Rs ' + Math.round(v).toLocaleString('en-US');
@@ -25,13 +25,18 @@ const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct
 const MONL = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const fmtD = s => { if (!s) return ''; const p = String(s).slice(0, 10).split('-'); return `${+p[2]} ${MON[+p[1] - 1]} ${p[0]}`; };
 
+/** The farmer list writes the pack inside the product name ("Nutrivant K 25 kg"); print the name and the pack apart. */
+const splitPack = p => { const m = /^(.*?)[\s·,-]*([\d.]+\s*(?:kg|L|ml|g))\s*$/i.exec(String(p || '').trim()); return m && m[1] ? { p: m[1].trim(), pack: m[2].replace(/\s*(kg|L|ml|g)$/i, ' $1') } : { p: String(p || ''), pack: '' }; };
+/** Size of a pack in kg or L, from the saved size, else from its text (ml and g are thousandths). */
+const packSize = r => { if (Number(r.size) > 0) return Number(r.size); const m = /^([\d.]+)\s*(kg|L|ml|g)\b/i.exec(String(r.pack || '').trim()); if (!m) return null; const v = parseFloat(m[1]); return /^(ml|g)$/i.test(m[2]) ? v / 1000 : v; };
+const money2 = v => Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 /** Rows for a document. wlRows come from approved client prices; list rows from c2m_list_price. */
 function rows(aud, data, reasons = {}) {
   if (aud === 'wl') return data.wl.map(r => {
     const ch = r.prev ? (r.cur - r.prev) / r.prev * 100 : null; // null = a new price, no previous
     const k = 'p' + r.packId;
-    return { product: r.brand, spec: r.spec || '', pack: r.pack, cur: r.cur.toFixed(2), prev: r.prev != null ? r.prev.toFixed(2) : '', chg: ch == null ? 'new' : (ch > 0 ? '+' : '') + ch.toFixed(1) + '%',
-      reason: reasons[k] != null ? reasons[k] : (r.reason || (ch == null ? 'New price' : Math.abs(ch) > 0.01 ? 'Raw material cost change' : 'No change')), eff: fmtD(data.eff), _k: k, _fam: r.fam || null };
+    const sz = packSize(r); return { product: r.brand, spec: r.spec || '', pack: r.pack, cur: r.cur.toFixed(2), ppack: sz != null ? money2(Math.round(r.cur * sz * 100) / 100) : '', prev: r.prev != null ? r.prev.toFixed(2) : '', chg: ch == null ? 'new' : (ch > 0 ? '+' : '') + ch.toFixed(1) + '%',
+      reason: reasons[k] != null ? reasons[k] : (r.reason || (ch == null ? 'New price' : Math.abs(ch) > 0.01 ? 'Raw material cost change' : 'No change')), eff: fmtD(data.eff), _k: k, _fam: r.fam || null, _famName: r.famName || null };
   });
   if (aud === 'dist') return data.list.map((d, i) => {
     const ch = d.prev ? (d.now - d.prev) / d.prev * 100 : null; const k = 'd:' + d.p + '|' + (d.pack || ''), k0 = 'd' + i; if (reasons[k] == null && reasons[k0] != null) reasons = { ...reasons, [k]: reasons[k0] }; /* keyed by product and pack (1.0.3: the list re-sorts A to Z); documents issued before keep their reasons by position */ const noPrice = d.now == null; // null = no previous price: "new", never "0.0%" (defect 12)
@@ -40,11 +45,11 @@ function rows(aud, data, reasons = {}) {
   });
   if (aud === 'dealer') return data.list.map(d => ({ product: d.p, spec: d.d, pack: d.pack, cur: rs(d.net), disc: d.disc ? (d.disc * 100).toFixed(1) + '%' : '', netfed: rs(d.netfed), frp: rs(d.frp), mrp: rs(d.mrp) }));
   const col = aud === 'farmer_sn' ? 'sn' : aud === 'farmer_snc' ? 'snc' : 'pb';
-  return data.list.map(f => ({ product: f.p, spec: f.d, cur: f[col] != null ? rs(f[col]) : '' }));
+  return data.list.map(f => { const z = splitPack(f.p); return { product: z.p, spec: f.d, pack: z.pack, _full: f.p, cur: f[col] != null ? rs(f[col]) : '' }; });
 }
 
 function title(aud, data) {
-  if (aud === 'wl') { const p = String(data.eff).split('-'); return { t: 'Price List', to: data.addressee, sub: `Monthly price list for ${MONL[+p[1] - 1]} ${p[0]}` }; }
+  if (aud === 'wl') { const q = String(data.date || data.eff).split('-'); /* the month it is issued (Tahir, 22 Oct 2026) */ return { t: 'Price List', to: data.addressee, sub: `Monthly price list for ${MONL[+q[1] - 1]} ${q[0]}` }; }
   if (aud === 'dist') return { t: 'Price List for Distribution Partners', to: 'Distribution partners', sub: 'Prices per pack' };
   if (aud === 'dealer') return { t: 'Dealer Price List, Sindh', to: 'Sindh dealers', sub: 'Cash sales policy' };
   if (aud === 'web') return { t: 'Product Prices', to: 'van.com.pk', sub: 'Retail prices, Punjab' };
@@ -55,7 +60,7 @@ function title(aud, data) {
 const fedTxt = data => `${lib.fedPct(data && data.fedPct)}%`;
 function notes(aud, data) {
   const n = [];
-  if (aud === 'wl') { n.push(`Prices are ex-factory and exclude FED (${fedTxt(data)}).`); if (data.rule === 'time') n.push('POs received before the effective date are supplied at the price on the PO.'); n.push('Prices apply to the packing arrangement agreed for each product.'); }
+  if (aud === 'wl') { n.push(`Prices are ex-factory and exclude FED (${fedTxt(data)}).`); if (data.rule === 'time') n.push('POs received before the effective date are supplied at the price on the PO.'); n.push('Prices apply to the packing arrangement agreed for each product.'); if (!data.till) n.push('Valid until replaced by a later list.'); }
   if (aud === 'dist') n.push(`Price with FED includes FED at ${fedTxt(data)}. Benchmark MRP is for guidance.`);
   if (aud === 'dealer') n.push('Payment by demand draft, pay order or bank deposit only. No returns.');
   if (aud.startsWith('farmer') || aud === 'web') n.push(`Prices include FED (${fedTxt(data)}) and may change; check the latest list.`);
@@ -100,12 +105,12 @@ function pdf(res, aud, data, picked, reasons) {
   doc.fillColor(MUTED).font('Helvetica').fontSize(8.5).text(t.sub, 46, by + 21 + h1, { width: cw2 }).text(basis[1], 36 + W / 2, by + 21 + h1, { width: cw2 });
   doc.y = by + bh;
   const F = fieldsFor(aud).filter(f => picked.includes(f[0]));
-  const R = rows(aud, data, reasons);
+  const R = rows(aud, data, reasons); if (!F.some(f => f[0] === 'pack')) R.forEach(r => { if (r._full) r.product = r._full; }); // an older document, or one without Pack size, keeps the pack in the name
   const cols = [['sr', 'Sr']].concat(F.map(f => [f[0], f[1]]));
   const widths = cols.map(([k]) => k === 'sr' ? 0.5 : (k === 'product' || k === 'spec' || k === 'reason') ? 2 : 1);
   const tw = widths.reduce((a, b) => a + b, 0); const cw = widths.map(w => w / tw * W);
   let y = doc.y + 10;
-  const numeric = k => ['cur', 'prev', 'fed', 'mrp', 'netfed', 'frp', 'chg', 'disc'].includes(k);
+  const numeric = k => ['cur', 'ppack', 'prev', 'fed', 'mrp', 'netfed', 'frp', 'chg', 'disc'].includes(k);
   // The heading band is as tall as its longest heading, so wrapped headings stay on the navy band (handover review)
   const hh = Math.max(18, ...cols.map(([, l], i) => doc.font('Helvetica-Bold').fontSize(8).heightOfString(l, { width: cw[i] - 6 }) + 10));
   function header() {
@@ -125,14 +130,16 @@ function pdf(res, aud, data, picked, reasons) {
   });
   doc.y = y + 10; doc.x = 36;
   // Notes and signature stay together and above the footer rule (page height - 50): move them to a new page if needed
+  const keyMap = new Map(); R.forEach(r => { if (r._fam && r._famName) keyMap.set(r._fam, r._famName); });
   const N = notes(aud, data);
-  const need = N.reduce((h, n) => h + doc.font('Helvetica').fontSize(8).heightOfString('• ' + n, { width: W }), 0) + 80;
+  const need = 14 + 12 * Math.ceil(keyMap.size / 5) + N.reduce((h, n) => h + doc.font('Helvetica').fontSize(8).heightOfString('• ' + n, { width: W }), 0) + 80;
   if (doc.y + need > doc.page.height - 60) { doc.addPage(); doc.y = 40; }
+  if (cols.some(c => c[0] === 'product') && keyMap.size) { let kx = 36, ky = doc.y; doc.fillColor(MUTED).font('Helvetica').fontSize(7.5); [...keyMap].forEach(([c, nm]) => { const w = doc.widthOfString(nm) + 22; if (kx + w > 36 + W) { kx = 36; ky += 12; } doc.rect(kx, ky + 1.5, 6, 6).fill(c); doc.fillColor(MUTED).text(nm, kx + 10, ky, { lineBreak: false }); kx += w; }); doc.y = ky + 14; doc.x = 36; }
   N.forEach(n => doc.fillColor(MUTED).font('Helvetica').fontSize(8).text('• ' + n, 36, doc.y, { width: W }));
-  // 2 signatures (L3): the approver of the prices and the issuer of the list
+  // 1 signature (Tahir, 22 Oct 2026): a list that leaves VAN is issued by the CFO alone; Tahir's approval stays in C2M's record
   doc.moveDown(2); const sy = doc.y, half = W / 2 - 12;
-  doc.moveTo(36, sy).lineTo(36 + half, sy).moveTo(36 + W - half, sy).lineTo(36 + W, sy).lineWidth(0.8).strokeColor(INK).stroke();
-  [[36, 'Approved by', 'Tahir Abbas', 'Chief Operating Officer'], [36 + W - half, 'Issued by', 'Yawar Hussain', 'Chief Financial Officer']].forEach(([x, l, n, r]) => {
+  doc.moveTo(36 + W - half, sy).lineTo(36 + W, sy).lineWidth(0.8).strokeColor(INK).stroke();
+  [[36 + W - half, 'Issued by', 'Yawar Hussain', 'Chief Financial Officer']].forEach(([x, l, n, r]) => {
     doc.fillColor(MUTED).font('Helvetica').fontSize(7.5).text(l, x, sy + 5, { width: half }); doc.fillColor(NAVY).font('Helvetica-Bold').fontSize(9.5).text(n, x, sy + 15, { width: half }); doc.fillColor(MUTED).font('Helvetica').fontSize(7.5).text(r, x, sy + 28, { width: half }); });
   doc.y = sy + 40;
   // Footer and page number on every page, drawn inside the page so no blank page is added (handover review)

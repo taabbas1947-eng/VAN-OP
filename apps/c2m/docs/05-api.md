@@ -262,3 +262,8 @@ All answer 400 with "This needs migration 003" until migration 003 is run. Body 
 | POST /api/c2m/rules/conversion | labour.manage | scope variant with pvariantId | A rate for 1 variant |
 
 Changed: recipes/new refuses a follower; recipes/:id/advance writes cost versions (and a change record row) for the fully costed packs of followers when a followed recipe is approved; names/product/:id/use refuses taking a followed product out of use; GET /state adds variantsReady, families, and on each product familyId, pvariantId, followsId, followsBrand, and on each pack clientOnly; rules carry scopePvariantId.
+
+## 5.16 Price list documents and whole rupee prices (22 Oct 2026; owner: Tahir; D-101 to D-107)
+
+- POST /api/c2m/prices/propose: a price with paise is refused (400) before the pack is read: "A client price is a whole rupee. Type 257 (the next whole rupee) or another whole number."
+- GET /api/c2m/pricedocs/:id/pdf and the list preview: the white label list has a field ppack (Price per pack, Rs ex FED); the farmer and website lists have a field pack; every list prints 1 signature (Issued by Yawar Hussain). State wlLists rows now carry size (kg or L), famName and pack in C2M's form (500 ml). Documents issued earlier reprint from their saved fields: without Pack size the pack stays in the product name; the title month is the issue month; the Approved by line is gone.

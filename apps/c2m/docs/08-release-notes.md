@@ -17,6 +17,18 @@ Changed in 0.6.0: entry 0.6.0 added.
 Changed in 0.5.0: entry 0.5.0 added; real figures removed from earlier entries (public repo).
 Format: Keep a Changelog, semantic versions. Live: 1.0.0 (pushed 19 Oct about 22:09, checked live by Claude as Tahir the same evening; Yawar's view checked in the cloud copy only); 0.9.3 pushed 19 Oct 14:38, checked live; 0.9.2 pushed 19 Oct 12:43, checked live; first data load 19 Oct 2026 about 13:17, checked live. Before: 0.9.1 (pushed 19 Oct 09:39, checked live). apps/c2m first pushed by Tahir on 17 Oct and the live migration run the same day (39 empty c2m_ tables); 0.6.0 and 0.7.0 pushed on 18 Oct (17:29), 0.8.0 (20:16) and 0.9.0 (22:03), each checked live by Claude. The folder tabs (D-59) were built after the 0.9.0 push and ship in 0.9.1. No data loaded yet: the first data load runs on Monday 19 Oct 2026.
 
+## [Next version, price lists] · 22 Oct 2026 · Price list review (D-101 to D-107) · Who: Claude built; Tahir ruled and approves the push
+### Changed
+- All price lists print 1 signature: Issued by Yawar Hussain, CFO.
+- White label list: new column Price per pack, Rs ex FED; title month is the month of issue; colour key under the table; note Valid until replaced by a later list when no Valid till.
+- Farmer and website lists: Pack size column, split from the product name.
+- A client price must be a whole rupee when proposed.
+### Known limits
+- Spelling Sulfur (D-108) is not applied: the list of names waits for Tahir.
+- An older document reprinted shows the issue month in its title and has no Approved by.
+### Database
+- None.
+
 ## [Next version, piece 4] · 22 Oct 2026 · The new look (D-92, D-93, D-99, D-100) · Who: Claude built; Tahir ruled and approves the push
 ### Added
 - 4 looks, chosen per person: Silver cool (default), Slate light, Stone warm, Slate dusk (dark). Pick one with the 4 dots in the top bar, or in Guide, Your look. The choice is kept in that browser, so each device remembers its own.

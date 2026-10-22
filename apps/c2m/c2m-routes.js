@@ -390,7 +390,7 @@ module.exports = function mountC2mRoutes(app, deps) {
       const rows = [];
       for (const cp of D.cps.filter(c => c.customer_id === cust.id && c.channel === 'White label')) for (const p of D.packs.filter(x => x.client_product_id === cp.id)) {
         const ap = approvedPrice.get(p.id); if (!ap) continue;
-        rows.push({ packId: p.id, typeId: cp.base_product_id == null ? null : Number(cp.base_product_id), fam: lib.familyColour(cp.base_product_id, D.productTypes), brand: cp.brand, spec: cp.spec, pack: `${Number(p.pack_size)} ${cp.sold_per}`, cur: Number(ap.price), prev: ap.prev_price == null ? null : Number(ap.prev_price), reason: ap.reason, from: String(ap.valid_from).slice(0, 10) });
+        rows.push({ packId: p.id, typeId: cp.base_product_id == null ? null : Number(cp.base_product_id), fam: lib.familyColour(cp.base_product_id, D.productTypes), famName: cp.base_product_id == null ? 'Other' : ((D.productTypes.find(t => Number(t.id) === Number(cp.base_product_id)) || {}).name || 'Other'), size: Number(p.pack_size), brand: cp.brand, spec: cp.spec, pack: lib.officialPack(p.pack_size, cp.sold_per), cur: Number(ap.price), prev: ap.prev_price == null ? null : Number(ap.prev_price), reason: ap.reason, from: String(ap.valid_from).slice(0, 10) });
       }
       out[name] = { name: cust.name, rule: cust.price_rule, rows };
     }
@@ -996,7 +996,9 @@ module.exports = function mountC2mRoutes(app, deps) {
   }
   app.post('/api/c2m/prices/propose', can('price.propose'), wrap(async (req, res) => {
     const { packId, price, reason, belowReason, replaceId, validFrom, validTo } = req.body || {};
-    const P = await packInfo(packId); const v = strictNum(price); if (!(v > 0)) throw bad('Type a price above 0, digits only.');
+    const v = strictNum(price); if (!(v > 0)) throw bad('Type a price above 0, digits only.');
+    if (Math.abs(v - Math.round(v)) > 1e-9) throw bad(`A client price is a whole rupee. Type ${Math.ceil(v)} (the next whole rupee) or another whole number.`); // Tahir, 22 Oct 2026
+    const P = await packInfo(packId);
     if (engine.isVanBrand(P.cp)) throw bad('A VAN brand pack is priced per channel through the VAN brand list revisions (Prices, VAN brand lists), not here.'); // D-44
     if (validFrom && !isDate(validFrom)) throw bad('Effective date must be a date.');
     if (validFrom && validFrom < today()) throw bad('The effective date cannot be in the past.');

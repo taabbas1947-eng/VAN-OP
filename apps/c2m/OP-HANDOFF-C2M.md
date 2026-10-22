@@ -460,3 +460,9 @@ Next: Tahir's rulings in rounds of 4; then fix the 5 wrong-price defects and def
 - Changed: c2m.html only (4 looks, top bar, Home verdict and jobs, Products client list and To do column, Guide Your look). Docs 03, 06, 07, 08, 12 updated. No database change, no server change.
 - Tested on local (all suites pass) and reviewed by an independent agent; its findings are fixed. Not yet checked live.
 - Next: Tahir pushes and sets the version; then Claude checks live as COO and as another role, on computer and phone. Open: the look is per browser; Home verdict figures to be read against live Margin.
+
+## 22 Oct 2026 (10) Piece 4 pushed and live; price list review built (D-101 to D-108). NOT PUSHED (MODULE: C2M)
+- Piece 4 checked live as COO: look, Home verdict, Products client list all work.
+- Built: 1 signature (Yawar), price per pack column, issue month in title, colour key, farmer Pack size, whole rupee prices, Valid until note. Files: c2m-pricelist.js, c2m-routes.js, c2m.html, docs 05, 06, 08, 12.
+- Open: Sulfur spelling needs Tahir to approve the 5 specifications and 3 material names; customer name, group and segment cannot be edited anywhere (Edit form only has price rule, cycle, region, O2S names; it is under More, Back office, Customers): to build next, with care for grants held by client name.
+- Next: Tahir pushes; Claude checks a white label PDF live.

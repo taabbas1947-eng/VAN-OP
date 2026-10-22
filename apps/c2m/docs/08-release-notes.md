@@ -17,6 +17,21 @@ Changed in 0.6.0: entry 0.6.0 added.
 Changed in 0.5.0: entry 0.5.0 added; real figures removed from earlier entries (public repo).
 Format: Keep a Changelog, semantic versions. Live: 1.0.0 (pushed 19 Oct about 22:09, checked live by Claude as Tahir the same evening; Yawar's view checked in the cloud copy only); 0.9.3 pushed 19 Oct 14:38, checked live; 0.9.2 pushed 19 Oct 12:43, checked live; first data load 19 Oct 2026 about 13:17, checked live. Before: 0.9.1 (pushed 19 Oct 09:39, checked live). apps/c2m first pushed by Tahir on 17 Oct and the live migration run the same day (39 empty c2m_ tables); 0.6.0 and 0.7.0 pushed on 18 Oct (17:29), 0.8.0 (20:16) and 0.9.0 (22:03), each checked live by Claude. The folder tabs (D-59) were built after the 0.9.0 push and ship in 0.9.1. No data loaded yet: the first data load runs on Monday 19 Oct 2026.
 
+## [Next version, piece 4] · 22 Oct 2026 · The new look (D-92, D-93, D-99, D-100) · Who: Claude built; Tahir ruled and approves the push
+### Added
+- 4 looks, chosen per person: Silver cool (default), Slate light, Stone warm, Slate dusk (dark). Pick one with the 4 dots in the top bar, or in Guide, Your look. The choice is kept in that browser, so each device remembers its own.
+- Home: the verdict (white label GP FY to date against target, with the 6 month trend) on the left for those who see margin; for others, a Your day card (jobs, oldest waiting, stuck, with others). Your jobs on the right, red and stuck first, then oldest first, each with an edge colour and a word (Act now, Stuck, Waiting, To do).
+- Products: client list on the left with each client's colour square, product count and how many need work; a To do column (Not costed, Set price, Fix price, Your step, Below target, With Majid, OK). On a phone the list is a drop down.
+### Changed
+- The left rail is now a top bar on a computer (phone keeps its top bar and bottom tabs). Top bar shows first name only. Tabs bolder; table lines thinner and dimmer; product headings smaller.
+- Status colours mean only: red = act or stuck, amber = waiting, green = fine, grey = information, always with a word. Client colours never use red, amber or green.
+- The white label margin line above the Home is gone; the verdict replaces it. Home no longer groups jobs under To approve and To do.
+### Known limits
+- A person on a computer with the operating system set to dark now sees Silver until they choose Slate dusk.
+- Client colours follow the list of clients a person can see, so two people with different lists can see different colours for the same client.
+### Database
+- None.
+
 ## [Next version, piece 3] · 21 Oct 2026 · Add client and variants (D-94, D-95, D-98) · Who: Claude built; Tahir ruled and approves the push
 ### Added
 - Setup, Clients and buyer lines: Add client (step 1: name, other O2S spellings, what it buys: VAN brand, White label or Both) and, on each client that can have its own brands, Add a product (step 2: brand name as O2S writes it, product type, follows a VAN product's recipe or not, variant, form, who supplies the packing: VAN, Client or Bulk, other O2S spellings, packs with size, packing bill and "only for this client"). A Products column shows how many products each client has. The group follows the products (Excel, a VAN brand client, becomes Both when it gets its own brand).

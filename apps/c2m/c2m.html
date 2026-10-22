@@ -9,11 +9,13 @@
 <style>
 /* C2M · O2S Queue Shell skin (ruled 14 Oct 2026). Header with the person's words, then 1 screen.
    Every screen opens with what it answers and the next step. */
-:root{--bg:#E6E8E2;--surface:#F9F9F6;--ink:#1B1F1A;--muted:#5d6459;--line:#cfd3c9;--kraft:#8C6532;--blue:#2E5F86;--ok:#25703F;--late:#8A5A00;--over:#A3302A;--okbg:#e3efe5;--latebg:#f4ead6;--overbg:#f5e1df;
+:root{--bg:#EDF0F5;--surface:#FFFFFF;--ink:#172033;--muted:#566074;--line:#E1E6EE;--kraft:#8C6532;--blue:#2F6DB5;--ok:#1F7A45;--late:#8F5F00;--over:#B3261E;--okbg:#E3F1E8;--latebg:#F7ECD3;--overbg:#F8E3E1;
  --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;--mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
- --railbg:#0E3550;--railink:#C9D6E3;--wbcost:#0E3550;--tabbg:#D7DAD2;--tabline:#B3B8AE}
-:root[data-theme="dark"]{--bg:#1d211c;--surface:#262b25;--ink:#ecefe7;--muted:#a6ad9f;--line:#3a4137;--kraft:#c39a5f;--blue:#7fb0d8;--ok:#6fc28a;--late:#e0b25c;--over:#f08a80;--okbg:#1f3326;--latebg:#3a3020;--overbg:#3d2321;--railbg:#081320;--railink:#9FB3C6;--wbcost:#7fb0d8;--tabbg:#1f231e;--tabline:#4a5246;color-scheme:dark}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1d211c;--surface:#262b25;--ink:#ecefe7;--muted:#a6ad9f;--line:#3a4137;--kraft:#c39a5f;--blue:#7fb0d8;--ok:#6fc28a;--late:#e0b25c;--over:#f08a80;--okbg:#1f3326;--latebg:#3a3020;--overbg:#3d2321;--railbg:#081320;--railink:#9FB3C6;--wbcost:#7fb0d8;--tabbg:#1f231e;--tabline:#4a5246;color-scheme:dark}}
+ --railbg:#1F2A3C;--railink:#D3DBE8;--wbcost:#1F2A3C;--tabbg:#E4E9F0;--tabline:#C3CCDA}
+/* 4 looks, one per person (D-100): Silver cool is the default; the choice is kept in this browser */
+:root[data-skin="slate"]{--bg:#E8ECEF;--surface:#F7F9FA;--ink:#1B2630;--muted:#566570;--line:#D6DDE3;--blue:#34607F;--ok:#25703F;--late:#8A5A00;--over:#A3302A;--okbg:#E1EEE5;--latebg:#F3E9D3;--overbg:#F4E0DE;--railbg:#2B3A47;--railink:#D0DAE3;--wbcost:#2B3A47;--tabbg:#DAE0E5;--tabline:#B6C0C8}
+:root[data-skin="stone"]{--bg:#EFEBE4;--surface:#FBF9F5;--ink:#25211B;--muted:#6A6358;--line:#E3DCCF;--blue:#3F6A8C;--ok:#2B6E3F;--late:#8A5A00;--over:#A3302A;--okbg:#E5EEE3;--latebg:#F4EAD4;--overbg:#F5E1DF;--railbg:#3A332B;--railink:#DDD5C8;--wbcost:#3A332B;--tabbg:#E3DDD0;--tabline:#C4BBA9}
+:root[data-skin="dusk"]{--bg:#151A22;--surface:#1E2530;--ink:#E6EAF0;--muted:#9AA6B8;--line:#2F3947;--kraft:#c39a5f;--blue:#7FB0E0;--ok:#6FC28A;--late:#E0B25C;--over:#F08A80;--okbg:#1C3326;--latebg:#3A3020;--overbg:#3D2321;--railbg:#0D1219;--railink:#A9B8CA;--wbcost:#7FB0E0;--tabbg:#1B212B;--tabline:#3A4656;color-scheme:dark}
 *{box-sizing:border-box}html,body{margin:0}
 body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.5}
 .num,.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
@@ -46,6 +48,7 @@ table{border-collapse:collapse;width:100%;font-size:13px}
 th,td{padding:7px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
 th{font-weight:500;color:var(--muted);font-size:12px;white-space:nowrap}tr:last-child td{border-bottom:0}
 td.r,th.r{text-align:right;white-space:nowrap}
+table.cards td[data-l="To do"],table.cards td[data-l="State"]{white-space:nowrap}
 tr.go{cursor:pointer}tr.go:hover td,tr.go:focus td{background:color-mix(in srgb,var(--blue) 8%,transparent)}
 .btn{font:inherit;font-size:13px;font-weight:500;background:var(--blue);color:var(--surface);border:1px solid var(--blue);border-radius:3px;padding:5px 12px;cursor:pointer;white-space:nowrap}
 .btn.ghost{background:transparent;color:var(--blue)}.btn.warn{background:var(--over);border-color:var(--over)}.btn:disabled{opacity:.5;cursor:not-allowed}
@@ -108,8 +111,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
   .warnbox .btn{min-height:44px;margin-top:4px}
 }
 input,select,textarea{font:inherit;color:var(--ink);background:var(--surface);border:1px solid #7d8478;border-radius:3px;padding:5px 8px;max-width:100%}
-:root[data-theme="dark"] input,:root[data-theme="dark"] select,:root[data-theme="dark"] textarea{border-color:#8a9384}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) input,:root:not([data-theme="light"]) select,:root:not([data-theme="light"]) textarea{border-color:#8a9384}}
+:root[data-skin="dusk"] input,:root[data-skin="dusk"] select,:root[data-skin="dusk"] textarea{border-color:#7d8aa0}
 input[type=number]{appearance:textfield;-moz-appearance:textfield}input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
 [aria-invalid="true"]{border-color:var(--over);outline:1px solid var(--over)}
 .dw{display:block;font-size:11.5px;color:var(--muted);min-height:1em}
@@ -244,6 +246,61 @@ input.np{width:90px;text-align:right;font-family:var(--mono);padding:3px 6px}inp
 .sendbar label{display:grid;gap:2px;font-size:12px;color:var(--muted)}.sendbar input[type=text],.sendbar input:not([type]){min-width:240px}.sendbar .sp{flex:1}
 .clientchips{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}.clientchips button{font:inherit;font-size:12.5px;border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:4px 10px;border-radius:14px;cursor:pointer}
 .clientchips button[aria-pressed="true"]{background:var(--ink);color:var(--surface);border-color:var(--ink)}.clientchips .c{font-family:var(--mono);font-size:11px;opacity:.75;margin-left:4px}
+
+/* ---------- Piece 4, the new look (D-92, D-99, D-100) ---------- */
+.skins{display:inline-flex;gap:5px;align-items:center}.skins button{width:24px;height:24px;padding:0;border-radius:50%;border:2px solid rgba(255,255,255,.55);cursor:pointer}.skins button[aria-pressed="true"]{border-color:#fff;box-shadow:0 0 0 2px var(--blue)}
+.skins [data-skin="silver"]{background:#EDF0F5}.skins [data-skin="slate"]{background:#C9D3DC}.skins [data-skin="stone"]{background:#E3DCCF}.skins [data-skin="dusk"]{background:#151A22}
+.skinrow{display:flex;gap:10px;flex-wrap:wrap}.skinrow button{font:inherit;display:inline-flex;align-items:center;gap:8px;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:4px;padding:8px 12px;cursor:pointer;min-height:40px}.skinrow button[aria-pressed="true"]{border-color:var(--blue);box-shadow:inset 0 0 0 1px var(--blue);font-weight:600}.skinrow i{width:16px;height:16px;border-radius:50%;border:1px solid var(--tabline)}
+@media (max-width:760px){.hdr .skins{display:none}}
+@media (min-width:761px){
+ .hdr{left:0;right:0;bottom:auto;width:auto;height:52px;flex-direction:row;align-items:center;gap:6px;padding:0 16px;overflow:visible;box-shadow:0 1px 0 rgba(0,0,0,.25)}
+ .hdr .brand{order:0;padding:0 12px 0 0}.hdr nav{order:1;flex-direction:row;gap:2px;min-width:0;overflow-x:auto;scrollbar-width:none}.hdr nav::-webkit-scrollbar{display:none}.hdr nav .g{display:none}
+ .hdr nav button{width:auto;white-space:nowrap;padding:8px 12px;font-weight:600;font-size:14px;border-radius:5px 5px 0 0;color:var(--railink)}
+ .hdr nav button[aria-current="true"]{background:rgba(255,255,255,.12);box-shadow:inset 0 -3px 0 #fff}
+ .hdr .more.desk{order:2;width:auto;margin-top:0;padding:8px 12px;font-weight:600}
+ .hdr .findbtn{order:3;width:auto;margin:0 0 0 auto;padding:6px 10px;white-space:nowrap;flex:none}.hdr .findbtn span{white-space:nowrap}.hdr .findbtn kbd{display:none}.hdr .findbtn span{display:inline}
+ .hdr .skins{order:4;margin:0 4px 0 10px}
+ .hdr .foot{order:5;margin:0;border:0;border-left:1px solid rgba(255,255,255,.2);padding:0 0 0 12px;display:flex;flex-direction:row;align-items:center;gap:12px;white-space:nowrap}
+ .hdr .foot .launch-w{display:none}.hdr .foot .who2{font-size:12px;opacity:.85}
+ .shell{margin-left:0;padding-top:52px}
+}
+@media (min-width:761px) and (max-width:1100px){.hdr .brand small,.hdr .foot .who2,.hdr .findbtn span{display:none}.hdr nav button{flex:none;padding:8px 9px}.hdr .skins{margin:0 2px}.hdr .brand{padding-right:6px}
+
+ .hdr .n{margin-left:6px}
+}
+/* thin dim table lines, text left, numbers right, bolder tabs, smaller product headings */
+th,td{border-bottom:1px solid var(--line)}th{font-weight:600}
+.subnav button{font-weight:600}.subnav button[aria-current="true"],.subnav button[aria-selected="true"]{font-weight:700}
+h1.topic{font-size:17px;letter-spacing:.04em}
+.csq{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:7px;vertical-align:baseline;flex:none}
+/* Home (D-99 B, D-100): verdict left, jobs right */
+.home{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:16px;align-items:start;margin:0 0 16px}
+@media (max-width:900px){.home{grid-template-columns:minmax(0,1fr)}}
+.verdict{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:16px}
+.verdict .vk{font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.verdict .vbig{font-family:var(--mono);font-size:34px;font-weight:600;line-height:1.1;margin:4px 0 2px}
+.verdict .vsub{color:var(--muted);margin:0 0 10px}
+.verdict .st{display:inline-block;font-weight:600;font-size:12px;border-radius:3px;padding:1px 7px;margin-left:6px;vertical-align:middle}
+.verdict .st.red{background:var(--overbg);color:var(--over)}.verdict .st.amber{background:var(--latebg);color:var(--late)}.verdict .st.green{background:var(--okbg);color:var(--ok)}.verdict .st.grey{background:var(--bg);color:var(--muted)}
+.verdict svg.vt{width:100%;height:auto;display:block;margin-top:6px}.vt .og{stroke:var(--line);stroke-width:1}.vt .oa{fill:var(--muted);font-size:10px}.vt .gl{fill:none;stroke:var(--blue);stroke-width:2.2}.vt .tl{fill:none;stroke:var(--muted);stroke-width:1.4;stroke-dasharray:4 3}.vt .gd{fill:var(--blue)}.vt .lab{font-size:10.5px;font-weight:600}
+.verdict .vfoot{margin:8px 0 0;font-size:12px;color:var(--muted)}
+.vstats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:10px}.vstats div{border-top:1px solid var(--line);padding-top:6px}.vstats b{display:block;font-family:var(--mono);font-size:18px}.vstats span{font-size:12px;color:var(--muted)}
+.jl{background:var(--surface);border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.jl h2{margin:0;padding:12px 14px 6px}
+.jrow{display:flex;gap:10px 14px;align-items:center;justify-content:space-between;padding:10px 14px;border-top:1px solid var(--line);border-left:4px solid var(--tabline)}
+.jrow.red{border-left-color:var(--over)}.jrow.amber{border-left-color:var(--late)}.jrow.green{border-left-color:var(--ok)}.jrow.grey{border-left-color:var(--tabline)}
+.jrow>div:first-child{flex:1 1 auto;min-width:0}.jrow .sw{min-width:118px;text-align:right}
+.jrow .t{font-weight:600}.jrow .d{color:var(--muted);font-size:12.5px}
+.jrow .sw{font-size:11.5px;font-weight:700;letter-spacing:.02em;white-space:nowrap}.jrow.red .sw{color:var(--over)}.jrow.amber .sw{color:var(--late)}.jrow.green .sw{color:var(--ok)}.jrow.grey .sw{color:var(--muted)}
+@media (max-width:760px){.jrow .sw{text-align:left;min-width:0}.jrow{flex-direction:column;align-items:stretch}.jrow .btn{min-height:44px;width:100%}}
+/* Products (D-99 B, D-93): client list left */
+.pcols{display:grid;grid-template-columns:250px minmax(0,1fr);gap:16px;align-items:start}
+.cl{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:6px;position:sticky;top:64px;max-height:calc(100vh - 90px);overflow:auto}
+.cl button{font:inherit;display:flex;align-items:center;width:100%;gap:0;background:none;border:0;border-radius:4px;padding:7px 8px;cursor:pointer;color:var(--ink);text-align:left}
+.cl button:hover{background:var(--bg)}.cl button[aria-pressed="true"]{background:color-mix(in srgb,var(--blue) 12%,transparent);font-weight:600}
+.cl .c{margin-left:auto;padding-left:8px;white-space:nowrap;flex:none;font-family:var(--mono);font-size:11.5px;color:var(--muted)}.cl .c b{color:var(--late);font-weight:700}
+.clsel{display:none}
+@media (max-width:760px){.pcols{grid-template-columns:minmax(0,1fr)}.cl{display:none}.clsel{display:block;margin:0 0 10px}.clsel select{width:100%;min-height:44px}}
 </style>
 </head>
 <body>
@@ -259,6 +316,16 @@ let fbasis = 'budget', hist = 'approved';
 /** Truck rows on the chosen history basis: approved cost on the truck's date, or restated at today's bands. */
 const salesRows0 = () => (ST.sales || []).map(r => r.costBands != null ? { ...r, cost: r.costBands } : r);
 const salesRows = () => (ST.sales || []).map(r => hist === 'bands' && r.costBands != null ? { ...r, cost: r.costBands } : r);
+const SKINS = [['silver', 'Silver cool'], ['slate', 'Slate light'], ['stone', 'Stone warm'], ['dusk', 'Slate dusk']];
+let skin = 'silver'; try { const z = localStorage.getItem('c2m.skin'); if (SKINS.some(x => x[0] === z)) skin = z; } catch (_) {}
+const applySkin = () => { document.documentElement.dataset.skin = skin; };
+applySkin();
+/** One colour per client, the same for every person; never red, amber or green (D-93, D-100). */
+const CLR = ['#3B6EA8', '#6B4FA3', '#1E8C93', '#8C6532', '#A8467E', '#4A55A8', '#5E6C7B', '#7A3E65', '#2C7DA0', '#8A6D3B', '#0F766E', '#7C5CBF'];
+let clrFor = null, clrMap = null;
+const clrOf = n => { if (clrFor !== ST.products) { clrFor = ST.products; clrMap = new Map([...new Set((ST.products || []).map(p => p.customer))].sort((x, y) => String(x).localeCompare(String(y))).map((c, i) => [c, CLR[i % CLR.length]])); } return clrMap.get(n) || '#5E6C7B'; };
+const csq = n => `<i class="csq" style="background:${clrOf(n)}" aria-hidden="true"></i>`;
+let prodC = '';
 let ST = null, scr = 'today', sub = null, drill = { cust: null, prod: null }, period = 'fy', month = null, openRec = null, sendBack = null, trial = null, ptrial = null,
   pgrp = 'all', propose = null, priceCust = null, cols = { prev: true, hilo: false, margin: true, port: true, actual: false }, corr = null, doc = null, editLines = null,
   PLB = { aud: 'wl', client: null, pick: {}, reasons: {}, eff: null, till: null, note: '' }, boDoc = null, listSel = null, billEdit = null,
@@ -1191,9 +1258,10 @@ function render() {
   const navHtml = M.nav.map(k => { const g = (M.more || []).length ? '' : RAILG[k] || ''; const lab = g && g !== g0 ? `<span class="g" aria-hidden="true">${g}</span>` : ''; g0 = g || g0;
     return `${lab}<button data-scr="${k}" aria-current="${k === scr}" class="${p4.includes(k) ? '' : 'far'}">${ICON[k] || ''}${NAV[k]}${(k === 'today' || k === 'approvals') && J.length ? `<span class="n">${J.length}</span>` : ''}</button>`; }).join('');
   app.innerHTML = `<aside class="hdr${hasMore ? ' has-more' : ''}" aria-label="C2M" ${over ? 'inert' : ''}><a class="brand" href="/" title="Back to the VAN launcher"><i aria-hidden="true"></i><span><b>C2M</b><small>Cost to Margin</small></span></a>
-  <button class="findbtn" data-finder title="Find anything (Ctrl K)" aria-label="Find anything">${ICON.search}<span>Find anything</span><kbd>Ctrl K</kbd></button>
   <nav aria-label="Screens">${navHtml}</nav>${hasMore ? `<button class="more${(M.more || []).length ? ' desk' : ''}" data-more aria-label="More places" aria-expanded="${moreOpen}"${(M.more || []).includes(scr) ? ' aria-current="true"' : ''}>${ICON.more}More</button>` : ''}
-  <div class="foot"><b>${esc(M.name || M.user)}</b><span class="who2">${esc(M.label)} · <a href="/" class="launch">Back to launcher</a></span><a href="/" data-signout>Sign out</a></div></aside>
+  <button class="findbtn" data-finder title="Find anything (Ctrl K)" aria-label="Find anything">${ICON.search}<span>Find anything</span><kbd>Ctrl K</kbd></button>
+  <span class="skins" role="group" aria-label="Choose your look">${SKINS.map(([k, l]) => `<button data-skin="${k}" aria-pressed="${skin === k}" title="${l}" aria-label="${l}"></button>`).join('')}</span>
+  <div class="foot"><b>${esc(String(M.name || M.user).trim().split(/\s+/)[0])}</b><span class="who2">${esc(M.label)}<span class="launch-w"> · <a href="/" class="launch">Back to launcher</a></span></span><a href="/" data-signout>Sign out</a></div></aside>
   <div class="shell"><main ${over ? 'inert aria-hidden="true"' : ''}>${ST.preview ? vPvBar() : ''}${mainHtml}</main></div>${pan ? vPanel() : ''}${moreOpen ? vMore(p4) : ''}${finder ? vFinder() : ''}`;
   if (finder) { const f = $('fq'); if (f && document.activeElement !== f) { f.focus(); f.setSelectionRange(f.value.length, f.value.length); } return; }
   if (moreOpen) { const b = document.querySelector('.sheet button'); if (b) b.focus(); return; }
@@ -1248,11 +1316,47 @@ function vToday() {
   const G = [[(Object.prototype.hasOwnProperty.call(APH, R) ? APH[R] : 'To approve'), J.map((j, i) => [j, i]).filter(([j]) => j.kind === 'approve')], ['To do', J.map((j, i) => [j, i]).filter(([j]) => j.kind !== 'approve').sort(doSort)]].filter(g => g[1].length);
   const n = J[nm];
   if (!loaded() && CAN('see.margin')) return `${meta([dayName(ST.today), o2sAsOf()])}${head('Today', 'No data in C2M yet.', 'Today fills once Yawar\'s sheets and O2S are loaded: every approval, job and margin line then shows here with its age.')}<div class="nextmove"><div><div class="k">Your next move</div><div class="t">The first load of Yawar's sheets and O2S</div><div class="d">Until it runs, C2M has no customers, products, costs or trucks, so nothing here can be wrong or late.</div></div></div>`;
-  return `${meta([dayName(ST.today), o2sAsOf()])}${head(ST.me.nav[0] === 'approvals' ? 'Approvals' : 'Today', ans, 'The next move is the first approval waiting for you (recipe and cost steps first, then prices, re-approvals and list revisions, then threshold and target changes; the oldest first). Every line shows how long it has waited; an item waiting more than 2 working days (Monday to Saturday) is marked stuck. Each line opens in a panel on this screen.')}${CAN('see.margin') ? marginLine() : ''}
+  return `${meta([dayName(ST.today), o2sAsOf()])}${head(ST.me.nav[0] === 'approvals' ? 'Approvals' : 'Today', ans, 'The next move is the first approval waiting for you (recipe and cost steps first, then prices, re-approvals and list revisions, then threshold and target changes; the oldest first). Every line shows how long it has waited; an item waiting more than 2 working days (Monday to Saturday) is marked stuck. Each line opens in a panel on this screen.')}
   ${n ? `<div class="nextmove"><div><div class="k">Your next move</div><div class="t">${esc(n.t)}</div><div class="d">${esc(String(n.d).replace(/([^.!?])$/, '$1.'))} ${n.since ? `<span class="${isStuck(n.since) ? 'over' : ''}">Waiting ${ageTxt(n.since)}${isStuck(n.since) ? ', stuck' : ''}.</span>` : ''}</div></div><button class="btn" data-job="${nm}">${n.go1 || (n.kind === 'approve' && n.pan ? 'Open to approve' : n.btn)}</button></div>` : '<div class="nextmove"><div><div class="k">Your next move</div><div class="t">You are up to date.</div></div></div>'}
-  ${G.length ? `<div class="groups">${G.map(([h, L]) => `<section><h2 class="gh">${h} <span class="c">${L.length}</span></h2><div class="items">${L.map(([j, i]) => line(j, i)).join('')}</div></section>`).join('')}</div>` : ''}
+  ${homeGrid(J, nm, W)}
   ${W.length ? `<h2 class="gh" style="margin-top:20px">Waiting on others <span class="c">${W.length}</span></h2><div class="items">${W.map(w => `<div class="item k-wait"><div><div class="t">${esc(w.t)} · <span style="font-weight:400">${esc(w.w)}</span></div></div>${ageHtml(w.since)}${w.open ? `<button class="btn ghost" ${Object.entries(w.open).map(([k, v]) => `data-${k}="${v}"`).join(' ')}>Open</button>` : ''}</div>`).join('')}</div>` : ''}
   ${notices.length ? `<h2>For your information</h2><div class="box jobs">${notices.map(x => `<div class="job"><div><div class="t">${esc(x.text)}</div><div class="d">${esc(personName(x.by_user))}, ${esc(fmtD(d10(x.at)))}. No approval needed.</div></div></div>`).join('')}</div>` : ''}`;
+}
+
+/** Home (D-99 B, D-100): the verdict and the 6-month trend on the left, the jobs on the right, oldest first. */
+function homeVerdict() {
+  const keep = { per: nm.per, hist: nm.hist, grp: nm.grp }; Object.assign(nm, { per: 'fy', hist: 'approved', grp: 'wl' });
+  try {
+    const rows = nmRows().filter(r => nmGrp(r) && nmIn(r)); if (!rows.length) return null; const tot = nmSum(rows);
+    const all = nmRows().filter(r => nmGrp(r) && r.date <= ST.today); const ms = [...new Set(all.map(r => r.date.slice(0, 7)))].sort().slice(-6);
+    return { tot, pts: ms.map(m => ({ m, ...nmSum(all.filter(r => r.date.slice(0, 7) === m)) })).filter(p => p.pct != null && p.tgt != null) };
+  } finally { Object.assign(nm, keep); }
+}
+function homeTrend(pts) {
+  if (pts.length < 2) return '<p class="vfoot">The trend needs 2 months of costed trucks.</p>';
+  const vals = pts.flatMap(p => [p.pct, p.tgt]); const lo = Math.floor((Math.min(...vals) - 1) / 5) * 5, hi = Math.ceil((Math.max(...vals) + 1) / 5) * 5;
+  const W = 360, H = 150, L = 30, R = 84, T = 10, B = 22; const x = i => L + (W - L - R) * i / (pts.length - 1), y = v => T + (H - T - B) * (1 - (v - lo) / (hi - lo));
+  const grid = []; for (let v = lo; v <= hi + 0.001; v += 5) grid.push(`<line class="og" x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}"/><text class="oa" x="${L - 5}" y="${y(v) + 3}" text-anchor="end">${v}%</text>`);
+  const z = pts[pts.length - 1]; let yg = y(z.pct), yt = y(z.tgt); if (Math.abs(yg - yt) < 13) { const mid = (yg + yt) / 2; if (yg >= yt) { yg = mid + 7; yt = mid - 7; } else { yg = mid - 7; yt = mid + 7; } }
+  return `<svg class="vt" viewBox="0 0 ${W} ${H}" role="img" aria-label="White label GP % by month against target, last ${pts.length} months">${grid.join('')}<polyline class="tl" points="${pts.map((p, i) => `${x(i)},${y(p.tgt)}`).join(' ')}"/><polyline class="gl" points="${pts.map((p, i) => `${x(i)},${y(p.pct)}`).join(' ')}"/>${pts.map((p, i) => `<circle class="gd" cx="${x(i)}" cy="${y(p.pct)}" r="3"/><text class="oa" x="${x(i)}" y="${H - 6}" text-anchor="middle">${MON[+p.m.slice(5) - 1]}</text>`).join('')}<text class="lab" fill="var(--blue)" x="${W - R + 6}" y="${yg + 3}">GP ${z.pct.toFixed(1)}%</text><text class="lab" fill="var(--muted)" x="${W - R + 6}" y="${yt + 3}">Target ${z.tgt.toFixed(1)}%</text></svg>`;
+}
+function homeGrid(J, nm0, W) {
+  const stuckN = J.filter(j => j.since && isStuck(j.since)).length; const ages = J.filter(j => j.since).map(j => daysSince(j.since)); const oldest = ages.length ? Math.max(...ages) : null;
+  let left = '';
+  const V = CAN('see.margin') && loaded() ? homeVerdict() : null;
+  if (V) { const o = V.tot, w = { red: 'Act', amber: 'Watch', green: 'On target' }[o.st];
+    left = `<div class="verdict"><div class="vk">White label GP, FY to date</div><div class="vbig">${p1(o.pct)}%<span class="st ${o.st}">${w}</span></div><p class="vsub">Against a ${p1(o.tgt)}% target: ${o.dir === 'on' ? 'on target' : `${o.dir} Rs ${n0(Math.abs(o.ag))}`}.</p>${homeTrend(V.pts)}
+      <div class="vstats"><div><b>${rsM2(o.sales)}</b><span>Sales</span></div><div><b>${rsM2(o.gp)}</b><span>GP</span></div><div><b>${J.length}</b><span>${pl(J.length, 'job', 'jobs').replace(/^\d+ /, '')} for you</span></div></div>
+      <p class="vfoot">Trucks out, each at the cost approved on its date. <button class="btn ghost" data-scr="margin">Open margin</button></p></div>`; }
+  else { const k = stuckN ? 'red' : J.length ? 'amber' : 'green', w = stuckN ? 'Stuck' : J.length ? 'Waiting' : 'Clear';
+    left = `<div class="verdict"><div class="vk">Your day</div><div class="vbig">${J.length}<span class="st ${k}">${w}</span></div><p class="vsub">${J.length ? `${pl(J.length, 'thing needs', 'things need')} you.` : 'Nothing needs you today.'}</p>
+      <div class="vstats"><div><b>${oldest == null ? '–' : oldest ? oldest + 'd' : 'today'}</b><span>Oldest waiting</span></div><div><b>${stuckN}</b><span>Stuck</span></div><div><b>${W.length}</b><span>With others</span></div></div></div>`; }
+  const t0 = j => j.since ? d10(j.since) : '9999';
+  const rows = J.map((j, i) => [j, i]).sort((a, b) => { const r = j => (j.kind === 'red' || (j.since && isStuck(j.since))) ? 0 : 1; return r(a[0]) - r(b[0]) || t0(a[0]).localeCompare(t0(b[0])) || (a[0].pri - b[0].pri); });
+  const st = j => (j.kind === 'red' || (j.since && isStuck(j.since))) ? ['red', j.since && isStuck(j.since) ? `Stuck ${daysSince(j.since)}d` : 'Act now'] : j.since ? ['amber', `Waiting ${ageTxt(j.since)}`] : ['grey', 'To do'];
+  const nmi = nextMove(J);
+  const right = `<div class="jl"><h2 class="gh">Needs you <span class="c">${J.length}</span></h2>${rows.map(([j, i]) => { const [c, w] = st(j); return `<div class="jrow ${c}"><div><div class="t">${esc(j.t)}</div><div class="d">${i === nmi ? 'Your next move, above.' : esc(j.d)}</div></div><span class="sw">${esc(w)}</span>${i === nmi ? '' : `<button class="btn ghost" data-job="${i}">${j.btn}</button>`}</div>`; }).join('') || '<div class="jrow green"><div class="t">Nothing needs you today.</div><span class="sw">Clear</span></div>'}</div>`;
+  return `<div class="home">${left}${right}</div>`;
 }
 /* ---------- Margin ---------- */
 /** The CFO and COO see the company answer first on Today (ruling 5d). */
@@ -1485,14 +1589,19 @@ function vProducts() {
   const R = ST.me.role; const all = (ST.products || []).slice().sort((a, b) => a.customer.localeCompare(b.customer) || a.brand.localeCompare(b.brand));
   const F = { all: () => true, wl: p => p.grp === 'White label', van: p => p.channel === 'VAN brand', progress: p => !p.followsId && !!STEP_ROLE[p.recipeState], notcosted: p => p.packs.some(k => !k.cost), below: p => p.packs.some(k => ['below cost', 'below floor', 'below target'].includes(packState(p, k)[1])) };
   const L = { all: 'All', wl: 'White label', van: 'VAN brand', progress: 'Recipe in progress', notcosted: 'Not costed', below: 'Below cost or target' };
-  const q = prodQ.trim().toLowerCase(); const list = all.filter(F[prodF] || F.all).filter(p => !q || `${p.brand} ${p.customer}`.toLowerCase().includes(q));
+  const todo = p => { const ps = p.packs.map(k => packState(p, k)[1]); if (p.packs.some(k => !k.cost)) return ['p-red', 'Not costed']; if (ps.includes('below cost') || ps.includes('below floor')) return ['p-red', 'Fix price']; const sv = prodState(p); if (sv[0] === 'p-red') return ['p-red', /no price/.test(sv[1]) ? 'Set price' : 'Fix price']; if (STEP_ROLE[p.recipeState] === R && !p.followsId) return ['p-red', 'Your step']; if (ps.includes('below target')) return ['p-amber', 'Below target']; if (!p.followsId && STEP_ROLE[p.recipeState]) return ['p-amber', 'With ' + ROLE_NAME[STEP_ROLE[p.recipeState]]]; return ['p-green', 'OK']; };
+  if (prodC && !all.some(p => p.customer === prodC)) prodC = '';
+  const q = prodQ.trim().toLowerCase(); const list = all.filter(F[prodF] || F.all).filter(p => !prodC || p.customer === prodC).filter(p => !q || `${p.brand} ${p.customer}`.toLowerCase().includes(q));
+  const cls = [...new Set(all.map(p => p.customer))].map(c => ({ c, n: all.filter(p => p.customer === c).length, t: all.filter(p => p.customer === c && todo(p)[0] !== 'p-green').length }));
   const nc = all.filter(F.notcosted).length, bl = all.filter(F.below).length, ip = all.filter(F.progress).length;
   if (!loaded()) return head('Products', 'No client products in C2M yet: they come with the load of Yawar\'s sheets.', 'Each client product has 1 page: its recipe and every version, its cost by pack, its price, and its history.');
   return `${head('Products', `${all.length} client products. ${pl(bl, 'is', 'are')} below cost or target, ${nc} not costed, ${ip} with a recipe in progress.`, 'Each client product has 1 page: its recipe and every version, its cost by pack, its price, and its history. A white label product belongs to 1 client; a VAN brand product is 1 pack sold in every channel (D-44). Click a row to open its page.')}
   <div class="next"><span>Start with the products below cost or target, then the ones not costed.</span>${CAN('recipe.start') ? '<button class="btn ghost" data-newrec>Write a new recipe version</button>' : ''}</div>${newRecForm()}
   <div class="chips">${Object.keys(F).map(k => `<button data-pf="${k}" aria-pressed="${prodF === k}">${L[k]} (${all.filter(F[k]).length})</button>`).join('')}</div>
   <div class="find"><label for="pq" class="ans" style="margin:0">Find a product or client</label><input id="pq" value="${esc(prodQ)}" placeholder="brand or client"><span class="ans" style="margin:0">${list.length} of ${all.length} shown</span></div>
-  <div class="box wrapx"><table class="cards"><tr><th>Product</th><th>Client</th><th>Recipe</th><th>Packs, cost today per kg or L</th><th>State</th></tr>${list.map(p => { const rs_ = recState(p), st = prodState(p); return `<tr class="go" tabindex="0" data-openprod="${p.id}" aria-label="Open ${esc(p.brand)} for ${esc(p.customer)}"><td data-l="Product"><b>${esc(p.brand)}</b></td><td data-l="Client">${esc(p.customer)}</td><td data-l="Recipe"><span class="pill ${rs_[0]}">${esc(rs_[1])}</span></td><td data-l="Packs" class="num">${p.packs.map(k => `${k.size} ${p.soldPer}: ${k.cost ? k.cost.total.toFixed(2) : 'not costed'}`).join('<br>') || 'no pack'}</td><td data-l="State"><span class="pill ${st[0]}">${esc(st[1])}</span></td></tr>`; }).join('') || '<tr><td colspan="5">No product matches.</td></tr>'}</table></div>`;
+  <div class="clsel"><label for="pcsel" class="ans" style="margin:0">Client</label><select id="pcsel" data-pcsel><option value="">All clients (${all.length})</option>${cls.map(x => `<option value="${esc(x.c)}" ${x.c === prodC ? 'selected' : ''}>${esc(x.c)} (${x.n}${x.t ? `, ${x.t} to do` : ''})</option>`).join('')}</select></div>
+  <div class="pcols"><nav class="cl" aria-label="Clients"><button data-pc="" aria-pressed="${prodC === ''}">All clients<span class="c">${all.length}</span></button>${cls.map(x => `<button data-pc="${esc(x.c)}" aria-pressed="${prodC === x.c}">${csq(x.c)}${esc(x.c)}<span class="c">${x.n}${x.t ? ` · <b>${x.t} to do</b>` : ''}</span></button>`).join('')}</nav>
+  <div class="box wrapx"><table class="cards"><tr><th>Product</th><th>Client</th><th>To do</th><th>Recipe</th><th>Packs, cost today per kg or L</th><th>State</th></tr>${list.map(p => { const rs_ = recState(p), st = prodState(p); return `<tr class="go" tabindex="0" data-openprod="${p.id}" aria-label="Open ${esc(p.brand)} for ${esc(p.customer)}"><td data-l="Product"><b>${esc(p.brand)}</b></td><td data-l="Client">${csq(p.customer)}${esc(p.customer)}</td><td data-l="To do"><span class="pill ${todo(p)[0]}">${esc(todo(p)[1])}</span></td><td data-l="Recipe"><span class="pill ${rs_[0]}">${esc(rs_[1])}</span></td><td data-l="Packs" class="num">${p.packs.map(k => `${k.size} ${p.soldPer}: ${k.cost ? k.cost.total.toFixed(2) : 'not costed'}`).join('<br>') || 'no pack'}</td><td data-l="State"><span class="pill ${st[0]}">${esc(st[1])}</span></td></tr>`; }).join('') || '<tr><td colspan="6">No product matches.</td></tr>'}</table></div></div>`;
 }
 let wfPack = null, costPend = null;
 /** A change that moves cost (product type, reprocessed, packing bill) waits for Save, so a stray arrow key cannot save it (UX review M3). */
@@ -2235,6 +2344,7 @@ function vGuide() {
   return `${head('Guide', `Your job in C2M, ${esc(ST.me.label)}.`, 'The full system documentation is in Setup, System documentation, for Yawar and Tahir.')}
   <div class="two"><div class="box form"><b>Your job</b><ol style="margin:0;padding-left:20px">${(Object.prototype.hasOwnProperty.call(GUIDE, ST.me.role) ? GUIDE[ST.me.role] : GUIDE_CUSTOM).map(x => `<li>${esc(x)}</li>`).join('')}</ol></div>
   <div class="box form"><b>How C2M works</b><ol style="margin:0;padding-left:20px"><li>Yawar's sheets are imported; he settles every conflict in the import queue.</li><li>Each client product has its own recipe: Majid writes, Himayat reviews, Fahim endorses, Yawar approves cost.</li><li>Yawar keeps rates current; C2M recosts every recipe and groups re-approvals by cause.</li><li>Yawar proposes prices; Tahir approves; managers see the approved lists.</li><li>O2S trucks and open POs show real margin by customer, product and PO.</li><li>A new client or product is added by Tahir or Yawar in Setup. A product can follow a VAN product's recipe: 1 recipe, 1 approved cost, with its own packing, labour and overhead.</li><li>A VAN product can have variants (Humi Grow: Powder, Pellets). Majid, Tahir or Yawar adds one; its recipe starts as a copy. A rate can apply to 1 variant.</li><li>KAMs see only the lists and clients Yawar or Tahir give them. Cost and margin never reach them.</li><li>Every change is dated and logged in the change record.</li></ol></div></div>
+  <h2>Your look</h2><div class="skinrow" role="group" aria-label="Your look">${SKINS.map(([k, l]) => `<button data-skin="${k}" aria-pressed="${skin === k}"><i style="background:${{ silver: '#EDF0F5', slate: '#C9D3DC', stone: '#E3DCCF', dusk: '#151A22' }[k]}"></i>${l}</button>`).join('')}</div><p class="ans" style="margin-top:6px">Kept in this browser, so each device remembers its own.</p>
   <h2>Who does what</h2><div class="two">${WHO.map(w => `<div class="box form"${w.r === ST.me.role ? ' style="border-color:var(--blue)"' : ''}><b>${esc(w.who)}${w.r === ST.me.role ? ' (this is you)' : ''}</b><p style="margin:6px 0 0">${esc(w.does)}</p><p style="margin:6px 0 0;color:var(--muted,#667)">${esc(w.next)}</p></div>`).join('')}</div>
   ${ST.docs && ST.docs.length && !CAN('guide.all') ? `<h2>Read more</h2><div class="chips">${ST.docs.map(d => `<button data-gdoc="${esc(d)}">${esc(d.replace(/^\d+-/, '').replace(/-/g, ' ').replace('.md', ''))}</button>`).join('')}</div>${boDoc ? `<div class="md"><pre>${esc(boDoc.text)}</pre></div>` : ''}` : ''}`;
 }
@@ -2246,6 +2356,8 @@ const val = id => ($(id) || {}).value;
 document.addEventListener('click', async e => {
   const t = e.target.closest('button,tr.go,a[data-signout],input[type=checkbox],[data-panclose],[data-moreclose],.finder'); if (!t) return; const d = t.dataset;
   if (t.classList.contains('finder') && e.target !== t) return; // a click inside the find box is not a close
+  if (d.skin) { skin = d.skin; try { localStorage.setItem('c2m.skin', skin); } catch (_) {} applySkin(); render(); { const z = document.querySelector(`${scr === 'guide' ? '.skinrow' : '.hdr'} [data-skin="${skin}"]`); if (z) z.focus(); } return; }
+  if ('pc' in d) { prodC = d.pc; render(); { const z = document.querySelector(`.cl [data-pc="${CSS.escape(prodC)}"]`); if (z) z.focus(); } return; }
   // 2-step approvals: the first tap asks, the second acts (UX review)
   // The armed step is green with "Tap again to confirm", not red: approving is not a danger (UX review S16)
   if (d.confirm && !d.armed) { const was = t.textContent; d.armed = '1'; t.textContent = 'Tap again to confirm: ' + d.confirm.replace(/^Confirm: /, ''); t.classList.add('armed'); t.setAttribute('aria-live', 'assertive'); setTimeout(() => { if (t.isConnected) { delete t.dataset.armed; t.textContent = was; t.classList.remove('armed'); } }, 6000); return; }
@@ -2409,6 +2521,7 @@ document.addEventListener('input', e => {
   if (t.type === 'date') dateWords(t);
   if (SEARCH[t.id]) { SEARCH[t.id](t.value); clearTimeout(searchT); searchT = setTimeout(render, 150); }
 });
+document.addEventListener('change', e => { const t = e.target; if (t && t.dataset && 'pcsel' in t.dataset) { prodC = t.value; render(); } });
 document.addEventListener('change', async e => {
   const t = e.target, d = t.dataset, id = t.id;
   if (id === 'trc') { trial.conf = t.checked; render(); }

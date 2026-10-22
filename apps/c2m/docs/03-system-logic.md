@@ -348,3 +348,9 @@ GET /api/c2m/state asks the database about 54 times. On live each question costs
 2. routes build() sends 22 plain reads together after applyDueRevisions, through a small map (pre, pq). A list-only role (it returns early) prefetches nothing. No write happens in build after the prefetch starts.
 On live the state call is now about 3 seconds. About 15 waits remain in a row (helper loaders such as wlListData, listMaster, loadRoles, the sales read, and reads with a user or role). Tahir ruled 22 Oct 2026 to leave it at that for now. A further step would be to send those together too, or to keep each role's state for 10 seconds (risk: another person's change shows up to 10 seconds late).
 
+## 3.25 Home verdict, job states and Products To do (22 Oct 2026, piece 4; D-99, D-100)
+
+- Verdict (only with see.margin and data loaded): white label rows, FY to date, each truck at the cost approved on its date (nmSum). State: red = Act, amber = Watch, green = On target, by the same red and amber rule as Margin. The trend is the last 6 months with costed trucks, GP % against the sales weighted target. homeVerdict() sets then restores the Margin filters, so Margin's own choices are not changed.
+- Job row: red if its kind is red or it is stuck (more than 2 working days); amber if it has a start date; grey if not. Order: red and stuck first, then oldest first.
+- Products To do, first match: not costed (red); below cost or floor (red); costed with no price or other red state (red, Set price or Fix price); your recipe step (red); below target (amber); recipe with someone else (amber, With name); else OK (green).
+- Client colour: the clients a person can see, sorted by name, take the 12 colours in turn (never red, amber or green).

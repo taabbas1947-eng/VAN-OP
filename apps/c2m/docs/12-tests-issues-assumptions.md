@@ -519,3 +519,9 @@ An independent agent reviewed the change and found 9 defects, none high; all fix
 - Guide: checked on desktop and phone as Tahir, Yawar, Majid, Himayat and Fahim: Who does what shows 6 boxes, the reader's own box is marked, no sideways scroll, no page error.
 - Not done: C2M's own suites c2m100 to c2m103 (outside the repo).
 
+## 12.6 Piece 4, the new look (22 Oct 2026)
+
+- Suites run on local after the build: regress, roles, kam, kamui, p3, p3ui, all passing. Screenshots as COO and Production Manager, on computer and phone, in all 4 looks.
+- Independent review found 5 medium and some low points; fixed: top bar squeezed between 761 and 1100 px, To do column agreeing with State, client colours clashing, keyboard focus after a click, red jobs sorting last, amber text contrast, 0 day wording, empty trend month, tab order, dot size.
+- Not tested: roles with long menus between 761 and 1000 px, printing, browsers other than Chromium. Not yet run live.
+- Assumption: the look is kept per browser, not per person on the server.

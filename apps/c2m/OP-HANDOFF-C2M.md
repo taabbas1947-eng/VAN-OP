@@ -450,3 +450,13 @@ Next: Tahir's rulings in rounds of 4; then fix the 5 wrong-price defects and def
 - Choices to check: Add a product shows on every client row that can take its own brand (the picture showed it on Excel, not on Kashmir). Majid has no Setup, so he adds a variant from a VAN product's page. The rate for a variant is set by Yawar (labour.manage, assumed).
 - Next: piece 4, the new look (Home, Products client chips, Silver skin; D-92, D-93), picture first. Later: KAM tick "saving, second click ignored" fix; live test of KAM Copy, Tick all and Clear.
 
+## 22 Oct 2026 (8) Piece 4 of 4, pictures chosen (D-99). Nothing built.
+- Module C2M. Drawn inline in the chat (3 layouts each for Home and Products, Silver skin, real client names and counts from live). Tahir chose: Home B (verdict left, jobs right, stacked on a phone); Products B (client list on the left with count and colour, a drop down on a phone). D-99 written in doc 06.
+- Still to build: Silver skin with 2 more skins (Slate dusk, Paper) chosen per person; bolder tabs; thin dim table lines with a soft blue, text left, numbers right; top bar first name only; smaller product headings; client colour the same for everyone (D-92, D-93, D-99). Needs a per person skin setting (a small table or the browser; to decide when building).
+- Next: Tahir says go ahead; then build, test, independent review, docs and Guide, Tahir pushes, Claude checks live.
+- **22 Oct 2026 (8), later:** 4 variants drawn and judged by an independent UX and UI agent; Tahir chose Silver cool and 4 skins per person (D-100). Fixes from the review are part of the build: status always has a word, client colours avoid red, amber and green, the trend label does not cover the line, no repeat of red. Nothing built.
+
+## 22 Oct 2026 (9) Piece 4 of 4 built: the new look (D-92, D-93, D-99, D-100). NOT PUSHED (MODULE: C2M)
+- Changed: c2m.html only (4 looks, top bar, Home verdict and jobs, Products client list and To do column, Guide Your look). Docs 03, 06, 07, 08, 12 updated. No database change, no server change.
+- Tested on local (all suites pass) and reviewed by an independent agent; its findings are fixed. Not yet checked live.
+- Next: Tahir pushes and sets the version; then Claude checks live as COO and as another role, on computer and phone. Open: the look is per browser; Home verdict figures to be read against live Margin.

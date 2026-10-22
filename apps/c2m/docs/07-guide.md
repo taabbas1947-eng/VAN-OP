@@ -54,6 +54,12 @@ Open your name's section below ("Yawar", "Tahir", "Majid", "Himayat", "Fahim", "
 - "Someone else changed this a moment ago. Check before retrying." means another person acted first. Look again.
 - Every change is dated and logged in the change record (Setup).
 
+## Your look (22 Oct 2026, piece 4)
+
+- Pick one of 4 looks with the 4 dots in the top bar (computer) or in Guide, Your look (phone): Silver cool, Slate light, Stone warm, Slate dusk (dark). It is kept in your browser.
+- Colours: red means act or it is stuck; amber means waiting; green means fine; grey is information. Every colour comes with a word. The small coloured square beside a client is only that client's colour.
+- Home: left, the white label margin verdict and 6 month trend (Yawar, Tahir); right, your jobs, red and stuck first, then the oldest. Products: pick a client on the left; the To do column says what each product needs.
+
 ## Where things are (0.8.0)
 
 | Before 0.8.0 | Now |

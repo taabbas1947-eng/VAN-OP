@@ -479,3 +479,7 @@ Next: Tahir's rulings in rounds of 4; then fix the 5 wrong-price defects and def
 - **Not verified:** nothing is tested on live data; Margin only with synthetic trucks; no real PDF checked; no real first-time user has used it.
 - **Still open:** migration 004 (Ahmer) so the print name saves; Sulfur: 5 specifications and 3 material names need Tahir; "Group" is not editable on purpose.
 - **After the push:** Tahir says "pushed"; Claude checks each screen live (no real writes).
+
+## 23 Oct 2026 (late) Sulfur spelling, migration 005 (D-118). NOT PUSHED
+- Ahmer runs migrations/005_c2m_sulfur_spelling.PRODUCTION.sql once in phpMyAdmin. It corrects 5 descriptions (Max Sulfur, Germinator Pro Sulfur, Nutrivant Urea, Green Sulfur, Vital Urea) and 3 materials (Sulfur 500 Mech, Sulfur Grinded- 200-250 Mesh, Sulfur WDG). Safe to run twice.
+- Live check on 23 Oct: migration 004 is in (printNameReady true), but Arysta's print name is still empty. Tahir types it once: Setup, Client details, Arysta, Edit.

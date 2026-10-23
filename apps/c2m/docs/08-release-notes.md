@@ -560,3 +560,4 @@ Format: Keep a Changelog, semantic versions. Live: 1.0.0 (pushed 19 Oct about 22
 - Margin page redesigned (D-111); Products by client with a + New menu (D-112); More menu under its button (D-113); audit fixes (D-114); Setup and Back office merged (D-115); white label product corrections and Guide first day (D-116).
 - Tests: runall.sh (regress, roles, KAM, KAM UI, p3, p3 UI, fix07: blank target, same-day price, rename, out of use, remove pack) all pass on the local database; the screens were checked at 1440, 1000 and 390 px. Not tested live, and Margin only with synthetic trucks.
 - After the push: check live that Products shows client rows, + New opens, Margin opens on the whole company, Setup shows 4 groups and Client details, and Approvals shows no "n/a".
+- Migration 005 (23 Oct 2026, D-118): Sulfur spelling in 5 product descriptions and 3 material names. Data only, no screen change. Run once in phpMyAdmin.

@@ -555,3 +555,8 @@ Format: Keep a Changelog, semantic versions. Live: 1.0.0 (pushed 19 Oct about 22
 ## Rename a client (22 Oct 2026)
 - Customers, Edit has a new box, Customer name in C2M. A rename moves KAM grants and issued-document links in the same save and is written in the audit trail.
 - Changed: c2m-routes.js, c2m.html (Customers edit form, Guide). No migration.
+
+## [Next version] · 23 Oct 2026 · D-111 to D-116 · Who: Claude built; Tahir ruled and approves the push
+- Margin page redesigned (D-111); Products by client with a + New menu (D-112); More menu under its button (D-113); audit fixes (D-114); Setup and Back office merged (D-115); white label product corrections and Guide first day (D-116).
+- Tests: runall.sh (regress, roles, KAM, KAM UI, p3, p3 UI, fix07: blank target, same-day price, rename, out of use, remove pack) all pass on the local database; the screens were checked at 1440, 1000 and 390 px. Not tested live, and Margin only with synthetic trucks.
+- After the push: check live that Products shows client rows, + New opens, Margin opens on the whole company, Setup shows 4 groups and Client details, and Approvals shows no "n/a".

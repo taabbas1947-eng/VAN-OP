@@ -541,3 +541,9 @@ An independent agent reviewed the change and found 9 defects, none high; all fix
 - Not tested live. Assumption: no other table holds the client name (checked in code and migrations). A name over 100 characters is refused because a grant holds 100.
 - Independent review found 3 points, all fixed: validation ran after the rename committed; a stale read could orphan grants on two renames at once; the open price list builder kept the old client name. Tests added for each.
 - Open: Tahir asked what Group means; segment edit ruled out.
+
+## 12.10 Handover audit, 23 Oct 2026 (D-114 to D-116)
+- 2 independent audits (data flow and logic; layout and UX). Auditor 1: 3 high, 7 medium findings; auditor 2: 5 severity 1, 9 severity 2, polish. All fixed in 1 round except: re-approval dismissal (kept as ruled, wording fixed) and trucks before the first approved cost (kept, A-04, now stated in Margin).
+- New test file fix07.test.js (after p3): blank and bad targets refused and nothing saved; a same-day price replaces the earlier one with valid dates; rename, out of use, put back; remove a pack with no cost; refuse a pack with an approved cost.
+- Playwright checks in /work/p4 (not shipped): Products rows and menu at 1300 and 390 px, correct box through the screen.
+- Assumption A-23: a first-time CFO can finish each flow from the screens; checked by an auditor reading the code and screens, not by a real first-time user. Tahir to watch Yawar's first session.

@@ -274,3 +274,15 @@ Changed: recipes/new refuses a follower; recipes/:id/advance writes cost version
 
 ### 5.18 Rename a client (D-110)
 `POST /api/c2m/customers/:id` now also takes `name` (text, 1 to 100 characters). Needs Change customer details. The whole save (name, print name, price rule, cycle, region, O2S names) is one transaction on a row read under lock, so a failed check never leaves a half save. The name is set, KAM grants (`c2m_list_grant`, kind client) and `fields_json.client` of white label documents move to the new name, and one audit row (`customer`, `name`) records old, new and the counts moved. Errors 400: empty, not text, too long, or a clash with another client's name or O2S names. Sending the unchanged name does nothing.
+
+### 5.19 Corrections and fixes (23 Oct 2026; D-114, D-116)
+- `POST /api/c2m/targets/request` now refuses a blank, non-numeric, negative or 100+ `toGp` with 400 ("Type the new target GP, a number from 0 to 99.9."). Before, a blank was saved as 0.
+- `POST /api/c2m/prices/:id/approve`: when the price in force started on the same day as the new one, it is set to replaced and its end date equals its start date (before: end date 1 day before its start).
+- `POST /api/c2m/products/:id/edit` {brand, o2sNames, why?}: white label only; right client.add. Refuses a blank name, no change, or a name and pack size that another product of the client already uses. Audit entry client_product edit.
+- `POST /api/c2m/products/:id/inuse` {on}: white label only; right client.add. Taking out of use is refused while a price for it waits for Tahir.
+- `POST /api/c2m/packs/:id/remove`: white label only; right client.add. Refused if the pack has an approved cost, any price, an open re-approval, or is the product's only pack.
+- GET /state adds `outOfUse` [{id, brand, customer}] (white label products out of use).
+- The "backoffice" place is gone from `more` (c2m-access.js navFor); a stale link to it opens Setup.
+- `POST /api/c2m/prices/:id/retract` (right price.propose): the proposer, or the administrator, takes back a price that waits (status proposed becomes withdrawn). `POST /api/c2m/targets/:id/retract` (right targets.propose): same for an open target request (becomes withdrawn).
+- `POST /api/c2m/targets/request` toGp must match 1 or 2 digits with at most 1 decimal, be above 0, and differ from the product's current target.
+- `POST /api/c2m/products/:id/inuse` with on:true is refused when another active product of the client uses one of its names and one of its pack sizes.

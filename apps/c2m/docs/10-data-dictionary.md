@@ -190,8 +190,8 @@ Changed in 0.3.0 and 0.3.1: rs_per_kg fixed (1 rate of 1 kind, labour or FOH). A
 | Above: check | A client price more than 5 points over its target | state on Client prices | D-78 |
 | Added row | A list row created by an approved revision for a VAN pack not on that list | items_json added 1 | D-77 |
 | Approvals | The place that was Today, for Yawar and Tahir | place | D-76 |
-| Back office | The earlier Setup, under More | place | D-76 |
-| More | The places kept out of the rail: Reports, Inputs, Back office, Guide | sheet | D-76 |
+| Back office | Removed in D-115: its tabs are in Setup | place | D-76, D-115 |
+| More | The places kept out of the rail: Reports, Inputs, Guide | sheet | D-76 |
 
 ## 10.8 Added in 1.0.1 (owner: Yawar; Tahir ruled 19 Oct 2026, D-80 to D-83; version 1.0.1)
 

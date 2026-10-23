@@ -143,7 +143,7 @@ No right changed: the server checks each action by role as before; ROLES only ch
 | Place or action | cfo (Yawar) | coo (Tahir) | production, qc, plant, viewer | Rule |
 |---|---|---|---|---|
 | Approvals, Products, Client prices, Margin, Setup | yes | yes | no (their places are unchanged) | D-76 |
-| More: Reports, Inputs, Back office, Guide | yes | yes | no | D-76 |
+| More: Reports, Inputs, Guide (Back office removed, D-115) | yes | yes | no | D-76, D-115 |
 | Type and send white label prices | yes | no | no | D-78, D-06 |
 | Type and send VAN brand prices, add a pack to a list | yes | no | no | D-77, D-28 |
 | Link a list row to its pack (1.0.2: Tahir too, on Setup Product names, Client prices Not placed and the VAN brand list margin report) | yes | yes (from 1.0.2) | no; a KAM never receives the links or marks | D-73, D-85 |
@@ -208,3 +208,6 @@ Other rules: approving a follower's cost needs recipe.step.cost (the CFO step); 
 ## 11.13 Who does what, in one place (22 Oct 2026)
 The app Guide and doc 07 now carry a Who does what part for every role. It is the plain-words version of this document: what each role does and who comes next. If a role's rights change in Setup, Roles, keep that part in step. The 6 starting roles are the ones named in it; a role made by the administrator reads "set up by the administrator" in its own Guide.
 
+
+## 11.14 Places after D-115 (23 Oct 2026)
+More for Tahir and Yawar is now Reports, Inputs and Guide. Back office is removed; its Customers and System documentation are tabs of Setup (Client details, System documentation). Corrections of a white label product (rename, out of use, remove a pack) need client.add.

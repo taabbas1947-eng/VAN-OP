@@ -359,6 +359,7 @@ module.exports = function mountC2mRoutes(app, deps) {
       out.listRevisions = lr.map(r => { const open = r.status === 'proposed' || r.status === 'sent_back' || (r.status === 'approved' && !Number(r.applied));
         return { ...r, byAdmin: byAd(r.proposed_by), items: JSON.parse(r.items_json).map(it => open ? itemNow(D, liById, it) : it), items_json: undefined }; }); /* a revision still open shows each row under its name today (review 1.0.2, design finding 5) */
       out.customers = D.customers.map(c => ({ id: c.id, name: c.name, grp: c.grp, segment: c.segment, priceRule: c.price_rule, cycle: c.price_cycle, region: c.region, o2sNames: c.o2s_names, printName: c.print_name || '' })); out.printNameReady = D.customers.length > 0 && 'print_name' in D.customers[0];
+      { const [oo] = await pq("SELECT c.id, c.brand, cu.name customer FROM c2m_client_product c JOIN c2m_customer cu ON cu.id=c.customer_id WHERE c.active=0 AND c.channel='White label' ORDER BY cu.name, c.brand"); out.outOfUse = oo; }
       const [docs] = [fs.readdirSync(path.join(__dirname, 'docs')).filter(f => f.endsWith('.md')).sort()]; out.docs = docs;
     } else {
       out.docs = fs.readdirSync(path.join(__dirname, 'docs')).filter(f => docAllowed(acc, f)).sort();
@@ -827,7 +828,7 @@ module.exports = function mountC2mRoutes(app, deps) {
       for (const c of all) { const theirs = [c.name].concat(String(c.o2s_names).split('|')).map(nmK); if (nmK(c.name) === nmK(name)) throw bad(`A client called "${name}" is already in C2M.`); const hit = mine.find(m => theirs.includes(m)); if (hit) throw bad(`The name "${hit}" is already a name of the client ${c.name}: an O2S line could not tell them apart.`); }
       let r; try { [r] = await q('INSERT INTO c2m_customer (name, o2s_names, grp, segment, price_rule, price_cycle, region, active) VALUES (?,?,?,?,?,?,?,1)', [name, o2s, b.kind, seg, b.kind === 'White label' ? 'po' : null, null, null]); }
       catch (e) { if (dupName(e)) throw bad(`A client called "${name}" is already in C2M.`); throw e; }
-      await audit(req.c2m.user, 'customer', r.insertId, 'add', null, { name, kind: b.kind, segment: seg, o2sNames: o2s }, 'Add client (D-94)');
+      await audit(req.c2m.user, 'customer', r.insertId, 'add', null, { name, kind: b.kind, segment: seg, o2sNames: o2s }, 'Add client');
       return r.insertId;
     });
     res.json({ id });
@@ -854,7 +855,7 @@ module.exports = function mountC2mRoutes(app, deps) {
       await setExt(r.insertId, { ...fam, followsId });
       await insertPacks(r.insertId, cust.id, packs, req.c2m.user);
       await recomputeGroup(cust.id, req.c2m.user);
-      await audit(req.c2m.user, 'client_product', r.insertId, 'add', null, { client: cust.name, brand, o2s, typeId: ty.id, form, soldPer, mode, follows: followsId, family: fam.familyId, variant: fam.pvariantId, packs }, 'Add a product (D-94)');
+      await audit(req.c2m.user, 'client_product', r.insertId, 'add', null, { client: cust.name, brand, o2s, typeId: ty.id, form, soldPer, mode, follows: followsId, family: fam.familyId, variant: fam.pvariantId, packs }, 'Add a product');
       return r.insertId;
     });
     res.json({ id });
@@ -869,6 +870,55 @@ module.exports = function mountC2mRoutes(app, deps) {
     await tx(async () => {
       const [[have]] = await q('SELECT id FROM c2m_client_pack WHERE client_product_id=? AND ABS(pack_size-?)<0.0005', [cp.id, packs[0].size]); if (have) throw bad(`${cp.brand} has the ${packs[0].size} pack already.`);
       await insertPacks(cp.id, cp.customer_id, packs, req.c2m.user);
+    });
+    res.json({ ok: true });
+  }));
+
+  /* ---------- Correct a white label product (audit, 23 Oct 2026): rename it, take it out of use, remove a pack added by mistake ---------- */
+  app.post('/api/c2m/products/:id/edit', can('client.add'), wrap(async (req, res) => {
+    const b = req.body || {};
+    const out = await tx(async () => {
+      const [[cp]] = await q('SELECT * FROM c2m_client_product WHERE id=? FOR UPDATE', [req.params.id]); if (!cp) throw bad('Product not found.');
+      if (cp.channel !== 'White label') throw bad('A VAN brand product is renamed in Setup, Product names.');
+      const brand = cleanName(b.brand, 120, 'brand name'); const names = spellings(b.o2sNames, brand); const o2s = names.join('|'); if (o2s.length > 120) throw bad(`The brand name and spellings together can be at most 120 characters (now ${o2s.length}).`);
+      if (brand === cp.brand && o2s === String(cp.o2s_brand || '')) throw bad('Nothing changed.');
+      const D = await engine.loadAll(q); const mine = D.packs.filter(k => Number(k.client_product_id) === Number(cp.id)).map(k => Number(k.pack_size));
+      const clash = D.cps.find(c => Number(c.customer_id) === Number(cp.customer_id) && Number(c.id) !== Number(cp.id) && c.channel === 'White label' && namesOf(c).some(n => names.some(m => nmK(m) === nmK(n))) && D.packs.some(k => Number(k.client_product_id) === Number(c.id) && mine.some(z => Math.abs(Number(k.pack_size) - z) < 1e-9)));
+      if (clash) throw bad(`This client already has ${clash.brand} under a name and pack size you used: an O2S line could not tell them apart.`);
+      try { await q('UPDATE c2m_client_product SET brand=?, o2s_brand=? WHERE id=?', [brand, o2s, cp.id]); } catch (e) { if (dupName(e)) throw bad('This client already has a product with these names.'); throw e; }
+      await audit(req.c2m.user, 'client_product', cp.id, 'edit', { brand: cp.brand, o2s: cp.o2s_brand }, { brand, o2s }, b.why ? String(b.why).slice(0, 200) : 'Correct a product');
+      return { brand };
+    });
+    res.json({ ok: true, ...out });
+  }));
+  app.post('/api/c2m/products/:id/inuse', can('client.add'), wrap(async (req, res) => {
+    const on = !!(req.body || {}).on;
+    await tx(async () => {
+      const [[cp]] = await q('SELECT * FROM c2m_client_product WHERE id=? FOR UPDATE', [req.params.id]); if (!cp) throw bad('Product not found.');
+      if (cp.channel !== 'White label') throw bad('A VAN brand product is put out of use in Setup, Product names.');
+      if (Number(cp.active) === (on ? 1 : 0)) throw bad(on ? 'It is in use already.' : 'It is out of use already.');
+      if (!on) { const [[w]] = await q("SELECT COUNT(*) n FROM c2m_price p JOIN c2m_client_pack k ON k.id=p.client_pack_id WHERE k.client_product_id=? AND p.status='proposed'", [cp.id]); if (Number(w.n)) throw bad('A price for this product is waiting for Tahir. Let him decide it first.'); }
+      if (on) { // put back: no other product of the client may already use its name and a pack size (an O2S line could not tell them apart)
+        const D = await engine.loadAll(q); const nm0 = namesOf(cp); const [mk] = await q('SELECT pack_size FROM c2m_client_pack WHERE client_product_id=?', [cp.id]); const mine = mk.map(x => Number(x.pack_size));
+        const clash = D.cps.find(c => Number(c.customer_id) === Number(cp.customer_id) && Number(c.id) !== Number(cp.id) && c.channel === 'White label' && namesOf(c).some(n => nm0.some(m => nmK(m) === nmK(n))) && D.packs.some(k => Number(k.client_product_id) === Number(c.id) && mine.some(z => Math.abs(Number(k.pack_size) - z) < 1e-9)));
+        if (clash) throw bad(`${clash.brand} is in use under a name and pack size of ${cp.brand}: an O2S line could not tell them apart. Rename one of them first.`);
+      }
+      await q('UPDATE c2m_client_product SET active=? WHERE id=?', [on ? 1 : 0, cp.id]);
+      await recomputeGroup(cp.customer_id, req.c2m.user);
+      await audit(req.c2m.user, 'client_product', cp.id, on ? 'in use' : 'out of use', cp.active, on ? 1 : 0, (req.body || {}).why ? String(req.body.why).slice(0, 200) : null);
+    });
+    res.json({ ok: true });
+  }));
+  app.post('/api/c2m/packs/:id/remove', can('client.add'), wrap(async (req, res) => {
+    await tx(async () => {
+      const [[k]] = await q('SELECT k.*, c.channel, c.brand, c.sold_per FROM c2m_client_pack k JOIN c2m_client_product c ON c.id=k.client_product_id WHERE k.id=? FOR UPDATE', [req.params.id]); if (!k) throw bad('Pack not found.');
+      if (k.channel !== 'White label') throw bad('A VAN brand pack is changed through a price list revision.');
+      const [[cv]] = await q('SELECT COUNT(*) n FROM c2m_cost_version WHERE client_pack_id=?', [k.id]); const [[pr]] = await q('SELECT COUNT(*) n FROM c2m_price WHERE client_pack_id=?', [k.id]);
+      const [ra] = await q("SELECT id FROM c2m_reapproval WHERE status='open' AND (items_json LIKE ? OR items_json LIKE ?)", [`%"packId":${Number(k.id)},%`, `%"packId":${Number(k.id)}}%`]);
+      if (Number(cv.n) || Number(pr.n) || ra.length) throw bad(`The ${Number(k.pack_size)} ${k.sold_per} pack of ${k.brand} already has an approved cost, a price or a re-approval, so it cannot be removed. Take the product out of use instead.`);
+      const [[left]] = await q('SELECT COUNT(*) n FROM c2m_client_pack WHERE client_product_id=?', [k.client_product_id]); if (Number(left.n) <= 1) throw bad('This is the only pack of the product. Take the product out of use instead.');
+      await q('DELETE FROM c2m_pack_ext WHERE client_pack_id=?', [k.id]); await q('DELETE FROM c2m_client_pack WHERE id=?', [k.id]);
+      await audit(req.c2m.user, 'client_pack', k.id, 'remove', Number(k.pack_size), null, `Removed the ${Number(k.pack_size)} ${k.sold_per} pack of ${k.brand}`);
     });
     res.json({ ok: true });
   }));
@@ -1040,8 +1090,10 @@ module.exports = function mountC2mRoutes(app, deps) {
       if (cur && (!cur.valid_to || String(cur.valid_to).slice(0, 10) >= from)) {
         // The price in force ends the day before the new one starts; its old end date is kept on the new row
         cutId = cur.id; cutPrev = cur.valid_to ? String(cur.valid_to).slice(0, 10) : null;
-        await q(`UPDATE c2m_price SET valid_to=?${from <= today() ? ", status='replaced'" : ''} WHERE id=?`, [dayBefore(from), cur.id]);
-        await audit(req.c2m.user, 'price', cur.id, 'ended', cutPrev, dayBefore(from), `Ends before price ${p.id} starts on ${from}`);
+        // A price that started the same day (or later) is replaced outright; its end date is never set before its own start (audit, 23 Oct 2026)
+        const sameDay = String(cur.valid_from).slice(0, 10) >= from, endTo = sameDay ? String(cur.valid_from).slice(0, 10) : dayBefore(from);
+        await q(`UPDATE c2m_price SET valid_to=?${from <= today() || sameDay ? ", status='replaced'" : ''} WHERE id=?`, [endTo, cur.id]);
+        await audit(req.c2m.user, 'price', cur.id, sameDay ? 'replaced' : 'ended', cutPrev, endTo, sameDay ? `Replaced by price ${p.id} on its first day, ${from}` : `Ends before price ${p.id} starts on ${from}`);
       }
       const [u] = await q("UPDATE c2m_price SET status='approved', prev_price=?, valid_from=?, cut_price_id=?, cut_prev_to=?, decided_by=?, decided_at=? WHERE id=? AND status='proposed'", [cur ? cur.price : null, from, cutId, cutPrev, req.c2m.user, now(), p.id]);
       if (!u.affectedRows) throw moved();
@@ -1066,6 +1118,25 @@ module.exports = function mountC2mRoutes(app, deps) {
       res.locals.out = { ok: true, issuedDocs: docs };
     });
     res.json(res.locals.out);
+  }));
+  /* The person who proposed a price or a target can take it back while it waits (audit, 23 Oct 2026): a typo no longer needs Tahir to send it back. */
+  app.post('/api/c2m/prices/:id/retract', can('price.propose'), wrap(async (req, res) => {
+    await tx(async () => {
+      const [[p]] = await q("SELECT * FROM c2m_price WHERE id=? AND status='proposed' FOR UPDATE", [req.params.id]); if (!p) throw moved();
+      if (p.proposed_by !== req.c2m.user && !req.c2m.admin) throw bad('Only the person who proposed this price can take it back.');
+      await q("UPDATE c2m_price SET status='withdrawn' WHERE id=? AND status='proposed'", [p.id]);
+      await audit(req.c2m.user, 'price', p.id, 'taken back', p.price, null, 'Taken back by the proposer');
+    });
+    res.json({ ok: true });
+  }));
+  app.post('/api/c2m/targets/:id/retract', can('targets.propose'), wrap(async (req, res) => {
+    await tx(async () => {
+      const [[t]] = await q("SELECT * FROM c2m_target_request WHERE id=? AND status='open' FOR UPDATE", [req.params.id]); if (!t) throw moved();
+      if (t.by_user !== req.c2m.user && !req.c2m.admin) throw bad('Only the person who asked for this target can take it back.');
+      await q("UPDATE c2m_target_request SET status='withdrawn', decided_by=?, decided_at=? WHERE id=? AND status='open'", [req.c2m.user, now(), t.id]);
+      await audit(req.c2m.user, 'target', t.client_product_id, 'taken back', t.from_gp, t.to_gp, 'Taken back by the proposer');
+    });
+    res.json({ ok: true });
   }));
   app.post('/api/c2m/prices/:id/sendback', can('price.approve'), wrap(async (req, res) => {
     const reason = String((req.body || {}).reason || '').trim(); if (!reason) throw bad('Write a reason.');
@@ -1109,7 +1180,7 @@ module.exports = function mountC2mRoutes(app, deps) {
   app.post('/api/c2m/targets/request', can('targets.propose'), wrap(async (req, res) => {
     const { clientProductId, toGp, reason } = req.body || {};
     const [[cp]] = await q('SELECT id, target_gp FROM c2m_client_product WHERE id=?', [clientProductId]); if (!cp) throw bad('Pick a client product.');
-    if (!(Number(toGp) >= 0 && Number(toGp) < 100)) throw bad('Target GP must be between 0 and 100.'); if (!String(reason || '').trim()) throw bad('Write why.');
+    if (!/^\d{1,2}(\.\d)?$/.test(String(toGp == null ? '' : toGp).trim()) || !(Number(toGp) > 0) || Number(toGp) === Number(cp.target_gp)) throw bad('Type the new target GP: a number above 0 and below 100, with at most 1 decimal, different from today\'s.'); if (!String(reason || '').trim()) throw bad('Write why.');
     // Locked on the product row, so 2 quick clicks cannot open 2 requests (re-review)
     const rid = await tx(async () => {
       await q('SELECT id FROM c2m_client_product WHERE id=? FOR UPDATE', [cp.id]);

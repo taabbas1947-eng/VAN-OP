@@ -412,7 +412,7 @@ flowchart LR
 
 ## 1.18 The 1.0.0 places and the 2 price flows (owner: Tahir rules, Yawar proposes, Tahir approves; D-76, D-77, D-78; version 1.0.0, 19 Oct 2026)
 
-Yawar and Tahir work on 5 places: Approvals (the earlier Today), Products, Client prices, Margin and Setup. Reports, Inputs, Back office (the earlier Setup) and Guide are under More. Every approval is still done in a panel (D-46).
+Yawar and Tahir work on 5 places: Approvals (the earlier Today), Products, Client prices, Margin and Setup. Reports, Inputs and Guide are under More (Back office was merged into Setup, D-115). Every approval is still done in a panel (D-46).
 
 ```mermaid
 flowchart LR

@@ -62,7 +62,7 @@ Open your name's section below ("Yawar", "Tahir", "Majid", "Himayat", "Fahim", "
 
 ## Changing the name a price list prints (22 Oct 2026)
 
-- Open More, Back office, Customers (or Setup, Clients and buyer lines, Open Customers). Click Edit on the client's row. Type the full name in Name on price lists and documents, then Save. Empty means the C2M name prints. Lists already issued keep their old name. The O2S names box is only for matching O2S trucks and POs and never prints.
+- Open Setup, Client details (or Setup, Clients and buyer lines, Open Client details). Click Edit on the client's row. Type the full name in Name on price lists and documents, then Save. Empty means the C2M name prints. Lists already issued keep their old name. The O2S names box is only for matching O2S trucks and POs and never prints.
 
 ## Where things are (0.8.0)
 
@@ -96,7 +96,7 @@ Open your name's section below ("Yawar", "Tahir", "Majid", "Himayat", "Fahim", "
 | Prices: 6 views | Client prices: White label clients (type new prices in the rows), VAN brand prices (1 grid, each VAN pack once), Price lists (D-77, D-78). Waiting prices sit under the white label table; list revisions under the VAN grid |
 | Product page: 5 tabs | Recipe and Cost by pack (D-76) |
 | Setup (0.8.0) | Setup: Settings, Material rates, Packing, Labour FOH and targets, Clients and buyer lines, People, From O2S, Sheet items, Monthly checks, Change record |
-| Reports, Inputs, Guide in the rail | Under More, with Back office (the earlier Setup) |
+| Reports, Inputs, Guide in the rail | Under More |
 
 ### Yawar, from 1.0.0
 1. Approvals: start with "Your next move"; every approval and job opens in a panel.
@@ -236,3 +236,11 @@ Also:
 
 ## Renaming a client (D-110)
 Setup, Customers, Edit, box "Customer name in C2M". The new name shows on all C2M screens, in KAM lists and in the client picker; the client's KAM access moves with it. Price lists already issued keep the name they were printed with. To change only what price lists print, use "Name on price lists and documents". Group and segment are not edited here: the group follows the client's products.
+
+## Your first day (Yawar), added 23 Oct 2026
+1. Approvals: read "Your next move" and do it.
+2. Products: each client is a row; open it, then a product. Press + New to add a variant, put a variant on a client, change a target or add a client.
+3. Client prices: pick a client, type a new price in the row, see the GP at once, Send to Tahir. From today the price is in force when Tahir approves; a later date waits; POs already received keep their PO price.
+4. Margin: opens on the whole company for this month; change the group or month in the line at the top.
+5. Setup: rates, packing, labour and targets, clients, variants, product names, KAM lists, the record of every change. Back office no longer exists: its Customers is Setup, Client details; System documentation is in Setup too.
+To correct a mistake: a price not yet in force is withdrawn or sent back; a rate is saved again with the right value; a white label product is renamed, taken out of use or has a pack removed on its own page, Correct a mistake; a client is renamed in Setup, Client details, Edit.

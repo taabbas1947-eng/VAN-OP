@@ -89,7 +89,7 @@ const BUILTIN = Object.keys(SEED);
  * For the six seeded roles this gives exactly the places they had before (tested). */
 function navFor(actions) {
   const a = new Set(actions), has = k => a.has(k);
-  if (has('see.margin')) return { nav: ['approvals', 'products', 'prices', 'margin', 'setup'], more: ['reports', 'inputs', 'backoffice', 'guide'] };
+  if (has('see.margin')) return { nav: ['approvals', 'products', 'prices', 'margin', 'setup'], more: ['reports', 'inputs', 'guide'] };
   if (!has('see.products') && has('see.granted_lists')) return { nav: ['lists', 'guide'], more: [] };
   const nav = ['today', 'recipes']; if (has('see.materials')) nav.push('inputs'); nav.push('guide');
   return { nav, more: [] };

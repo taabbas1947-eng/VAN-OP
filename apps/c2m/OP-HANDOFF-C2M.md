@@ -472,3 +472,10 @@ Next: Tahir's rulings in rounds of 4; then fix the 5 wrong-price defects and def
 - Files: c2m-routes.js, c2m.html, c2m-pricelist.js, migrations 004 (2 files), docs 04, 05, 06, 07, 08, 12. Open: Sulfur list (D-108); name, group and segment of the client itself still cannot be edited.
 
 (12) 22 Oct 2026, rename a client (D-110): Customers, Edit, Customer name in C2M. Moves KAM grants and issued-document links; printed text of issued documents unchanged. Built, tested locally, not pushed. Open: Group question (Tahir did not understand it; segment edit ruled out); Sulfur spelling (D-108): 5 specifications are edited by Tahir or Yawar at Names, product, description; the 3 material names have no rename screen, so they need a decision. Delete apply6.py.
+
+## Handover to Yawar, 23 Oct 2026 (D-111 to D-116)
+- **Built, tested on the local database, not pushed:** the new Margin page (whole company, current month), Products by client with a + New menu, the product page target box, More as a menu, Setup and Back office merged into Setup (4 groups), correct a white label product (rename, out of use, remove a pack), a Guide first day and "I want to..." table, and the fixes of 2 independent audits (doc 12, section 12.10).
+- **First-day checklist for Yawar:** (1) Approvals, do "Your next move"; (2) Products, open a client, open a product, press + New to see the 4 jobs; (3) Client prices, type a price, see the GP, Send to Tahir; (4) Margin, read the first line (group and period); (5) Setup, look at the 4 groups; (6) Guide, read "I want to...".
+- **Not verified:** nothing is tested on live data; Margin only with synthetic trucks; no real PDF checked; no real first-time user has used it.
+- **Still open:** migration 004 (Ahmer) so the print name saves; Sulfur: 5 specifications and 3 material names need Tahir; "Group" is not editable on purpose.
+- **After the push:** Tahir says "pushed"; Claude checks each screen live (no real writes).

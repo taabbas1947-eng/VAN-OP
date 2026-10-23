@@ -226,7 +226,7 @@ VAN brand price grid (D-77): each cell is the row of that list linked to the pac
 
 Margin (D-79): rows = trucks with an approved cost on their date (or, restated, a cost today). Group by buyer line, base product line (product type for white label, brand for VAN), or buyer line x pack. Each group's sums by F-23. State: red = below cost, or more than red_gap_pts short of target and Rs short above red_share_pct % of all white label sales in the period; amber = any other short; green = on or above. Sorted by Rs against target, then sales. The Approvals red item counts white label buyer lines red by the same rule, FY to date, at the cost approved on each truck's date.
 
-Places (D-76): ROLES gives cfo and coo nav [approvals, products, prices, margin, setup] and more [reports, inputs, backoffice, guide]. On a phone the first 4 sit in the bottom bar; the 5th and the More places are in the More sheet. On a wide screen the More sheet shows only the More places.
+Places (D-76): ROLES gives cfo and coo nav [approvals, products, prices, margin, setup] and more [reports, inputs, guide]. On a phone the first 4 sit in the bottom bar; the 5th and the More places are in the More sheet. On a wide screen the More sheet shows only the More places.
 
 ## 3.19 1.0.1 logic (owner: Yawar; Tahir ruled 19 Oct 2026, D-80 to D-83; version 1.0.1)
 
@@ -354,3 +354,9 @@ On live the state call is now about 3 seconds. About 15 waits remain in a row (h
 - Job row: red if its kind is red or it is stuck (more than 2 working days); amber if it has a start date; grey if not. Order: red and stuck first, then oldest first.
 - Products To do, first match: not costed (red); below cost or floor (red); costed with no price or other red state (red, Set price or Fix price); your recipe step (red); below target (amber); recipe with someone else (amber, With name); else OK (green).
 - Client colour: the clients a person can see, sorted by name, take the 12 colours in turn (never red, amber or green).
+
+## 3.x Pages after D-111 to D-117 (23 Oct 2026)
+- Margin opens on the whole company and the current month; a target of 0 or none means "no target" everywhere (client load maps it to none; Margin shows "None set"). A new target applies to every month shown.
+- Products: 1 row per client; + New holds the 4 jobs. Setup holds 4 groups of tabs (Back office removed). Corrections of a white label product: edit names, out of use and put back (with a name clash check), remove a pack with no cost, price or open re-approval.
+- A person takes back his own waiting price or target request. A same-day price replaces the earlier one (its end date is never before its start).
+- A follower product with a cost not yet approved raises an Approvals job "Approve cost".

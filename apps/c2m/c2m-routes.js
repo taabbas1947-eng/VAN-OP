@@ -99,6 +99,17 @@ module.exports = function mountC2mRoutes(app, deps) {
   }
   /** After a change (packing bill, rule, correction), batch every pack whose cost now differs from its
    *  approved cost by more than the threshold, once per cause (ruled 10 Oct). Packs already waiting are left out. */
+  /** Once (Tahir, 26 Oct 2026): every costed pack with no approved cost, not a follower, goes onto Approvals as 1 first-cost item. */
+  let sweepRun = null;
+  function sweepOnce(user) {
+    if (!sweepRun) sweepRun = (async () => {
+      const [[a]] = await q("SELECT id FROM c2m_audit WHERE entity='first_cost_sweep' LIMIT 1"); if (a) return;
+      const D = await engine.loadAll(q);
+      const n = await reapprovalFor(`Packs with no approved cost, found once on ${today()}`, p => { const fol = (D.ext.get(p.client_product_id) || {}).followsId; return !fol && !engine.latestApproved(D, p.id); });
+      await audit('c2m', 'first_cost_sweep', null, 'run', null, { packs: n, openedBy: user }, 'One time, after the 26 Oct 2026 version');
+    })().catch(e => { sweepRun = null; throw e; });
+    return sweepRun;
+  }
   async function reapprovalFor(cause, filter) {
     const D = await engine.loadAll(q); const S = D.settings.values;
     const [open] = await q("SELECT items_json FROM c2m_reapproval WHERE status='open'");
@@ -287,7 +298,7 @@ module.exports = function mountC2mRoutes(app, deps) {
       if (!out.materialTypes) { const [mt] = await pq('SELECT id, name, nutrient_fields, nutrient_role FROM c2m_material_type ORDER BY nutrient_role, name'); out.materialTypes = mt; }
     }
     if (has('see.margin')) {
-      const [sales] = await q(`SELECT t.id, t.truck_date, t.kg, t.po, t.dc, p.customer_name, p.channel, p.brand, p.pack, p.net_price FROM c2m_o2s_truck t JOIN c2m_o2s_po_line p ON p.line_id=t.line_id ORDER BY t.truck_date`);
+      const [sales] = await q(`SELECT t.id, t.truck_date, t.kg, t.po, t.dc, p.received, p.customer_name, p.channel, p.brand, p.pack, p.net_price FROM c2m_o2s_truck t JOIN c2m_o2s_po_line p ON p.line_id=t.line_id ORDER BY t.truck_date`);
       const custOf = name => { const k = String(name == null ? '' : name).trim().toLowerCase(); return k ? D.customers.find(c => String(c.o2s_names).split('|').some(n => n.trim() && n.trim().toLowerCase() === k)) : null; }; // an empty name never matches (the VAN brand owner row has none)
       /* FOC (free) lines are not sales: they carry cost against Rs 0 and would pull GP down. They are kept out of sales,
          GP and exposure and shown on their own (ruling 14b; cost review 18 Oct 2026, D-62). */
@@ -306,7 +317,8 @@ module.exports = function mountC2mRoutes(app, deps) {
         const grp = s.channel === 'White Label' ? 'White label' : 'VAN brand', ch = cp && !van ? cp.channel : (engine.CHANNEL_NAME[s.channel] || s.channel);
         const bl = lib.buyerLine(grp, ch, cust ? cust.name : s.customer_name); // D-74: farmers and others pooled, never named in C2M
         return { date: s.truck_date, cust: bl.line, cat: bl.cat, grp, ch, region: cust && bl.cat !== 'farm' ? cust.region || null : null, brand: s.brand, pack: Number(s.pack),
-          packId: p ? p.id : null, po: s.po, dc: s.dc, kg: Number(s.kg), price: Number(s.net_price), cost, costBands, target: cp && cp.target_gp != null ? Number(cp.target_gp) : null, budget: cp && cp.budget_gp != null ? Number(cp.budget_gp) : null };
+          packId: p ? p.id : null, po: s.po, dc: s.dc, kg: Number(s.kg), price: Number(s.net_price), cost, costBands, parts: v ? [v.materials, v.packing, v.conversion, v.freight].map(Number) : null, rcv: s.received ? String(s.received).slice(0, 10) : null, // parts: the approved cost on the truck date, for the Margin drill-down (D-124)
+           target: cp && cp.target_gp != null ? Number(cp.target_gp) : null, budget: cp && cp.budget_gp != null ? Number(cp.budget_gp) : null };
       });
       const um = new Map();
       for (const x of out.sales) if (!x.packId) { const k = `${x.cust}|${x.brand}|${x.pack}`; const u = um.get(k) || { cust: x.cust, brand: x.brand, pack: x.pack, grp: x.grp, kg: 0, rs: 0 }; u.kg += x.kg; u.rs += x.kg * x.price; um.set(k, u); }
@@ -410,6 +422,7 @@ module.exports = function mountC2mRoutes(app, deps) {
       if (!req.c2m.admin && ['see.settings','see.materials','see.cost','see.price'].some(a => R.can.has(a) && !req.c2m.can.has(a))) throw bad('That role can see settings, materials or costs that your role cannot, so its screen cannot be shown to you.');
       acc = { role: R.key, user: as, name: p.name || as, label: R.label, admin: false, actions: R.actions, can: R.can, nav: R.nav, more: R.more }; user = as;
     }
+    if (!as && (mayDo(req, 'reapproval.decide') || req.c2m.admin)) await sweepOnce(user).catch(e => console.error('[c2m] first-cost sweep', e.message));
     const out = await build(acc, user); out.me.name = acc.name; if (as) out.preview = { user: as, name: acc.name }; res.json(out);
   }));
 
@@ -434,8 +447,8 @@ module.exports = function mountC2mRoutes(app, deps) {
   app.post('/api/c2m/recipes/new', can('recipe.start'), wrap(async (req, res) => {
     const { clientProductId, fromVersionId, note } = req.body || {};
     const [[cp]] = await q('SELECT id, active FROM c2m_client_product WHERE id=?', [clientProductId]); if (!cp) throw bad('Pick a client product.');
-    { const [ex] = await softQ('SELECT follows_product_id FROM c2m_product_ext WHERE client_product_id=?', [cp.id]); if (ex && ex[0] && ex[0].follows_product_id) throw bad('This product follows a VAN product\'s recipe, so it has no recipe of its own. Change the recipe of the VAN product it follows.'); }
-    const outOfUse = () => bad('This product is out of use (Setup, VAN products, Names): put it back in use before writing a recipe version.'); if (!Number(cp.active)) throw outOfUse();
+    { const [ex] = await softQ('SELECT follows_product_id FROM c2m_product_ext WHERE client_product_id=?', [cp.id]); if (ex && ex[0] && ex[0].follows_product_id) throw bad('This product follows one of our products\' recipe, so it has no recipe of its own. Change the recipe of the product it follows.'); }
+    const outOfUse = () => bad('This product is out of use (Setup, Products and variants): put it back in use before writing a recipe version.'); if (!Number(cp.active)) throw outOfUse();
     if (fromVersionId) { const [[fv]] = await q('SELECT id FROM c2m_recipe_version WHERE id=? AND client_product_id=?', [fromVersionId, cp.id]); if (!fv) throw bad('Copy from a version of the same product.'); }
     const id = await tx(async () => {
       await lockNames(); { const [[a]] = await q('SELECT active FROM c2m_client_product WHERE id=?', [cp.id]); if (!Number(a.active)) throw outOfUse(); } // a product taken out of use at the same moment (review 1.0.2 re-check 3, finding 3)
@@ -895,7 +908,7 @@ module.exports = function mountC2mRoutes(app, deps) {
     const b = req.body || {};
     const out = await tx(async () => {
       const [[cp]] = await q('SELECT * FROM c2m_client_product WHERE id=? FOR UPDATE', [req.params.id]); if (!cp) throw bad('Product not found.');
-      if (cp.channel !== 'White label') throw bad('A VAN brand product is renamed in Setup, VAN products, Names.');
+      if (cp.channel !== 'White label') throw bad('A VAN brand product is renamed in Setup, Products and variants.');
       const brand = cleanName(b.brand, 120, 'brand name'); const names = spellings(b.o2sNames, brand); const o2s = names.join('|'); if (o2s.length > 120) throw bad(`The brand name and spellings together can be at most 120 characters (now ${o2s.length}).`);
       if (brand === cp.brand && o2s === String(cp.o2s_brand || '')) throw bad('Nothing changed.');
       const D = await engine.loadAll(q); const mine = D.packs.filter(k => Number(k.client_product_id) === Number(cp.id)).map(k => Number(k.pack_size));
@@ -911,7 +924,7 @@ module.exports = function mountC2mRoutes(app, deps) {
     const on = !!(req.body || {}).on;
     await tx(async () => {
       const [[cp]] = await q('SELECT * FROM c2m_client_product WHERE id=? FOR UPDATE', [req.params.id]); if (!cp) throw bad('Product not found.');
-      if (cp.channel !== 'White label') throw bad('A VAN brand product is put out of use in Setup, VAN products, Names.');
+      if (cp.channel !== 'White label') throw bad('A VAN brand product is put out of use in Setup, Products and variants.');
       if (Number(cp.active) === (on ? 1 : 0)) throw bad(on ? 'It is in use already.' : 'It is out of use already.');
       if (!on) { const [[w]] = await q("SELECT COUNT(*) n FROM c2m_price p JOIN c2m_client_pack k ON k.id=p.client_pack_id WHERE k.client_product_id=? AND p.status='proposed'", [cp.id]); if (Number(w.n)) throw bad('A price for this product is waiting for Tahir. Let him decide it first.'); }
       if (on) { // put back: no other product of the client may already use its name and a pack size (an O2S line could not tell them apart)
@@ -962,7 +975,7 @@ module.exports = function mountC2mRoutes(app, deps) {
     const vname = cleanName(b.variant, 80, 'variant name');
     const id = await tx(async () => {
       await lockNames(); const D = await engine.loadAll(q);
-      const main = D.cpById.get(Number(b.fromProductId)); if (!main || !engine.isVanBrand(main)) throw bad('Pick the VAN product this is a variant of.');
+      const main = D.cpById.get(Number(b.fromProductId)); if (!main || !engine.isVanBrand(main)) throw bad('Pick the product this is a variant of.');
       const me = D.ext.get(main.id) || {};
       if (me.followsId) throw bad(`${main.brand} follows another product: add the variant to the product that has the recipe.`);
       /* the family: the main product's, or a new one named after it; the main product then needs its own variant name */
@@ -1002,7 +1015,7 @@ module.exports = function mountC2mRoutes(app, deps) {
     await needVariants(); const b = req.body || {}; let re = 0;
     await tx(async () => {
       const D = await engine.loadAll(q); const cp = D.cpById.get(Number(req.params.id)); if (!cp) throw bad('Product not found.');
-      if (cp.channel !== 'White label') throw bad('Only a white label product follows a VAN product.');
+      if (cp.channel !== 'White label') throw bad('Only a client product follows one of our products.');
       const [[old]] = await q('SELECT * FROM c2m_product_ext WHERE client_product_id=?', [cp.id]);
       let followsId = null, fam = { familyId: old ? old.family_id : null, pvariantId: old ? old.pvariant_id : null };
       if (b.followsId) { const f = await checkFollow(D, b.followsId, cp.id); followsId = f.id; if (f.form !== cp.form || f.sold_per !== cp.sold_per) throw bad(`${f.brand} is ${f.form}, sold per ${f.sold_per}: this product is ${cp.form}, sold per ${cp.sold_per}.`);
@@ -1461,7 +1474,7 @@ module.exports = function mountC2mRoutes(app, deps) {
         if (!l || !whole(l.id)) throw bad('A row is missing.');
         if (l.packId != null && l.packId !== '' && !whole(l.packId)) throw bad('Pick a VAN brand pack: only VAN brand packs can be linked to a list row.');
         const id = Number(l.id), pid = l.packId != null && l.packId !== '' ? Number(l.packId) : null;
-        if (pid != null && !vanPack.has(pid)) { const pk0 = D.packs.find(k => Number(k.id) === pid); throw bad(pk0 && !D.cpById.get(pk0.client_product_id) ? 'That pack\'s product is out of use (Setup, VAN products, Names): pick another pack, or put the product back in use first.' : 'Pick a VAN brand pack: only VAN brand packs can be linked to a list row.'); } // review 1.0.2 re-check 2, A4
+        if (pid != null && !vanPack.has(pid)) { const pk0 = D.packs.find(k => Number(k.id) === pid); throw bad(pk0 && !D.cpById.get(pk0.client_product_id) ? 'That pack\'s product is out of use (Setup, Products and variants): pick another pack, or put the product back in use first.' : 'Pick a VAN brand pack: only VAN brand packs can be linked to a list row.'); } // review 1.0.2 re-check 2, A4
         if (l.noPack !== undefined && typeof l.noPack !== 'boolean') throw bad('Mark the row as not a C2M pack, or undo the mark.');
         if (l.noPack === true && pid != null) throw bad('A row linked to a pack cannot also be marked not a C2M pack.');
         const markOp = typeof l.noPack === 'boolean' && !(l.noPack === false && pid != null); // {id, packId, noPack:false} is a link: it takes the mark out (review finding 6)
@@ -1623,7 +1636,7 @@ module.exports = function mountC2mRoutes(app, deps) {
       if (o2s.length > 120) throw bad(`The O2S spellings together can be at most 120 characters (now ${o2s.length}). Remove a spelling: the check before saving shows the trucks it carries.`);
       const clash = nameClash(D, cp.id, [nb].concat(list)); if (clash) throw bad(clash);
       { const sizes = D.packs.filter(k => Number(k.client_product_id) === Number(cp.id)).map(k => Number(k.pack_size)); const off = await offNames(sizes); // a name of a product out of use is refused here too (review 1.0.2 re-check 3, finding 2)
-        const hit = [nb].concat(list).map(x => ({ x, h: off.find(o => o.names.some(s => nmK(s) === nmK(x))) })).find(y => y.h); if (hit) throw bad(`"${hit.x}" is a name of ${hit.h.brand}, which is out of use and has a pack of the same size: its trucks have no cost on purpose. Put ${hit.h.brand} back in use instead (Setup, VAN products, Names), if they should be costed.`); }
+        const hit = [nb].concat(list).map(x => ({ x, h: off.find(o => o.names.some(s => nmK(s) === nmK(x))) })).find(y => y.h); if (hit) throw bad(`"${hit.x}" is a name of ${hit.h.brand}, which is out of use and has a pack of the same size: its trucks have no cost on purpose. Put ${hit.h.brand} back in use instead (Setup, Products and variants), if they should be costed.`); }
       if (cp.brand === nb && canon(cp.o2s_brand) === o2s) return { ok: true, changed: 0, rowsRenamed: 0 };
       if (preview) return { preview: true, impact: imp, brand: nb, o2sNames: list };
       if (imp.leave.n || imp.join.n) { const a = accept || {}; if (Number(a.leave) !== imp.leave.n || Number(a.join) !== imp.join.n) throw Object.assign(new Error(`The O2S trucks and open orders this change moves are not what the check before saving showed (now ${imp.leave.n} leave and ${imp.join.n} join). Nothing was saved: reload the page and check again.`), { status: 409 }); }
@@ -1665,14 +1678,14 @@ module.exports = function mountC2mRoutes(app, deps) {
         if (preview) return { preview: true, impact: imp, brand: cp.brand };
         if (imp.join.n && Number((accept || {}).join) !== imp.join.n) throw Object.assign(new Error('The O2S trucks this change moves are not what the check showed. Nothing was saved: reload the page and check again.'), { status: 409 });
         await q('UPDATE c2m_client_product SET active=1 WHERE id=?', [id]);
-        await audit(req.c2m.user, 'product_name', String(id), 'in_use', 'out of use', 'in use', `${cp.brand} back in use (Setup, VAN products, Names): ${imp.join.trucks} O2S trucks, Rs ${lib.fmtInt(imp.join.rs)}, and ${imp.join.open} open order lines, costed under it again`);
+        await audit(req.c2m.user, 'product_name', String(id), 'in_use', 'out of use', 'in use', `${cp.brand} back in use (Setup, Products and variants): ${imp.join.trucks} O2S trucks, Rs ${lib.fmtInt(imp.join.rs)}, and ${imp.join.open} open order lines, costed under it again`);
         return { ok: true, changed: 1, impact: imp };
       }
       const imp = await truckImpact(D, D2, id);
       if (preview) return { preview: true, impact: imp, brand: cp.brand };
       if (imp.leave.n && Number((accept || {}).leave) !== imp.leave.n) throw Object.assign(new Error('The O2S trucks this change moves are not what the check showed. Nothing was saved: reload the page and check again.'), { status: 409 });
       await q('UPDATE c2m_client_product SET active=0 WHERE id=?', [id]);
-      await audit(req.c2m.user, 'product_name', String(id), 'out_of_use', 'in use', 'out of use', `${cp.brand} taken out of use (Setup, VAN products, Names): ${imp.leave.trucks} O2S trucks, Rs ${lib.fmtInt(imp.leave.rs)}, and ${imp.leave.open} open order lines, lose their cost`);
+      await audit(req.c2m.user, 'product_name', String(id), 'out_of_use', 'in use', 'out of use', `${cp.brand} taken out of use (Setup, Products and variants): ${imp.leave.trucks} O2S trucks, Rs ${lib.fmtInt(imp.leave.rs)}, and ${imp.leave.open} open order lines, lose their cost`);
       return { ok: true, changed: 1, impact: imp };
     });
     res.json(out);
@@ -1687,8 +1700,8 @@ module.exports = function mountC2mRoutes(app, deps) {
       if (!D.packs.some(k => Number(k.client_product_id) === Number(cp.id) && Math.abs(Number(k.pack_size) - z) < 1e-9)) throw bad(`${cp.brand} has no ${z} pack in C2M, so trucks of "${nm}" ${z} could not be costed under it. Pick the product with that pack, or add the pack first.`); // review 1.0.2, design finding 15
       if (namesOf(cp).some(s => nmK(s) === nmK(nm))) return { ok: true, changed: 0 };
       { const [off] = await q("SELECT c.id, c.brand, c.o2s_brand FROM c2m_client_product c JOIN c2m_client_pack k ON k.client_product_id=c.id WHERE c.channel='VAN brand' AND c.active=0 AND ABS(k.pack_size-?)<0.0005", [z]);
-        const hit = off.find(c => namesOf(c).some(s => nmK(s) === nmK(nm))); if (hit) throw bad(`"${nm}" is a name of ${hit.brand}, which is out of use: its trucks have no cost on purpose. Put ${hit.brand} back in use instead (Setup, VAN products, Names), if they should be costed.`); } // review 1.0.2 re-check 2, finding 2
-      const o2s = String(cp.o2s_brand).split('|').filter(Boolean).concat(nm).join('|'); if (o2s.length > 120) throw bad(`${cp.brand} already has as many O2S spellings as fit: remove one no longer used (Setup, VAN products, Names).`);
+        const hit = off.find(c => namesOf(c).some(s => nmK(s) === nmK(nm))); if (hit) throw bad(`"${nm}" is a name of ${hit.brand}, which is out of use: its trucks have no cost on purpose. Put ${hit.brand} back in use instead (Setup, Products and variants), if they should be costed.`); } // review 1.0.2 re-check 2, finding 2
+      const o2s = String(cp.o2s_brand).split('|').filter(Boolean).concat(nm).join('|'); if (o2s.length > 120) throw bad(`${cp.brand} already has as many O2S spellings as fit: remove one no longer used (Setup, Products and variants).`);
       const clash = nameClash(D, cp.id, [nm]); if (clash) throw bad(clash);
       const imp = await nameImpact(D, cp.id, cp.brand, o2s);
       try { await q('UPDATE c2m_client_product SET o2s_brand=? WHERE id=?', [await storeO2s(cp, o2s.split('|')), cp.id]); }
@@ -1934,7 +1947,7 @@ module.exports = function mountC2mRoutes(app, deps) {
         for (const it of out.filter(x => x.id != null && x.packAt !== undefined)) { const d0 = now0.get(Number(it.id)); if (d0 && (d0.packId != null ? Number(d0.packId) : null) !== it.packAt) { const w0 = it.packAt == null ? null : await packNameNow(it.packAt); throw Object.assign(new Error(`The row you typed for${w0 ? ' (' + w0.product + ' ' + w0.pack + ')' : ''} was moved to another pack a moment ago; it now reads ${d0.p}${d0.pack ? ' ' + d0.pack : ''}. Nothing was sent: cancel, open the form again and type the prices again.`), { status: 409 }); } } } } // checked again with the rows locked: a move at the same moment never takes this price (review 1.0.3, third check, finding 1)
       if (out.some(it => it.added)) { const [cur1] = await q('SELECT data_json FROM c2m_list_price WHERE list_name=? FOR UPDATE', [list]); const on1 = new Set(cur1.map(r => JSON.parse(r.data_json).packId).filter(v => v != null).map(Number)); const hit1 = out.filter(it => it.added && on1.has(Number(it.packId)));
         if (hit1.length) throw Object.assign(new Error(`${hit1.map(it => it.product + ' ' + it.pack).join(', ')} was put on this list a moment ago (a row was moved onto it). Nothing was sent: reload the page; its price now goes on that row.`), { status: 409 }); } // checked again with the rows locked: an added pack never lands on a row moved onto it at the same moment (review 1.0.3, fourth check, finding 5)
-      if (out.some(it => it.added)) { for (const it of out.filter(x => x.added)) { const [[c]] = await q('SELECT c.active, c.brand FROM c2m_client_pack k JOIN c2m_client_product c ON c.id=k.client_product_id WHERE k.id=?', [it.packId]); if (!c || !Number(c.active)) throw bad(`${it.product} ${it.pack} is out of use (Setup, VAN products, Names): it cannot be added to a list.`); } } // review 1.0.2 re-check 2, finding 1
+      if (out.some(it => it.added)) { for (const it of out.filter(x => x.added)) { const [[c]] = await q('SELECT c.active, c.brand FROM c2m_client_pack k JOIN c2m_client_product c ON c.id=k.client_product_id WHERE k.id=?', [it.packId]); if (!c || !Number(c.active)) throw bad(`${it.product} ${it.pack} is out of use (Setup, Products and variants): it cannot be added to a list.`); } } // review 1.0.2 re-check 2, finding 1
       const [[wait]] = await q("SELECT valid_from FROM c2m_list_revision WHERE list_name=? AND status='approved' AND applied=0 FOR UPDATE", [list]);
       if (wait) throw bad(`A revision of this list is approved and waits for ${String(wait.valid_from).slice(0, 10)}. Ask Tahir to withdraw it first, or wait until it takes effect.`);
       const [[open]] = await q("SELECT id FROM c2m_list_revision WHERE list_name=? AND status='proposed' FOR UPDATE", [list]); if (open) throw bad('This list already has a revision waiting for Tahir.');
@@ -2148,6 +2161,97 @@ module.exports = function mountC2mRoutes(app, deps) {
   });
   app.delete('/api/c2m/roles/:key', can('roles.manage'), deleteRole);
   app.post('/api/c2m/roles/:key/delete', can('roles.manage'), deleteRole); // the page sends POST
+
+  /* ---------- Change record, in plain words, with filters (D-125) ----------
+     Read only. Each entry gets the name of what changed (product, pack, client, material, packing item, setting) in place of its number. */
+  const AUDIT_KIND = {
+    recipes: ['recipe', 'grade_nutrients', 'material'],
+    costs: ['recipe:cost_approved', 'client_pack:cost_approved', 'client_product:cost_approved', 'reapproval', 'rate', 'packing_bill', 'packing_item', 'packing_rate', 'conversion_rule', 'freight', 'monthly_actual', 'monthly_check', 'first_cost_sweep', 'import_item', 'client_pack:packing_bill'],
+    prices: ['price', 'list_revision', 'list_price', 'list_master', 'price_doc', 'target', 'target_request'],
+    products: ['client_product', 'client_pack', 'customer', 'product_family', 'product_variant', 'product_name'],
+    settings: ['setting', 'setting_request', 'role', 'sync', 'grant'],
+  };
+  const has0 = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+  const auditKindOf = a => { for (const [k, L] of Object.entries(AUDIT_KIND)) if (L.includes(a.entity + ':' + a.action)) return k;
+    for (const [k, L] of Object.entries(AUDIT_KIND)) if (L.includes(a.entity)) return k; return 'settings'; };
+  /** SQL for 1 kind: its entities, less the entity:action pairs filed under another kind, plus its own pairs. */
+  const auditKindSql = kind => { const L = AUDIT_KIND[kind], P = [];
+    const ents = L.filter(x => !x.includes(':')), mine = L.filter(x => x.includes(':')), others = Object.entries(AUDIT_KIND).filter(([k]) => k !== kind).flatMap(([, v]) => v.filter(x => x.includes(':')));
+    const parts = [];
+    if (ents.length) { const ex = others.filter(x => ents.includes(x.split(':')[0])); parts.push(`(entity IN (${ents.map(() => '?').join(',')})${ex.map(() => ' AND NOT (entity=? AND action=?)').join('')})`); P.push(...ents); ex.forEach(x => P.push(...x.split(':'))); }
+    mine.forEach(x => { parts.push('(entity=? AND action=?)'); P.push(...x.split(':')); });
+    if (kind === 'settings') { const all = Object.values(AUDIT_KIND).flat().filter(x => !x.includes(':')); parts.push(`entity NOT IN (${all.map(() => '?').join(',')})`); P.push(...all); } // anything not filed elsewhere
+    return { sql: '(' + parts.join(' OR ') + ')', P }; };
+  const AUD_THING = { product_name: 'Product name', client_product: 'Product', client_pack: 'Pack', customer: 'Client', price: 'Price', recipe: 'Recipe', reapproval: 'Re-approval', rate: 'Material rate', packing_bill: 'Packing bill', packing_item: 'Packing item', packing_rate: 'Packing rate', product_family: 'Product', product_variant: 'Variant', setting: 'Setting', setting_request: 'Setting change', sync: 'O2S data', target: 'Target GP', target_request: 'Target GP change', first_cost_sweep: 'Packs with no approved cost', list_revision: 'List revision', list_price: 'List row', list_master: 'Price lists', price_doc: 'Price list PDF', material: 'Material', grade_nutrients: 'Nutrients', conversion_rule: 'Labour and FOH rate', freight: 'Freight', monthly_actual: 'Monthly actuals', monthly_check: 'Monthly check', grant: 'List access', role: 'Role', import_item: 'Sheet item' };
+  const AUD_DID = { add: 'added', create: 'created', save: 'saved', edit: 'changed', update: 'changed', change: 'changed', remove: 'removed', delete: 'deleted', propose: 'proposed', approve: 'approved', sent_back: 'sent back', withdrawn: 'withdrawn', 'taken back': 'taken back', cancelled: 'cancelled', ended: 'ended', replaced: 'replaced', 'end restored': 'end date restored', request: 'requested', refuse: 'refused', dismiss: 'dismissed', pull: 'pulled', run: 'put on Approvals', cost_approved: 'cost approved', endorsed: 'endorsed', reviewed: 'reviewed', sent: 'sent on', new: 'new version started', lines: 'lines changed', packing_bill: 'packing bill changed', add_variant: 'variant added', follow: 'set to follow a product', type: 'product type changed', variant: 'variant tagged', group: 'group changed', name: 'name changed', print_name: 'printed name changed', class: 'class set', retire: 'retired', copy: 'copied', grant: 'given', link: 'linked', rename: 'renamed', left_list: 'left the list', applied: 'in force', carried: 'carried into the master', done: 'done', reprocessed: 'reprocessed flag changed', 'in use': 'back in use', 'out of use': 'out of use', in_use: 'back in use', out_of_use: 'out of use', 'all clients': 'all clients given', 'no clients': 'no clients', 'FED changed': 'FED changed', 'cost moved since shown': 'cost moved since shown', 'left: not costed': 'left: not costed', 'left: within threshold': 'left: within the threshold', spelling: 'O2S spelling kept', spec: 'description changed', o2s_names: 'O2S spellings changed', not_c2m_pack: 'marked not a C2M pack', unlink: 'unlinked', imported: 'imported', accept: 'accepted', reject: 'rejected' };
+  const MON3 = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const isoWords = t => String(t == null ? '' : t).replace(/\b(20\d\d)-(\d\d)-(\d\d)\b/g, (m, y, mo, d) => `${+d} ${MON3[+mo - 1]} ${y}`);
+  const audWhy = t => isoWords(String(t || '').replace(/\s*\((?:D-\d+[^)]*|ruling[^)]*|review[^)]*|R\d+[^)]*)\)/gi, '').replace(/\s*\bD-\d+\b,?/g, '').replace(/\s{2,}/g, ' ').trim());
+  const AUDIT_CAP = 5000;
+  app.get('/api/c2m/audit', can('see.margin'), wrap(async (req, res) => {
+    const Q = req.query || {}; const dt = v => /^\d{4}-\d{2}-\d{2}$/.test(String(v || '')) ? String(v) : null;
+    const from = dt(Q.from), to = dt(Q.to), who = String(Q.who || '').trim().slice(0, 64), kind = has0(AUDIT_KIND, String(Q.kind || '')) ? String(Q.kind) : '', text = String(Q.q || '').trim().slice(0, 80);
+    const W = ['1=1'], P = [];
+    if (from) { W.push('at >= ?'); P.push(from + ' 00:00:00'); } if (to) { W.push('at <= ?'); P.push(to + ' 23:59:59'); }
+    if (who) { W.push('by_user = ?'); P.push(who); }
+    if (kind) { const k = auditKindSql(kind); W.push(k.sql); P.push(...k.P); }
+    const [rows] = await q(`SELECT id, at, by_user, entity, entity_id, action, why FROM c2m_audit WHERE ${W.join(' AND ')} ORDER BY id DESC LIMIT ${AUDIT_CAP}`, P);
+    const capped = rows.length === AUDIT_CAP;
+    const D = await engine.loadAll(q); const soft = async (sql, a) => { try { return (await q(sql, a))[0]; } catch (_) { return []; } };
+    // names of every client product, in use or not (review r4, finding 10)
+    const cpAll = new Map((await soft('SELECT id, brand, customer_id, channel FROM c2m_client_product')).map(x => [Number(x.id), x]));
+    const cpName = id => { const cp = cpAll.get(Number(id)) || D.cpById.get(Number(id)); if (!cp) return null; const cu = D.custById.get(cp.customer_id); return `${cp.brand}${cu && cp.channel !== 'VAN brand' ? ' for ' + cu.name : ''}`; };
+    const ids = e => [...new Set(rows.filter(r => r.entity === e && /^\d+$/.test(String(r.entity_id || ''))).map(r => Number(r.entity_id)))];
+    const pick = async (e, sql) => { const L = ids(e); return L.length ? new Map((await soft(sql.replace('?', L.map(() => '?').join(',')), L)).map(x => [Number(x.id), x])) : new Map(); };
+    const packIds = [...new Set(ids('client_pack'))]; const prices = await pick('price', 'SELECT id, client_pack_id, price FROM c2m_price WHERE id IN (?)'); prices.forEach(x => packIds.push(Number(x.client_pack_id)));
+    const packAll = new Map(packIds.length ? (await soft(`SELECT k.id, k.client_product_id, k.pack_size, c.sold_per FROM c2m_client_pack k JOIN c2m_client_product c ON c.id=k.client_product_id WHERE k.id IN (${packIds.map(() => '?').join(',')})`, packIds)).map(k => [Number(k.id), k]) : []);
+    const packName = id => { const k = packAll.get(Number(id)); if (!k) return null; return `${cpName(k.client_product_id) || 'a product'}, ${+Number(k.pack_size).toFixed(3)} ${k.sold_per === 'L' ? 'L' : 'kg'}`; };
+    const recs = await pick('recipe', 'SELECT id, client_product_id, version_no FROM c2m_recipe_version WHERE id IN (?)');
+    const gr = new Map(); for (const e of ['rate', 'grade_nutrients', 'material']) { const L = ids(e); if (L.length) (await soft(`SELECT g.id, g.grade, m.name FROM c2m_material_grade g JOIN c2m_raw_material m ON m.id=g.material_id WHERE g.id IN (${L.map(() => '?').join(',')})`, L)).forEach(x => gr.set(Number(x.id), x)); }
+    const mats = await pick('material', 'SELECT id, name FROM c2m_raw_material WHERE id IN (?)');
+    const pit = new Map(); for (const e of ['packing_item', 'packing_rate']) { const L = ids(e); if (L.length) (await soft(`SELECT id, name FROM c2m_packing_item WHERE id IN (${L.map(() => '?').join(',')})`, L)).forEach(x => pit.set(Number(x.id), x)); }
+    const bills = await pick('packing_bill', 'SELECT id, name FROM c2m_packing_bill WHERE id IN (?)');
+    const rules = await pick('conversion_rule', 'SELECT id, name FROM c2m_conversion_rule WHERE id IN (?)');
+    const treq = await pick('target_request', 'SELECT id, client_product_id FROM c2m_target_request WHERE id IN (?)');
+    const revs = await pick('list_revision', 'SELECT id, list_name FROM c2m_list_revision WHERE id IN (?)');
+    const docs = await pick('price_doc', 'SELECT id, ref FROM c2m_price_doc WHERE id IN (?)');
+    const sreqs = await pick('setting_request', 'SELECT id, summary FROM c2m_setting_request WHERE id IN (?)');
+    const reaps = await pick('reapproval', 'SELECT id, cause FROM c2m_reapproval WHERE id IN (?)');
+    const [people] = await q("SELECT a.username, a.name FROM user_module_roles r JOIN auth_users a ON a.username=r.username WHERE r.module='c2m'").catch(() => [[]]);
+    const nameOf = new Map(people.map(x => [String(x.username).toLowerCase(), x.name]));
+    const LISTW = { dist: 'Distributor list', dealer: 'Dealer list', farmer: 'Farmer list', mrp: 'MRP printing list' };
+    const itemOf = a => { const id = a.entity_id, n = Number(id);
+      switch (a.entity) {
+        case 'client_product': case 'target': case 'product_name': return cpName(id);
+        case 'client_pack': return packName(id);
+        case 'price': { const p = prices.get(n); return p ? packName(p.client_pack_id) : null; }
+        case 'recipe': { const r = recs.get(n); return r ? `${cpName(r.client_product_id) || 'a product'}, version ${r.version_no}` : null; }
+        case 'customer': { const c = D.custById.get(n); return c ? c.name : null; }
+        case 'rate': case 'grade_nutrients': { const g = gr.get(n); return g ? `${g.name}${g.grade && g.grade !== 'Standard' ? ', ' + g.grade : ''}` : null; }
+        case 'material': { const g = a.action === 'create' ? gr.get(n) : null; const m = mats.get(n); return g ? g.name : m ? m.name : null; }
+        case 'packing_item': case 'packing_rate': { const x = pit.get(n); return x ? x.name : null; }
+        case 'packing_bill': { const x = bills.get(n); return x ? x.name : null; }
+        case 'conversion_rule': { const x = rules.get(n); return x ? x.name : null; }
+        case 'target_request': { const x = treq.get(n); return x ? cpName(x.client_product_id) : null; }
+        case 'list_revision': { const x = revs.get(n); return x ? LISTW[x.list_name] || x.list_name : null; }
+        case 'price_doc': { const x = docs.get(n); return x ? x.ref : null; }
+        case 'setting_request': { const x = sreqs.get(n); return x ? x.summary : null; }
+        case 'reapproval': { const x = reaps.get(n); return x ? isoWords(x.cause) : null; }
+        case 'setting': { const r = (D.settings.rows || []).find(x => x.k === id); return r && r.label ? r.label : id; }
+        case 'grant': return nameOf.get(String(id || '').toLowerCase()) || id;
+        case 'product_variant': { const v = (D.pvariants || []).find(x => Number(x.id) === n); return v ? v.name : null; }
+        case 'product_family': { const v = (D.families || []).find(x => Number(x.id) === n); return v ? v.name : null; }
+        case 'monthly_check': case 'monthly_actual': { const m = /^(\d{4})-(\d{2})(?::(.*))?$/.exec(String(id || '')); return m ? `${MON3[+m[2] - 1]} ${m[1]}${m[3] ? ', ' + m[3].replace(/_/g, ' ') : ''}` : id; }
+        case 'freight': return id ? String(id).split('|').filter(Boolean).join(', ') : null;
+        case 'list_master': return 'All price lists';
+        case 'list_price': return LISTW[id] || (id === 'all' ? 'Every list' : id);
+        default: return id && !/^\d+$/.test(String(id)) ? String(id).replace(/_/g, ' ') : null; } };
+    let out = rows.map(a => { const byName = a.by_user === 'c2m' ? 'C2M' : /^migration/.test(a.by_user) ? 'Data correction' : nameOf.get(String(a.by_user || '').toLowerCase()) || a.by_user;
+      return { at: a.at, by: a.by_user, byName, entity: a.entity, action: a.action, kind: auditKindOf(a), item: itemOf(a), id: a.entity_id, what: `${AUD_THING[a.entity] || String(a.entity).replace(/_/g, ' ')} ${AUD_DID[a.action] || String(a.action).replace(/_/g, ' ')}`, why: audWhy(a.why) }; });
+    if (text) { const t = text.toLowerCase(); out = out.filter(a => [a.item, a.why, a.byName, a.what].some(x => String(x || '').toLowerCase().includes(t))); } // the words on screen (review r4, finding 14)
+    const [byU] = await q('SELECT DISTINCT by_user FROM c2m_audit'); const people2 = byU.map(x => ({ u: x.by_user, n: x.by_user === 'c2m' ? 'C2M' : /^migration/.test(x.by_user) ? 'Data correction (' + x.by_user + ')' : nameOf.get(String(x.by_user || '').toLowerCase()) || x.by_user })).sort((a, b) => String(a.n).localeCompare(String(b.n)));
+    res.json({ rows: out.slice(0, 300), total: out.length, capped, cap: AUDIT_CAP, people: people2 });
+  }));
 
   /* ---------- System documentation (mandatory, ruled 15 Oct) ---------- */
   app.get('/api/c2m/docs/:file', wrap(async (req, res) => {

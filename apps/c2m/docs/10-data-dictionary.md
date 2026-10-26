@@ -263,3 +263,6 @@ Changed in 0.3.0 and 0.3.1: rs_per_kg fixed (1 rate of 1 kind, labour or FOH). A
 
 - Printed MRP (D-122): the MRP printed on a VAN brand pack; Farmer, Sindh credit price with FED rounded up to the next Rs 50 (no credit price: the higher of Punjab and Sindh). Not stored; worked out from the farmer list in force.
 - Recommended MRP (D-122): the suggested retail price Yawar types on the Dealer and Distributor lists (field mrp), like the FRP; not the printed MRP. Was called MRP and Benchmark MRP.
+- parts (sale, D-124): the 4 cost parts [materials, packing, conversion, freight], Rs per kg or L, of the cost version used for a truck; sent with each sale, not stored.
+- Change record line (D-125): at, by (user name), entity, entity id, action, why, from c2m_audit; the screen adds the item's name and a kind (recipes, costs, prices, products, settings).
+- Product, Variant, Pack, Client product (D-128): the 4 product words; see doc 07, "The 4 product words".

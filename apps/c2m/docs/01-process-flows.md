@@ -580,3 +580,9 @@ Rate order for a pack: the client's pack, the variant, the product type, the gen
 
 ### MRP printing list (26 Oct 2026, D-122)
 Yawar changes a Sindh credit price on Client prices, VAN brand prices (the send bar warns if any price would be above the new MRP) -> Tahir approves the list revision -> on its date the farmer prices are in force -> printed MRP = Sindh credit price rounded up to the next Rs 50 (no credit price: the higher of Punjab and Sindh) -> Yawar makes the MRP printing list on Client prices, Price lists, for packing and the printer. Any list price above its MRP is a job on Approvals and a line on Margin. FRP and Recommended MRP (suggested prices) are changed with the buttons under the VAN brand grid.
+
+### Round 4 (26 Oct 2026, D-124 to D-132)
+- Why did a pack's margin move? Margin, open the line, open the pack: each truck shows its PO price, the price approved on its date and the cost on its date with its parts; Open the product goes to the Cost tab.
+- Who changed it? Setup, Record and checks, Change record: pick the person, the kind or the dates, or search a name, then Show.
+- First cost of old packs: the first time Yawar or Tahir opens this version, packs with no approved cost wait on Approvals in 1 item; Yawar approves them like any re-approval.
+- A VAN brand list revision that would put a price above the printed MRP is named in Tahir's panel before he approves; he may approve.

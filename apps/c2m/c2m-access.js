@@ -91,7 +91,7 @@ function navFor(actions) {
   const a = new Set(actions), has = k => a.has(k);
   if (has('see.margin')) return { nav: ['approvals', 'products', 'prices', 'margin', 'setup'], more: ['reports', 'guide'] }; // Inputs lives in Setup, Costs for them (review 26 Oct 2026)
   if (!has('see.products') && has('see.granted_lists')) return { nav: ['lists', 'guide'], more: [] };
-  const nav = ['today', 'recipes']; if (has('see.materials')) nav.push('inputs'); nav.push('guide');
+  const nav = ['today']; if (has('variant.add')) nav.push('products'); /* Majid: a read-only Products screen, to add a variant (Tahir, 26 Oct 2026) */ nav.push('recipes'); if (has('see.materials')) nav.push('inputs'); nav.push('guide');
   return { nav, more: [] };
 }
 

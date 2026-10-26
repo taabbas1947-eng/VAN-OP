@@ -251,3 +251,7 @@ The forms write to c2m_customer, c2m_client_product, c2m_client_pack and the 5 l
 
 ### Printed MRP (26 Oct 2026, D-122)
 c2m_list_price (farmer rows, by packId) -> lib.printMrp -> the MRP printing list (POST /pricedocs audience mrp, snapshot stored with the document) and lib.mrpIssues (state.mrpIssues: farmer, dealer and distributor rows of the same pack) -> Approvals job, Margin line. Nothing is stored for the MRP itself: it is worked out from the prices in force.
+
+### Round 4 (26 Oct 2026, D-124, D-125)
+- c2m_cost_version (version on the truck date) → each sale's `parts` in GET /state → Margin drill-down. c2m_price (Price history) → approved price on the truck date, worked out in the page.
+- c2m_audit → GET /api/c2m/audit, joined in the route to client products, packs, prices, recipe versions, materials, packing items and bills, rules, target and setting requests, list revisions and price documents for their names → Change record. Read only.

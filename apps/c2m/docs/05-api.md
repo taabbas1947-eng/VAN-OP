@@ -293,3 +293,8 @@ Changed: recipes/new refuses a follower; recipes/:id/advance writes cost version
 - POST /api/c2m/targets/request takes `toGp: 'company'` to take a product's own target off (held as to_gp 0); approve sets target_gp NULL.
 
 - 26 Oct 2026 (D-122): POST /api/c2m/pricedocs takes audience `mrp` (pricedoc.all only); GET /api/c2m/state carries `mrpIssues` [{packId, name, list, field, word, price, mrp}] for roles that see every list.
+
+### Changes of 26 Oct 2026, round 4 (D-124, D-125)
+- GET /api/c2m/audit (right see.margin): query `who` (user name), `kind` (recipes, costs, prices, products, settings), `from` and `to` (YYYY-MM-DD), `q` (up to 80 characters, searched in the item name, reason, person, entity and action). Bad values are ignored. Returns `{ rows: [{ at, by, byName, entity, action, kind, item, id, what, why }] (newest first, at most 300; what and why in plain words, rule codes taken out), total, capped, cap: 5000, people: [{ u, n }] }`. Person, dates and kind are filtered in the database over the newest 5,000 matching lines (capped is true when 5,000 were read); the search then runs over the item name, what, why and person.
+- GET /api/c2m/state: each item of `sales` carries `parts`: [materials, packing, conversion, freight] per kg or L of the cost version approved on the truck date, or null with no cost.
+- Each sale also carries `rcv`, the date its PO came in (c2m_o2s_po_line.received).

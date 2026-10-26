@@ -788,3 +788,6 @@ Why link tables and not new columns: the live tables stay untouched and migratio
 ## c2m_customer.print_name (migration 004, 22 Oct 2026, D-109)
 
 - print_name VARCHAR(160) NULL, after name. The name the client's price lists and documents print; NULL means the C2M name prints. Not used for matching, grants or any screen except Customers and the price list. Run migrations/004_c2m_customer_print_name.sql (PRODUCTION file for phpMyAdmin) once; a second run says Duplicate column, harmless.
+
+## Migration 006 (26 Oct 2026, D-133)
+Data only, no table change: 3 rows of c2m_raw_material renamed (spelling), with 1 c2m_audit line each.

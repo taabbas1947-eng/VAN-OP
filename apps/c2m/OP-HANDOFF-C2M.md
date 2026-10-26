@@ -502,3 +502,16 @@ Next: Tahir's rulings in rounds of 4; then fix the 5 wrong-price defects and def
 - After the push, check live (read only): Client prices, Price lists shows "MRP printing list (packing and printer)" and its preview; Dealer and Distributor lists say Recommended MRP; Approvals and Margin name any list price above its printed MRP; the VAN brand tab has the 2 buttons to change FRP and Recommended MRP.
 - A pack only on the Dealer or Distributor list has no printed MRP: Approvals names it (D-123).
 - 26 Oct 2026, live check of D-122 after the push: the MRP list works (37 rows, MRP from Sindh credit, no price above MRP). Fixed and NOT PUSHED: blank pack size for Liter, (01 Liter) and 05-kg names; farmer rows checked before the carry-over. Note: live lists are not yet carried into the master (21 of 89 rows linked), so the Dealer and Distributor MRP checks start after Tahir or Yawar carries them (Client prices, VAN brand prices, Carry into the master).
+- 26 Oct 2026 16:20, live check after the push: pack sizes now read for 34 of 37 farmer rows (Vibrant 4 L, V-Boron Liquid 1 L, ...). 3 farmer list names carry no pack size at all: "Cal-Mag V", "V Germinator Pro", "Nitro Sulfur"; their MRP prints with an empty pack size until the list name has it (or the lists are carried into the master, which writes the official pack). No price above its MRP.
+
+## 26 Oct 2026 Round 4 rulings (Tahir)
+- Words: Product (Humi Grow), Variant (Powder, Pellets), Pack (8 kg), Client product (sold to a client under its brand) on every screen.
+- Majid gets a read-only Products screen. Packs that never got an approved cost go once onto Approvals as 1 "first cost" item. Tahir's revision panel names the packs a list revision would put above the printed MRP (approval still allowed).
+- To build: tables (sort, sticky headers, short phone view), forms (required marks, errors under the field, dates in words), Product Cost tab 1 row per pack, Margin drill-down (approved price, cost parts, link), Change record in plain words with filters, Guide as the "I want to" table (history to release notes), Setup Clients and VAN products 1 table each.
+
+## 26 Oct 2026 Round 4 built (D-124 to D-134) and migration 006 (D-133). NOT PUSHED.
+- Files: c2m.html, c2m-routes.js, c2m-access.js; migrations/006_c2m_material_spelling.sql and its PRODUCTION file; docs 01 to 12 (07 rewritten, its history moved to 08). Tests: fix10.test, fix10ui, fix10b added to runall.sh; all pass. Independent review r4: 28 findings, fixed except those listed in D-134.
+- Migration 006: run once in phpMyAdmin after the push; its last query should show no rows. It was not checked against live names (Chrome not reachable then).
+- After the push, check live (read only): Margin, open a client and a pack: trucks show "Approved when the PO came in" and the cost parts; a VAN brand pack says it is priced on the lists. Setup, Clients and Setup, Products and variants are 1 table each. Setup, Record and checks, Change record reads in words with filters. Guide shows the I want to table. Majid sees Products, to read. Approvals has 1 "Packs with no approved cost" item (logged as C2M).
+- Open for Tahir: Majid may tag or clear any product's variant (D-98), which can move cost through a variant rate.
+

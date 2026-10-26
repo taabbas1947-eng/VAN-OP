@@ -30,7 +30,7 @@ const MONL = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'A
 const fmtD = s => { if (!s) return ''; const p = String(s).slice(0, 10).split('-'); return `${+p[2]} ${MON[+p[1] - 1]} ${p[0]}`; };
 
 /** The farmer list writes the pack inside the product name ("Nutrivant K 25 kg"); print the name and the pack apart. */
-const splitPack = p => { const m = /^(.*?)[\s·,-]*([\d.]+\s*(?:kg|L|ml|g))\s*$/i.exec(String(p || '').trim()); return m && m[1] ? { p: m[1].trim(), pack: m[2].replace(/\s*(kg|L|ml|g)$/i, ' $1') } : { p: String(p || ''), pack: '' }; };
+const splitPack = p => { const m = /^(.*?)[\s·,(-]*(\d[\d,]*(?:\.\d+)?|\.\d+)\s*-?\s*(kgs?|l|ml|gm|g|liters?|litres?|ltrs?|lit)\.?\)?\s*$/i.exec(String(p || '').trim()); if (!(m && m[1])) return { p: String(p || ''), pack: '' }; const u = m[3].toLowerCase(); return { p: m[1].trim(), pack: `${Number(m[2].replace(/,/g, ''))} ${u.startsWith('kg') ? 'kg' : u === 'ml' ? 'ml' : u === 'g' || u === 'gm' ? 'g' : 'L'}` }; }; // also Liter, Litre, Ltr, 05-kg and (01 Liter) (live check of D-122)
 /** Size of a pack in kg or L, from the saved size, else from its text (ml and g are thousandths). */
 const packSize = r => { if (Number(r.size) > 0) return Number(r.size); const m = /^([\d.]+)\s*(kg|L|ml|g)\b/i.exec(String(r.pack || '').trim()); if (!m) return null; const v = parseFloat(m[1]); return /^(ml|g)$/i.test(m[2]) ? v / 1000 : v; };
 const money2 = v => Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });

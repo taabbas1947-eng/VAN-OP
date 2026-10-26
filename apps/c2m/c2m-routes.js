@@ -339,7 +339,7 @@ module.exports = function mountC2mRoutes(app, deps) {
       const [gr] = await pq('SELECT * FROM c2m_list_grant ORDER BY username'); out.grants = gr;
       const [people] = await pq("SELECT a.username, a.name, r.role FROM user_module_roles r JOIN auth_users a ON a.username=r.username WHERE r.module='c2m'"); const RR = await loadRoles(); out.people = people.map(p => { const r = RR.get(p.role); return { ...p, roleLabel: r ? r.label : p.role, grantee: isViewerRole(r) }; });
       const [lp] = await pq('SELECT list_name, data_json, issued, valid_till FROM c2m_list_price ORDER BY id'); const LM = await listMaster(); out.lists = groupLists(lp, null, LM);
-      { const LP = LM ? groupLists(lp, null, LM, true) : null; out.mrpIssues = LP ? lib.mrpIssues(LP) : []; out.mrpMissing = LP ? lib.mrpMissing(LP) : []; } // list prices above the printed MRP, and packs with none (D-122)
+      { const LP = groupLists(lp, null, LM, true); out.mrpIssues = lib.mrpIssues(LP); out.mrpMissing = LM ? lib.mrpMissing(LP) : []; } /* every farmer row is checked against its own MRP; the dealer and distributor checks, and the packs with no MRP, need rows linked to packs */ // list prices above the printed MRP, and packs with none (D-122)
       out.wlLists = await wlListData(D, approvedPrice, D.customers.filter(c => c.grp !== 'VAN brand').map(c => c.name));
       const [ma] = await pq('SELECT * FROM c2m_monthly_actual ORDER BY month'); out.actuals = ma;
       const [mc] = await pq('SELECT month, kind, data_json, done_by, done_at FROM c2m_monthly_check ORDER BY month'); out.checks = mc.map(c => ({ ...c, data: (() => { try { return c.data_json ? JSON.parse(c.data_json) : null; } catch (_) { return null; } })(), data_json: undefined }));

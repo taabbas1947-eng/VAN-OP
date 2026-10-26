@@ -79,7 +79,7 @@ function printMrp(f) {
 function mrpIssues(L) {
   const by = new Map(); (L.farmer || []).forEach(f => { if (f.packId == null) return; const m = printMrp(f); if (m) by.set(Number(f.packId), { m, f }); });
   const out = []; const chk = (pid, name, list, field, word, v) => { const x = by.get(Number(pid)); if (!x || v == null || v === '' || !(Number(v) > x.m.mrp + 0.004)) return; out.push({ packId: Number(pid), name, list, field, word, price: Number(v), mrp: x.m.mrp }); };
-  by.forEach(({ f }, pid) => { chk(pid, f.p, 'farmer', 'pb', 'Farmer, Punjab (and the website)', f.pb); chk(pid, f.p, 'farmer', 'sn', 'Farmer, Sindh', f.sn); });
+  (L.farmer || []).forEach(f => { const m = printMrp(f); if (!m) return; [['pb', 'Farmer, Punjab (and the website)'], ['sn', 'Farmer, Sindh']].forEach(([k, w]) => { const v = f[k]; if (v != null && v !== '' && Number(v) > m.mrp + 0.004) out.push({ packId: f.packId != null ? Number(f.packId) : null, name: f.p, list: 'farmer', field: k, word: w, price: Number(v), mrp: m.mrp }); }); }); // each farmer row against its own MRP: needs no link to a pack
   (L.dealer || []).forEach(d => { if (d.packId == null) return; const nm = `${d.p}${d.pack ? ' ' + d.pack : ''}`; chk(d.packId, nm, 'dealer', 'frp', 'Dealer FRP', d.frp); chk(d.packId, nm, 'dealer', 'netfed', 'Dealer net with FED', d.netfed); chk(d.packId, nm, 'dealer', 'mrp', 'Dealer Recommended MRP', d.mrp); });
   (L.dist || []).forEach(d => { if (d.packId == null) return; const nm = `${d.p}${d.pack ? ' ' + d.pack : ''}`; chk(d.packId, nm, 'dist', 'fed', 'Distributor price with FED', d.fed); chk(d.packId, nm, 'dist', 'mrp', 'Distributor Recommended MRP', d.mrp); });
   return out;

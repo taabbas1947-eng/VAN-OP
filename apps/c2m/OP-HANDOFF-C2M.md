@@ -514,4 +514,4 @@ Next: Tahir's rulings in rounds of 4; then fix the 5 wrong-price defects and def
 - Migration 006: run once in phpMyAdmin after the push; its last query should show no rows. It was not checked against live names (Chrome not reachable then).
 - After the push, check live (read only): Margin, open a client and a pack: trucks show "Approved when the PO came in" and the cost parts; a VAN brand pack says it is priced on the lists. Setup, Clients and Setup, Products and variants are 1 table each. Setup, Record and checks, Change record reads in words with filters. Guide shows the I want to table. Majid sees Products, to read. Approvals has 1 "Packs with no approved cost" item (logged as C2M).
 - Open for Tahir: Majid may tag or clear any product's variant (D-98), which can move cost through a variant rate.
-
+- 26 Oct 2026 18:30, after the push: migrations 005 and 006 run by Ahmer; live check passed (see doc 12). Tahir ruled (D-135): Majid keeps tagging variants; no channel list price in the VAN brand drill-down; no migration 007 (Magnisium Oxide stays; migration line times stay).

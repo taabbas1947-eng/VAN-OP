@@ -360,3 +360,8 @@ On live the state call is now about 3 seconds. About 15 waits remain in a row (h
 - Products: 1 row per client; + New holds the 4 jobs. Setup holds 4 groups of tabs (Back office removed). Corrections of a white label product: edit names, out of use and put back (with a name clash check), remove a pack with no cost, price or open re-approval.
 - A person takes back his own waiting price or target request. A same-day price replaces the earlier one (its end date is never before its start).
 - A follower product with a cost not yet approved raises an Approvals job "Approve cost".
+
+### 26 Oct 2026 (D-119, D-120)
+- Cost on a truck's date: engine.versionOnDate and costOnDate pick the last approved version dated before the truck's date (a cost approved today applies from tomorrow); with none, the first version.
+- A pack added to a product (not a follower) runs reapprovalFor for that pack: a costed pack with no approved cost becomes a "first cost" item on Approvals.
+- jobs(): production gets "Write the first recipe" for every active product that is not a follower and has no recipe version; a follower's Approve cost job opens only for a first cost or a move above the re-approval %.

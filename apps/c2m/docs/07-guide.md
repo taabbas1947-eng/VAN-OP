@@ -19,6 +19,17 @@ Changed in 0.3.0 and 0.3.1: matched word for word to the app's Guide screen (the
 
 How to read this: items marked "App Guide" are the exact lines on the app's Guide screen. Items marked "Also" are jobs that are not on the app's Guide screen in these words; the GUIDE list in c2m.html should get them in a later code change (open issue I-07 in 12).
 
+## I want to… (26 Oct 2026, D-119; the same table is in the app, Guide)
+| Job | Where | What happens next |
+|---|---|---|
+| Add a variant of a VAN product | Products, + New, Add a variant (the form opens there) | A new VAN product whose recipe starts as a copy of the main one, as a draft. Majid changes it; it is checked and endorsed; Yawar approves its cost, then prices it. |
+| Put a variant on a client | Products, + New, Put a variant on a client: pick the client, then answer "Is it a VAN product, in the client's bag?" | Yes: it follows that recipe and Yawar gets "Approve cost" on Approvals. No: Majid gets "Write the first recipe". After the cost is approved it is priced on Client prices. |
+| Add a client | Products, + New, Add a client | Step 1 saves the client; step 2 adds its first product. |
+| Add a pack to a product | The product's page, Add a pack | If the recipe is approved, Yawar gets its first cost on Approvals at once. |
+| Change a client price or a target GP | Client prices: pick the client, type the price or the target (change, or use company) in its row, write the reason, Send to Tahir | Nothing changes until Tahir approves. A new target re-judges every month shown in Margin; the send bar shows the Rs effect first. |
+| Update a material, packing, labour or FOH rate | Setup, Costs | Saved at once and logged. A pack whose approved cost moves more than the re-approval % waits on Approvals; once re-approved, Margin uses it for trucks from the next day. An inner bought per kg: Packing, Bought per Kg, with pieces in 1 kg. |
+| Correct a mistake | A price or target you sent: Take back in its row on Client prices. A later approved price: Withdraw (Tahir). A product name, out of use, a pack added by mistake: the product's page. A rate: save the right rate in Setup, Costs. A client name or print name: Setup, Clients. | Every correction is dated and logged in Setup, Record and checks, Change record. |
+
 ## Who does what, and how C2M works (read this first) (22 Oct 2026; the same text is in the app, Guide, Who does what)
 
 C2M turns a recipe into a cost, a cost into a price, and a price into the margin on real trucks. Each step has 1 person. Nobody approves their own work.
@@ -29,7 +40,7 @@ C2M turns a recipe into a cost, a cost into a price, and a price into the margin
 | Himayat (QC Head, qc) | Gives each material its class and nutrient %. Reviews the recipe and its nutrient analysis. | Fahim endorses it. |
 | Fahim (Plant Manager, plant) | Checks the recipe, nutrients and cost. Endorses it, or sends it back with a reason. | Yawar approves the cost. |
 | Yawar (CFO, cfo) | Approves the cost of every recipe. Keeps rates, packing and labour current. Adds clients and products, and a rate for 1 variant. Proposes prices and VAN brand list revisions. Gives KAMs their lists. | Tahir approves his prices, list revisions and setting changes. |
-| Tahir (COO, coo) | Approves prices, list revisions, targets and thresholds. Adds clients, products and variants. Makes the roles and decides who sees what. Does the monthly rate check. | He cannot approve what he proposed himself. |
+| Tahir (COO, coo) | Approves prices, list revisions, targets and thresholds. Adds clients, products and variants. Makes the roles and decides who sees what. Does the monthly rate check. | As the administrator he may approve what he proposed himself; everyone else may not. |
 | KAMs and managers (viewer) | See only the price lists and clients they are given, and download the PDF. They never see cost or margin. | If no list shows, ask Yawar or Tahir. |
 
 A role the administrator makes in Setup, Roles can do what is ticked on it, and sees the places that follow from it.

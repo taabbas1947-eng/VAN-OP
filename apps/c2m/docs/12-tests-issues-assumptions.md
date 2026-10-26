@@ -547,3 +547,10 @@ An independent agent reviewed the change and found 9 defects, none high; all fix
 - New test file fix07.test.js (after p3): blank and bad targets refused and nothing saved; a same-day price replaces the earlier one with valid dates; rename, out of use, put back; remove a pack with no cost; refuse a pack with an approved cost.
 - Playwright checks in /work/p4 (not shipped): Products rows and menu at 1300 and 390 px, correct box through the screen.
 - Assumption A-23: a first-time CFO can finish each flow from the screens; checked by an auditor reading the code and screens, not by a real first-time user. Tahir to watch Yawar's first session.
+
+### 26 Oct 2026, review fixes (D-119 to D-121)
+- fix08.test.js (API, van_platform; also C2M_DB=van_review1): inner per kg refused in letters or with no pieces; 860 / 29 = 29.6552 per piece, working kept with the rate; state shows the buy and a clean source; 25 kg pack 1.186 per kg; carton 13.33 per L; per kg and per piece rates save; cost from the next day (3 cases, both functions); back to the company target (refused when already on it, held as 0, NULL on approval); a new pack's first cost waits at once (live-sized copy).
+- fix08ui.js (Playwright, C2M_DB=van_review1, as Yawar, Majid): listed in the release note. All pass.
+- harness.js reads C2M_DB to run on another database copy.
+- Open: packs added before this version with no approved cost get their first cost item only when something else recosts them; Margin names them. Round 4 (words, tables, forms, Guide in full) and the MRP list (D-122) are next.
+- 26 Oct 2026, independent check (agent 3) on van_review3: 2 blockers, 8 wrong, polish; all fixed and re-tested (runall.sh, fix08ui 33 checks). Kept as is: the history of target requests shows in the Change record and on Approvals, not in Setup; a pack added before this version with no approved cost gets its first-cost item only when something recosts it.

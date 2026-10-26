@@ -483,3 +483,15 @@ Next: Tahir's rulings in rounds of 4; then fix the 5 wrong-price defects and def
 ## 23 Oct 2026 (late) Sulfur spelling, migration 005 (D-118). NOT PUSHED
 - Ahmer runs migrations/005_c2m_sulfur_spelling.PRODUCTION.sql once in phpMyAdmin. It corrects 5 descriptions (Max Sulfur, Germinator Pro Sulfur, Nutrivant Urea, Green Sulfur, Vital Urea) and 3 materials (Sulfur 500 Mech, Sulfur Grinded- 200-250 Mesh, Sulfur WDG). Safe to run twice.
 - Live check on 23 Oct: migration 004 is in (printNameReady true), but Arysta's print name is still empty. Tahir types it once: Setup, Client details, Arysta, Edit.
+
+## 26 Oct 2026 Yawar's live feedback and Tahir's rulings (NOT BUILT YET)
+- MRP printing price list for VAN brand packs, to be added in C2M. Reference: Farmer, Sindh credit price (the highest VAN brand price). Tahir: MRP = Sindh credit price with FED, rounded UP to the next Rs 50 (1,234 prints 1,250); it follows the credit price from the same date, after Tahir approves the credit price; output: a PDF list for packing and the printer, plus a warning on Approvals and Margin when any list price goes above the printed MRP.
+- Packing: Yawar likes a separate packing recipe (C2M's packing bill) linked to the product. Cartons: cost per carton / (packs per carton x pack size), e.g. 160 / (4 x 3) per L; C2M's secondary line already works this way (lib.packingPerUnit).
+- Plastic inners are bought per kg with 20 to 30 pieces per kg: cost per kg of product = (Rs per kg / pieces per kg) / pack size, e.g. (860 / 29) / 25. Today a packing rate is price per piece only. Tahir: pieces per kg is typed with each purchase rate.
+- 26 Oct 2026 review rulings (Tahir): rounds 1 and 2 built together (wrong numbers and false messages; 1 home per job), then the MRP list, then words, tables, forms and Guide. Targets move from Setup into Client prices, sent with prices in 1 send. After a cost re-approval, trucks from the moment of approval take the new cost (earlier trucks that day keep the old cost). Tahir may approve what he proposed, as administrator. A product's own target can be removed through Tahir's approval (back to the company target). Freight tab stays and says how many products use it. Review page: https://claude.ai/artifact/SaDzzyzJjnFTAXXRewy4qj
+
+## 26 Oct 2026 Review rounds 1 and 2 built (D-119 to D-121). NOT PUSHED. No migration.
+- Files: c2m.html, c2m-routes.js, c2m-engine.js, c2m-lib.js, c2m-access.js; docs 03, 05, 06, 07, 08, 09, 11, 12; this file. Tests here: runall.sh with fix08.test and fix08ui (live-sized copy) all pass; independent check done and its findings fixed.
+- After the push, check live (read only): Setup shows 5 tabs (Costs, Clients, VAN products, Settings, Record and checks); Costs, Packing shows Bought per; More shows Reports and Guide only; Products, + New opens forms on Products; Client prices shows the Target column (change, use company) and the title line; Approvals ends with "End of your list"; Margin figures move only for trucks dated on a cost approval day (now old cost).
+- Next: MRP printing list (D-122), then round 4 (words, tables, forms, Guide in full).
+

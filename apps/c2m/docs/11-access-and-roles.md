@@ -211,3 +211,5 @@ The app Guide and doc 07 now carry a Who does what part for every role. It is th
 
 ## 11.14 Places after D-115 (23 Oct 2026)
 More for Tahir and Yawar is now Reports, Inputs and Guide. Back office is removed; its Customers and System documentation are tabs of Setup (Client details, System documentation). Corrections of a white label product (rename, out of use, remove a pack) need client.add.
+
+- 26 Oct 2026 (D-119): for roles with Margin (Tahir, Yawar) More holds Reports and Guide only; Inputs is Setup, Costs. Other roles keep Inputs.

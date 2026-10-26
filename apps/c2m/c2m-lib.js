@@ -57,6 +57,15 @@ function packingPerUnit(lines, packSize) {
   }, 0);
 }
 
+/** A packing item bought by weight (Yawar, 26 Oct 2026: plastic inners, 20 to 30 pieces per kg): price per piece =
+ *  Rs per kg / pieces per kg. The working is kept at the end of the rate's source as "[bought per kg: 860 / 29]",
+ *  so the rate history shows what was bought, with no database change. */
+const BUY_RE = /\s*\[bought per kg: ([0-9.]+) \/ ([0-9.]+)\]\s*$/;
+function buyOf(source) { const m = BUY_RE.exec(String(source || '')); return m ? { perKg: Number(m[1]), piecesPerKg: Number(m[2]) } : null; }
+function buyNote(perKg, piecesPerKg) { return ` [bought per kg: ${Number(perKg)} / ${Number(piecesPerKg)}]`; }
+function sourceText(source) { return String(source || '').replace(BUY_RE, ''); }
+function piecePrice(perKg, piecesPerKg) { return Math.round(Number(perKg) / Number(piecesPerKg) * 10000) / 10000; }
+
 /**
  * Labour and FOH rate choice (ruled 14 Oct; revised by Tahir 16 Oct 2026, Design Record 5i 7 and 5j 10).
  * Every rate is labour or FOH. For each kind C2M picks 1 rate per product and the 2 are added.
@@ -249,7 +258,7 @@ const masterCmp = (a, b) => String(a.brand).toLowerCase().localeCompare(String(b
 module.exports = {
   rowNameKey, looseKey, rowSize, masterCmp,
   listRowIs, listRowSize, officialRow, officialPack, restoreRow,
-  round, rateWarning, materialCost, recipeTotal, packingPerUnit, pickConversionRule, conversionFor, costBreakdown,
+  round, rateWarning, materialCost, recipeTotal, packingPerUnit, buyOf, buyNote, sourceText, piecePrice, pickConversionRule, conversionFor, costBreakdown,
   marginPct, targetPrice, contributionFloor, fedPct, netPoPrice, needsReapproval, exposure, flag,
   RECIPE_FLOW, RECIPE_WHO, fmtInt, pkToday, pkNow, FAMILY_COLOURS, familyColour, CATS, buyerLine, targetOr,
 };

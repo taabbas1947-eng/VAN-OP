@@ -286,3 +286,8 @@ Changed: recipes/new refuses a follower; recipes/:id/advance writes cost version
 - `POST /api/c2m/prices/:id/retract` (right price.propose): the proposer, or the administrator, takes back a price that waits (status proposed becomes withdrawn). `POST /api/c2m/targets/:id/retract` (right targets.propose): same for an open target request (becomes withdrawn).
 - `POST /api/c2m/targets/request` toGp must match 1 or 2 digits with at most 1 decimal, be above 0, and differ from the product's current target.
 - `POST /api/c2m/products/:id/inuse` with on:true is refused when another active product of the client uses one of its names and one of its pack sizes.
+
+### Changes of 26 Oct 2026 (D-119 to D-121)
+- POST /api/c2m/packing/item and /api/c2m/packing/rate also take `buy: 'kg'` with `perKg` and `piecesPerKg` (digits) instead of `price`; the price per piece is worked out on the server and the working is added to the source. `buy: 'piece'` (or no buy) with `price` works as before.
+- POST /api/c2m/products/:id/packs returns `firstCost`: the number of packs put on a new re-approval item for their first cost (0 for a follower, or when the pack cannot be costed yet).
+- POST /api/c2m/targets/request takes `toGp: 'company'` to take a product's own target off (held as to_gp 0); approve sets target_gp NULL.

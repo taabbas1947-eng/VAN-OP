@@ -37,7 +37,7 @@ async function loadPacking(q) {
   const [items] = await q(`SELECT i.id, i.name, i.kind, r.price_per_piece, r.rate_date, r.source FROM c2m_packing_item i
      LEFT JOIN c2m_packing_rate r ON r.id = (SELECT r2.id FROM c2m_packing_rate r2 WHERE r2.packing_item_id=i.id ORDER BY r2.rate_date DESC, r2.id DESC LIMIT 1)
      ORDER BY i.kind, i.name`);
-  const itemById = new Map(items.map(i => [i.id, { id: i.id, name: i.name, kind: i.kind, price: i.price_per_piece == null ? null : Number(i.price_per_piece), date: i.rate_date, source: i.source }]));
+  const itemById = new Map(items.map(i => [i.id, { id: i.id, name: i.name, kind: i.kind, price: i.price_per_piece == null ? null : Number(i.price_per_piece), date: i.rate_date, source: lib.sourceText(i.source), buy: lib.buyOf(i.source) }]));
   const [bills] = await q('SELECT id, name, status FROM c2m_packing_bill ORDER BY name');
   const [lines] = await q('SELECT id, packing_bill_id, packing_item_id, level, pieces, packs_per_outer FROM c2m_packing_bill_line ORDER BY packing_bill_id, level, id');
   const billById = new Map(bills.map(b => [b.id, { id: b.id, name: b.name, status: b.status, lines: [] }]));
@@ -178,13 +178,13 @@ function costOnDate(D, packId, date) {
   const vs = D.verByPack.get(packId) || [];
   if (!vs.length) return null;
   let pick = null;
-  for (const v of vs) if (String(v.valid_from).slice(0, 10) <= date) pick = v;
+  for (const v of vs) if (String(v.valid_from).slice(0, 10) < date) pick = v; // a cost approved today applies from tomorrow's trucks (Tahir, 26 Oct 2026: trucks carry a date, not a time)
   return Number((pick || vs[0]).total);
 }
 /** The approved cost version in force on a date (object), or the earliest. */
 function versionOnDate(D, packId, date) {
   const vs = D.verByPack.get(packId) || []; if (!vs.length) return null;
-  let pick = null; for (const v of vs) if (String(v.valid_from).slice(0, 10) <= date) pick = v;
+  let pick = null; for (const v of vs) if (String(v.valid_from).slice(0, 10) < date) pick = v; // from the day after approval; before the first approval, the first cost (D-111)
   return pick || vs[0];
 }
 function latestApproved(D, packId) { const vs = D.verByPack.get(packId) || []; return vs.length ? vs[vs.length - 1] : null; }

@@ -495,3 +495,9 @@ Next: Tahir's rulings in rounds of 4; then fix the 5 wrong-price defects and def
 - After the push, check live (read only): Setup shows 5 tabs (Costs, Clients, VAN products, Settings, Record and checks); Costs, Packing shows Bought per; More shows Reports and Guide only; Products, + New opens forms on Products; Client prices shows the Target column (change, use company) and the title line; Approvals ends with "End of your list"; Margin figures move only for trucks dated on a cost approval day (now old cost).
 - Next: MRP printing list (D-122), then round 4 (words, tables, forms, Guide in full).
 
+- 26 Oct 2026, MRP list design shown (https://claude.ai/artifact/Hq1STX54wd5EhTQ9Ep9LT4), NOT BUILT: Tahir is checking it with Yawar first. Rulings so far: MRP = Sindh credit price with FED rounded up to the next Rs 50; no credit price: the highest farmer price rounded the same way; the worked-out MRP replaces the typed MRP on the Dealer and Distributor lists (a pack with no farmer row keeps its typed MRP and is named); the MRP list uses only the prices in force on its date; warnings when Farmer Punjab, Sindh, Website, Dealer FRP or Dealer net with FED is above the MRP.
+
+## 26 Oct 2026 MRP printing list built (D-122). NOT PUSHED. No migration.
+- Files: c2m.html, c2m-routes.js, c2m-lib.js, c2m-pricelist.js; docs 01, 02, 05, 06, 07, 08, 09, 10, 11, 12. Tests: fix09.test and fix09ui (seeded copy van_review4) plus runall.sh, all pass; independent check done and its findings fixed.
+- After the push, check live (read only): Client prices, Price lists shows "MRP printing list (packing and printer)" and its preview; Dealer and Distributor lists say Recommended MRP; Approvals and Margin name any list price above its printed MRP; the VAN brand tab has the 2 buttons to change FRP and Recommended MRP.
+- A pack only on the Dealer or Distributor list has no printed MRP: Approvals names it (D-123).

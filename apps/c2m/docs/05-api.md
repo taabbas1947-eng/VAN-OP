@@ -291,3 +291,5 @@ Changed: recipes/new refuses a follower; recipes/:id/advance writes cost version
 - POST /api/c2m/packing/item and /api/c2m/packing/rate also take `buy: 'kg'` with `perKg` and `piecesPerKg` (digits) instead of `price`; the price per piece is worked out on the server and the working is added to the source. `buy: 'piece'` (or no buy) with `price` works as before.
 - POST /api/c2m/products/:id/packs returns `firstCost`: the number of packs put on a new re-approval item for their first cost (0 for a follower, or when the pack cannot be costed yet).
 - POST /api/c2m/targets/request takes `toGp: 'company'` to take a product's own target off (held as to_gp 0); approve sets target_gp NULL.
+
+- 26 Oct 2026 (D-122): POST /api/c2m/pricedocs takes audience `mrp` (pricedoc.all only); GET /api/c2m/state carries `mrpIssues` [{packId, name, list, field, word, price, mrp}] for roles that see every list.

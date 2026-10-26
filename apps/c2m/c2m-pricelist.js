@@ -12,14 +12,18 @@ const lib = require('./c2m-lib');
 const AUDIENCES = {
   wl: 'White label client (monthly)', dist: 'Distributor and channel partner', dealer: 'Dealer, Sindh',
   farmer_pb: 'Farmer, Punjab', farmer_sn: 'Farmer, Sindh', farmer_snc: 'Farmer, Sindh credit', web: 'Website',
+  mrp: 'MRP printing list (packing and printer)', // D-122
 };
 const FIELDS = {
   wl: [['product', 'Product', 1], ['spec', 'Specification', 1], ['pack', 'Pack size', 1], ['cur', 'Current price, Rs per kg or L', 1], ['ppack', 'Price per pack, Rs ex FED', 1], ['prev', 'Previous price', 1], ['chg', '% change', 1], ['reason', 'Reason for change', 1], ['eff', 'Effective date', 1]],
-  dist: [['product', 'Product', 1], ['spec', 'Specification', 1], ['pack', 'Pack size', 1], ['cur', 'Price ex FED, Rs per pack', 1], ['fed', 'Price with FED', 1], ['prev', 'Previous price', 0], ['chg', '% change', 0], ['reason', 'Reason for change', 0], ['mrp', 'Benchmark MRP', 1], ['terms', 'Payment terms', 1]],
-  dealer: [['product', 'Product', 1], ['spec', 'Specification', 1], ['pack', 'Pack size', 1], ['cur', 'Net price ex FED', 1], ['disc', 'Additional discount', 1], ['netfed', 'Net price with FED', 1], ['frp', 'FRP', 1], ['mrp', 'MRP', 1]],
+  dist: [['product', 'Product', 1], ['spec', 'Specification', 1], ['pack', 'Pack size', 1], ['cur', 'Price ex FED, Rs per pack', 1], ['fed', 'Price with FED', 1], ['prev', 'Previous price', 0], ['chg', '% change', 0], ['reason', 'Reason for change', 0], ['mrp', 'Recommended MRP', 1], ['terms', 'Payment terms', 1]],
+  dealer: [['product', 'Product', 1], ['spec', 'Specification', 1], ['pack', 'Pack size', 1], ['cur', 'Net price ex FED', 1], ['disc', 'Additional discount', 1], ['netfed', 'Net price with FED', 1], ['frp', 'FRP', 1], ['mrp', 'Recommended MRP', 1]],
   farmer: [['product', 'Product', 1], ['spec', 'Specification', 1], ['pack', 'Pack size', 1], ['cur', 'Sale price, Rs', 1]],
+  mrp: [['product', 'Product', 1], ['spec', 'Specification', 1], ['pack', 'Pack size', 1], ['mrp', 'MRP, Rs', 1], ['basis', 'Based on', 0]],
 };
 const fieldsFor = a => FIELDS[a.startsWith('farmer') || a === 'web' ? 'farmer' : a];
+/** The printed MRP rows (D-122): every farmer row with a price, its MRP rounded up to the next Rs 50. */
+const mrpRows = list => (list || []).map(f => { const m = lib.printMrp(f); if (!m) return null; const z = splitPack(f.p); return { product: z.p, spec: f.d, pack: z.pack, _full: f.p, mrp: rs(m.mrp), basis: m.basis }; }).filter(Boolean);
 const rs = v => v == null || isNaN(v) ? '' : 'Rs ' + Math.round(v).toLocaleString('en-US');
 const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const MONL = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -44,6 +48,7 @@ function rows(aud, data, reasons = {}) {
       reason: reasons[k] != null ? reasons[k] : (noPrice ? '' : ch == null ? 'New price' : Math.abs(ch) > 0.01 ? 'Price revised' : 'No change'), mrp: rs(d.mrp), terms: d.terms === 'TBD' ? 'As agreed' : d.terms, _k: k };
   });
   if (aud === 'dealer') return data.list.map(d => ({ product: d.p, spec: d.d, pack: d.pack, cur: rs(d.net), disc: d.disc ? (d.disc * 100).toFixed(1) + '%' : '', netfed: rs(d.netfed), frp: rs(d.frp), mrp: rs(d.mrp) }));
+  if (aud === 'mrp') return mrpRows(data.list);
   const col = aud === 'farmer_sn' ? 'sn' : aud === 'farmer_snc' ? 'snc' : 'pb';
   return data.list.map(f => { const z = splitPack(f.p); return { product: z.p, spec: f.d, pack: z.pack, _full: f.p, cur: f[col] != null ? rs(f[col]) : '' }; });
 }
@@ -53,6 +58,7 @@ function title(aud, data) {
   if (aud === 'dist') return { t: 'Price List for Distribution Partners', to: 'Distribution partners', sub: 'Prices per pack' };
   if (aud === 'dealer') return { t: 'Dealer Price List, Sindh', to: 'Sindh dealers', sub: 'Cash sales policy' };
   if (aud === 'web') return { t: 'Product Prices', to: 'van.com.pk', sub: 'Retail prices, Punjab' };
+  if (aud === 'mrp') return { t: 'MRP Printing List', to: 'Packing and printer', sub: 'MRP printed on each pack' };
   return { t: 'Farmer Price List', to: { farmer_pb: 'Punjab', farmer_sn: 'Sindh', farmer_snc: 'Sindh, credit' }[aud], sub: 'Retail prices' };
 }
 
@@ -61,15 +67,16 @@ const fedTxt = data => `${lib.fedPct(data && data.fedPct)}%`;
 function notes(aud, data) {
   const n = [];
   if (aud === 'wl') { n.push(`Prices are ex-factory and exclude FED (${fedTxt(data)}).`); if (data.rule === 'time') n.push('POs received before the effective date are supplied at the price on the PO.'); n.push('Prices apply to the packing arrangement agreed for each product.'); if (!data.till) n.push('Valid until replaced by a later list.'); }
-  if (aud === 'dist') n.push(`Price with FED includes FED at ${fedTxt(data)}. Benchmark MRP is for guidance.`);
-  if (aud === 'dealer') n.push('Payment by demand draft, pay order or bank deposit only. No returns.');
+  if (aud === 'dist') n.push(`Price with FED includes FED at ${fedTxt(data)}. Recommended MRP is a suggested retail price, not the MRP printed on the pack.`);
+  if (aud === 'dealer') { n.push('Payment by demand draft, pay order or bank deposit only. No returns.'); n.push('FRP and Recommended MRP are suggested retail prices, not the MRP printed on the pack.'); }
+  if (aud === 'mrp') { n.push(`MRP includes FED (${fedTxt(data)}). It is the Farmer, Sindh credit price rounded up to the next Rs 50; a pack with no Sindh credit price uses its highest farmer price, rounded the same way.`); n.push('Print this MRP on packs filled from the effective date. It changes only with a new MRP printing list.'); }
   if (aud.startsWith('farmer') || aud === 'web') n.push(`Prices include FED (${fedTxt(data)}) and may change; check the latest list.`);
   if (data.note) n.push(data.note);
   return n;
 }
 
 /** The price basis printed beside the client block (L2); never the same words as the title's line under the addressee. */
-const BASIS = data => ({ wl: ['Rs per kg or L, ex factory', `FED (${fedTxt(data)}) extra`], dist: ['Rs per pack, ex FED', `FED at ${fedTxt(data)} in its own column`], dealer: ['Rs per pack', `Ex FED, and with FED at ${fedTxt(data)}`], farmer: ['Rs per pack', `FED (${fedTxt(data)}) included`] });
+const BASIS = data => ({ wl: ['Rs per kg or L, ex factory', `FED (${fedTxt(data)}) extra`], dist: ['Rs per pack, ex FED', `FED at ${fedTxt(data)} in its own column`], dealer: ['Rs per pack', `Ex FED, and with FED at ${fedTxt(data)}`], farmer: ['Rs per pack', `FED (${fedTxt(data)}) included`], mrp: ['Rs per pack', `FED (${fedTxt(data)}) included`] });
 const FOOTER = 'Vital Agri Nutrients (Private) Limited · Head office: 605 Al-Hafeez Heights, Gulberg III, Lahore 54660 · Plant: 49-Km Multan Road, Phool Nagar Bypass, Lahore · +92\u00a042\u00a035762215 · www.van.com.pk';
 const LOGO = path.join(__dirname, 'assets', 'van-logo.png');
 
@@ -107,7 +114,7 @@ function pdf(res, aud, data, picked, reasons) {
   const F = fieldsFor(aud).filter(f => picked.includes(f[0]));
   const R = rows(aud, data, reasons); if (!F.some(f => f[0] === 'pack')) R.forEach(r => { if (r._full) r.product = r._full; }); // an older document, or one without Pack size, keeps the pack in the name
   const cols = [['sr', 'Sr']].concat(F.map(f => [f[0], f[1]]));
-  const widths = cols.map(([k]) => k === 'sr' ? 0.5 : (k === 'product' || k === 'spec' || k === 'reason') ? 2 : 1);
+  const widths = cols.map(([k, l]) => k === 'sr' ? 0.5 : (k === 'product' || k === 'spec' || k === 'reason') ? 2 : String(l || '').split(/\s+/).some(w => w.length > 10) ? 1.45 : 1); // a long word such as Recommended is not broken (review D-122)
   const tw = widths.reduce((a, b) => a + b, 0); const cw = widths.map(w => w / tw * W);
   let y = doc.y + 10;
   const numeric = k => ['cur', 'ppack', 'prev', 'fed', 'mrp', 'netfed', 'frp', 'chg', 'disc'].includes(k);

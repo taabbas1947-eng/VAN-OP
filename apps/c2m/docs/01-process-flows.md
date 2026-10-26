@@ -577,3 +577,6 @@ flowchart TD
 ```
 
 Rate order for a pack: the client's pack, the variant, the product type, the general rate. When a followed VAN recipe is approved, each fully costed pack of its followers gets a new approved cost.
+
+### MRP printing list (26 Oct 2026, D-122)
+Yawar changes a Sindh credit price on Client prices, VAN brand prices (the send bar warns if any price would be above the new MRP) -> Tahir approves the list revision -> on its date the farmer prices are in force -> printed MRP = Sindh credit price rounded up to the next Rs 50 (no credit price: the higher of Punjab and Sindh) -> Yawar makes the MRP printing list on Client prices, Price lists, for packing and the printer. Any list price above its MRP is a job on Approvals and a line on Margin. FRP and Recommended MRP (suggested prices) are changed with the buttons under the VAN brand grid.

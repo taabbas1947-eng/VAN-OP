@@ -338,7 +338,8 @@ module.exports = function mountC2mRoutes(app, deps) {
       const [nt] = await q("SELECT * FROM c2m_notice WHERE for_role=? ORDER BY id DESC LIMIT 20", [role]); out.notices = nt;
       const [gr] = await pq('SELECT * FROM c2m_list_grant ORDER BY username'); out.grants = gr;
       const [people] = await pq("SELECT a.username, a.name, r.role FROM user_module_roles r JOIN auth_users a ON a.username=r.username WHERE r.module='c2m'"); const RR = await loadRoles(); out.people = people.map(p => { const r = RR.get(p.role); return { ...p, roleLabel: r ? r.label : p.role, grantee: isViewerRole(r) }; });
-      const [lp] = await pq('SELECT list_name, data_json, issued, valid_till FROM c2m_list_price ORDER BY id'); out.lists = groupLists(lp, null, await listMaster());
+      const [lp] = await pq('SELECT list_name, data_json, issued, valid_till FROM c2m_list_price ORDER BY id'); const LM = await listMaster(); out.lists = groupLists(lp, null, LM);
+      { const LP = LM ? groupLists(lp, null, LM, true) : null; out.mrpIssues = LP ? lib.mrpIssues(LP) : []; out.mrpMissing = LP ? lib.mrpMissing(LP) : []; } // list prices above the printed MRP, and packs with none (D-122)
       out.wlLists = await wlListData(D, approvedPrice, D.customers.filter(c => c.grp !== 'VAN brand').map(c => c.name));
       const [ma] = await pq('SELECT * FROM c2m_monthly_actual ORDER BY month'); out.actuals = ma;
       const [mc] = await pq('SELECT month, kind, data_json, done_by, done_at FROM c2m_monthly_check ORDER BY month'); out.checks = mc.map(c => ({ ...c, data: (() => { try { return c.data_json ? JSON.parse(c.data_json) : null; } catch (_) { return null; } })(), data_json: undefined }));
@@ -1330,7 +1331,7 @@ module.exports = function mountC2mRoutes(app, deps) {
     const { username, kind, value, on } = req.body || {};
     if (!['list', 'client'].includes(kind)) throw bad('Unknown grant.');
     const [[person]] = await q("SELECT username FROM user_module_roles WHERE username=? AND module='c2m'", [username]); if (!person) throw bad('This person has no C2M access.');
-    if (kind === 'list' && !PL.AUDIENCES[value]) throw bad('Unknown price list.');
+    if (kind === 'list' && (!PL.AUDIENCES[value] || value === 'mrp')) throw bad(value === 'mrp' ? 'The MRP printing list is for Tahir and Yawar only; it is not given to a manager.' : 'Unknown price list.');
     if (kind === 'client') { const [[c]] = await q('SELECT id FROM c2m_customer WHERE name=?', [value]); if (!c) throw bad('Unknown client.'); }
     if (on) await q('INSERT IGNORE INTO c2m_list_grant (username, grant_kind, grant_value, granted_by, granted_at) VALUES (?,?,?,?,?)', [username, kind, value, req.c2m.user, now()]);
     else await q('DELETE FROM c2m_list_grant WHERE username=? AND grant_kind=? AND grant_value=?', [username, kind, value]);
@@ -1706,7 +1707,7 @@ module.exports = function mountC2mRoutes(app, deps) {
      it is on; 2 rows that would give 1 pack 2 prices on 1 list are chosen between; every row that would leave the printed lists
      is shown first. Rows not carried are kept, read only, under <list>_old (never printed or priced), each in the change record. */
   const MASTER_LISTS = ['dist', 'dealer', 'farmer'];
-  const FIELD_WORD = { now: 'price', mrp: 'MRP', nsv: 'NSV', disc: 'discount', frp: 'FRP', pb: 'Punjab', sn: 'Sindh', snc: 'Sindh credit' };
+  const FIELD_WORD = { now: 'price', mrp: 'Recommended MRP', nsv: 'NSV', disc: 'discount', frp: 'FRP', pb: 'Punjab', sn: 'Sindh', snc: 'Sindh credit' };
   const priceWords = (list, o) => (LIST_FIELDS[list] || []).filter(f => o && o[f] != null).map(f => `${FIELD_WORD[f]} ${f === 'disc' ? lib.round(Number(o[f]) * 100, 1) + '%' : 'Rs ' + lib.fmtInt(Number(o[f]))}`).join(', '); // plain words in messages (review 1.0.3, third check)
   const LIST_WORD = { dist: 'distributor', dealer: 'dealer, Sindh', farmer: 'farmer (Punjab, Sindh, Sindh credit and the website)' }; // never the code "dist" in a message (review 1.0.3)
   /** The carry-over, if done: who and when (the change record is the flag: no setting, no table change). */
@@ -2035,7 +2036,7 @@ module.exports = function mountC2mRoutes(app, deps) {
     }
     const M = await listMaster(); const L = groupLists(lp, null, M, !!M); // the pack goes with each row only once every row has 1 (before the carry-over 2 rows could share a pack: prev stays by name; review 1.0.3)
     const own = L.dates[listKey] || {};
-    const base = { ref: b.ref, date: today(), eff: b.eff || (aud === 'wl' ? null : own.issued || L.issued), till: b.till || (aud === 'wl' ? null : own.till) || null, note: String(b.note || '').slice(0, 300), fedPct: fed }; // the FED % printed stays with the document (D-72)
+    const base = { ref: b.ref, date: today(), eff: b.eff || (aud === 'wl' ? null : own.issued || L.issued), till: b.till || (aud === 'wl' || aud === 'mrp' ? null : own.till) || null, note: String(b.note || '').slice(0, 300), fedPct: fed }; // the FED % printed stays with the document (D-72)
     if (aud === 'wl') {
       const D = await engine.loadAll(q); const [prices] = await q("SELECT * FROM c2m_price WHERE status='approved'");
       const ap = inForce(prices, b.eff && isDate(b.eff) ? b.eff : today()); // prices in force on the document's own date
@@ -2044,10 +2045,11 @@ module.exports = function mountC2mRoutes(app, deps) {
       const last = wl.rows.map(r => String(ap.get(r.packId).valid_from).slice(0, 10)).sort().pop();
       return { ...base, eff: base.eff || last || today(), addressee: (() => { const cu = D.customers.find(c => c.name === b.client); return cu.print_name || cu.name; })(), rule: wl.rule, wl: wl.rows };
     }
-    const list = aud === 'dist' ? L.dist : aud === 'dealer' ? L.dealer : L.farmer;
+    const list = aud === 'dist' ? L.dist : aud === 'dealer' ? L.dealer : L.farmer; // mrp: the farmer list in force on the document's date (D-122)
     return { ...base, list };
   }
   async function viewerMay(user, aud, client) {
+    if (aud === 'mrp') return false; // only pricedoc.all makes or opens the MRP printing list (D-122)
     const [g] = await q('SELECT grant_kind, grant_value FROM c2m_list_grant WHERE username=?', [user]);
     if (aud === 'wl') return g.some(x => x.grant_kind === 'client' && x.grant_value === client);
     return g.some(x => x.grant_kind === 'list' && (x.grant_value === aud || (aud === 'web' && x.grant_value === 'farmer_pb')));

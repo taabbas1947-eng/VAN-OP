@@ -260,3 +260,6 @@ Changed in 0.3.0 and 0.3.1: rs_per_kg fixed (1 rate of 1 kind, labour or FOH). A
 | Who supplies the packing | VAN (VAN packs it, needs a packing bill), Client (the client supplies the packing), Bulk (the client packs it; no VAN packing) |
 | Group | VAN brand, White label or Both; it follows the client's products |
 | client.add, variant.add | The actions: add a client, product and pack; add or tag a variant |
+
+- Printed MRP (D-122): the MRP printed on a VAN brand pack; Farmer, Sindh credit price with FED rounded up to the next Rs 50 (no credit price: the higher of Punjab and Sindh). Not stored; worked out from the farmer list in force.
+- Recommended MRP (D-122): the suggested retail price Yawar types on the Dealer and Distributor lists (field mrp), like the FRP; not the printed MRP. Was called MRP and Benchmark MRP.

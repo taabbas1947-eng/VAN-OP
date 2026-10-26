@@ -248,3 +248,6 @@ flowchart LR
 ## 2.22 Clients, products, variants (piece 3; owner: Tahir; D-94, D-95, D-98)
 
 The forms write to c2m_customer, c2m_client_product, c2m_client_pack and the 5 link tables (c2m_product_family, c2m_product_variant, c2m_product_ext, c2m_pack_ext, c2m_rule_variant); every write is also a row in c2m_audit. The engine reads the link tables in loadAll (empty when migration 003 has not run). A follower's cost reads the followed product's approved recipe (recipeOwner), its own packs and bills, and the rate picked by client pack, variant, type, general. O2S is read only: a brand name O2S writes is matched to a product by the matcher, and the variant is carried in the name.
+
+### Printed MRP (26 Oct 2026, D-122)
+c2m_list_price (farmer rows, by packId) -> lib.printMrp -> the MRP printing list (POST /pricedocs audience mrp, snapshot stored with the document) and lib.mrpIssues (state.mrpIssues: farmer, dealer and distributor rows of the same pack) -> Approvals job, Margin line. Nothing is stored for the MRP itself: it is worked out from the prices in force.

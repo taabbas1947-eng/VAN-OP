@@ -66,6 +66,32 @@ function buyNote(perKg, piecesPerKg) { return ` [bought per kg: ${Number(perKg)}
 function sourceText(source) { return String(source || '').replace(BUY_RE, ''); }
 function piecePrice(perKg, piecesPerKg) { return Math.round(Number(perKg) / Number(piecesPerKg) * 10000) / 10000; }
 
+/** Printed MRP of a VAN brand pack (Tahir, 26 Oct 2026, D-122): the Farmer, Sindh credit price with FED, rounded UP to
+ *  the next Rs 50; with no credit price, the highest farmer price (Punjab or Sindh), rounded the same way. f: a farmer row. */
+function printMrp(f) {
+  const n = v => (v == null || v === '' || !isFinite(Number(v)) ? 0 : Number(v));
+  const snc = n(f && f.snc), base = snc > 0 ? snc : Math.max(n(f && f.pb), n(f && f.sn)); if (!(base > 0)) return null;
+  const b2 = Math.round(base * 100) / 100; return { mrp: Math.ceil(b2 / 50 - 1e-9) * 50, basis: snc > 0 ? 'Sindh credit' : (n(f && f.pb) >= n(f && f.sn) ? 'Farmer Punjab (no credit price)' : 'Farmer Sindh (no credit price)'), base: b2 };
+}
+/** Every list price above its pack's printed MRP (D-122): Farmer Punjab and Sindh (the website uses Punjab), Dealer FRP,
+ *  Dealer net with FED, Distributor price with FED, and the Recommended MRP on the Dealer and Distributor lists (Yawar, 26 Oct 2026).
+ *  L: lists grouped with each row's packId. */
+function mrpIssues(L) {
+  const by = new Map(); (L.farmer || []).forEach(f => { if (f.packId == null) return; const m = printMrp(f); if (m) by.set(Number(f.packId), { m, f }); });
+  const out = []; const chk = (pid, name, list, field, word, v) => { const x = by.get(Number(pid)); if (!x || v == null || v === '' || !(Number(v) > x.m.mrp + 0.004)) return; out.push({ packId: Number(pid), name, list, field, word, price: Number(v), mrp: x.m.mrp }); };
+  by.forEach(({ f }, pid) => { chk(pid, f.p, 'farmer', 'pb', 'Farmer, Punjab (and the website)', f.pb); chk(pid, f.p, 'farmer', 'sn', 'Farmer, Sindh', f.sn); });
+  (L.dealer || []).forEach(d => { if (d.packId == null) return; const nm = `${d.p}${d.pack ? ' ' + d.pack : ''}`; chk(d.packId, nm, 'dealer', 'frp', 'Dealer FRP', d.frp); chk(d.packId, nm, 'dealer', 'netfed', 'Dealer net with FED', d.netfed); chk(d.packId, nm, 'dealer', 'mrp', 'Dealer Recommended MRP', d.mrp); });
+  (L.dist || []).forEach(d => { if (d.packId == null) return; const nm = `${d.p}${d.pack ? ' ' + d.pack : ''}`; chk(d.packId, nm, 'dist', 'fed', 'Distributor price with FED', d.fed); chk(d.packId, nm, 'dist', 'mrp', 'Distributor Recommended MRP', d.mrp); });
+  return out;
+}
+
+/** Packs on the Dealer or Distributor list with no printed MRP: no farmer row with a price (Tahir, 26 Oct 2026: named on Approvals). */
+function mrpMissing(L) {
+  const has = new Set((L.farmer || []).filter(f => f.packId != null && printMrp(f)).map(f => Number(f.packId))); const seen = new Set(), out = [];
+  [...(L.dealer || []), ...(L.dist || [])].forEach(d => { if (d.packId == null || has.has(Number(d.packId)) || seen.has(Number(d.packId))) return; seen.add(Number(d.packId)); out.push({ packId: Number(d.packId), name: `${d.p}${d.pack ? ' ' + d.pack : ''}` }); });
+  return out;
+}
+
 /**
  * Labour and FOH rate choice (ruled 14 Oct; revised by Tahir 16 Oct 2026, Design Record 5i 7 and 5j 10).
  * Every rate is labour or FOH. For each kind C2M picks 1 rate per product and the 2 are added.
@@ -258,7 +284,7 @@ const masterCmp = (a, b) => String(a.brand).toLowerCase().localeCompare(String(b
 module.exports = {
   rowNameKey, looseKey, rowSize, masterCmp,
   listRowIs, listRowSize, officialRow, officialPack, restoreRow,
-  round, rateWarning, materialCost, recipeTotal, packingPerUnit, buyOf, buyNote, sourceText, piecePrice, pickConversionRule, conversionFor, costBreakdown,
+  round, rateWarning, materialCost, recipeTotal, packingPerUnit, buyOf, buyNote, sourceText, piecePrice, printMrp, mrpIssues, mrpMissing, pickConversionRule, conversionFor, costBreakdown,
   marginPct, targetPrice, contributionFloor, fedPct, netPoPrice, needsReapproval, exposure, flag,
   RECIPE_FLOW, RECIPE_WHO, fmtInt, pkToday, pkNow, FAMILY_COLOURS, familyColour, CATS, buyerLine, targetOr,
 };

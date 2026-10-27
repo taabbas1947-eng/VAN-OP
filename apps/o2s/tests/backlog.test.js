@@ -132,7 +132,7 @@ eq('a repeated single price is not reported as a conflict',
 
 /* ================= 6. the recommendation (Tahir, 22 Aug: recommend, never pre-select) ============ */
 const S6 = (function () {
-  const src6 = H.grab('bulkPDSuggest') + '\n' + H.grab('recallPrintPrice') + '\n' + H.grab('bulkPDAll') + '\n' + H.grab('openPrintDecisionPOs');
+  const src6 = H.grab('brandCanon') + '\n' + H.grab('bulkPDSuggest') + '\n' + H.grab('recallPrintPrice') + '\n' + H.grab('bulkPDAll') + '\n' + H.grab('openPrintDecisionPOs');
   const s = { console, fmt: n => String(n), bulkPD: {}, renderBulkPrintDecision: () => {},
               state: { orders: [], packingLog: [] } };
   s.globalThis = s; vm.createContext(s); vm.runInContext(src6, s); return s;

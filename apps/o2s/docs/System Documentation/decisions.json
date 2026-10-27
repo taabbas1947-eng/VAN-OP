@@ -18789,6 +18789,63 @@
      }
     }
    ]
+  },
+  {
+   "id": "D-334",
+   "title": "V-Germinator Pro: the final recipe is P 27% + N 4.5% + K 2% (27c)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-044",
+    "R-019"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir in chat, 27 Oct 2026: 'P 27% + N 4.5% + K 2% This is the final recipe of the V-Germinator Pro'",
+    "Live check, 27 Oct 2026: the product list said N 1% + K 6%; the lab template and 3 CoAs already say N >=4.5%, P2O5 >=27%, K2O >=2%",
+    "o2s.html changelog 2026-10-27c",
+    "fn productGenericV1",
+    "tests/names27c.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-27"
+       ],
+       [
+        "Ruled by",
+        "Tahir (COO)"
+       ],
+       [
+        "Decision",
+        "The generic of V-Germinator Pro is P 27% + N 4.5% + K 2%. It replaces 'P 27% + N 1% + K 6%' (the VAN entry) and 'Liquid Phosphate 27% + N + K Mg' (the retired white label spelling)."
+       ],
+       [
+        "Why",
+        "Raised when Claude asked which wording the LCI and Rudolf CoAs should use after the merge of D-333. The lab template and the CoAs already carry the 4.5% and 2% limits."
+       ],
+       [
+        "Changes",
+        "productGenericV1 (once), the 4 catalogue entries in the code, the data dictionary row DD-24, change log 2026-10-27c."
+       ],
+       [
+        "Left as built",
+        "Old CoAs keep the text they were issued with. A generic typed by hand since is never replaced. The code catalogue (and data dictionary DD-24) still shows 'Liquid Phosphate 27% + N + K Mg' for the retired spelling V Germinator Pro; the live product list is corrected by the migration on load. This also settles the open question from D-333 about the white label wording."
+       ],
+       [
+        "Status",
+        "Current"
+       ]
+      ]
+     }
+    }
+   ]
   }
  ]
 }

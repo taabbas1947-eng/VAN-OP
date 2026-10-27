@@ -715,6 +715,12 @@
         "One name for each product: V Germinator Pro and Cala Mag V join V-Germinator Pro and Cal-Mag V (clients and packs joined, old spelling inactive and marked); V-Mg Essential takes the full specification; 4 empty placeholders are removed, or retired if a record uses them; no order, batch, CoA, packing or QA record is rewritten; a second run changes nothing; old spellings still find the lab template and the brand map; Add product refuses a retired or look-alike spelling; the Guide and the change log say so.",
         "R-044",
         "102 passed, 0 failed (27 Oct 2026)"
+       ],
+       [
+        "names27c.test.js",
+        "V-Germinator Pro final recipe: the generic is set to P 27% + N 4.5% + K 2% on the VAN entry and the retired spelling; a hand-typed text is kept; once; no product list or product absent is safe; the code catalogue no longer carries the old text.",
+        "D-334",
+        "18 passed, 0 failed (27 Oct 2026)"
        ]
       ]
      }

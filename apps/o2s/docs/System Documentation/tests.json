@@ -721,6 +721,12 @@
         "V-Germinator Pro final recipe: the generic is set to P 27% + N 4.5% + K 2% on the VAN entry and the retired spelling; a hand-typed text is kept; once; no product list or product absent is safe; the code catalogue no longer carries the old text.",
         "D-334",
         "18 passed, 0 failed (27 Oct 2026)"
+       ],
+       [
+        "names27d.test.js",
+        "Records settled: the repeated V-Transfarm pack is voided and its inspection withdrawn (batch and register follow); the BS26001 production row and lot go (not when it has an order or a certified lot); the base spelling is renamed wherever it stands, history left as written, and the 6 ingredient recipe kept; the empty lab list goes and coaTemplate ignores a list with no tests, so a COA gets its tests; a multi batch with a certified lot and a row with an order are left alone; history (action log, users, corrections) is never rewritten; a skip shows on the audit trail; the unused product and 6 old names are removed and stay removed through the real catalogue rebuild; every guard leaves a different record alone and records the skip; once and harmless; the documentation card version equals the build.",
+        "D-335 to D-338",
+        "93 passed, 0 failed (27 Oct 2026)"
        ]
       ]
      }
@@ -796,13 +802,6 @@
         "Tahir (COO) to rule",
         "15 Oct 2026",
         "15 Oct (5a), (8), (9)",
-        "open"
-       ],
-       [
-        "Product name pairs (Cal-Mag V / Cala Mag V, Liquid Phosphorus / Phosphrous); a read-only count offered first",
-        "Tahir (COO)",
-        "15 Oct 2026",
-        "15 Oct (4), (5a)",
         "open"
        ],
        [

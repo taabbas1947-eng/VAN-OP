@@ -18846,6 +18846,229 @@
      }
     }
    ]
+  },
+  {
+   "id": "D-335",
+   "title": "COBO-2608-4613 V-Transfarm: the pack of 26 Aug is a repeat entry (27d)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-019"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir in chat, 27 Oct 2026: asked 'Was the 26 Aug pack real, or a repeat of the 22 Aug one?' and answered 'Repeat entry, remove it'",
+    "Live check, 27 Oct 2026: the packing log held 600 Kg on the line against 300 Kg on the order line; the second pack was never shipped and the PO was short closed on 26 Sep because the customer reduced it; both QA reports describe the same 100 pouches waiting for cartons and the same 2 seal burn pouches",
+    "o2s.html changelog 2026-10-27d",
+    "fn dataFix27dV1",
+    "tests/names27d.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-27"
+       ],
+       [
+        "Ruled by",
+        "Tahir (COO)"
+       ],
+       [
+        "Decision",
+        "The pack of 26 Aug (PK2294-g79y, 300 Kg, batch VT10450) repeats the pack of 22 Aug (PK2082-vbq5). It is voided and its QA report INS2303 is withdrawn. Batch VT10450 packed goes from 4,614 to 4,314 Kg. The order line keeps its 300 Kg packed."
+       ],
+       [
+        "Why",
+        "Back Office showed one 'packed line does not match its packing record' item: the line said 300, the packing log said 600. Nothing from the second pack was ever shipped."
+       ],
+       [
+        "Changes",
+        "dataFix27dV1 part 1 (once): supersedes the inspection, voids the pack, returns the Kg to the batch, clears the line's QA complete date (only 300 of 600 are now cleared), writes 2 entries in the corrections register (reason: duplicate entry) and the audit trail."
+       ],
+       [
+        "Left as built",
+        "Both records stay on file (voided, withdrawn). Every guard is the exact record read on 27 Oct: if the pack, its Kg, its shipped Kg, a truck holding it, its inspection or its first pack differ, nothing is touched, and the step writes what it left alone in its record (masters._fix27d, skipped). The same repeat on PUR-ORD-2026-00592 was fixed earlier and the packing screen now refuses Kg above what the line needs (25b)."
+       ],
+       [
+        "Status",
+        "Current"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-336",
+   "title": "Batch BS26001 (Amino Acid): the wrong-product row leaves the production log (27d)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-019"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir in chat, 27 Oct 2026: 'Remove the 500 Kg line'",
+    "Live check, 27 Oct 2026: BS26001 was closed on 28 Sep at 0 of 500 with the note 'Wrong Product was selected'; the same 500 Kg was entered again as LBS26001 (Liquid Bio Stimulant); the 500 Kg Amino Acid row stayed in the production log, so September production was counted 500 Kg too high",
+    "o2s.html changelog 2026-10-27d",
+    "fn dataFix27dV1",
+    "tests/names27d.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-27"
+       ],
+       [
+        "Ruled by",
+        "Tahir (COO)"
+       ],
+       [
+        "Decision",
+        "The 500 Kg Amino Acid row of BS26001 (PLmui1quhjd2tqj6) is removed from the production log, with its uncertified lot. The batch stays closed with its note and its variance."
+       ],
+       [
+        "Why",
+        "Production totals are drawn from the production log. The row was a record of something that was not made under that product."
+       ],
+       [
+        "Changes",
+        "dataFix27dV1 part 2 (once): removes the row and the lot (the same steps as the COO's 'Remove production entry', and stricter than it: a row that belongs to an order, a multi batch holding any certified lot, or a 500 Kg lot the lab has already certified is left alone and written in the record as skipped; with two 500 Kg lots, the one of the row's own day and shift goes); writes an audit line. Not in the corrections register, which has no entry type for a production row."
+       ],
+       [
+        "Left as built",
+        "The open Nitro Sulfur batch with no batch number (11,025 Kg, 28 source batches VU26163 to VU26190) is a by-product pool by design: it is left out of the open batch lists and has its own Reconcile pool view. Tahir ruled: keep it as a by-product pool. Nothing is changed."
+       ],
+       [
+        "Status",
+        "Current"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-337",
+   "title": "Liquid Phosphorus: one spelling for the base, the 6 ingredient recipe kept, the unused product removed (27d)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-044"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir in chat, 27 Oct 2026: 'Same base, fix the spelling'; 'Recipe A, the 6 ingredients'; 'Remove the product, keep the base'",
+    "Live check, 27 Oct 2026: the base was spelt two ways. The misspelt one carried 3 open batches (VG26002, VG26004, VG26005), 3 production rows, 2 order lines, 1 packing record, both V-Germinator Pro entries and the 6 ingredient recipe. The correct spelling had only a product (added by the COO on 23 Sep, never ordered, packed or made) and a one line recipe (phosphoric acid 65% 0.4)",
+    "o2s.html changelog 2026-10-27d",
+    "fn dataFix27dV1",
+    "tests/names27d.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-27"
+       ],
+       [
+        "Ruled by",
+        "Tahir (COO)"
+       ],
+       [
+        "Decision",
+        "The base is 'Liquid Phosphorus'. Every live record that held the exact old spelling as a value now carries the right one (orders, packing, batches, production rows, the product master and anywhere else it stood; 11 on 27 Oct). The 6 ingredient recipe stands under the right spelling and the one line recipe is dropped. The unused product 'Liquid Phosphorus' is removed, and the empty lab test list under the right spelling goes with it."
+       ],
+       [
+        "Why",
+        "A spelling mistake had made 2 bases of one thing, with the recipe under the wrong one. The base name links batches, production rows and order lines, so it is renamed on all of them together."
+       ],
+       [
+        "Changes",
+        "dataFix27dV1 part 3 (once); RECIPE_ALIAS reads the old spelling as the new one; the code catalogue, recipe seeds and base lists carry the right spelling; data dictionary row corrected. The lab test list is keyed by base: an empty list under the right spelling would have given every new COA for the base no tests, so it is removed (a list under the old spelling would have moved across). Because a product save leaves an empty list behind each time, coaTemplate also now treats a list with no tests as no template, so the automatic tests are never hidden. Found by the independent review; on live data a Liquid Phosphorus batch gets the same 6 tests as before."
+       ],
+       [
+        "Left as built",
+        "Old history text (action log, audit, corrections, users and the 24 Sep product settlement note) keeps the old spelling as it was written; documents already issued (a certificate's item name, say) are live records and do carry the right one. A recipe typed under the right spelling since is never overwritten (the step then keeps both). A product that a record uses is made inactive, not removed. A part that cannot be done safely is skipped and written in the record (masters._fix27d, skipped)."
+       ],
+       [
+        "Status",
+        "Current"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-338",
+   "title": "Six old product names that nothing uses leave the product list; the documentation card follows the build (27d)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-044"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir in chat, 27 Oct 2026: 'Remove all 6'; 'System documentation card, update this'",
+    "o2s.html changelog 2026-10-27d",
+    "fn dataFix27dV1",
+    "tests/names27d.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-27"
+       ],
+       [
+        "Ruled by",
+        "Tahir (COO)"
+       ],
+       [
+        "Decision",
+        "Ferti Huma Power, Ferti Huma Granular, Ferti Huma Powder, Germinator Pro - Humic Pellet, Humi Grow 8 Kg and Max Zinc 21% are removed from the product list. The version on the Back Office System documentation card now follows the build."
+       ],
+       [
+        "Why",
+        "The six were old names only (flagged map only, no client) and had no use on any order, packing record, shipment or batch (they were left over from the old brand list). The card said 2026-10-17c while the content was rebuilt on 27 Oct."
+       ],
+       [
+        "Changes",
+        "dataFix27dV1 part 4 (once); SYSDOC_VER and SYSDOC_DATE set to the build; a test now fails when they differ from the build."
+       ],
+       [
+        "Left as built",
+        "The real products beside them stay: Ferti Huma and Ferti Huma Pellet (LCI), Germinator Pro - Humic (Kisan), Humi Grow, Max Zinc (Maxim). A name a record uses is made inactive, not removed."
+       ],
+       [
+        "Status",
+        "Current"
+       ]
+      ]
+     }
+    }
+   ]
   }
  ]
 }

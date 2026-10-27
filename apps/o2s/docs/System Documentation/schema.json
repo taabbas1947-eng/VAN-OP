@@ -5312,6 +5312,13 @@
         "2026-10-27 (27c)"
        ],
        [
+        "29",
+        "dataFix27dV1",
+        "once (masters._fix27d)",
+        "Voids the repeated V-Transfarm pack PK2294-g79y and withdraws its inspection INS2303 (batch VT10450 packed 4,614 to 4,314); removes the 500 Kg Amino Acid production row of BS26001; renames the base Liquid Phosphrous to Liquid Phosphorus wherever the exact old spelling stands as a value (not in the history) and keeps the 6 ingredient recipe; moves or drops the lab test list so a new COA for the base gets its tests (coaTemplate also ignores a list with no tests); removes the unused product Liquid Phosphorus and 6 unused old names. Every part is guarded by the exact record; a part that cannot be done safely is skipped and written in masters._fix27d.skipped and on the audit trail (field SKIPPED 27d); writes the corrections register and the audit trail.",
+        "2026-10-27 (27d)"
+       ],
+       [
         "outside ensureState",
         "custInit",
         "when the customer screen opens",

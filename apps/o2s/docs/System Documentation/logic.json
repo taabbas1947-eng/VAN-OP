@@ -1405,7 +1405,8 @@
     "tests/audit15g.test.js",
     "tests/labassign.test.js",
     "tests/fixesC.test.js",
-    "tests/authmodel.test.js"
+    "tests/authmodel.test.js",
+    "tests/audit27a.test.js"
    ],
    "blocks": [
     {
@@ -1565,6 +1566,12 @@
         "15f"
        ],
        [
+        "Stuck at packing",
+        "3 (from the day the job came: the day the line turned stuck, never before 15 Oct 2026)",
+        "COO",
+        "27a, Tahir 27 Oct 2026 (D-332). A line waiting for the client has no job, so nothing escalates."
+       ],
+       [
         "Check after move",
         "2",
         "Plant Manager",
@@ -1594,7 +1601,7 @@
      ]
     },
     {
-     "note": "Stuck at packing (Supply Chain) has no escalation. Recorded as known and not built in OP-HANDOFF-O2S.md 15 Oct (11)."
+     "note": "Stuck at packing (Supply Chain) had no escalation until 27a (OP-HANDOFF-O2S.md 15 Oct (11) recorded it as not built). From 27a it escalates to the COO after 3 days: see the Stuck at packing row above and D-332."
     }
    ]
   },
@@ -1990,6 +1997,9 @@
     },
     {
      "note": "Marks are rows with their own id, so 2 people marking at once are both kept by the merge (audit15g 'both marks survive the merge')."
+    },
+    {
+     "note": "27a (D-332): a Stuck at packing job that Supply Chain leaves undecided for 3 days also shows on the COO's Today as escalated, and the alert server sends the COO an alert (ESC_TO in notify-routes.js). Supply Chain still decides it."
     }
    ]
   },

@@ -223,7 +223,7 @@ const WM = (until, extra) => Object.assign({ id: 'WC' + until, kind: 'wait', unt
   eq('...but not while waiting for the client', s.acEscalation({ label: 'Pack from base', waitClient: { until: '2026-10-25' } }), null);
   ok('the rest card stalled 9 d escalates', (s.acEscalation({ label: 'Open Production', restKg: 100 }) || {}).stall === true);
   eq('...but not while the line waits for the client', s.acEscalation({ label: 'Open Production', restKg: 100, waitClient: { until: '2026-10-25' } }), null);
-  eq('Stuck at packing is Saad’s own job, it does not escalate', s.acEscalation({ label: 'Stuck at packing' }), null);
+  ok('27a: Stuck at packing is Saad’s own job, and escalates to the COO after 3 days (was: never)', (s.acEscalation({ label: 'Stuck at packing' }) || {}).to === 'COO');
 }
 { /* the card and the stall clock agree: never counted from before the PO arrived */
   const SRC = ['calDays', 'baseLastOutput', 'baseStallStart', 'acProduceStallDays'].map(n => H.grab(n)).join('\n');

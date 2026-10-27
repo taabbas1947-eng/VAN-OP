@@ -703,6 +703,12 @@
         "A failed save (dropped line, no internet, 500, 502, 503, 413, a 409 without the server copy, an error in the merge) is shown as Not saved and tried again until it lands; a slow save says Saving; 2 saves at once keep the page pending until the newest lands; sign out and sign in start clean; the same 4xx stops after 5 tries.",
         "-",
         "82 passed, 0 failed (21 Oct 2026)"
+       ],
+       [
+        "audit27a.test.js",
+        "Whoever changes a batch on a truck at loading cannot review it (Review refuses, the job is hidden from them, the 2 hour rule is unchanged); Stuck at packing escalates to the COO from day 3 and not before; a line waiting for the client has no job; the alert server knows the escalation; the Guide and the change log say so.",
+        "R-031, R-030",
+        "30 passed, 0 failed (27 Oct 2026)"
        ]
       ]
      }
@@ -848,6 +854,13 @@
         "not confirmed",
         "13 Oct 2026",
         "13 Oct (6), (11)",
+        "open"
+       ],
+       [
+        "audit17c.test.js (4f, 4g) and truckback17a.test.js fail on the real date since 27 Oct 2026: they use the 17 Oct dates of DC 5244 and a carried QA pass that is valid for 2 days. Same result on the build before 27a. To be fixed by giving them a fixed clock.",
+        "not confirmed",
+        "27 Oct 2026",
+        "27 Oct (1)",
         "open"
        ]
       ]

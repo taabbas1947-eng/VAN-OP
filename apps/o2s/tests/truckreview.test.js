@@ -8,7 +8,7 @@ const { ok, eq, report, grab, html } = H;
 function run(role, user, rows, fn, arg) {
   const toasts = [], logs = [];
   const state = { role, currentUser: { name: user, username: user }, audit: [] };
-  const src = ['hardRole', '_uRole', 'truckReadyForReview', 'truckSentBack', 'truckFixers', 'truckMadeByMe', 'reviewTruck', 'sendBackTruck'].map(grab).join('\n') +
+  const src = ['hardRole', '_uRole', 'truckReadyForReview', 'truckSentBack', 'truckFixers', 'truckSwappers', 'truckMadeByMe', 'reviewTruck', 'sendBackTruck'].map(grab).join('\n') +
     '\nreturn {reviewTruck:reviewTruck,sendBackTruck:sendBackTruck};';
   const m = new Function('state', 'toast', 'logAction', 'save', 'render', 'shipRowsOf', 'TRUCK_REVIEW_ROLES', 'closeModal', 'rpEmpty', 'TS_STEP',
     src)(state, t => toasts.push(t), l => logs.push(l), () => {}, () => {}, () => rows, ['Supply Chain', 'Warehouse'], () => {}, () => '', { review: { back: true }, release: { back: true } });
@@ -57,7 +57,7 @@ ok('the 3 sample rules are untouched (Saad only, Review sample role)', /'Supply 
 /* the truck card's Review button */
 const card = grab('shipCard') || '';
 ok('the truck card offers Review to the review roles, not only Supply Chain', /\(!_rv&&TRUCK_REVIEW_ROLES\.indexOf\(state\.role\)>-1&&!truckMadeByMe\(g\.rows\)\)/.test(html) && !/\(!_rv&&state\.role==='Supply Chain'\)/.test(html));
-{ const mk2 = (user, rows) => new Function('state', '_uRole_unused', grab('_uRole') + '\n' + grab('truckFixers') + '\n' + grab('truckMadeByMe') + '\nreturn truckMadeByMe;')({ role: 'Warehouse', currentUser: { name: user, username: user } });
+{ const mk2 = (user, rows) => new Function('state', '_uRole_unused', grab('_uRole') + '\n' + grab('truckFixers') + '\n' + grab('truckSwappers') + '\n' + grab('truckMadeByMe') + '\nreturn truckMadeByMe;')({ role: 'Warehouse', currentUser: { name: user, username: user } });
   ok('truckMadeByMe: true for the loader and for the gate pass issuer', mk2('shoaib')(mkRows('shoaib', 'x')) && mk2('saad')(mkRows('x', 'saad')));
   ok('truckMadeByMe: false for someone who did neither, or no username', !mk2('saad')(mkRows('shoaib', 'shoaib')) && !mk2('')(mkRows('', '')));
   const fx = mkRows('shoaib', 'shoaib'); fx[0].sentBack = { by: 'Fahim', fixedAt: '2026-10-15T08:00:00Z', fixedByUser: 'saad' };

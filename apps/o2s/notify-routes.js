@@ -54,7 +54,7 @@ const ESC_TO = {
   'Inspect': 'Plant Manager', 'Ship': 'Supply Chain', 'Open Production': 'Plant Manager', 'Approve PR': 'COO',
   'Print price': 'COO', 'Load': 'Supply Chain', 'Gate Pass': 'Supply Chain', 'Review truck': 'Plant Manager', 'Release': 'COO',
   'Approve DC': 'COO', 'Truck came back': 'COO', 'Confirm delivery': 'Plant Manager', 'Approve move': 'COO', 'Approve close short': 'COO',
-  'Pack': 'Production Manager', 'Pack from base': 'Plant Manager', 'Check after move': 'Plant Manager',
+  'Pack': 'Production Manager', 'Pack from base': 'Plant Manager', 'Stuck at packing': 'COO', 'Check after move': 'Plant Manager',
   'Duplicate number': 'Plant Manager', 'Lab test': 'QCM'
 };
 const O2S_ROLES = ['COO', 'KAM', 'Supply Chain', 'Supply Chain Officer', 'Production', 'Production Manager', 'Plant Manager',

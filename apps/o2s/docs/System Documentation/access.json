@@ -650,7 +650,7 @@
         "Review a truck before release",
         "reviewTruck",
         "Supply Chain, Warehouse (TRUCK_REVIEW_ROLES); never Supply Chain Officer",
-        "Not the one who loaded it, issued its gate pass or fixed it after a send-back (truckMadeByMe); COO exempt"
+        "Not the one who loaded it, issued its gate pass, fixed it after a send-back or changed a batch on it at loading (truckMadeByMe, 27a); COO exempt"
        ],
        [
         "Approve the DC (final)",

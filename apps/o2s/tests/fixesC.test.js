@@ -15,7 +15,7 @@ ok('C14: the Pack job has a name, a next step (Pack QC) and is shown to whoever 
   sb.prDrop('line', 'O1', 'a');
   ok('C15 (07i): dropping a refused request on a line that could make nothing sends it back to RM Check', l.rmPR.closed === true && l.rmStatus === 'pending' && !!l.rmRecheckAt); }
 /* C16 */
-ok('C16: the Review truck job names who may not do it (loaded / passed it out)', /notWho:\(g\.rows\|\|\[\]\)\.map\(function\(s\)\{ return \[s\.loadedByUser,s\.gatePassByUser\]\.concat\(truckFixers\(s\)\); \}\)/.test(ai) && /x\.notWho\.indexOf\(_me\)>-1/.test(grab('tdItems')));
+ok('C16: the Review truck job names who may not do it (loaded / passed it out)', /notWho:\(g\.rows\|\|\[\]\)\.map\(function\(s\)\{ return \[s\.loadedByUser,s\.gatePassByUser\]\.concat\(truckFixers\(s\)\)\.concat\(truckSwappers\(s\)\); \}\)/.test(ai) && /x\.notWho\.indexOf\(_me\)>-1/.test(grab('tdItems')));
 /* C17 */
 { const sb = { console, state: { role: 'Plant Manager' }, may: c => c === 'shipment.plan', roleTitle: r => r, _tdEsc: x => x };
   vm.createContext(sb); vm.runInContext(TR + '\n' + grab('tdCanAct') + '\n' + grab('tdChaseHTML'), sb);

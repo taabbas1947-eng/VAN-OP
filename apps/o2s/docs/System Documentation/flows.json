@@ -1266,7 +1266,7 @@
       "steps": [
        {
         "role": "Supply Chain",
-        "text": "Review truck job, shared with the Warehouse (Saad or Shoaib). It opens the truck, what is on it, who did what, the DC and gate pass. Never the person who loaded it, issued its gate pass or fixed it; never Zain.",
+        "text": "Review truck job, shared with the Warehouse (Saad or Shoaib). It opens the truck, what is on it, who did what, the DC and gate pass. Never the person who loaded it, issued its gate pass, fixed it or changed a batch on it at loading (27a); never Zain.",
         "kind": "start",
         "rule": "R-031"
        },
@@ -1641,6 +1641,9 @@
     },
     {
      "note": "Known and not built (handoff 15 Oct (11)): nothing escalates if Supply Chain leaves Stuck at packing undecided."
+    },
+    {
+     "note": "27a (D-332): if Supply Chain has not decided a Stuck at packing job in 3 days, the COO also sees it as escalated and gets an alert."
     }
    ]
   },

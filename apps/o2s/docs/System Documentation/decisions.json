@@ -13367,6 +13367,9 @@
        ]
       ]
      }
+    },
+    {
+     "note": "Added 27 Oct 2026 (D-332): whoever changes a batch on a truck at Start loading also cannot review that truck."
     }
    ]
   },
@@ -18042,13 +18045,14 @@
   },
   {
    "id": "D-319",
-   "title": "Build choices not ruled",
+   "title": "Complaint build choices, confirmed",
    "owner": "COO (Tahir)",
    "rules": [
     "R-040"
    ],
-   "status": "not confirmed",
+   "status": "confirmed",
    "src": [
+    "Tahir in chat, 27 Oct 2026 (multiple choice): all 9 kept as built",
     "Tahir in chat, 16 Oct 2026 (expert review and audit answers)",
     "Design page \"Complaints in O2S\" version 4 (16 Oct 2026), with \"Complaint Flows by Type\" and \"Complaint RCA Methods\"",
     "o2s.html changelog 2026-10-16e",
@@ -18068,15 +18072,15 @@
        ],
        [
         "Ruled by",
-        "Not ruled: set in the build"
+        "Tahir (COO), 27 Oct 2026, multiple choice: all 9 kept as built"
        ],
        [
         "Decision",
-        "Set in the build where the rulings were silent: (1) the kind of root cause is picked from 7: People, Machine, Method, Material, Check or measurement, Storage or handling, Outside VAN; (2) the quantity is given in bags, drums, cartons or Kg/L; (3) a customer reply is recorded with the date, how (email, phone call, letter, visit, WhatsApp) and what was said; (4) the final reply waits for accepted findings unless it is due; (5) complaint numbers run CMP-0001 upward; a number found on 2 complaints gives Tahir a job to renumber the later one; (6) the 24 hours of containment are counted as the next working day; (7) a faulty batch leaves the complaint hold only reworked and checked, handed to the QA hold, or written off; (8) Tahir may give an away back date, after which the away ends by itself; (9) a holiday taken off the list stays on record as removed."
+        "Set in the build where the rulings were silent, and confirmed by Tahir on 27 Oct 2026 as built: (1) the kind of root cause is picked from 7: People, Machine, Method, Material, Check or measurement, Storage or handling, Outside VAN; (2) the quantity is given in bags, drums, cartons or Kg/L; (3) a customer reply is recorded with the date, how (email, phone call, letter, visit, WhatsApp) and what was said; (4) the final reply waits for accepted findings unless it is due; (5) complaint numbers run CMP-0001 upward; a number found on 2 complaints gives Tahir a job to renumber the later one; (6) the 24 hours of containment are counted as the next working day; (7) a faulty batch leaves the complaint hold only reworked and checked, handed to the QA hold, or written off; (8) Tahir may give an away back date, after which the away ends by itself; (9) a holiday taken off the list stays on record as removed."
        ],
        [
         "Options seen",
-        "None put to Tahir."
+        "Asked 27 Oct 2026 with the other choice for each (for example Kg/L only for the quantity, a real 24 hours for containment, no back date for the away); Tahir kept the build for all 9."
        ],
        [
         "Why",
@@ -18097,8 +18101,7 @@
       ]
      }
     }
-   ],
-   "ask": "Are these 6 build choices right, or should any change?"
+   ]
   },
   {
    "id": "D-320",
@@ -18666,6 +18669,63 @@
        ]
       ]
      }
+    }
+   ]
+  },
+  {
+   "id": "D-332",
+   "title": "A swapper does not review the truck; Stuck at packing left 3 days goes to the COO (27a)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-031",
+    "R-030"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir in chat, 27 Oct 2026 (multiple choice: 'Bar the swapper only'; 'Escalate after 3 days')",
+    "OP-HANDOFF-O2S.md 15 Oct 2026 (8) and (13): items held for the next round",
+    "o2s.html changelog 2026-10-27a",
+    "fn truckSwappers, truckMadeByMe, reviewTruck, acEscalation",
+    "notify-routes.js ESC_TO",
+    "tests/audit27a.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-27"
+       ],
+       [
+        "Ruled by",
+        "Tahir (COO)"
+       ],
+       [
+        "Decision",
+        "(1) Whoever changes a batch on a truck at Start loading cannot review that truck, as with the person who loaded it, issued its gate pass or fixed it after it was sent back. The 2 hour rule is unchanged: if nobody reviews within 2 hours the Plant Manager may approve. (2) A Stuck at packing job that Supply Chain leaves undecided for 3 days also goes to the COO on Today, as escalated, with an alert."
+       ],
+       [
+        "Options seen",
+        "(1) Bar the swapper only; bar the swapper and give a revised truck no 2 hour skip; leave as built. (2) Escalate to the COO after 3 days; escalate to the Plant Manager after 3 days; leave as built."
+       ],
+       [
+        "Changes",
+        "truckSwappers (new), truckMadeByMe, the Review truck job's notWho, TH in acEscalation, ESC_TO in notify-routes.js."
+       ],
+       [
+        "Status",
+        "Current"
+       ]
+      ]
+     }
+    },
+    {
+     "note": "Rulings given at the same time, NOT built: (a) a split of a line at loading must be in whole bags (refuse a part bag); there is no split at loading yet, a swap moves the whole line to one other run. (b) refuse a batch with no approved COA on a truck whose customer gets the COA with the DC; (c) refuse bags that match no cleared run. For (b) and (c): the swap list already offers only runs that QA has cleared and that carry a batch number, and packing already needs a Lab approved COA, so the gap is not yet found; to be looked for before any build. Also ruled: keep 1 QA result per truck (item 19); count the product name pairs in live data, read only."
     }
    ]
   }

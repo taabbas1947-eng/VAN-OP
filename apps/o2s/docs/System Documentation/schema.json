@@ -4334,6 +4334,14 @@
         "true",
         "A deactivated product cannot be ordered but old lines still find their base.",
         "pmSave"
+       ],
+       [
+        "aka",
+        "text",
+        "no",
+        "",
+        "Set on a retired spelling: the correct product name it is the same as. The entry is inactive and stays in the brand map so old records resolve; it is not offered on a new PO.",
+        "productNamesV1"
        ]
       ]
      }
@@ -5288,6 +5296,13 @@
         "link once; bump every load",
         "Truck lines to packing runs.",
         "2026-08-21"
+       ],
+       [
+        "27",
+        "productNamesV1",
+        "once (masters._namesV1)",
+        "Joins V Germinator Pro into V-Germinator Pro and Cala Mag V into Cal-Mag V (clients and packs joined; the old spelling made inactive and marked aka); gives V-Mg Essential the full specification that sat on V-Mag Essential; removes 4 empty placeholders (Pro Mix Liquid, Ferti Huma Pellets, Ferti huma Super, V-Germonator Pro). No record is rewritten.",
+        "2026-10-27 (27b)"
        ],
        [
         "outside ensureState",

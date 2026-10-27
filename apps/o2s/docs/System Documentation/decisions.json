@@ -18728,6 +18728,67 @@
      "note": "Rulings given at the same time, NOT built: (a) a split of a line at loading must be in whole bags (refuse a part bag); there is no split at loading yet, a swap moves the whole line to one other run. (b) refuse a batch with no approved COA on a truck whose customer gets the COA with the DC; (c) refuse bags that match no cleared run. For (b) and (c): the swap list already offers only runs that QA has cleared and that carry a batch number, and packing already needs a Lab approved COA, so the gap is not yet found; to be looked for before any build. Also ruled: keep 1 QA result per truck (item 19); count the product name pairs in live data, read only."
     }
    ]
+  },
+  {
+   "id": "D-333",
+   "title": "One name for each product; old spellings kept as also known as (27b)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-044",
+    "R-019"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir in chat, 27 Oct 2026 (multiple choice: 'Same product, merge' for V-Germinator Pro and Cal-Mag V; 'V-Mg Essential'; 'Remove all 4'; 'Leave them, link by also known as')",
+    "Live check of the product list, 27 Oct 2026 (91 products): usage of each spelling in orders, batches, shipments, packing, QA and CoA",
+    "o2s.html changelog 2026-10-27b",
+    "fn productNamesV1, brandCanon, coaTemplate, pmSave, applyProductsV1",
+    "tests/names27b.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-27"
+       ],
+       [
+        "Ruled by",
+        "Tahir (COO)"
+       ],
+       [
+        "Decision",
+        "(1) V Germinator Pro and V-Germinator Pro are the same product: one entry, V-Germinator Pro, sold to BKK, Dealers, VAN, Vgreen, LCI and Rudolf Life Sciences. (2) Cala Mag V and Cal-Mag V are the same product: one entry, Cal-Mag V. (3) The correct spelling is V-Mg Essential; it takes the full specification that sat on V-Mag Essential (crystal, 5 Kg, MgSO4 10%), and V-Mag Essential is removed from the list (kept inactive if a record that the older rename does not reach still uses it). (4) Pro Mix Liquid, Ferti Huma Pellets, Ferti huma Super and V-Germonator Pro were empty placeholders and are removed. (5) Old records keep the spelling they were issued with; the old name stays in the product list as inactive, marked 'same product as', so every old order, batch, CoA and QA record still finds it. A retired spelling cannot be reactivated, edited or typed in again. Places that read a product by its spelling (CoA generic, seed pack, printed price recall, the Pack list of open lines, the lab template) read through brandCanon, so both spellings count as one."
+       ],
+       [
+        "Options seen",
+        "Merge, or keep as two products with a clear white label name, or check first (each pair); remove the placeholders, keep them as also known as, or correct some; leave old records, rename order lines only, or rename everything."
+       ],
+       [
+        "Why",
+        "Claude first called the pairs typing mistakes. The live product list showed V Germinator Pro and Cala Mag V as white label entries for LCI and Rudolf with their own pack sizes, and V-Mag Essential holding the real specification while V-Mg Essential was an empty placeholder. Claude withdrew the earlier plan and asked again with those facts before building."
+       ],
+       [
+        "Changes",
+        "productNamesV1 (new, once), BRAND_AKA and brandCanon (new), coaTemplate and the lab save read through brandCanon, pmSave refuses a retired or look-alike spelling, the product list shows 'same product as', R-044 in the Guide. BRAND_ALIAS (which rewrites records) was not touched."
+       ],
+       [
+        "Left as built",
+        "The recipe stays under Cala Mag V; Cal-Mag V reads it through RECIPE_ALIAS, as before. Owner on the merged entries is VAN (the brand map's owner label is not read by any rule). Nitro Germinator Pro is a different product and was not touched. Known limit: packed stock is kept per spelling (state.packedStock); nothing is packed under a retired spelling today. The merged Cal-Mag V keeps its own base 'Cal-Mag V'; no batch uses the base 'Cala Mag V' today."
+       ],
+       [
+        "Status",
+        "Current"
+       ]
+      ]
+     }
+    }
+   ]
   }
  ]
 }

@@ -709,6 +709,12 @@
         "Whoever changes a batch on a truck at loading cannot review it (Review refuses, the job is hidden from them, the 2 hour rule is unchanged); Stuck at packing escalates to the COO from day 3 and not before; a line waiting for the client has no job; the alert server knows the escalation; the Guide and the change log say so.",
         "R-031, R-030",
         "30 passed, 0 failed (27 Oct 2026)"
+       ],
+       [
+        "names27b.test.js",
+        "One name for each product: V Germinator Pro and Cala Mag V join V-Germinator Pro and Cal-Mag V (clients and packs joined, old spelling inactive and marked); V-Mg Essential takes the full specification; 4 empty placeholders are removed, or retired if a record uses them; no order, batch, CoA, packing or QA record is rewritten; a second run changes nothing; old spellings still find the lab template and the brand map; Add product refuses a retired or look-alike spelling; the Guide and the change log say so.",
+        "R-044",
+        "102 passed, 0 failed (27 Oct 2026)"
        ]
       ]
      }

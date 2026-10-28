@@ -2879,6 +2879,93 @@
      ]
     }
    ]
+  },
+  {
+   "id": "LG-35",
+   "title": "Removing a duplicate truck row, by line (dedupeShipmentsV1, restoreDC5264V1)",
+   "owner": "COO",
+   "rules": [],
+   "status": "confirmed",
+   "src": [
+    "fn dedupeShipmentsV1",
+    "fn restoreDC5264V1",
+    "fn ensureState",
+    "fn reconcileLotShipKgV1",
+    "fn linePackSize",
+    "D-343",
+    "tests/dcrow28d.test.js",
+    "tests/review25m.test.js"
+   ],
+   "blocks": [
+    {
+     "lanes": {
+      "roles": [
+       "O2S (every page load)"
+      ],
+      "steps": [
+       {
+        "role": "O2S (every page load)",
+        "text": "Take every truck row that has left (counted in dispatched) and is not cancelled",
+        "kind": "start"
+       },
+       {
+        "role": "O2S (every page load)",
+        "text": "Group the rows by PO and line id (a row with no line id: by PO and product)",
+        "kind": "task"
+       },
+       {
+        "role": "O2S (every page load)",
+        "text": "Do the rows of 1 group add up to MORE than that line's dispatched?",
+        "kind": "decision"
+       },
+       {
+        "role": "O2S (every page load)",
+        "text": "Yes: remove the fewest rows of the same DC that bring it back to dispatched, never below. No: touch nothing",
+        "kind": "task"
+       },
+       {
+        "role": "O2S (every page load)",
+        "text": "A line of the same product on the same truck is a different group and is never touched",
+        "kind": "end"
+       }
+      ]
+     }
+    },
+    {
+     "table": {
+      "head": [
+       "Rule",
+       "Result"
+      ],
+      "rows": [
+       [
+        "2 lines of 1 product on 1 truck (5 L and 20 L)",
+        "Each is compared with its own dispatched; both rows stay"
+       ],
+       [
+        "The same row twice on the same DC",
+        "The extra copy is removed"
+       ],
+       [
+        "A truck still planned or loading",
+        "Never looked at (it is not yet counted in dispatched)"
+       ],
+       [
+        "A row with no line id (older trucks)",
+        "On a PO with 2 or more lines of that product: compared with the sum of those lines, so it can only cut less. On a 1 line PO: compared with that line, as before"
+       ],
+       [
+        "DC 5264 row of 2,500 Kg/L (restoreDC5264V1)",
+        "Put back while the row is missing, dispatched is 2,500 and the 3 packing runs hold 2,500; checked again on every load, never marked done; same truck, same DC; prints (revised); a delivered truck is left alone"
+       ],
+       [
+        "Every row the clean-up removes",
+        "A line is written to the audit (AUdup-, the row id), so a removal is never silent"
+       ]
+      ]
+     }
+    }
+   ]
   }
  ]
 }

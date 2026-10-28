@@ -19299,6 +19299,69 @@
      }
     }
    ]
+  },
+  {
+   "id": "D-343",
+   "title": "A truck with 2 lines of one product keeps both lines on its DC; pack size read by line; DC 5264 put back to 4,500 Kg/L (28d)",
+   "owner": "COO (Tahir)",
+   "rules": [],
+   "status": "confirmed",
+   "src": [
+    "Supply Chain officer's report to Tahir, 28 Oct 2026: planned 4,500 L of V-Germinator Pro, QA passed 4,500, the printed DC showed 2,000 and the rest was neither on the gate pass nor back in stock",
+    "Tahir in chat, 28 Oct 2026: 'Kindly pay some attention to this issue' (passed on from the officer)",
+    "o2s.html changelog 2026-10-28d",
+    "fn dedupeShipmentsV1",
+    "fn linePackSize",
+    "fn restoreDC5264V1",
+    "fn printDC",
+    "fn printGatePass",
+    "fn psiLinesFor",
+    "tests/dcrow28d.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-28"
+       ],
+       [
+        "Ruled by",
+        "Not a new rule: a defect found from the officer's report. Tahir asked for it to be solved; the fix puts the system back to what the officer did and QA passed."
+       ],
+       [
+        "Decision",
+        "The duplicate-truck clean-up compares each PO line with its own dispatched total, by line id. The pack size on the DC, the gate pass and the inspection report is the pack of the line on the truck. DC 5264 is put back to 4,500 Kg/L: checked on every load, it adds the one row only while the figures are exactly as found, and does nothing once the row is there."
+       ],
+       [
+        "What happened",
+        "RUDP1026 has 2 lines of V Germinator Pro, 5 L (2,500 Kg/L) and 20 L (2,000 Kg/L), on 1 truck (DC 5264). After release, the clean-up that runs on every page load matched lines by product name, read the 20 L line's 2,000 as the product's dispatched total, saw 4,500 on the DC and removed the 2,500 row as the excess. The DC printed 2,000, the 20 L bags printed as 5 L (128 and 272 packs instead of 32 and 68), the line still showed 2,500 dispatched and the 3 packing runs (500, 500, 1,500) stayed marked shipped, so the stock was on no DC and not available."
+       ],
+       [
+        "Options seen",
+        "(1) Fix the clean-up by line, fix the pack size by line, put the one row back (chosen). (2) Remove the clean-up (not chosen: it exists to remove a real duplicate row, and a test still proves it does)."
+       ],
+       [
+        "Known and left",
+        "6 other POs have 2 lines of one product (Maxim Old POs, 06493, PO0250, 22032, RULOK0910, 4224000021). Checked on the live data on 28 Oct: none has lost a row. The truck left at 16:37 and the papers were handed to the driver at 16:44 with the wrong DC: a new DC must be printed and sent to the customer. The 2 bag numbers of V Germinator Pro are typed with different spacing on different runs (VG26001, VG 26002, VG  26002), which splits a DC line in two; not changed. A truck that is delivered before this build loads is not repaired automatically (the new row would be born delivered and the line never credited): tell Tahir. After the push, check the live data for any other line whose dispatched is higher than its truck rows."
+       ],
+       [
+        "Changes",
+        "dedupeShipmentsV1 groups rows by PO and line id and compares with that line's dispatched (rows with no line id are compared with the sum of the PO's lines of that product, so they can only cut less). linePackSize takes the line id; printDC, printGatePass and psiLinesFor pass it. restoreDC5264V1 puts back the one row from the 3 runs still marked shipped, only while the row is missing, dispatched is 2,500 and the 3 runs hold 2,500, with a fixed row id and fixed ids on its audit and action log lines; it is not marked done, because the page keeps its merge baseline after it runs and a save clash would otherwise drop the row for good; a truck already delivered is left alone. The clean-up now writes a line to the audit for every row it removes. The line key is used only where a PO has 2 or more lines of one product."
+       ],
+       [
+        "Status",
+        "Current"
+       ]
+      ]
+     }
+    }
+   ]
   }
  ]
 }

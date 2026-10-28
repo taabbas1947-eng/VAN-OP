@@ -221,7 +221,7 @@ const sumKg = (s, lid) => s.packingLog.filter(p => p.lid === lid).reduce((a, p) 
 
 /* ---- the code ---- */
 ok('it runs in the load chain after productGenericV1 and before the recipes', /productGenericV1\(s\); dataFix27dV1\(s\); loadBaseRecipesV2\(s\);/.test(html));
-ok('build id is 2026-10-27d', /BUILD_ID='2026-10-27d'/.test(html));
+ok('build id is 2026-10-27d or later', /BUILD_ID='2026-10-(27d|28[a-z])'/.test(html));
 { const body = html.split('\n').filter(l => !l.startsWith('/*SYSDOC_DATA_START*/')).join('\n');
   const left = (body.match(new RegExp(BAD, 'g')) || []).length;
   eq('the old base spelling appears in the code only in the comment and the recipe alias', left, 2);

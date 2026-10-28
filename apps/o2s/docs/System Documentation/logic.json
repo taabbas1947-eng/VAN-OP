@@ -929,7 +929,10 @@
     "tests/today.test.js",
     "tests/fixesC.test.js",
     "tests/audit15g.test.js",
-    "tests/shell.test.js"
+    "tests/shell.test.js",
+    "tests/dcreject28a.test.js",
+    "fn dcRejectCovered",
+    "fn dcRejectWaitKg"
    ],
    "blocks": [
     {
@@ -1277,7 +1280,7 @@
        [
         "DC rejected / Truck failed",
         "Supply Chain",
-        "rejected DC or failed truck not read",
+        "rejected DC or failed truck not read, and not yet covered: some line of the same PO with a product from the failed DC still has packed, cleared stock waiting for a truck (lineCleared above 0.5, the figure the Ship job uses). Stock on another truck, planned, loading or gone, is not waiting; only stock packed on or before the day of the failure counts (dcRejectCovered, dcRejectWaitKg, 28 Oct 2026)",
         "-",
         "none"
        ],
@@ -2839,6 +2842,40 @@
       "Run state: rework or kept once decided; unfit when a lot of the run is failed or was decided after an UNFIT; blank when all its lots are approved; else pending (HA pending).",
       "Jobs: Release provisionally (AQCM, also QCM) while provWhyNot is empty; Provisional lot UNFIT (Plant Manager) while the lot is failed, a run at VAN is undecided or a truck that left is undecided; Provisional lot referred (COO) for each truck referred until a complaint (not cancelled) has an item of that truck.",
       "Plant Manager's run decisions: rework is refused while part of the run is on a planned truck that has not left (shipKg above the Kg on trucks that left); rework writes qaHold and sets insKg to the Kg on trucks (provReinsp keeps the before). A truck is asked about only if one of its runs from the lot was not decided at VAN. The COO job says to wait while the truck is not confirmed delivered; it carries alsoRoles Plant Manager when Tahir is marked away."
+     ]
+    }
+   ]
+  },
+  {
+   "id": "LG-34",
+   "title": "Morning view: what each page shows and how (28b)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-019"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn mvModel, mvDayMaps, mvToday, mvSplit, mvPageFor, screenMorning",
+    "fn mvPageTahir, mvPageYawar, mvPageFahim, mvPageMajid, mvPageSaad, mvPageHimayat, mvPageIsmaeel",
+    "D-340",
+    "tests/morning28b.test.js"
+   ],
+   "blocks": [
+    {
+     "p": "The page is worked out each time it opens from the lists O2S already has (orders, batches, lots, certificates, trucks, Today jobs, Sales & Budget). Nothing is stored and nothing is written."
+    },
+    {
+     "list": [
+      "Day: the view date is today in Pakistan; yesterday is the day before it, always (a Monday shows Sunday). The month and the financial year come from the view date.",
+      "Sold: net value of the trucks that left, the same figure How are we doing uses; against the month target, which is the sum of the client monthly targets in Sales & Budget. A client with no monthly figure shows not set and is left out; the yearly target is not divided by 12.",
+      "Month target: the target total is the sum of clients that have a figure; what is sold is counted for those clients only for the percentage, and sales to other clients are shown beside it. Open orders in the month bar are likewise for clients with a figure.",
+      "Late: an order line whose committed date has passed and is not delivered or short-closed (the same test How are we doing uses). Money is the unsent quantity at the line price.",
+      "To invoice (Ismaeel): yesterday's trucks with DC, SO and gross value; gross is net x 1.05 where the order's FED mode is Exclusive or Inclusive; sales tax is not added.",
+      "Today and watching: the signed-in person's Today jobs (Today scope), with jobs escalated to them shown apart as watching. The COO list is limited to jobs escalated to him or given to the COO role, not the whole plant.",
+      "On-time ownership: not made or not packed shows under Majid (production); made and ready but not delivered shows under Saad (delivery).",
+      "Units: every quantity carries its unit from the product (Kg or L; Kg/L for a base).",
+      "A page that cannot be worked out shows a plain message, never a blank screen or a wrong figure.",
+      "Money: PKR is shown to the roles that may see it elsewhere in O2S (COO, CFO, Plant Manager, KAM, and the roles of How are we doing). Finance sees quantities, and PKR only on the to-invoice list. A DC is counted once however many product lines it has; a DC with 2 POs is 2 lines to invoice; a free-of-charge order is not invoiced. A shift is expected only if it logged something in the last 14 days."
      ]
     }
    ]

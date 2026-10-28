@@ -74,7 +74,7 @@ function ysWorld(role) {
   b.$ = () => ({ set innerHTML(v) { b.html = v; }, classList: { add() {} } });
   vm.createContext(b);
   vm.runInContext([grab('_uRole'), grab('bpEsc'), grab('bpId'), grab('yieldShortJobs'), grab('openYieldShort'), grab('yieldShortSeen'),
-    grab('dcRejectNote'), grab('dcRejectJobs'), grab('openDcRejected'), grab('dcRejectSeen')].join('\n'), b);
+    grab('dcRejectNote'), grab('localDateOf'), grab('dcRejectWaitKg'), grab('dcRejectCovered'), grab('dcRejectJobs'), grab('openDcRejected'), grab('dcRejectSeen')].join('\n'), b);
   return b;
 }
 { const w = ysWorld('Plant Manager'); const j = w.yieldShortJobs();

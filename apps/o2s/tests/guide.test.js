@@ -157,4 +157,5 @@ ok('My job: a New on 16 Oct (16b) note for every role touched', ['Production','P
 ok('The Rules: the truck checks the Mfg month on the bag (16b)', /the Mfg month on the bag/.test(grab('guideRules')));
 ok('Guide has a System documentation tab for everyone (16a)', /\['sysdoc','System documentation'\]/.test(grab('guideTabsHTML')));
 ok('How the app works: Saving, Not saved yet, Try now and Saved (21 Oct, 21a)', /<h2>When you press a button<\/h2>/.test(grab('guideHow')) && /Not saved yet/.test(grab('guideHow')) && /Try now/.test(grab('guideHow')) && /a refresh before it is saved loses the change/i.test(grab('guideHow')) && /on a phone, wait for <b>Saved<\/b>/.test(grab('guideHow')));
+ok('My job (Supply Chain): Truck failed goes by itself once none of that PO packed stock of the same products waits for a truck (28 Oct, 28a)', /The job goes by itself once none of that PO\u2019s packed stock of the same products is left waiting for a truck\./.test(grab('guideMyJob')));
 process.exitCode = report('The Guide keeps up (24z)') ? 1 : 0;

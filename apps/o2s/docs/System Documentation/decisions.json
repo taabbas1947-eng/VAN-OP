@@ -19069,6 +19069,175 @@
      }
     }
    ]
+  },
+  {
+   "id": "D-339",
+   "title": "A failed truck or rejected DC leaves Supply Chain's list when its material is no longer waiting for a truck (28a)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-011",
+    "R-017"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir in chat, 28 Oct 2026: 'Why this is showing in system of saad, this vehicle has already dispatched and left'; 'yes' to the fix",
+    "o2s.html changelog 2026-10-28a",
+    "fn dcRejectCovered",
+    "fn dcRejectWaitKg",
+    "fn dcRejectJobs",
+    "tests/dcreject28a.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-28"
+       ],
+       [
+        "Ruled by",
+        "Tahir (COO)"
+       ],
+       [
+        "Decision",
+        "The Truck failed (and DC rejected) job closes by itself when, for every product on the failed DC, no line of that PO with that product has packed, cleared stock waiting for a truck (the figure the Ship job uses). Stock on another truck, planned, loading or gone, is not waiting. If part of it, or other stock of the PO, still waits, the job stays. Reading the note still closes it by hand."
+       ],
+       [
+        "Why",
+        "DC 5260 (EXCL002, Humi Grow, 10,000 Kg) failed inspection on 26 Oct. The same truck left on DC 5261 on 27 Oct and the PO was delivered, but the job stayed on Supply Chain's list until it was read on 28 Oct, because the note did not look at what happened to the material after the failure."
+       ],
+       [
+        "Changes",
+        "dcRejectCovered and dcRejectWaitKg added; dcRejectJobs skips a covered note; Guide (My job, Supply Chain) and change log 2026-10-28a; tests/dcreject28a.test.js."
+       ],
+       [
+        "Left as built",
+        "The note is not deleted, only left off Today, and it returns if the stock is waiting again (for example the replacement truck is cancelled) and nobody has read it. A DC whose rows, order or product lines are not found is never closed by this rule. The first version of this change looked for a later truck with a gate pass and at least the same Kg; two independent reviews showed it would hide the note when a second truck of the same PO was always planned, or when 2 trucks failed and 1 replaced them, so it was replaced the same day by the rule above. Second review (same day): only stock packed on or before the day of the failure counts as waiting, so the next part of the same PO, packed later, does not bring an old unread note back (function dcRejectWaitKg). Known and accepted: a lot on QA hold, a complaint hold, with no batch number or sent back for re-inspection is not shippable, so the note stays off the list until the lot is shippable; stock moved to another PO leaves that PO's own Ship job to carry it; a leftover above 0.5 Kg after the replacement truck keeps the note until it is read; a truck row with no batch list gives no stock back (rare, old rows only)."
+       ],
+       [
+        "Status",
+        "Current"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-340",
+   "title": "Morning view: one read-only page for each of 7 people, own page only (28b)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-019"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir in chat, 21 Oct 2026 (design settled) and 28 Oct 2026: 'Own page only, COO included'; 'yes, and move on the morning view'",
+    "o2s.html changelog 2026-10-28b",
+    "fn screenMorning",
+    "fn mvPageFor",
+    "fn mvModel",
+    "tests/morning28b.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-28"
+       ],
+       [
+        "Ruled by",
+        "Tahir (COO)"
+       ],
+       [
+        "Decision",
+        "A Morning view tab after Today in the header, for 7 people only: Tahir (COO), Yawar (CFO), Fahim (Plant Manager), Majid (Production Manager), Saad (Supply Chain), Himayat (QC Manager), Ismaeel (Finance). Each sees only their own page, the COO included; there is no picker. It is read only and has its own skin (steel, ash, graphite), scoped so it cannot touch other screens."
+       ],
+       [
+        "Rulings inside it",
+        "Yesterday is always the day before today. Jobs escalated to a person are shown apart as watching. Ismaeel gets a list of yesterday's trucks to invoice (DC, SO, gross with FED). Monthly targets are read from Sales & Budget (masters.salesTargetsMonthly); a client with no figure shows not set and stays out of the total; the yearly target is never divided by 12. On-time ownership: Majid for production (not made or packed), Saad for delivery (ready)."
+       ],
+       [
+        "Who gets which page",
+        "By login name first (tahir, yawar, fahim, majid, saad, himayat, ismaeel), then by role (COO, CFO, Plant Manager, Production Manager, Supply Chain, QCM, Finance), so a second COO login sees the COO page. Any other role sees no Morning view word."
+       ],
+       [
+        "Changes",
+        "Header word, SCREENS entry, render dispatch, the module in o2s.html (mv functions), the .mv skin, fonts Inter and Source Serif 4; Guide (How the app works, My job); change log 2026-10-28b; tests/morning28b.test.js."
+       ],
+       [
+        "Left as built",
+        "The page works out its figures when it opens and writes nothing. Figures were tied to How are we doing and Plant on the live data of 28 Oct 2026. Found and fixed by the independent reviews the same day: the month percentage counts sales of clients that have a target only (sales to other clients are shown beside it); a DC counts once; a free-of-charge DC is not on Ismaeel's list; a DC with 2 POs is 2 lines; a shift that logged nothing in 14 days is not chased; money follows the existing rule (COO, CFO, Plant Manager, KAM, and the roles in How are we doing see PKR; Finance sees quantities and PKR only on its own to-invoice list); folds keep their open state; every job is reachable (And N more). Known and accepted: Ismaeel's list is yesterday only, as ruled, and O2S does not record which invoices are sent, so a day he does not open is not carried forward. Late means from the committed day, as in How are we doing, so a line due today counts as late. The per-role pages other than the signed-in one were checked on fixtures, not live."
+       ],
+       [
+        "Status",
+        "Current"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-341",
+   "title": "FOC samples leave the header: one + New entry button on Today (28b)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-005"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir in chat, 21 Oct 2026 and 28 Oct 2026: 'Same build as Morning view'",
+    "o2s.html changelog 2026-10-28b",
+    "fn tdNewEntry",
+    "fn tdEntryChoices",
+    "fn boDesks",
+    "tests/morning28b.test.js",
+    "tests/samples.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-28"
+       ],
+       [
+        "Ruled by",
+        "Tahir (COO)"
+       ],
+       [
+        "Decision",
+        "FOC samples is no longer a header word. On Today, + New order and + Ask for a free sample become one button, + New entry, which offers a Commercial order or an FOC sample, each person seeing only what their role allows. With one choice it goes straight to it. The list of all samples becomes a Back Office tile (COO, CFO, Plant Manager)."
+       ],
+       [
+        "Changes",
+        "Roles that may see samples but have no Back Office get a FOC samples link on Today; the choice sheet has See all samples. The COO is offered the order only (he approves samples, he does not ask for them), as before. Nothing about who may ask for, approve, issue or release a sample changed."
+       ],
+       [
+        "Status",
+        "Current"
+       ]
+      ]
+     }
+    }
+   ]
   }
  ]
 }

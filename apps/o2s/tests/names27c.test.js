@@ -42,7 +42,7 @@ const fix = () => ({ masters: { products: [
 
 ok('it runs in the load chain right after productNamesV1', /productNamesV1\(s\); productGenericV1\(s\); (dataFix27dV1\(s\); )?loadBaseRecipesV2\(s\);/.test(html));
 ok('the catalogue in the code no longer carries N 1% + K 6% for V-Germinator Pro', !/"generic": "P 27% \+ N 1% \+ K 6%"/.test(html) && (html.match(/"brand": "V-Germinator Pro", "base": "V-Germinator Pro", "generic": "P 27% \+ N 4\.5% \+ K 2%"/g) || []).length === 4);
-ok('build id is 2026-10-27c or later that day', /BUILD_ID='2026-10-27[cd]'/.test(html));
+ok('build id is 2026-10-27c or later', /BUILD_ID='2026-10-(27[cd]|28[a-z])'/.test(html));
 ok('change log 2026-10-27c exists', /ver:'2026-10-27c'/.test(html) && /V-Germinator Pro: the final recipe/.test(html));
 ok('the 27b migration is untouched (it does not set the generic)', !/generic\s*=\s*NEWG/.test(grab('productNamesV1')));
 process.exitCode = report('27c: V-Germinator Pro final recipe P 27% + N 4.5% + K 2%') ? 1 : 0;

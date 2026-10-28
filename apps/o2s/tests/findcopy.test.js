@@ -66,7 +66,7 @@ ok('the PO register shows the full customer name', /_pe\(o\.client\|\|'—'\)/.t
 ok('the DC register shows the full customer name', /_pe\(g\.client\|\|'—'\)/.test(grab('rpDocs')));
 
 /* 4. One name, and the Guide */
-ok('the samples page is FOC samples, as in the header (25p)', /\{id:'samples', name:'FOC samples'/.test(html) && /label:'FOC samples'/.test(html) && !/<h1>Free samples<\/h1>/.test(html));
+ok('the samples page is FOC samples, as in the header (25p)', /\{id:'samples', name:'FOC samples'/.test(html) && /D\.push\(\{k:'samples',t:'FOC samples'/.test(grab('boDesks')) /* 28b: the list left the header and is a Back Office tile */ && !/<h1>Free samples<\/h1>/.test(html));
 const rules = grab('guideRules');
 ok('The rules: Where to find a copy', /<h3>Where to find a copy<\/h3>/.test(rules) && /Lab and QA → <b>Lab certificates<\/b>/.test(rules) && /<b>One customer<\/b>/.test(rules) && /<b>Papers<\/b>/.test(rules) && /Delivery challans, gate passes and inspection reports/.test(rules));
 

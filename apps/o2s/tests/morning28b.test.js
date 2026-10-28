@@ -64,12 +64,12 @@ const log = [];
 const sb2 = { state: { role: 'COO' }, log, _tdEsc: x => String(x), $: id => ({ classList: { add() {} }, set innerHTML(v) { log.push(['modal', v]); } }), toast: m => log.push(['toast', m]), closeModal: () => log.push(['close']),
   setScreen: s => log.push(['go', s]), smpNew: () => log.push(['smpNew']) };
 vm.createContext(sb2);
-vm.runInContext(['tdEntryChoices', 'tdNewEntryGo', 'tdNewEntry', 'boVisible', 'smpListOK'].map(grab).join('\n'), sb2);
+vm.runInContext(['tdEntryChoices', 'tdNewEntryGo', 'tdNewEntry', 'tdEntryTabs', 'tdTab', 'boVisible', 'smpListOK'].map(grab).join('\nvar TD_SMPKEEP=false;\n'), sb2);
 const roleSet = (role, o) => { Object.assign(sb2, { canView: (r, s) => s === 'samples' ? o.view !== false : !!o.order, screenEditOK: () => !!o.order, may: c => !!o.sample, smpMayView: () => !!o.view, boJobs: () => o.bo ? [1] : [] }); sb2.state = { role }; log.length = 0; };
-roleSet('COO', { order: true, sample: true, view: true }); eq('COO: only a commercial order (he approves samples, he does not ask for them)', sb2.tdEntryChoices().map(c => c.k).join(), 'order');
-sb2.tdNewEntry(); eq('...one choice goes straight to the order screen, no modal', JSON.stringify(log.filter(x => x[0] !== 'close')), JSON.stringify([['go', 'entry']]));
+roleSet('COO', { order: true, sample: true, view: true }); eq('COO: both an order and a sample (28c: he may ask as well as approve)', sb2.tdEntryChoices().map(c => c.k).join(), 'order,foc');
+sb2.tdNewEntry(); eq('...New entry opens the order screen first, no modal (the 2 tabs sit on top of it)', JSON.stringify(log.filter(x => x[0] !== 'close')), JSON.stringify([['go', 'entry']]));
 roleSet('Finance', { order: true, sample: true, view: true }); eq('Finance: both', sb2.tdEntryChoices().map(c => c.k).join(), 'order,foc');
-sb2.tdNewEntry(); ok('...two choices open a modal with both and "See all samples"', log.length === 1 && log[0][0] === 'modal' && /Commercial order/.test(log[0][1]) && /FOC sample/.test(log[0][1]) && /See all samples/.test(log[0][1]));
+sb2.tdNewEntry(); eq('...two choices open the order screen with no choice window', JSON.stringify(log.filter(x => x[0] !== 'close')), JSON.stringify([['go', 'entry']]));
 roleSet('KAM', { order: false, sample: true, view: true }); eq('KAM: only an FOC sample', sb2.tdEntryChoices().map(c => c.k).join(), 'foc');
 sb2.tdNewEntry(); eq('...goes straight to the sample form', JSON.stringify(log.filter(x => x[0] !== 'close')), JSON.stringify([['smpNew']]));
 roleSet('Warehouse', { order: false, sample: false, view: true }); eq('Warehouse: nothing to start', sb2.tdEntryChoices().length, 0);
@@ -78,12 +78,12 @@ roleSet('CFO', { order: true, sample: true, view: true }); sb2.tdNewEntryGo('lis
 const ts = grab('tdStarts');
 ok('+ New order and + Ask for a free sample are gone from Today; one + New entry is there', /\+ New entry/.test(ts) && !/\+ New order/.test(ts) && !/\+ Ask for a free sample/.test(ts));
 ok('the COO still starts orders only, not batches', /state\.role==='COO'\) b=b\.filter\(function\(x\)\{ return x\[0\]==='@tdNewEntry\(\)'; \}\)/.test(ts));
-ok('a person who may see samples but has no Back Office gets a FOC samples link on Today', /smpListOK\(\) && !boVisible\(\)/.test(ts));
+ok('every role that may open the list gets a FOC samples link on Today, Back Office or not (28c)', /if\(smpListOK\(\)\) b\.push\(\['samples'/.test(ts) && !/!boVisible\(\)\) b\.push/.test(ts));
 ok('Back Office has a FOC samples tile for those who may see samples', /if\(smpListOK\(\)\)\{ var _sl=/.test(grab('boDesks')) && /D\.push\(\{k:'samples',t:'FOC samples'/.test(grab('boDesks')));
 
 /* review fix: no route to the samples list is shown when the COO has switched that screen off for the role */
 roleSet('CFO', { order: true, sample: true, view: false }); sb2.state = { role: 'CFO' };
-sb2.tdNewEntry(); ok('with Samples switched off, the choice sheet has no See all samples button', log.length === 1 && log[0][0] === 'modal' && !/See all samples/.test(log[0][1]));
+ok('with Samples switched off, no See all samples button is left anywhere in New entry', !/See all samples/.test(grab('tdNewEntry')) && !/See all samples/.test(grab('tdEntryTabs')));
 eq('...and the route test itself says no', sb2.smpListOK(), false);
 
 /* ---- the month target compares like with like (review fix) ---- */
@@ -107,10 +107,10 @@ eq('...and the route test itself says no', sb2.smpListOK(), false);
 ok('Morning view is listed in a role\'s screens, the command palette and the Guide only where it exists', /MV_PAGE_ROLE\[role\]/.test(grab('roleScreens')) && /mvMay\(\)/.test(grab('cmdkItems')) && /MV_PAGE_ROLE\[r\]/.test(grab('gdScreenOpen')));
 ok('a DC counts once however many product lines it carries', /tr\[s\.dc\|\|s\.dispId\|\|s\.id\]=1/.test(body));
 ok('a free-of-charge order is not on the to-invoice list', /t\.out===M\.day&&!t\.foc/.test(body));
-ok('a shift that has logged nothing for 14 days is not chased', /MV_ACTIVE\[x\.shift\]=1/.test(body) && /MV_ACTIVE\[x\]/.test(grab('mvShiftNames')));
+ok('a shift that is not running is not chased (28c: running = 3 or more different days in the last 14)', /MV_ACTIVE\[k\]=1/.test(body) && /MV_ACTIVE\[x\]/.test(grab('mvShiftNames')));
 
 /* ---- build ---- */
 ok('the build is 2026-10-28b or later', /var BUILD_ID='2026-10-(28[b-z]|29|3\d)'|var BUILD_ID='2026-1[12]/.test(html));
 ok('the change log has the entry', /ver:'2026-10-28b'[^\n]*Morning view/.test(html));
-ok('the Guide describes the Morning view and the + New entry button', /<h2>The Morning view<\/h2>/.test(grab('guideHow')) && /\+ New entry<\/b> on Today and picks <b>FOC sample/.test(grab('guideRules')));
+ok('the Guide describes the Morning view and the + New entry button', /<h2>The Morning view<\/h2>/.test(grab('guideHow')) && /\+ New entry<\/b> on Today \(the KAM goes straight/.test(grab('guideRules')));
 process.exitCode = report('28b: Morning view and + New entry') ? 1 : 0;

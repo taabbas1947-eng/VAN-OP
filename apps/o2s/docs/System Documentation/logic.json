@@ -2875,7 +2875,7 @@
       "On-time ownership: not made or not packed shows under Majid (production); made and ready but not delivered shows under Saad (delivery).",
       "Units: every quantity carries its unit from the product (Kg or L; Kg/L for a base).",
       "A page that cannot be worked out shows a plain message, never a blank screen or a wrong figure.",
-      "Money: PKR is shown to the roles that may see it elsewhere in O2S (COO, CFO, Plant Manager, KAM, and the roles of How are we doing). Finance sees quantities, and PKR only on the to-invoice list. A DC is counted once however many product lines it has; a DC with 2 POs is 2 lines to invoice; a free-of-charge order is not invoiced. A shift is expected only if it logged something in the last 14 days."
+      "Money: PKR is shown to the roles that may see it elsewhere in O2S (COO, CFO, Plant Manager, KAM, and the roles of How are we doing). Finance sees quantities, and PKR only on the to-invoice list. A DC is counted once however many product lines it has; a DC with 2 POs is 2 lines to invoice; a free-of-charge order is not invoiced. A shift is expected only if it logged on 3 or more different days in the last 14 (28c); one stray entry does not make a shift 'running'."
      ]
     }
    ]

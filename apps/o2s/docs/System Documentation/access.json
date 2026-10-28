@@ -1373,7 +1373,7 @@
      }
     },
     {
-     "p": "+ New entry on Today offers a Commercial order to whoever may enter orders (Finance, CFO, COO) and an FOC sample to whoever holds the right to ask for one, except the COO. The list of all samples opens from Back Office (COO, CFO, Plant Manager), from a FOC samples link on Today (other people who may see samples), or from See all samples in the choice."
+     "p": "+ New entry on Today offers a Commercial order to whoever may enter orders (Finance, CFO, COO) and an FOC sample to whoever holds the right to ask for one, the COO included (28c). A person who may start both sees 2 tabs, New order and FOC sample, on top of the form; a person who may start only 1 goes straight to that form. The list of all samples opens from Back Office (COO, CFO, Plant Manager) and from a FOC samples link on Today for every role that may see samples."
     },
     {
      "p": "Morning view is listed in a role's screens, the command palette and the Guide only for roles that have a page. If the COO sets Samples to No access for a role, no route to the samples list is shown to that role."

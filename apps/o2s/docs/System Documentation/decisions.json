@@ -19178,7 +19178,7 @@
        ],
        [
         "Left as built",
-        "The page works out its figures when it opens and writes nothing. Figures were tied to How are we doing and Plant on the live data of 28 Oct 2026. Found and fixed by the independent reviews the same day: the month percentage counts sales of clients that have a target only (sales to other clients are shown beside it); a DC counts once; a free-of-charge DC is not on Ismaeel's list; a DC with 2 POs is 2 lines; a shift that logged nothing in 14 days is not chased; money follows the existing rule (COO, CFO, Plant Manager, KAM, and the roles in How are we doing see PKR; Finance sees quantities and PKR only on its own to-invoice list); folds keep their open state; every job is reachable (And N more). Known and accepted: Ismaeel's list is yesterday only, as ruled, and O2S does not record which invoices are sent, so a day he does not open is not carried forward. Late means from the committed day, as in How are we doing, so a line due today counts as late. The per-role pages other than the signed-in one were checked on fixtures, not live."
+        "The page works out its figures when it opens and writes nothing. Figures were tied to How are we doing and Plant on the live data of 28 Oct 2026. Found and fixed by the independent reviews the same day: the month percentage counts sales of clients that have a target only (sales to other clients are shown beside it); a DC counts once; a free-of-charge DC is not on Ismaeel's list; a DC with 2 POs is 2 lines; a shift is chased only if it logged on 3 or more different days in the last 14 (28c; first ruled as any entry in 14 days); money follows the existing rule (COO, CFO, Plant Manager, KAM, and the roles in How are we doing see PKR; Finance sees quantities and PKR only on its own to-invoice list); folds keep their open state; every job is reachable (And N more). Known and accepted: Ismaeel's list is yesterday only, as ruled, and O2S does not record which invoices are sent, so a day he does not open is not carried forward. Late means from the committed day, as in How are we doing, so a line due today counts as late. The per-role pages other than the signed-in one were checked on fixtures, not live."
        ],
        [
         "Status",
@@ -19229,6 +19229,67 @@
        [
         "Changes",
         "Roles that may see samples but have no Back Office get a FOC samples link on Today; the choice sheet has See all samples. The COO is offered the order only (he approves samples, he does not ask for them), as before. Nothing about who may ask for, approve, issue or release a sample changed."
+       ],
+       [
+        "Status",
+        "Current, changed in part by D-342 (28c): the choice window is gone, the COO is offered both forms, and the Today link shows for every role that may open the list."
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-342",
+   "title": "+ New entry opens 2 tabs on top of the form; one click to the FOC samples list; a shift needs 3 days to count as running (28c)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-005"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir in chat, 28 Oct 2026: 'BOTH. CORRECT BOTH. We have decided the New entry should open 2 tabs, New order entry or FOC, and then the selected form'; panel answer 'Tabs stay on top of the form'; 'anyone can ask the FOC samples'",
+    "o2s.html changelog 2026-10-28c",
+    "fn tdEntryTabs",
+    "fn tdTab",
+    "fn tdNewEntry",
+    "fn tdEntryChoices",
+    "fn tdStarts",
+    "fn mvShiftNames",
+    "tests/morning28c.test.js",
+    "tests/morning28b.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-28"
+       ],
+       [
+        "Ruled by",
+        "Tahir (COO)"
+       ],
+       [
+        "Decision",
+        "+ New entry shows 2 tabs, New order and FOC sample, on top of the selected form; clicking a tab swaps the form without going back to Today. The FOC samples link on Today shows for every role that may open the list. A shift counts as running only if it logged on 3 or more different days in the last 14."
+       ],
+       [
+        "Options seen",
+        "Tabs first, then the form opens, switching means going back (not chosen). For a person who may start only 1 of the 2, Tahir answered 'anyone can ask the FOC samples'; it is read as: the FOC tab is offered to every role that already holds the right to ask, and now the COO too. No other role was given the right to ask. If Tahir meant every role, that is a separate ruling on the access rules. Known and left: the COO can ask for a sample and approve it himself, the existing guard is a note of 5 or more letters and the approval is marked as made by the person who asked; two people sending a sample at the same moment can get the same SMP number (as before 28c, no duplicate check for samples yet)."
+       ],
+       [
+        "Why",
+        "The live test of 28b found 4 roles (Supply Chain, Finance, CFO, Plant Manager) needed 2 clicks to reach the samples list, the COO was offered the sample form on the samples page but not in + New entry, and Fahim and Majid were chased for an Evening shift that logged once in 16 days."
+       ],
+       [
+        "Changes",
+        "tdNewEntry opens the first form (New order) with no choice window when there are 2 choices, and goes straight to the form when there is 1 (no tabs). tdEntryTabs draws the tabs on the order screen and on the sample form. tdTab switches; a half-typed sample form is kept until Cancel, Send or sign-out, and shown again when the person returns to the FOC tab. tdEntryChoices no longer excludes the COO; the Back Office tile offers him Ask for a free sample too. tdStarts no longer hides the FOC samples link for roles with Back Office (the tile stays). mvModel counts distinct days per shift (3 or more in 14, or an entry on the day shown). Review fixes: a sent sample no longer resets the order typed on the screen under it; the tab label stays readable on hover; setSession (sign-out and sign-in) drops a half-typed sample. Nothing about who may approve, issue or release a sample changed."
        ],
        [
         "Status",

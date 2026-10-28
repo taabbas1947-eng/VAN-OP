@@ -1802,7 +1802,7 @@
       "steps": [
        {
         "role": "KAM",
-        "text": "Ask under FOC samples (the KAM for himself, or Finance on behalf of the person sending it): who, to whom, purpose, why (10 characters or more), products and packs, needed-by date, how it goes.",
+        "text": "Ask from + New entry on Today (the FOC sample tab) or under FOC samples (the KAM for himself, or Finance on behalf of the person sending it): who, to whom, purpose, why (10 characters or more), products and packs, needed-by date, how it goes.",
         "kind": "start",
         "rule": "R-005"
        },

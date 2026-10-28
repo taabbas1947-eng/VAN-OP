@@ -40,7 +40,7 @@ const tags = grab('tdTags');
 ok('the main chip is the job\'s own age, not the customer\'s promise', /waiting '\+g\.days\+' d/.test(tags) && /new today/.test(tags) && /d past promise/.test(tags) && !/days past promise/.test(tags));
 ok('the list is oldest JOB first', /\(b\.days-a\.days\)\|\|\(b\.late-a\.late\)/.test(grab('tdGroups')));
 ok('escalations are one card per role, with their list inside', /tdEscByRoleHTML\(esc\)/.test(st) && /See their list/.test(grab('tdEscByRoleHTML')) && /roleTitle\(r\)/.test(grab('tdEscByRoleHTML')));
-ok('the COO starts orders only', /state\.role==='COO'\) b=b\.filter\(function\(x\)\{ return x\[0\]==='entry'; \}\)/.test(grab('tdStarts')));
+ok('the COO starts orders only', /state\.role==='COO'\) b=b\.filter\(function\(x\)\{ return x\[0\]==='@tdNewEntry\(\)'; \}\)/.test(grab('tdStarts')));
 ok('a late-reason card is titled by the order, not by its own label', /var ttl=\(g\.key\.indexOf\('prod:'\)===0\)\?title:sub/.test(card));
 ok('the empty state does not lecture', !/honest answer/.test(st));
 ok('the phone does not repeat the name under the header', /@media \(max-width:820px\)\{\.tdwho\{display:none\}\}/.test(html));

@@ -21,7 +21,7 @@ Changed in 0.3.0 and 0.3.1: rs_per_kg fixed (1 rate of 1 kind, labour or FOH). A
 | Field | Meaning | Unit or values | Source | Rule |
 |---|---|---|---|---|
 | net_price | Price per kg or L on the O2S PO line, without FED | Rs | O2S orders[].lines[].invoicePrice; / (1 + FED %) when fedMode is Inclusive (fed_pct, 5 now); 0 for free orders | F-10, D-72 |
-| open_kg | Kg still to ship on a PO line | kg or L | ordered less dispatched; 0 when short-closed or in an "Old POs" customer | D-15 |
+| open_kg | Kg still to ship on a PO line | kg or L | ordered less dispatched; 0 when short-closed and not reopened, or in an "Old POs" customer | D-15 |
 | truck_date | Day the truck counts as a sale | date | O2S shipments[].approvedDate (gate pass approved); a truck still loading is not a sale yet | D-16, D-60 |
 | qty (recipe line) | Input per 1 kg (or L) of product, loss included | kg per kg | Majid; day 1 from Yawar's sheet | R-2 Recipes |
 | rate | Latest purchase rate of a material grade | Rs per kg or L | Yawar, with source | D-10 |

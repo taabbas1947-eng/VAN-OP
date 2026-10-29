@@ -35,7 +35,7 @@ C2M writes to no other system (D-12). O2S holds no recipes; C2M is the recipe ma
 |---|---|---|
 | 1 | c2m_source (claim: status to Pulling, only if not already Pulling, or Pulling for more than 10 minutes) | c2m_source.status, last_pull_note "Pulling since ..." |
 | 2 | app_state.data (orders, shipments) | c2m_sync_run (start) |
-| 3 | each order line | c2m_o2s_po_line: net price (FED-inclusive / (1 + FED %), fed_pct, 5 now; free 0), ordered, dispatched, open kg (0 if short-closed or "Old POs") |
+| 3 | each order line | c2m_o2s_po_line: net price (FED-inclusive / (1 + FED %), fed_pct, 5 now; free 0), ordered, dispatched, open kg (0 if short-closed and not reopened, or "Old POs") |
 | 4 | each shipment not voided, with a known line | c2m_o2s_truck: date (approvedDate: the gate pass approval), kg. A truck still loading has no approvedDate and is left out until its gate pass (D-60) |
 | 5 | rows from older pulls | deleted from c2m_o2s_po_line and c2m_o2s_truck |
 | 6 | customers not matched; prices below Rs 10 | c2m_sync_run.issues_json; c2m_source status Read (or Failed with the reason); c2m_audit (action pull, with the counts) |

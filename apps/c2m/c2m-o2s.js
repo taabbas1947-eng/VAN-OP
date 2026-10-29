@@ -33,7 +33,7 @@ async function pullO2S(q, byUser) {
       if (!o.foc && price > 0 && price < 10) issues.push(`PO ${o.po}: ${l.brand} priced Rs ${l.invoicePrice} (below Rs 10, not a real price)`);
       if (!o.foc && !(price > 0)) issues.push(`PO ${o.po}: ${l.brand} has no price on a PO that is not FOC (C2M treats it as FOC: out of sales until the price is entered in O2S)`);
       const sc = l.shortClose || {};
-      const closed = !!sc.approvedAt;
+      const closed = !!sc.approvedAt && !sc.reopenedAt;   // O2S keeps the approval on a close the COO has reopened; that line is open again (29 Oct 2026)
       const ordered = Number(l.ordered) || 0, disp = Number(l.dispatched) || 0;
       const openKg = closed || /old pos/i.test(String(o.po)) ? 0 : Math.max(ordered - disp, 0);
       await q(`INSERT INTO c2m_o2s_po_line (line_id, po, received, customer_name, channel, brand, pack, ordered_kg, dispatched_kg, open_kg, net_price, fed_mode, payment_terms, short_closed, sync_id)

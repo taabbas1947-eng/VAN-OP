@@ -17,6 +17,14 @@ Changed in 0.6.0: entry 0.6.0 added.
 Changed in 0.5.0: entry 0.5.0 added; real figures removed from earlier entries (public repo).
 Format: Keep a Changelog, semantic versions. Live: 1.0.0 (pushed 19 Oct about 22:09, checked live by Claude as Tahir the same evening; Yawar's view checked in the cloud copy only); 0.9.3 pushed 19 Oct 14:38, checked live; 0.9.2 pushed 19 Oct 12:43, checked live; first data load 19 Oct 2026 about 13:17, checked live. Before: 0.9.1 (pushed 19 Oct 09:39, checked live). apps/c2m first pushed by Tahir on 17 Oct and the live migration run the same day (39 empty c2m_ tables); 0.6.0 and 0.7.0 pushed on 18 Oct (17:29), 0.8.0 (20:16) and 0.9.0 (22:03), each checked live by Claude. The folder tabs (D-59) were built after the 0.9.0 push and ship in 0.9.1. No data loaded yet: the first data load runs on Monday 19 Oct 2026.
 
+## [Next version, reopened lines] · 29 Oct 2026 · D-136 · Who: Claude built; Tahir ruled and approves the push
+### Fixed
+- A PO line that the COO reopens in O2S is open again in C2M. Before, C2M kept it at 0 Kg open and short-closed, so the open orders and margin lists left it out while O2S was producing and shipping it.
+### Known limits
+- A line reopened between two pulls shows as closed until the next pull. The pull runs when someone presses it; there is no timer.
+### Database
+- None.
+
 ## [Next version, name on price lists] · 22 Oct 2026 · D-109 · Who: Claude built; Tahir ruled and approves the push
 ### Added
 - Customers, Edit: Name on price lists and documents. Labels now say which name is which; O2S names are marked matching only. Setup, Clients and buyer lines has an Open Customers button.

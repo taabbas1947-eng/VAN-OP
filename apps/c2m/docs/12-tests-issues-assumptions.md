@@ -1,6 +1,7 @@
 # 12. Tests, issues and assumptions
 
 Version 1.0.3 · 20 Oct 2026 · Owner: Claude records; Tahir and Yawar confirm assumptions · Rule: R-5h item 12 (D-20)
+Changed in the next version (29 Oct 2026; D-136): one check added for the O2S reopen: c2m-o2s.js reads a reopened line as open (9 cases, run against the real pullO2S with a fake database function; fails on the old line, passes on the new). It was run on its own, outside C2M App/tests, because that folder was not reachable; the full suite (npm test in C2M App) has NOT been run for this change and must be run on Tahir's PC before or after the push.
 Changed in the next version (21 Oct 2026; piece 1 of 4 after Tahir's rulings D-89 to D-95; the version number is set at the push; 1.0.3 is live): 12.1e added: tests for the roles change (piece 1) run against a test database; known limits for it in 12.3. The earlier suites c2m100 to c2m103 could not be run in the session that built it: run them before the push.
 Changed in 1.0.3 (20 Oct 2026; 1.0.2 went live on 20 Oct at 11:24): 12.1d added: suite c2m103.test (M-01 to M-07) and the tests changed for D-87; totals 221, after the 7 review rounds 229 (M-08 to M-15); known limits in 12.3; the 1.0.3 reviews in 12.4.
 Changed in 1.0.2 (19 Oct 2026; review fixes 20 Oct): 12.1c added: suite c2m102.test (X-01 to X-17) and the tests changed for D-85; totals 203; known limits for product names in 12.3; the 1.0.2 review in 12.4.

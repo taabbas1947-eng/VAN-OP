@@ -166,7 +166,7 @@ Keys: IX ix_fm_source (source_id).
 | net_price | DECIMAL(12,4) | no | 0 | Rs per kg or L, without FED (F-10; FED is the only tax on VAN, D-72) |
 | fed_mode | VARCHAR(20) | yes | | Inclusive or Exclusive |
 | payment_terms | VARCHAR(40) | yes | | O2S payment terms |
-| short_closed | TINYINT(1) | no | 0 | 1 = short-close approved in O2S |
+| short_closed | TINYINT(1) | no | 0 | 1 = short-close approved in O2S and not reopened by the COO |
 | sync_id | INT | no | | c2m_sync_run.id of the pull that wrote it |
 
 Keys: IX ix_pol_cust (customer_name), IX ix_pol_brand (brand).

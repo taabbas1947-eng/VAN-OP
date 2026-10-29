@@ -32,8 +32,8 @@
       "rows": [
        [
         "Passed",
-        "116 files with every check passed",
-        "14,248 checks passed (in the 117 files that print a count)"
+        "117 files with every check passed",
+        "14,613 checks passed (in the 118 files that print a count)"
        ],
        [
         "Failed",
@@ -42,8 +42,8 @@
        ],
        [
         "All files",
-        "118",
-        "14,250 checks counted"
+        "119",
+        "14,615 checks counted"
        ]
       ]
      }
@@ -115,7 +115,7 @@
         "authmodel.test.js",
         "Departments, roles and rights: every converted gate answers exactly as before, per role and per right, live and not live; a lead cannot widen himself.",
         "R-003, R-019",
-        "7140 passed, 0 failed"
+        "7425 passed, 0 failed"
        ],
        [
         "backlog.test.js",
@@ -235,7 +235,7 @@
         "dispatchgrants.test.js",
         "Dispatch rights (plan, load, gate pass, confirm delivery) and procurement rights (RM check, receive, close PR, acknowledge PO) are decided by the grant, not by the screen a person stands on.",
         "R-019",
-        "130 passed, 0 failed"
+        "132 passed, 0 failed"
        ],
        [
         "docbar.test.js",
@@ -331,7 +331,7 @@
         "guide.test.js",
         "The Guide says what each change made it say (pinned lines for every build since 24z).",
         "R-001 to R-035 (wording)",
-        "80 passed, 0 failed"
+        "85 passed, 0 failed"
        ],
        [
         "held16e.test.js",
@@ -746,6 +746,12 @@
         "29b rulings: no document opens the print box by itself (every opener, the bar button still prints); the Pack window lists a brand for each base it may be packed from (Tornado 500 ML and Max Amino from Liquid Bio Stimulant), the one-time link fix is safe to run twice and lost devices merge to 1 audit line, a product edit keeps the link; open fold-outs stay open when the page is redrawn and never close one the screen opens on purpose; Guide rules R-046 and R-047.",
         "D-345, D-346, D-347",
         "56 passed, 0 failed"
+       ],
+       [
+        "tinyclose29c.test.js",
+        "The small remainder close (29c): the right po.shortclose_small is held by exactly Supply Chain, Finance and Warehouse and is not delegable; which lines qualify (ordered minus delivered, 50 or less, 50.01 does not, nothing delivered does); stock made and not yet delivered, a raw material request still open, a refusal or a reopen on the line or in its history, a waiting request and an already closed line are each refused with a sentence and write nothing; the close writes who, when, why, the frozen quantities and the three tiny marks, one log line, one audit row, one save; closing twice is refused; the button shows per role and line and never to the COO; the window says what happens and promises nothing false; the one-time card on Today per person; the screen asks the server for the latest figures first (same revision, newer revision merged, offline, a save pending, figures that moved, someone asking meanwhile, a double tap, a cancelled window); a frozen 0 delivered is read as 0 on a tiny close only (the older route keeps its old reading); Cancel while the figures are checked closes nothing; the check gives up after 15 seconds (the abort signal is proved to reach the fetch); the page behind is redrawn after a walk-away; a signed-out person is told so; an older server state never winds the revision back; a line that cannot be closed this way says why where the button would be; the report column and the default view; the 23 Sep route is unchanged; each guard was broken on purpose and the test failed.",
+        "R-048, D-348, D-349",
+        "334 passed, 0 failed (29 Oct 2026)"
        ]
       ]
      }
@@ -758,6 +764,9 @@
     },
     {
      "note": "Corrected 16 Oct 2026 (independent check against the code): counts and the last-result line moved to tonight's run (23:37). Changed rows: audit16a (now 90 passed), authmodel (1 failed), guide (77 passed, was 74), poentry (1 failed), publicbatch (passing on Tahir's computer, 15 Oct)."
+    },
+    {
+     "note": "29 Oct 2026, build 2026-10-29c: the full run of 119 files after the fixes from 4 independent reviews. authmodel, dispatchgrants and guide counts moved because the new right and rule are pinned in them; printbase29b now accepts a later build."
     }
    ]
   },

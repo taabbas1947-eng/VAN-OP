@@ -3120,6 +3120,58 @@
      }
     }
    ]
+  },
+  {
+   "id": "LG-39",
+   "title": "Closing a small remainder (tinyShortClose)",
+   "owner": "COO",
+   "rules": [
+    "R-048"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn tinyRefusal",
+    "fn tinyShortClose",
+    "fn closeLineButtonHTML",
+    "D-348",
+    "tests/tinyclose29c.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Step",
+       "What happens"
+      ],
+      "rows": [
+       [
+        "Button",
+        "The product card in the order sheet shows Close small remainder to a person whose role holds po.shortclose_small, when the line passes every check below (tinyRefusal answers empty). The COO and anyone who can close a whole PO see the ordinary close instead."
+       ],
+       [
+        "Window",
+        "Shows ordered, delivered, left, packed; a reason list (the same reasons as the normal close); a note for Other. It says it closes now, nobody approves it, the Plant Manager is not told, the line drops out of the production and packing jobs and production is not told, and only the COO can reopen it. A new order must be 7 days old (counted from the day the PO was received) or the screen says so. After a reason is picked it says whether the reason is listed as ours in the Closed short report or not. Cancel or a tap outside while the latest figures are checked closes nothing; the check gives up after 15 seconds. The button is Close N Kg/L short now; it calls tinyConfirm and is disabled while the latest figures are checked."
+       ],
+       [
+        "Checks at the moment of closing",
+        "The right; the line exists; not already closed; no request waiting; something still open; no earlier refusal or reopen on the line or in its history; 50 or less left right now (not when the window opened; shown with up to 2 decimals so 50.01 is never printed as 50); no stock made and not yet delivered (produced, packed or dispatched, whichever is most, minus delivered, more than 0.5 is refused); no raw material purchase request still open on the line; a reason from the list; words if Other. A refusal writes nothing. Before the close, tinyConfirm calls tinyFresh: it asks the server for the revision, pulls and merges the newer state with the same merge the 7-second refresh uses if it moved, and refuses to close when a save is still going through, when the server cannot be reached, when the line no longer qualifies, or when the quantity left is not the one the window showed (the window then shows the new figure and asks again)."
+       ],
+       [
+        "Write",
+        "An earlier decided record is moved to the line history first (it cannot be a refused or reopened one on this route; scArchive stays in case the checks change). Then line.shortClose is written with requested and approved by the same person and time, the reason, tinyRemainder true, tinyLimit 50, leftAtClose, and the ordered, delivered and packed quantities at that moment."
+       ],
+       [
+        "Trace",
+        "One action log line and one audit line (field Tiny remainder closed short). Saved once."
+       ],
+       [
+        "After",
+        "lineShortClosed is true, so the line reads Closed short and production, packing and raw material refuse it as for any closed line. Reopening is by the COO's Reopen this line button on the order sheet (reopenConfirm, then reopenShortClose, right po.reopen); a reason is required, and the close stays as history. A reopened line cannot be closed this way again. A new order must be 7 days old."
+       ]
+      ]
+     }
+    }
+   ]
   }
  ]
 }

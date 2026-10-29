@@ -160,5 +160,5 @@ ok('How the app works: Saving, Not saved yet, Try now and Saved (21 Oct, 21a)', 
 ok('My job (Supply Chain): Truck failed goes by itself once none of that PO packed stock of the same products waits for a truck (28 Oct, 28a)', /The job goes by itself once none of that PO\u2019s packed stock of the same products is left waiting for a truck\./.test(grab('guideMyJob')));
 ok('The Rules: the daily comment on a job waiting for a truck, 15 days, no alert, not counted (29 Oct, 29a)', /<h3>The daily comment on a job waiting for a truck<\/h3>/.test(grab('guideRules')) && /<b>15 days or more<\/b>/.test(grab('guideRules')) && /not a job, not an alert and not counted in the Today numbers/.test(grab('guideRules')) && /Same as yesterday/.test(grab('guideRules')));
 ok('My job: the people who plan the truck are told about the daily comment (29a)', /may\('shipment\.plan'\)\) h\+='<div class="note" style="margin-top:10px"><b>Daily comment\.<\/b>/.test(grab('guideMyJob')));
-ok('The changelog has the daily comment entry and the build matches (29a)', /ver:'2026-10-29[ab]'/.test(html) && /var BUILD_ID='2026-10-29[ab]'/.test(html));
+ok('The changelog has the daily comment entry and the build matches (29a)', /ver:'2026-10-29[abc]'/.test(html) && /var BUILD_ID='2026-10-29[abc]'/.test(html));
 process.exitCode = report('The Guide keeps up (24z)') ? 1 : 0;

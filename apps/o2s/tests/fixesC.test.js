@@ -45,7 +45,7 @@ ok('C19 audit: a move does not reset the source line\'s RM Check (an open PR wou
   const j2 = sb.deliveryJobs({ rows: [{ d: { role: 'Warehouse', user: 'ali', name: 'Ali' } }], dispId: 'D1', po: 'P' });
   ok('C20: a warehouse dispatch gives Saad the day-1 row with nobody excluded', j2.filter(x => x.role === 'Supply Chain').length === 1 && !j2[1].notWho); }
 /* audit: Pack job only where packing is owed */
-{ const sb = { console }; vm.createContext(sb); vm.runInContext(grab('packLineOwes') + '\n' + grab('packJobWanted'), sb);
+{ const sb = { console }; vm.createContext(sb); vm.runInContext(grab('lineShortClosed') + '\n' + grab('packLineOwes') + '\n' + grab('packJobWanted'), sb);
   sb.state = { orders: [{ po: 'P1', lines: [{ id: 'L1', brand: 'B', ordered: 1000, packed: 400 }, { id: 'L2', brand: 'C', ordered: 500, packed: 500 }] }] }; vm.runInContext('var state=this.state', sb);
   ok('audit: a PO batch whose line is short of packed is a Pack job', sb.packJobWanted({ kind: 'po', po: 'P1', lineId: 'L1' }) === true);
   ok('audit: a PO batch whose line is fully packed is not', sb.packJobWanted({ kind: 'po', po: 'P1', lineId: 'L2' }) === false);

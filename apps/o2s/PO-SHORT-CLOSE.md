@@ -206,3 +206,96 @@ customer-side**.
 
 Test 10 is the one that matters most: the overwhelming majority of lines will
 never be short-closed, and none of them should notice this feature exists.
+
+---
+
+## Closing a tiny remainder without the Plant Manager (built 29 Oct 2026, build 2026-10-29c)
+
+*Ruled by Tahir Abbas, 29 October 2026 (decision D-348, rule R-048). This is a
+second route to the same `l.shortClose` record. The 23 September route above is
+unchanged for every line that is not a tiny remainder.*
+
+**The rule.** A PO line with 50 Kg or L or less left may be closed short at once,
+with no Plant Manager step, by Supply Chain (Saad Jamal), Finance (Muhammad
+Ismail) and Warehouse (Muhammad Shoaib). The right is held by the role, not by
+the person. Supply Chain Officer (Zain), CFO and Finance Desk Officer do not hold
+it. The Plant Manager is not told.
+
+- **"Left"** is ordered minus delivered. A line with nothing delivered counts.
+  There is no limit per PO. The number 50 is fixed in code (`tinyLimit`), not a
+  setting.
+- **Reasons** are the same 8 as the normal close.
+- **The record** is the same `l.shortClose`, with `tinyRemainder:true`,
+  `tinyLimit:50`, `leftAtClose` and `approvedBy` set to the person who closed it.
+  The frozen quantities (`scFreeze`) carry the shortfall, as on the 23 Sept route.
+- **Who is told:** a one-time "New for you" card on Today for the 3 roles, a
+  "Small remainder." note in My job, and Guide rule R-048. No group message.
+
+**What refuses it** (`tinyRefusal`, checked in this order; the person gets the
+sentence, nothing is written):
+
+1. line not found
+2. already closed short
+3. a request for a normal close is waiting (the Plant Manager decides it)
+4. nothing open
+5. the line was ever refused or reopened (on the line or in its history): a new
+   request goes to the Plant Manager
+6. more than 50 left (50.01 is refused, and shown as 50.01)
+7. the PO is under 7 days old, counted in calendar days from the day it was
+   received, Pakistan time (`SHORTCLOSE_TINY_MIN_DAYS`; a PO with no readable
+   received date is not held back)
+8. stock already made and not yet delivered (the larger of produced, packed and
+   dispatched, less delivered, above 0.5): let it ship first
+9. an open raw-material purchase request on the line (Tahir: keep this block)
+
+**Stale screens.** The 7-second background sync is paused while a window is open,
+so the close window re-reads the server first (`tinyFresh`) and checks the
+figures again (`tinyConfirm` then `tinyShortClose`). If the left figure moved
+since the person opened the window, they are asked to read it again. If the
+check cannot be made, nothing is closed. Cancel, or a tap outside, while it
+checks closes nothing, and the check gives up after 15 seconds.
+
+**Why not.** For a line of 50 Kg/L or less that the person's role could close
+but the rules refuse, the screen shows the reason in place of the button
+(`tinyWhyNot`, drawn by `closeLineButtonHTML`).
+
+**Known and left (tell Tahir):**
+
+- Reopen (added 29 Oct): the COO alone sees "Reopen this line" on the order sheet
+  for a line closed short (`reopenLineButtonHTML`, `openReopenClose`,
+  `reopenConfirm`, then `reopenShortClose`). A reason is required, the latest
+  figures are re-read first, the close stays in the history (reopenedBy,
+  reopenedAt, reopenedWhy) and the log and audit row carry the reason. A reopened
+  line cannot be closed the quick way again.
+- Production is not told, the Inspect job is not kept, and a new batch can still
+  be opened for the line.
+- "Asked by" and "Approved by" are the same person on this route.
+- If two people act on the same line at the same moment the record can mix their
+  names.
+- Finance and Warehouse hold no right to ask for a normal close.
+- The frozen shortfall stays as recorded if stock is delivered late.
+- The older normal-window sentence about "delivery performance" is untrue and was
+  left as it was.
+
+- Review round (29 Oct): a small new order can be closed at once once the PO is 7
+  days old (no limit per person, KAM and Sales not told); the open raw material request
+  refusal blocks a common tiny remainder and invites a false RM received tap; a
+  truck keyed late, or output not yet logged, is not seen by the stock-made check;
+  two people within seconds can mix a record and lose the first audit row; closes
+  do not enter On-time %, and Fulfilment % drops every closed line; the run sheet, Stuck decision
+  and Running batch pages still ask the Plant Manager for a small line; a stale
+  ask for a normal close sent after a tiny close can overwrite fields of it; a
+  delivery landing between the check and the save stays under the close.
+
+Finance and Warehouse can open the Closed short report (added 29 Oct).
+
+Third review round (29 Oct): a reopened line gets its Pack job back; the Closed short
+report keeps an earlier close that was reopened and replaced; the refusal and the
+Ask and approval windows name who reopened a line, when and why. Left, to tell
+Tahir: C2M still reads a reopened line as closed (apps/c2m/c2m-o2s.js line 36
+needs `&& !sc.reopenedAt`, a separate C2M piece); nobody is told of a reopen and
+the reopened line's jobs age from the PO's received date; the COO gets no notice of
+a tiny close; late packing is refused on a closed line; a backdated received date
+skips the 7 day rule; small farmer orders qualify after 7 days.
+
+Tests: `tests/tinyclose29c.test.js` (334 checks).

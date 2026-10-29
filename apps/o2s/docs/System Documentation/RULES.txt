@@ -45,3 +45,4 @@ R-044	One name for each product
 R-045	The daily comment on a job waiting for a truck
 R-046	Opening a document does not print it
 R-047	A brand that can be packed from more than one base
+R-048	A PO line with 50 Kg/L or less left

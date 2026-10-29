@@ -544,6 +544,14 @@
         "no (COO only)"
        ],
        [
+        "po.shortclose_small",
+        "Close a PO line short when 50 Kg/L or less is left",
+        "Commercial",
+        "no",
+        "Supply Chain, Finance, Warehouse",
+        "no (COO only)"
+       ],
+       [
         "po.reopen",
         "Reopen a short-closed line",
         "Leadership",

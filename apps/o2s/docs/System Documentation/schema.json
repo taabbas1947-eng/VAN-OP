@@ -6132,6 +6132,69 @@
      }
     }
    ]
+  },
+  {
+   "id": "SC-44",
+   "title": "line.shortClose tiny marks and state.tinyCloseSeen (new in 29c)",
+   "owner": "COO",
+   "rules": [
+    "R-048"
+   ],
+   "status": "confirmed",
+   "src": [
+    "o2s.html fn tinyShortClose",
+    "fn tinySeen",
+    "D-348",
+    "D-349"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Type",
+       "Required",
+       "Default",
+       "Meaning",
+       "Written by"
+      ],
+      "rows": [
+       [
+        "order.lines[].shortClose.tinyRemainder",
+        "true",
+        "no",
+        "absent",
+        "The close was made by the 50 Kg/L route, with no approval step. Absent on every other close.",
+        "tinyShortClose"
+       ],
+       [
+        "order.lines[].shortClose.tinyLimit",
+        "number",
+        "no",
+        "absent",
+        "The limit that applied at the time (50).",
+        "tinyShortClose"
+       ],
+       [
+        "order.lines[].shortClose.leftAtClose",
+        "number (Kg/L)",
+        "no",
+        "absent",
+        "Ordered minus delivered at the moment of the close.",
+        "tinyShortClose"
+       ],
+       [
+        "state.tinyCloseSeen",
+        "object: username to ISO time",
+        "no",
+        "absent",
+        "Who has tapped Read on the New for you card on Today.",
+        "tinySeen"
+       ]
+      ]
+     }
+    }
+   ]
   }
  ]
 }

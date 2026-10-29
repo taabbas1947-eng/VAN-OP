@@ -37,7 +37,7 @@ vm.runInContext('state=this.state', sb);
 
 (async () => {
 const clone = x => JSON.parse(JSON.stringify(x));
-vm.runInContext(['_arrId', '_eq', 'merge3', 'pmvSettleV1', 'packLineOwes', 'packJobWanted', 'packJobSince', 'lineLostKg', 'dupNumbers', '_dupN', 'gdScreenOpen', '_asRole', '_avgN', '_movedInMapBuild', '_movedInMap', 'lineOverUsed', 'localDateOf'].map(grab).join('\n') + '\nvar PACK_JOB_SINCE="2026-10-08"; var MONEY_ROLES=["COO","CFO","Plant Manager","KAM"]; var HOW_ROLES=["COO","CFO","Plant Manager","Production Manager","Supply Chain"];', sb);
+vm.runInContext(['_arrId', '_eq', 'merge3', 'pmvSettleV1', 'lineShortClosed', 'packLineOwes', 'packJobWanted', 'packJobSince', 'lineLostKg', 'dupNumbers', '_dupN', 'gdScreenOpen', '_asRole', '_avgN', '_movedInMapBuild', '_movedInMap', 'lineOverUsed', 'localDateOf'].map(grab).join('\n') + '\nvar PACK_JOB_SINCE="2026-10-08"; var MONEY_ROLES=["COO","CFO","Plant Manager","KAM"]; var HOW_ROLES=["COO","CFO","Plant Manager","Production Manager","Supply Chain"];', sb);
 /* E1: the same move approved on 2 screens, then the 2 saves merged by the app's own merge3 */
 vm.runInContext('pmvForm={fromPo:"22868",fromLid:"b",to:"22867|a",kg:{P2:"3000"},reason:"Punjab first"}', sb); sb.submitMoveStock();
 const m = S().poMoves[0]; ok('E1 setup: a move is waiting', m && m.status === 'asked', JSON.stringify(sb.toasts.slice(-2)));

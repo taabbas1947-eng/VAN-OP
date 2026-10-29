@@ -255,6 +255,10 @@ const asRole = r => { B.state.role = r; };
     'po.shortclose_approve': { handler: 'approveShortClose', since: '23 Sep 2026',
                          why: 'Approving that close. Separate from asking for it on purpose: '
                             + 'the requester may not approve his own request.' },
+    'po.shortclose_small':   { handler: 'tinyShortClose', since: '29 Oct 2026',
+                         why: 'Closing a line short at once when 50 Kg/L or less is left on it. Tahir, 29 Oct: '
+                            + 'Saad Jamal, Muhammad Ismail and Muhammad Shoaib, not Zain. Before this a close of any size '
+                            + 'needed a request and the Plant Manager.' },
     'po.reopen':             { handler: 'reopenShortClose', since: '23 Sep 2026',
                          why: 'Putting a closed line back into play. COO only.' },
     'po.close':              { handler: 'submitClosePO', since: '24 Sep 2026',
@@ -1808,6 +1812,7 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
        the grant table yet, so the hard list is what answers today. */
     'po.shortclose_request':{ kind: 'hard',    scr: undefined },
     'po.shortclose_approve':{ kind: 'hard',    scr: undefined },
+    'po.shortclose_small':  { kind: 'hard',    scr: undefined },
     'po.reopen':            { kind: 'hard',    scr: undefined },
     'po.close':             { kind: 'hard',    scr: undefined },
     'sample.request':       { kind: 'hard',    scr: undefined },

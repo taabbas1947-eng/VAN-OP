@@ -3518,6 +3518,47 @@
      }
     }
    ]
+  },
+  {
+   "id": "DD-37",
+   "title": "Close small remainder, tiny remainder, left: the words (29c)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-048"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Guide rule A PO line with 50 Kg/L or less left",
+    "D-348"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Word",
+       "Meaning in O2S",
+       "Where it comes from"
+      ],
+      "rows": [
+       [
+        "Close small remainder",
+        "The button for a line with 50 Kg/L or less left. It closes the line short at once.",
+        "D-348"
+       ],
+       [
+        "Tiny remainder",
+        "The mark on a close made that way. The Closed short report shows it in the column How it was closed.",
+        "D-348"
+       ],
+       [
+        "Left",
+        "Ordered minus delivered, for this rule. Not minus packed. A line with stock made and not yet delivered is refused, so what is left is stock that does not exist yet.",
+        "D-348"
+       ]
+      ]
+     }
+    }
+   ]
   }
  ]
 }

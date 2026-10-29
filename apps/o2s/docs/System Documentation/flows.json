@@ -2622,6 +2622,58 @@
      }
     }
    ]
+  },
+  {
+   "id": "PF-26",
+   "title": "The daily comment on a job waiting for a truck (29a)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-045"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn openDayComment, dcSave, dcSameAsYesterday, dcDueHTML",
+    "D-344",
+    "tests/dailycomment29a.test.js"
+   ],
+   "blocks": [
+    {
+     "lanes": {
+      "roles": [
+       "Supply Chain, Supply Chain Officer, Warehouse, COO",
+       "Anyone who opens the PO"
+      ],
+      "steps": [
+       {
+        "role": "Supply Chain, Supply Chain Officer, Warehouse, COO",
+        "text": "Morning: a Ship job waiting 15 days or more, or a PO not ready to ship that is 15 days old, shows the label No comment today (Ship card, or the list POs not ready to ship, comment due).",
+        "kind": "start",
+        "rule": "R-045"
+       },
+       {
+        "role": "Supply Chain, Supply Chain Officer, Warehouse, COO",
+        "text": "Tap Comment for today. Ship job: pick 1 of 5 reasons (time if truck committed, note if other). Other PO: write the note.",
+        "kind": "task"
+       },
+       {
+        "role": "Supply Chain, Supply Chain Officer, Warehouse, COO",
+        "text": "Or, if yesterday has a comment of the same kind: Same as yesterday (marked copied).",
+        "kind": "decision"
+       },
+       {
+        "role": "Supply Chain, Supply Chain Officer, Warehouse, COO",
+        "text": "Save for today: 1 row on the PO, action log line, label goes. A second save replaces it.",
+        "kind": "task"
+       },
+       {
+        "role": "Anyone who opens the PO",
+        "text": "Reads Daily comments on the PO page, view only. The comments stay after the truck leaves.",
+        "kind": "end"
+       }
+      ]
+     }
+    }
+   ]
   }
  ]
 }

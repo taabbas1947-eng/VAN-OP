@@ -5992,6 +5992,99 @@
      "p": "Nothing is removed. The certificate (lots[].coa) is not changed by a provisional release."
     }
    ]
+  },
+  {
+   "id": "SC-42",
+   "title": "orders[].dayComments (new in 29a)",
+   "owner": "Supply Chain, Warehouse, COO",
+   "rules": [
+    "R-045"
+   ],
+   "status": "confirmed",
+   "src": [
+    "o2s.html fn dcSave",
+    "D-344"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Type",
+       "Required",
+       "Default",
+       "Meaning",
+       "Written by"
+      ],
+      "rows": [
+       [
+        "id",
+        "text",
+        "yes",
+        "",
+        "DC, the date and a random tail, for example DC2026-10-29-lq3x9k2f. Every save has its own id, so 2 people saving the same day never meet on one row.",
+        "dcSave"
+       ],
+       [
+        "date",
+        "date (YYYY-MM-DD)",
+        "yes",
+        "today",
+        "The calendar day the comment is for (Pakistan time).",
+        "dcSave"
+       ],
+       [
+        "kind",
+        "ship or po",
+        "yes",
+        "",
+        "ship when the PO had stock ready for a truck at that moment, po for any other open PO.",
+        "dcSave"
+       ],
+       [
+        "reason",
+        "client-vehicle, truck-arrangement, truck-committed, quality-hold, other",
+        "Ship job only",
+        "",
+        "The 1 reason true that day.",
+        "dcSave"
+       ],
+       [
+        "time",
+        "HH:MM",
+        "truck-committed only",
+        "",
+        "The time the truck will be at the plant.",
+        "dcSave"
+       ],
+       [
+        "note",
+        "text, up to 600 characters",
+        "other and PO not ready to ship",
+        "",
+        "What was said and by whom.",
+        "dcSave"
+       ],
+       [
+        "copied",
+        "true or false",
+        "no",
+        "false",
+        "true when made by Same as yesterday.",
+        "dcSave"
+       ],
+       [
+        "by, user, role, at",
+        "text, text, text, date-time",
+        "yes",
+        "signed-in person",
+        "Who wrote it and when.",
+        "dcSave"
+       ]
+      ]
+     }
+    }
+   ]
   }
  ]
 }

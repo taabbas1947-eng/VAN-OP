@@ -32,18 +32,18 @@
       "rows": [
        [
         "Passed",
-        "105 files with every check passed",
-        "13,120 checks passed (in the 105 files that ran)"
+        "115 files with every check passed",
+        "14,192 checks passed (in the 116 files that print a count)"
        ],
        [
         "Failed",
-        "0 files",
-        "0 checks"
+        "2 files: audit17c (2 checks) and truckback17a. Both depend on today's date and failed the same way before this build",
+        "2 checks"
        ],
        [
         "All files",
-        "105",
-        "13,120 checks run"
+        "117",
+        "14,194 checks counted"
        ]
       ]
      }
@@ -734,6 +734,12 @@
         "Records settled: the repeated V-Transfarm pack is voided and its inspection withdrawn (batch and register follow); the BS26001 production row and lot go (not when it has an order or a certified lot); the base spelling is renamed wherever it stands, history left as written, and the 6 ingredient recipe kept; the empty lab list goes and coaTemplate ignores a list with no tests, so a COA gets its tests; a multi batch with a certified lot and a row with an order are left alone; history (action log, users, corrections) is never rewritten; a skip shows on the audit trail; the unused product and 6 old names are removed and stay removed through the real catalogue rebuild; every guard leaves a different record alone and records the skip; once and harmless; the documentation card version equals the build.",
         "D-335 to D-338",
         "93 passed, 0 failed (27 Oct 2026)"
+       ],
+       [
+        "dailycomment29a.test.js",
+        "The daily comment: who needs one (Ship job 15 days as a Ship job, other open PO 15 days from received, deferred none, nothing open none); the list on Today holds only the right POs and is not counted; every refusal writes nothing (no reason, no time, no note, over 600, no right, PO gone); a job marked Waiting for client needs none while the mark stands (Ship job and PO, one waiting line of two does not count); a second save the same day is a new row and the latest shows (the log and the PO keep both); 2 people saving the same day keep both rows through the real merge, with no mixed row; a repeat tap writes nothing; a window left open past midnight or across a change of PO state saves nothing; Same as yesterday only from yesterday and the same kind, marked copied, names the first writer and tapped twice writes 1 row; markup is escaped everywhere; the card, window and PO page; no job and no count reads it.",
+        "D-344",
+        "180 passed, 0 failed (29 Oct 2026)"
        ]
       ]
      }

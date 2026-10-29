@@ -2064,6 +2064,57 @@
      "note": "Complaints keep their own history in their steps and do not write to the O2S action log."
     }
    ]
+  },
+  {
+   "id": "DF-18",
+   "title": "Level 1: the daily comment (29a)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-045"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn dcSave, dcState, dcDueHTML, dcPanelHTML",
+    "D-344"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "From",
+       "Data moved",
+       "To",
+       "Function"
+      ],
+      "rows": [
+       [
+        "The signed-in writer",
+        "reason, time at the plant, note, copied or not, name, role, time",
+        "orders[].dayComments (1 row per day)",
+        "dcSave"
+       ],
+       [
+        "orders[].lines, shipments, deferrals",
+        "cleared stock, days waiting, received date, deferred or not",
+        "Who needs a comment today",
+        "dcState"
+       ],
+       [
+        "orders[].dayComments",
+        "today's comment and earlier days",
+        "Ship card, Today list, PO page (view only)",
+        "dcCardHTML, dcDueHTML, dcPanelHTML"
+       ],
+       [
+        "dcSave",
+        "1 line of what was written and what it replaced",
+        "actionLog",
+        "logAction"
+       ]
+      ]
+     }
+    }
+   ]
   }
  ]
 }

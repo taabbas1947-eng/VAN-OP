@@ -260,7 +260,7 @@ ok('a new lab template name is turned into the correct spelling', /const nm=bran
 ok('the product list marks a retired spelling as the same product as the correct one', /same product as '\+esc\(p\.aka\)/.test(html));
 ok('the migration runs in the load chain, after migrateBrandNames and before the recipes', /migrateBrandNames\(s\); productNamesV1\(s\); (productGenericV1\(s\); )?(dataFix27dV1\(s\); )?loadBaseRecipesV2\(s\);/.test(html));
 ok('the migration does not touch BRAND_ALIAS (which rewrites records)', !/BRAND_ALIAS=\{[^}]*Germinator/.test(html) && !/BRAND_ALIAS=\{[^}]*Cala Mag/.test(html));
-ok('build id is 2026-10-27b or later', /BUILD_ID='2026-10-(27[bcd]|28[a-z])'/.test(html));
+ok('build id is 2026-10-27b or later', /BUILD_ID='2026-10-(27[bcd]|28[a-z]|29[a-z])'/.test(html));
 ok('change log 2026-10-27b exists', /ver:'2026-10-27b'/.test(html) && /One name for each product/.test(html));
 ok('The Rules: One name for each product', /<h3>One name for each product<\/h3>/.test(grab('guideRules')));
 ok('My job: a New on 27 Oct (27b) note for the COO and the Plant Manager', /var _n27b=\{'COO':[\s\S]*'Plant Manager':/.test(grab('guideMyJob')) && /New on 27 Oct \(27b\)/.test(grab('guideMyJob')));

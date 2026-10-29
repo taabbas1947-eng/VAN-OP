@@ -2966,6 +2966,69 @@
      }
     }
    ]
+  },
+  {
+   "id": "LG-36",
+   "title": "Who needs a daily comment today (dcState)",
+   "owner": "COO",
+   "rules": [
+    "R-045"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn dcState",
+    "fn dcShipLines",
+    "fn dcShipDays",
+    "fn acDeferActive",
+    "D-344",
+    "tests/dailycomment29a.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Case",
+       "Kind",
+       "Needs a comment today?"
+      ],
+      "rows": [
+       [
+        "A line is not delivered and has cleared stock to ship (the same test as the Ship job in actionItems)",
+        "Ship job",
+        "Yes when days since the oldest cleared lot is 15 or more, and the job is not deferred. No ready date: counted from the QC pass date, then from the PO received date."
+       ],
+       [
+        "The PO has no cleared stock, and at least one line is not delivered and not closed short",
+        "Open PO, not ready to ship",
+        "Yes when the PO was received 15 or more days ago."
+       ],
+       [
+        "Every line delivered or closed short, with nothing cleared to ship",
+        "None",
+        "No. The comments already written stay on the PO."
+       ],
+       [
+        "A closed-short line with packed stock not shipped (PO 21301)",
+        "Ship job",
+        "Yes, as a Ship job, until the stock ships or the decision is made."
+       ],
+       [
+        "A Ship job deferred from Today",
+        "Ship job",
+        "No, until it comes back."
+       ],
+       [
+        "A job marked Waiting for client (every line it covers)",
+        "Ship job or PO not ready to ship",
+        "No, while the mark stands. It is due again when the mark ends or its date passes."
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Every save is its own row on the PO, with its own id (DC, the date and a random tail). The comment that shows is the end of the chain of replaced saves for the day (the later device clock decides only between 2 saves made side by side, and the PO page lists the other one as also saved). A PO takes at most 20 saves a day. The earlier saves stay as history; the earlier saves of that day stay as history, and a row that replaces another names it. 2 people saving the same day both keep their rows. Same as yesterday names the person who first wrote it. A second tap with the same words writes nothing. Nothing here makes a job or an alert, and nothing in the Today count reads it."
+    }
+   ]
   }
  ]
 }

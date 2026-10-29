@@ -19362,6 +19362,74 @@
      }
     }
    ]
+  },
+  {
+   "id": "D-344",
+   "title": "A daily comment on every Ship job waiting 15 days or more and every open PO 15 days old (29a)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-045"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Shoaib's proposal, reviewed by the team, 28 Oct 2026 (Daily Comment Review page)",
+    "Tahir in chat, 28 and 29 Oct 2026: answers to the 4 review questions and 'Yes, build it'",
+    "o2s.html changelog 2026-10-29a",
+    "fn dcState",
+    "fn dcShipLines",
+    "fn dcShipDays",
+    "fn dcMissing",
+    "fn dcPoDue",
+    "fn dcSave",
+    "fn dcSameAsYesterday",
+    "fn openDayComment",
+    "fn renderDayComment",
+    "fn dcCardHTML",
+    "fn dcBtnHTML",
+    "fn dcDueHTML",
+    "fn dcPanelHTML",
+    "tests/dailycomment29a.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-29"
+       ],
+       [
+        "Ruled by",
+        "Tahir, 28 Oct 2026 (4 review answers) and 29 Oct 2026 ('Yes, build it'). The idea is Shoaib's."
+       ],
+       [
+        "Decision",
+        "A Ship job that has waited 15 days or more as a Ship job, and any other open PO received 15 days or more ago, carries 1 comment a day (every calendar day) saying why it is still here. A Ship job picks 1 reason from 5 (the client's vehicle, truck arrangement, truck committed with the time, quality hold, other); any other PO takes a note only. A missing comment shows a label, No comment today, and nothing else: no job, no alert, not counted in the Today numbers. A deferred job needs none, and neither does a job marked Waiting for client (every line it covers) while the mark stands (Tahir, 29 Oct 2026). It stops when nothing is left open on the PO (delivered or closed short; a closed short line with packed stock still waiting is still a Ship job). Every save is kept as its own row, the latest of the day shows, and 2 people saving at the same time both keep their rows. Supply Chain, Supply Chain Officer, Warehouse and the COO write it (the holders of shipment.plan); everyone who opens the PO reads it, view only."
+       ],
+       [
+        "Answers that set the rules",
+        "15 days old for a Ship job is days waiting as a Ship job (the card's waiting N d), not the PO's age. The pick list of 5 is right for Ship jobs. 1 line a day is enough; no hourly update. Once deferred, no more comments. Readers: anyone who opens the PO, read only. No separate catch-up on Day 1."
+       ],
+       [
+        "Options seen",
+        "(1) Count from the PO received date: 14 Ship jobs on Day 1 (not chosen). (2) Count from days waiting as a Ship job: 9 Ship jobs on Day 1 (chosen, Tahir's answer)."
+       ],
+       [
+        "Known and left",
+        "Closing a tiny remainder (for example PO 00694 VL-Boron, 2 kg) is a separate ruling: Saad (Supply Chain) or Finance closes it up to 50 Kg/L left on a line, with no Plant Manager step. Tahir ruled the limit on 29 Oct 2026 (fixed 50 Kg/L, no share of the order). It is not built in this build. Other open POs are counted from the day the PO was received (a reading, to be corrected if the team means otherwise). A PO that is not ready to ship and under 15 days old has no button for a comment (only Ship cards and the due list carry it)."
+       ],
+       [
+        "Changes",
+        "orders[].dayComments (new). Helpers dcState, dcShipLines, dcShipDays, dcMissing, dcPoDue. Card: label No comment today, Comment for today or Change today's comment, today's comment and the 3 latest earlier days. Window: openDayComment, renderDayComment, dcPick, dcFormSave, dcSave (append only: earlier saves of the day stay as history, a replaced row is named), dcSameAsYesterday (a copy keeps copiedFrom, the person who first wrote it). dcList shows the latest save of each day. Today: POs not ready to ship, comment due, drawn after the Waiting on you list and never in its count. PO page: Daily comments, view only. Guide rule R-045."
+       ]
+      ]
+     }
+    }
+   ]
   }
  ]
 }

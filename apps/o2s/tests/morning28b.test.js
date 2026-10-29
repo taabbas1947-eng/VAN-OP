@@ -110,7 +110,7 @@ ok('a free-of-charge order is not on the to-invoice list', /t\.out===M\.day&&!t\
 ok('a shift that is not running is not chased (28c: running = 3 or more different days in the last 14)', /MV_ACTIVE\[k\]=1/.test(body) && /MV_ACTIVE\[x\]/.test(grab('mvShiftNames')));
 
 /* ---- build ---- */
-ok('the build is 2026-10-28b or later', /var BUILD_ID='2026-10-(28[b-z]|29|3\d)'|var BUILD_ID='2026-1[12]/.test(html));
+ok('the build is 2026-10-28b or later', /var BUILD_ID='2026-10-(28[b-z]|29[a-z]?|3\d[a-z]?)'|var BUILD_ID='2026-1[12]/.test(html));
 ok('the change log has the entry', /ver:'2026-10-28b'[^\n]*Morning view/.test(html));
 ok('the Guide describes the Morning view and the + New entry button', /<h2>The Morning view<\/h2>/.test(grab('guideHow')) && /\+ New entry<\/b> on Today \(the KAM goes straight/.test(grab('guideRules')));
 process.exitCode = report('28b: Morning view and + New entry') ? 1 : 0;

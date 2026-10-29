@@ -42,3 +42,4 @@ R-041	A truck that came back
 R-042	Every cleared batch, and why one is not packed
 R-043	Releasing a lot before the full certificate
 R-044	One name for each product
+R-045	The daily comment on a job waiting for a truck

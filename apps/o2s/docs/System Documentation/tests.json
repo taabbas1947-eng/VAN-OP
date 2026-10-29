@@ -32,8 +32,8 @@
       "rows": [
        [
         "Passed",
-        "115 files with every check passed",
-        "14,192 checks passed (in the 116 files that print a count)"
+        "116 files with every check passed",
+        "14,248 checks passed (in the 117 files that print a count)"
        ],
        [
         "Failed",
@@ -42,8 +42,8 @@
        ],
        [
         "All files",
-        "117",
-        "14,194 checks counted"
+        "118",
+        "14,250 checks counted"
        ]
       ]
      }
@@ -740,6 +740,12 @@
         "The daily comment: who needs one (Ship job 15 days as a Ship job, other open PO 15 days from received, deferred none, nothing open none); the list on Today holds only the right POs and is not counted; every refusal writes nothing (no reason, no time, no note, over 600, no right, PO gone); a job marked Waiting for client needs none while the mark stands (Ship job and PO, one waiting line of two does not count); a second save the same day is a new row and the latest shows (the log and the PO keep both); 2 people saving the same day keep both rows through the real merge, with no mixed row; a repeat tap writes nothing; a window left open past midnight or across a change of PO state saves nothing; Same as yesterday only from yesterday and the same kind, marked copied, names the first writer and tapped twice writes 1 row; markup is escaped everywhere; the card, window and PO page; no job and no count reads it.",
         "D-344",
         "180 passed, 0 failed (29 Oct 2026)"
+       ],
+       [
+        "printbase29b.test.js",
+        "29b rulings: no document opens the print box by itself (every opener, the bar button still prints); the Pack window lists a brand for each base it may be packed from (Tornado 500 ML and Max Amino from Liquid Bio Stimulant), the one-time link fix is safe to run twice and lost devices merge to 1 audit line, a product edit keeps the link; open fold-outs stay open when the page is redrawn and never close one the screen opens on purpose; Guide rules R-046 and R-047.",
+        "D-345, D-346, D-347",
+        "56 passed, 0 failed"
        ]
       ]
      }

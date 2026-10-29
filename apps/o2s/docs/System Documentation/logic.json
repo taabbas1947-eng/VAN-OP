@@ -3029,6 +3029,97 @@
      "p": "Every save is its own row on the PO, with its own id (DC, the date and a random tail). The comment that shows is the end of the chain of replaced saves for the day (the later device clock decides only between 2 saves made side by side, and the PO page lists the other one as also saved). A PO takes at most 20 saves a day. The earlier saves stay as history; the earlier saves of that day stay as history, and a row that replaces another names it. 2 people saving the same day both keep their rows. Same as yesterday names the person who first wrote it. A second tap with the same words writes nothing. Nothing here makes a job or an alert, and nothing in the Today count reads it."
     }
    ]
+  },
+  {
+   "id": "LG-37",
+   "title": "Which brands the Pack window offers for a base batch (brandsForPack)",
+   "owner": "COO",
+   "rules": [
+    "R-047"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn brandsForPack",
+    "fn brandsForBase",
+    "fn applyProductsV1",
+    "fn alsoBasesV1",
+    "D-346",
+    "tests/printbase29b.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Case",
+       "Offered in the Pack window of a batch of base X?"
+      ],
+      "rows": [
+       [
+        "The brand's own base is X",
+        "Yes (as before)"
+       ],
+       [
+        "The brand's own base is Y and its Also packed from list has X",
+        "Yes (new in 29b)"
+       ],
+       [
+        "The brand's Also packed from list has only its own base",
+        "The own base is dropped from the list; no change"
+       ],
+       [
+        "The Divert dialog",
+        "Not widened: it uses the brand's own base only, and refuses a line whose base differs"
+       ],
+       [
+        "Packing, price, batch numbers, the quantity cap",
+        "Unchanged. The PO line is the brand's own line, so the pack goes to the PO the person picks."
+       ]
+      ]
+     }
+    },
+    {
+     "p": "alsoBasesV1 runs once at load (flag masters._also29b). It sets Also packed from = Liquid Bio Stimulant on Tornado 500 ML and Max Amino only when their own base is something else and the Liquid Bio Stimulant product exists; if a part is missing it does nothing for that part and tries again at the next load. It writes 1 audit line with the fixed id AU-also29b (so devices that each run it before anyone saves merge into 1 line and no one else's audit rows are lost); it writes no action-log line. A link removed later by hand is not put back."
+    }
+   ]
+  },
+  {
+   "id": "LG-38",
+   "title": "Fold-outs stay open across a redraw (render, detCapture, detRestore)",
+   "owner": "COO",
+   "rules": [],
+   "status": "confirmed",
+   "src": [
+    "fn render",
+    "fn detList",
+    "fn detCapture",
+    "fn detRestore",
+    "D-347",
+    "tests/printbase29b.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Step",
+       "What happens"
+      ],
+      "rows": [
+       [
+        "Before the draw",
+        "render() records, for the screen on the page now, which details elements are open, keyed by the first 50 characters of the heading plus its order among equal headings"
+       ],
+       [
+        "The draw",
+        "The screen function writes the page as before"
+       ],
+       [
+        "After the draw",
+        "If the screen is the same as before, each fold-out that was open is opened again. None is ever closed by this step. A different screen is left as drawn."
+       ]
+      ]
+     }
+    }
+   ]
   }
  ]
 }

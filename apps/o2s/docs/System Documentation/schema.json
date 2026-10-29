@@ -6085,6 +6085,53 @@
      }
     }
    ]
+  },
+  {
+   "id": "SC-43",
+   "title": "masters.products[].alsoBases (new in 29b)",
+   "owner": "COO",
+   "rules": [
+    "R-047"
+   ],
+   "status": "confirmed",
+   "src": [
+    "o2s.html fn alsoBasesV1",
+    "fn applyProductsV1",
+    "fn pmSave",
+    "D-346"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Type",
+       "Required",
+       "Default",
+       "Meaning",
+       "Written by"
+      ],
+      "rows": [
+       [
+        "alsoBases",
+        "list of base names",
+        "no",
+        "none",
+        "Other bases the brand may also be packed from, shown in the Pack window of a batch of that base. Never the brand's own base (dropped if present). Set for Tornado 500 ML and Max Amino to Liquid Bio Stimulant.",
+        "alsoBasesV1 once; kept by an edit of the product (pmSave)"
+       ],
+       [
+        "masters._also29b",
+        "{at, by, did}",
+        "no",
+        "absent",
+        "One-time flag: the link was made. Absent until Liquid Bio Stimulant and both brands exist.",
+        "alsoBasesV1"
+       ]
+      ]
+     }
+    }
+   ]
   }
  ]
 }

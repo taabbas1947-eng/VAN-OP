@@ -3480,6 +3480,44 @@
      }
     }
    ]
+  },
+  {
+   "id": "DD-36",
+   "title": "Print / Save PDF and Also packed from: the words (29b)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-046",
+    "R-047"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Guide rules Opening a document does not print it and A brand that can be packed from more than one base",
+    "D-345",
+    "D-346"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Word",
+       "Meaning in O2S",
+       "Where it comes from"
+      ],
+      "rows": [
+       [
+        "Print / Save PDF",
+        "The green button in the top bar of every opened document. It is the only thing that opens the print box. The bar is not printed.",
+        "D-345"
+       ],
+       [
+        "Also packed from",
+        "A list on a product: other bases the brand can be packed from, besides its own base. It only widens the Pack window list.",
+        "D-346"
+       ]
+      ]
+     }
+    }
+   ]
   }
  ]
 }

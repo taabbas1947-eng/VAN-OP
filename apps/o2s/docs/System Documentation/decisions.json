@@ -19430,6 +19430,168 @@
      }
     }
    ]
+  },
+  {
+   "id": "D-345",
+   "title": "No document opens the print box by itself (29b)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-046"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Fahim in the O2S group, 29 Oct 2026: the print box opens by itself when a report is opened to review",
+    "Tahir in chat, 29 Oct 2026: 'All documents'",
+    "o2s.html changelog 2026-10-29b",
+    "fn printDoc",
+    "fn printDC",
+    "fn printGatePass",
+    "fn printCOA",
+    "fn printPSI",
+    "tests/printbase29b.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-29"
+       ],
+       [
+        "Ruled by",
+        "Tahir, 29 Oct 2026, after Fahim's report. Asked: only reports, or every document. Answer: every document."
+       ],
+       [
+        "Decision",
+        "Every document opens in a new page to be read: reports, CoA, delivery challan (including the client copy), gate pass, pre-shipment inspection report, PO, QC lists, complaints. The print box opens only when the person taps the green Print / Save PDF button in the top bar. The bar is not printed. Back to O2S is unchanged."
+       ],
+       [
+        "What happened",
+        "5 openers added an onload that called the print box 250 or 350 ms after the page opened: printCOA, printDoc (PO, QC lists, inspection, report, complaint), printDC, printGatePass (when released) and printPSI. A reader who only wanted to look at it had the print box in the way. Each page already had the Print / Save PDF button in its top bar, so nothing is lost."
+       ],
+       [
+        "Options seen",
+        "(1) Reports only (not chosen). (2) Every document (chosen). (3) Keep as it was."
+       ],
+       [
+        "Known and left",
+        "The pop-up that opens the page can still be blocked by the browser, as before; this is not changed. The explicit Print button inside the lab certificate list and the bar button are the same as before. Many buttons are still called Print (Print DC, Print gate pass, Print COA, Print the outcome report): each now opens the page and the green button prints. The records now mean opened, not printed: the PO register (printedAt, printCount, the 'not printed' amber) is stamped when the PO page opens, and the complaint history line 'Outcome report printed' is written when the report opens; both were already written before the person pressed print. The toasts for a draft DC and an unreleased gate pass were reworded to say they open marked draft or not permitted. The gate pass page loads an Urdu font from Google Fonts: on a very slow connection the page can show the bar before the sheet. The green button is white on #2e9e44 (3.45 to 1). After a passed inspection the report still opens by itself, with no print box."
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-346",
+   "title": "A brand may also be packed from another base: Tornado 500 ML and Max Amino from Liquid Bio Stimulant (29b)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-047"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Majid in the O2S group, 29 Oct 2026, with a screenshot of the Pack bulk base, brand, PO window for batch BS26002: Tornado is not in the list; link Tornado 500 ML and Max Amino 1 L with the Liquid Bio Stimulant base",
+    "Tahir in chat, 29 Oct 2026: 'Both bases'",
+    "o2s.html changelog 2026-10-29b",
+    "fn brandsForPack",
+    "fn applyProductsV1",
+    "fn alsoBasesV1",
+    "fn pmSave",
+    "tests/printbase29b.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-29"
+       ],
+       [
+        "Ruled by",
+        "Tahir, 29 Oct 2026. Asked: move them to the Liquid Bio Stimulant base, or keep Amino Acid and add Liquid Bio Stimulant. Answer: both bases."
+       ],
+       [
+        "Decision",
+        "The product master has a new optional field alsoBases (a list of base names). The Pack bulk base, brand, PO window lists, for a base batch, the brands made from that base and the brands that list it in alsoBases. Tornado 500 ML and Max Amino (base Amino Acid) get alsoBases = Liquid Bio Stimulant by a one-time fix at load. They stay packable from an Amino Acid batch. Their own base, recipe, costing, orders and client lists are not changed. In the dropdown a brand packed from a base that is not its own shows that base in brackets, for example Tornado 500 ML (base Amino Acid), so a packer can see it is borrowed; a multi-PO batch planned for one such brand pre-selects it."
+       ],
+       [
+        "What happened",
+        "The Pack window lists the brands whose base equals the batch's base. Both brands have base Amino Acid, so a Liquid Bio Stimulant batch (BS26002) could not list them."
+       ],
+       [
+        "Options seen",
+        "(1) Move them to Liquid Bio Stimulant only (not chosen: Amino Acid batches such as AM26002 would stop listing them, and their recipe and cost follow the base). (2) Both bases (chosen)."
+       ],
+       [
+        "Known and left",
+        "The Production plan cards and Run bulk still follow the PO line's own base (Amino Acid), so a Production card may still say the base is short while Liquid Bio Stimulant stock exists. Doing it by hand in Pack works. Only Tornado 500 ML and Max Amino were asked for; plain Tornado (also 0.5 L, base Amino Acid) is not linked. Tornado and Tornado 500 ML both exist as products, possibly the same product under 2 names; not changed. The Back Office product form does not yet show or edit Also packed from; an edit of a product keeps it. A deactivated Tornado 500 ML or Max Amino is still listed in the Liquid Bio Stimulant Pack window, as an inactive brand of an own base already is. Masters.products has no ids, so 2 people editing different products at the same time keep only the last save's whole list (as before 29b); a save from an old-build tab in the first minutes after the push can drop the new link, and the fix does not run again because its flag is set. After the push, check the link on the live list. The Today Production cards still say base Amino Acid is short for these 2 brands and do not offer the Liquid Bio Stimulant batch. The CoA of a bulk batch carries the base name, so a Tornado 500 ML packed from a Liquid Bio Stimulant batch may read Liquid Bio Stimulant: to be asked of the lab."
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-347",
+   "title": "Fold-out lists stay open when the page is redrawn (29b)",
+   "owner": "COO (Tahir)",
+   "rules": [],
+   "status": "confirmed",
+   "src": [
+    "Fahim in the O2S group, 29 Oct 2026, video: the list on Today (See their list) closes by itself after about 5 seconds",
+    "o2s.html changelog 2026-10-29b",
+    "fn render",
+    "fn detCapture",
+    "fn detRestore",
+    "tests/printbase29b.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-29"
+       ],
+       [
+        "Ruled by",
+        "Not a new rule: a defect found from the team's video."
+       ],
+       [
+        "Decision",
+        "render() notes which fold-outs (details elements) are open on the screen before it draws and opens the same ones again after. They are matched by the first 50 characters of their heading with the digits ignored (a heading that says 16 jobs and then 15 is the same fold-out) and, for equal headings, their order. Only on the same screen. It only opens: it never closes a fold-out the screen opens on purpose (the Back Office focus card, the complaint trail), so a fold-out the person closed and the screen draws open on purpose comes back open."
+       ],
+       [
+        "What happened",
+        "The background refresh checks the server every 7 s and, when anyone has saved, draws the whole screen again. Every fold-out was drawn closed, so See their list shut itself."
+       ],
+       [
+        "Options seen",
+        "(1) Remember the open ones across the redraw (chosen, fixes every fold-out). (2) Stop the refresh while a list is open (not chosen: the screen would go stale)."
+       ],
+       [
+        "Known and left",
+        "If the heading of a fold-out changes in its first 50 characters, or 2 fold-outs with the same heading swap places, the open state can land on the neighbour. A fold-out the person closed that the screen draws open by default (the complaint trail) is open again after a redraw. A screen that redraws only part of the page (for example the daily comment window) is not changed."
+       ]
+      ]
+     }
+    }
+   ]
   }
  ]
 }

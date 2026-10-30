@@ -534,9 +534,19 @@ Next: Tahir's rulings in rounds of 4; then fix the 5 wrong-price defects and def
 - Not confirmed, for Tahir: Make default approves the new pack costs at once (Yawar is the cost approver), so the 3% re-approval does not apply to the switch itself; the proposal page said it did.
 - After the push and migration 007: check live, read only: a Find box on Setup lists; Edit and Delete in rows; a product page, Recipe, Approved recipes; Send back on a list revision panel opens its box.
 
-## 30 Oct 2026 (2) Pushed and checked live; update notice at login (D-141). NOT PUSHED (MODULE: C2M)
+## 30 Oct 2026 (2) Pushed and checked live; update notice at login (D-141). PUSHED (commit d64ccf3, 11:01). No migration (MODULE: C2M)
 - D-137 to D-140 pushed by Tahir (commit a4d0593). Live check as Tahir, read only: Find boxes on Setup lists (clients 31, packing items 47, bills 67, rates 8, products 29; "humi" gave 2 of 29); Edit and Delete in rows; the variant line on Products and variants; Delete on a material in a recipe names the recipe and says migration 007 is needed. Migration 007 is NOT run on live yet (m007 false): Take out of use, another recipe and Make default wait for it; check them live after Ahmer runs it.
 - D-141 built (Tahir: like O2S; panel: only changes for their job; remembered in the browser): CHANGELOG in c2m.html, a box at login with the updates since the last one seen, lines filtered by the person's actions, links to Guide rows, Got it; the Guide keeps What changed. Files: c2m.html, docs 03, 06, 07, 08, 10, 12. No database change.
 - Standing rule: every C2M release adds its CHANGELOG entry in the same change (yw3 W-04 counts entries against release notes on the newest date).
 - Tests: yw3 4/4 (new, in C2M App\tests), yw1 17/17, yw2 9/9; old kit suite 182 passed, 47 failed (ui09 V-02 presses Escape while the new box is open: expected). Independent review: 2 defects (keyboard focus, screen behind not inert) and 5 smaller, all fixed.
 - After the push: open C2M as Tahir; the box should list 3 updates; Got it; reopen: no box.
+
+## 30 Oct 2026 (3) Where to resume (MODULE: C2M)
+- State: D-137 to D-141 are all pushed (a4d0593, d64ccf3); the local folder matches GitHub. Nothing is waiting in the folder.
+- Next 1: live check of D-141, read only. Tahir opens C2M: the box lists 3 updates (29 Oct, 30 Oct, 30 Oct notice); press Got it; open C2M again: no box. Then the same as Majid if he can sign in (his box should show only lines for his job).
+- Next 2: Ahmer runs migration 007 (migrations/007_c2m_out_of_use_default_recipe.sql on local first, then the .PRODUCTION.sql by hand). Do not press for it. After it runs, check live, read only: m007 true; Take out of use on a material; Keep another recipe; Make default (as Yawar).
+- Open question for Tahir: Make default approves the new pack costs at once (the 3% re-approval does not apply to the switch), as the proposal page said. Confirm or change.
+- Old note (D-136): after the first real reopen in O2S, press Pull now and check that line on Margin open orders (open quantity back above 0). Tell Yawar old reopened lines will reappear in the open-order and impact figures.
+- Known test note: old kit ui09 V-02 fails because the new box is open when it presses Escape. Expected; new tests are yw1, yw2, yw3 and no007 in C2M App\tests.
+- Rules: Tahir pushes; migrations local first, production by hand; no server.js, O2S or platform files; live checks read only; no passwords; the price import pack never leaves scratch.
+

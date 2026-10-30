@@ -209,6 +209,114 @@
     @media (prefers-reduced-motion:reduce){#appView .open b,#appView .tile{transition:none}}
     @media (max-width:900px){#appView .grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
     @media (max-width:640px){#appView .grid{grid-template-columns:1fr}#appView .hz{height:70px}#appView .story-in{gap:14px}}
+
+    /* ===== People and access, piece B (Tahir, 21 Oct 2026): person-first, the landing view's look. Scoped to #adminView. ===== */
+    #adminView{min-height:100vh;background:#f7f9fb;color:#0e3550}
+    #adminView .top{background:#fff;border-bottom:1px solid #e6ecf1;flex-wrap:wrap;row-gap:8px}
+    #adminView .logo{height:38px}
+    #adminView .platlbl{color:#5f6f7f;border-left-color:#dce4ec;letter-spacing:.2em}
+    #adminView .out{border-radius:999px;border-color:#dce4ec;color:#0e3550;padding:7px 14px}
+    #adminView .out:hover{border-color:#0d5994}
+    .pa-tabs{display:flex;gap:4px;background:#eef2f6;border-radius:999px;padding:3px}
+    .pa-tab{font:inherit;font-size:13px;font-weight:600;color:#3c5266;background:none;border:none;border-radius:999px;padding:7px 14px;cursor:pointer}
+    .pa-tab.on{background:#0e3550;color:#fff}
+    .pa-tab:focus-visible,.pa-btn:focus-visible,.pa-item:focus-visible,.pa-chip:focus-visible{outline:2px solid #0d5994;outline-offset:2px}
+    .pa-main{max-width:1180px;margin:0 auto;padding:16px clamp(12px,3vw,32px) 32px}
+    .pa-lead{color:#4a5c6e;font-size:13.5px;margin:0 0 12px}
+    .pa-grid{display:grid;grid-template-columns:minmax(240px,320px) minmax(0,1fr);gap:16px;align-items:start}
+    .pa-list,.pa-person,.pa-card{background:#fff;border:1px solid #e3e9ef;border-radius:14px}
+    .pa-list{padding:12px;position:sticky;top:76px;max-height:calc(100vh - 100px);display:flex;flex-direction:column}
+    .pa-search{font:inherit;font-size:14px;width:100%;padding:9px 12px;border:1px solid #d6dee6;border-radius:10px;color:#0e3550;background:#fff}
+    .pa-search:focus,.pa-in:focus,.pa-sel:focus{outline:2px solid #0d5994;outline-offset:1px;border-color:#0d5994}
+    .pa-chips{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0 8px}
+    .pa-chip{font:inherit;font-size:12px;font-weight:600;color:#3c5266;background:#f1f4f7;border:1px solid transparent;border-radius:999px;padding:4px 10px;cursor:pointer}
+    .pa-chip.on{background:#e6f0f8;border-color:#bcd3e6;color:#0e3550}
+    .pa-items{overflow:auto;flex:1;margin:0 -4px;padding:0 4px}
+    .pa-item{display:block;width:100%;text-align:left;font:inherit;background:none;border:none;border-radius:10px;padding:9px 10px;cursor:pointer;color:#0e3550}
+    .pa-item:hover{background:#f4f7fa}
+    .pa-item.on{background:#e6f0f8}
+    .pa-item b{display:block;font-size:14px;font-weight:600}
+    .pa-item small{display:block;font-size:12px;color:#5f6f7f;margin-top:2px;line-height:1.35}
+    .pa-item.off b{color:#5f6f7f}
+    .pa-add{font:inherit;font-size:13px;font-weight:600;color:#0d5994;background:none;border:none;border-top:1px solid #eef1f4;padding:10px 6px 2px;margin-top:6px;text-align:left;cursor:pointer}
+    .pa-person{padding:18px 20px}
+    .pa-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+    .pa-av{width:44px;height:44px;border-radius:50%;background:#0e3550;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;flex:none}
+    .pa-name{font-family:var(--head);font-size:1.25rem;font-weight:700;margin:0;color:#0e3550}
+    .pa-sub{font-size:13px;color:#5f6f7f;margin:2px 0 0}
+    .pa-tag{margin-left:auto;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;border-radius:999px;padding:4px 10px}
+    .pa-tag.on{background:#e1f5ee;color:#0f6e56}.pa-tag.off{background:#fbe7e3;color:#8a2b1f}
+    .pa-sec{border-top:1px solid #eef1f4;margin-top:16px;padding-top:14px}
+    .pa-sec h2{font-family:var(--head);font-size:14px;font-weight:700;margin:0 0 4px;color:#0e3550}
+    .pa-sec .pa-note{font-size:12.5px;color:#5f6f7f;margin:0 0 10px}
+    .pa-acc{border:1px solid #e3e9ef;border-radius:12px;overflow:hidden}
+    .pa-row{display:grid;grid-template-columns:110px minmax(0,1fr);gap:10px;align-items:center;padding:10px 12px;border-bottom:1px solid #eef1f4}
+    .pa-row:last-child{border-bottom:none}
+    .pa-row.chg{background:#fff6e0;box-shadow:inset 4px 0 0 #c98a0b}
+    .pa-app{font-weight:700;font-size:14px}
+    .pa-app small{display:block;font-weight:400;font-size:11.5px;color:#5f6f7f}
+    .pa-sel,.pa-in{font:inherit;font-size:14px;padding:8px 10px;border:1px solid #d6dee6;border-radius:9px;background:#fff;color:#0e3550;width:100%}
+    .pa-sel[disabled]{background:#f4f6f8;color:#5f6f7f}
+    .pa-tog{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:#3c5266;cursor:pointer;user-select:none}
+    .pa-tog input{accent-color:#0e3550;width:16px;height:16px}
+    .pa-tog.dis{color:#6b7787;cursor:default}
+    .pa-tog{min-height:32px}
+    .pa-chgtxt{display:block;font-size:11.5px;font-weight:700;color:#8a5a00}
+    .pa-lock{display:block;font-size:12px;color:#5f6f7f;margin-top:4px}
+    .pa-bar{display:flex;gap:8px;justify-content:flex-end;align-items:center;flex-wrap:wrap;margin-top:10px}
+    .pa-btn{font:inherit;font-size:13.5px;font-weight:600;border-radius:999px;padding:8px 16px;cursor:pointer;border:1px solid #cbd6e1;background:#fff;color:#0e3550}
+    .pa-btn.pri{background:#0e3550;border-color:#0e3550;color:#fff}
+    .pa-btn.red{background:#b42318;border-color:#b42318;color:#fff}
+    .pa-btn[disabled]{opacity:.45;cursor:default}
+    .pa-confirm{border:1px solid #f1dfb0;background:#fff8e6;border-radius:12px;padding:12px 14px;margin-top:10px;font-size:13.5px;color:#5a3d06}
+    .pa-confirm ul{margin:6px 0 10px 18px;padding:0}
+    .pa-err{color:#b42318;font-size:13px;min-height:1em;margin-top:6px}
+    .pa-form{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .pa-form label{display:flex;flex-direction:column;gap:4px;font-size:12.5px;font-weight:600;color:#3c5266}
+    .pa-hist{list-style:none;margin:0;padding:0;font-size:13px;max-height:260px;overflow:auto}
+    .pa-hist li{padding:7px 0;border-bottom:1px solid #f0f3f6;color:#3c5266}
+    .pa-hist li b{color:#0e3550;font-weight:600}
+    .pa-hist .when{display:block;font-size:12px;color:#5f6f7f}
+    .pa-muted{color:#5f6f7f;font-size:13px}
+    .pa-card{padding:14px 16px;margin-bottom:14px}
+    .pa-card h2{font-family:var(--head);font-size:1.05rem;margin:0 0 2px}
+    .pa-rtab{width:100%;border-collapse:collapse;font-size:13.5px;margin-top:8px}
+    .pa-rtab td{padding:8px 6px;border-top:1px solid #f0f3f6;vertical-align:top}
+    .pa-rtab td:first-child{width:34%;font-weight:600}
+    .pa-rtab tr.dept td{font-family:var(--head);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#5f6f7f;font-weight:600;padding-top:12px}
+    .pa-who{font:inherit;font-size:13px;color:#0d5994;background:#f1f6fb;border:none;border-radius:999px;padding:2px 9px;margin:0 4px 4px 0;cursor:pointer}
+    .pa-who.off{color:#5f6f7f;background:#f4f6f8}
+    .pa-pill{display:inline-block;font-size:11px;font-weight:700;border-radius:999px;padding:2px 8px;margin-left:6px}
+    .pa-pill.vac{background:#faf0da;color:#854f0b}.pa-pill.nf{background:#e6f1fb;color:#0c447c}.pa-pill.arc{background:#eef0f4;color:#4a5567}
+    .pa-act{list-style:none;margin:8px 0 0;padding:0}
+    .pa-act li{padding:9px 0;border-top:1px solid #f0f3f6;font-size:13.5px;color:#3c5266}
+    .pa-act li .when{font-size:12px;color:#5f6f7f;display:block}
+    /* Roles by app: the role designer (28 Oct 2026) */
+    .pa-glabel{font-family:var(--head);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#5f6f7f;font-weight:600;margin:12px 6px 4px}
+    .pa-rgroup .pa-glabel{margin:14px 0 6px}
+    .pa-rights{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:4px 14px}
+    .pa-right{display:flex;gap:8px;align-items:flex-start;font-size:13.5px;color:#0e3550;padding:6px 8px;border-radius:8px;cursor:pointer}
+    .pa-right:hover{background:#f4f7fa}
+    .pa-right.chg{background:#fff6e0;box-shadow:inset 3px 0 0 #c98a0b}
+    .pa-right input{accent-color:#0e3550;width:16px;height:16px;margin-top:2px;flex:none}
+    .pa-right small{display:block;font-size:12px;color:#5f6f7f;margin-top:1px;line-height:1.35}
+    .pa-add.top{border-top:none;border-bottom:1px solid #eef1f4;margin:0 0 6px;padding:2px 6px 10px}
+    .pa-right.ro{cursor:default;color:#3c5266}
+    .pa-scrs{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:4px 14px}
+    .pa-scr{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 8px;border-radius:8px;font-size:13.5px;color:#0e3550}
+    .pa-scr .pa-sel{width:auto;min-width:112px;padding:5px 8px;font-size:13px}
+    .pa-scr.chg{background:#fff6e0;box-shadow:inset 3px 0 0 #c98a0b}
+    .pa-right.ro:hover{background:none}
+    .pa-back{display:none}
+    @media (max-width:820px){
+      .pa-grid{grid-template-columns:1fr}
+      .pa-list{position:static;max-height:none}
+      #adminView.picked .pa-list{display:none}
+      #adminView.picked .pa-back{display:inline-block;margin-bottom:10px}
+      .pa-row{grid-template-columns:1fr;gap:6px}
+      .pa-form{grid-template-columns:1fr}
+      .pa-tabs{order:3;width:100%;justify-content:center}
+    }
   </style>
 </head>
 
@@ -316,53 +424,40 @@
     </div>
   </div>
 
-  <!-- COO only: assign/revoke module roles -->
+  <!-- People and access, piece B (Tahir, 21 Oct 2026): person-first. Left: people; right: one person's
+       access, details, login and history. Tabs: People, Roles by app, Activity. Changes are saved with
+       "Save access" and anything that takes access away asks first. Only apps that are live are shown.
+       System Administrator only (Tahir, 28 Oct 2026: app admin removed; Roles by app designs each app's roles). -->
   <div id="adminView" style="display:none">
     <header class="top">
       <div class="brand">
         <img class="logo" src="/assets/van-logo.png" alt="VAN — Vital Agri Nutrients (Pvt) Ltd">
         <span class="platlbl">VAN SYSTEMS</span>
       </div>
-      <button class="back" type="button" onclick="__backLauncher()">← Back to launcher</button>
+      <div class="pa-tabs" role="tablist" aria-label="People and access">
+        <button id="paTabPeople" class="pa-tab on" type="button" role="tab" aria-selected="true" onclick="__atab('people')">People</button>
+        <button id="paTabRoles" class="pa-tab" type="button" role="tab" aria-selected="false" onclick="__atab('roles')">Roles by app</button>
+        <button id="paTabActivity" class="pa-tab" type="button" role="tab" aria-selected="false" onclick="__atab('activity')">Activity</button>
+      </div>
+      <button class="out" type="button" onclick="__backLauncher()">← Launcher</button>
     </header>
-    <div class="wrap">
-      <p class="eyebrow">Platform · people and access</p>
-      <p class="h2">People and access</p>
-      <p class="lead" id="adminLead">Create a user (identity only), then grant them a role per module below. Changes apply immediately.</p>
-      <div class="tabs" role="tablist">
-        <button id="tabPeople" class="tabb on" type="button" role="tab" onclick="__atab('people')">People</button>
-        <button id="tabHolders" class="tabb" type="button" role="tab" onclick="__atab('holders')">Who holds what</button>
-      </div>
-      <div id="migWait" class="waitnote" style="display:none">Title, department, company, WhatsApp, email and the access history appear once the platform migration P001 is applied to this database. Everything else works now.</div>
-      <div id="panePeople">
-      <div class="addcard" id="addUserCard">
-        <span class="addlabel">Add user</span>
-        <input id="au_user" class="inp au" placeholder="username" autocomplete="off">
-        <input id="au_name" class="inp au" placeholder="full name" autocomplete="off">
-        <input id="au_pass" class="inp au" type="password" placeholder="initial password" autocomplete="new-password">
-        <button class="btnp" type="button" onclick="__adduser()">Create</button>
-        <span id="au_err" class="auerr" role="alert"></span>
-      </div>
-      <div class="toolbar">
-        <input id="pp_q" class="inp au" style="min-width:240px" placeholder="Search name, username or title" autocomplete="off" oninput="__afilter()">
-        <label class="admtog" style="margin-left:0"><input type="checkbox" id="pp_off" onchange="__afilter()"> show switched-off people <span id="pp_offn"></span></label>
-      </div>
-      <div class="tablecard">
-        <table class="acctable">
-          <thead id="adminHead"></thead>
-          <tbody id="adminBody">
-            <tr><td class="muted" style="padding:16px">Loading…</td></tr>
-          </tbody>
-        </table>
-      </div>
-      </div>
-      <div id="paneHolders" style="display:none"></div>
-    </div>
-  </div>
-
-  <!-- One person: details, password, switch off or on, history (platform administrator only) -->
-  <div id="pdlg" class="dlgbg" onclick="if(event.target===this)__pclose()">
-    <div class="dlg" role="dialog" aria-modal="true" aria-labelledby="pdlg_t" id="pdlg_body"></div>
+    <main class="pa-main">
+      <h1 class="sr-only">People and access</h1>
+      <p class="pa-lead" id="adminLead">Loading…</p>
+      <section id="panePeople" class="pa-grid" role="tabpanel" aria-labelledby="paTabPeople">
+        <aside class="pa-list" aria-label="People">
+          <!-- "+ Add a person" on top of the list, as "+ Add a role" (Tahir, 28 Oct 2026). -->
+          <button id="pp_add" class="pa-add top" type="button" onclick="__pnew()" style="display:none">+ Add a person</button>
+          <label class="sr-only" for="pp_q">Search people</label>
+          <input id="pp_q" class="pa-search" placeholder="Search name, title or role" autocomplete="off" oninput="__afilter()">
+          <div class="pa-chips" id="pp_chips"></div>
+          <div id="pp_list" class="pa-items"><p class="pa-muted">Loading…</p></div>
+        </aside>
+        <section class="pa-person" id="pp_panel" aria-live="polite"><p class="pa-muted">Pick a person on the left.</p></section>
+      </section>
+      <section id="paneRoles" role="tabpanel" aria-labelledby="paTabRoles" style="display:none"></section>
+      <section id="paneActivity" role="tabpanel" aria-labelledby="paTabActivity" style="display:none"></section>
+    </main>
   </div>
 
   <div id="toast" class="toast" role="status"></div>
@@ -399,7 +494,7 @@
       }
 
       function renderApp(me) {
-        _isCOO = !!me.platformAdmin || (me.o2sRole === 'COO');   // platform administrator (25 Sept 2026, R2)
+        _isCOO = !!me.platformAdmin; window._meUser = String(me.username || '').toLowerCase();   // System Administrator only (Tahir, 21 Oct 2026: COO is an ordinary role)
         _adminModules = me.adminModules || [];
         var list = me.modules || [];
         var mods = {}; list.forEach(function (m) {mods[m.module] = m.role;});
@@ -410,9 +505,9 @@
           var code = (card.querySelector('.code') || {}).textContent || m.toUpperCase();
           lockTile(card, !!mods[m], card.getAttribute('data-href'), null, code + ' — ask your System Administrator for access.');
         });
-        // People & access: a header button since 12 Oct 2026 (was a tile). Shown only to the COO and to
-        // subsystem admins; nobody else sees it. The server still checks every access call (accessAdmin).
-        var canAdmin = _isCOO || _adminModules.length > 0;
+        // People & access: a header button since 12 Oct 2026 (was a tile). Shown only to a System Administrator
+        // (28 Oct 2026: app admin removed). The server still checks every access call (accessAdmin).
+        var canAdmin = _isCOO;
 
         if ($('nomods')) $('nomods').style.display = 'none';
 
@@ -420,7 +515,7 @@
         var first = String(nm).trim().split(/\s+/)[0] || 'there';
         $('hello').textContent = 'Welcome back, ' + first;
         var shown = Object.keys(mods).filter(function (k) {return k !== 'platform';});
-        var roleline = _isCOO ? 'Platform administrator · all modules'
+        var roleline = _isCOO ? 'System Administrator · all systems'
           : (shown.length ? shown.map(function (k) {return k.toUpperCase() + ' · ' + mods[k];}).join('   ') : 'No modules yet');
         $('userchip').innerHTML =
           '<div class="user"><div class="av">' + esc(initials(nm)) + '</div>'
@@ -456,281 +551,588 @@
         $('lg_btn').disabled = false;
         return false;
       };
-      window.__signout = function () {setTok(''); view('login'); $('lg_user').value = ''; $('lg_pass').value = ''; focusUser();};
+      window.__signout = function () {if (window.__paReset) __paReset(); setTok(''); view('login'); $('lg_user').value = ''; $('lg_pass').value = ''; focusUser();};
 
-      /* ---- Manage access (COO) ---- */
-      window.__manage = function () {if (!_isCOO && !_adminModules.length) return; view('admin'); loadAdmin();};
-      window.__backLauncher = function () {view('app');};
+      /* ---- People and access, piece B (Tahir, 21 Oct 2026): person-first, Save + confirm, live apps only ----
+         The server checks every call (accessAdmin / admin); this screen only offers what the person may do.
+         System Administrator only: every app, the System row, details, login, history, Activity, Add a person, and
+         the design of each app's roles (Roles by app). App admin was removed on 28 Oct 2026 (Tahir). */
+      window.__manage = function () {if (!_isCOO) return; view('admin'); loadAdmin();};
+      window.__backLauncher = function () {if (!leaveOk()) return; _draft = null; _confirm = null; view('app');};
+      // Review 21 Oct 2026: unsaved access changes are never dropped without asking.
+      function dirtyCount() { return _adm && _sel && _sel !== 'new' && _draft ? changes().length : 0; }
+      function leaveOk() { var n = dirtyCount(); return !n || window.confirm(n + (n === 1 ? ' access change is' : ' access changes are') + ' not saved for ' + personName(_sel) + '. Leave without saving?'); }
+      window.addEventListener('beforeunload', function (e) { if (dirtyCount()) { e.preventDefault(); e.returnValue = ''; } });
+      window.__paReset = function () { _adm = null; _sel = null; _draft = null; _confirm = null; _loginAsk = null; _byUser = {}; _filt = 'all'; if ($('pp_panel')) $('pp_panel').innerHTML = ''; if ($('pp_list')) $('pp_list').innerHTML = ''; __atab('people'); };
+      var _busy = false;      // one save at a time; buttons are disabled while it runs
+      async function busy(fn) {
+        if (_busy) return; _busy = true;
+        var bs = [].slice.call(document.querySelectorAll('#adminView .pa-btn:not([disabled])')); bs.forEach(function (b) { b.disabled = true; });
+        try { await fn(); } finally { _busy = false; bs.forEach(function (b) { if (document.body.contains(b)) b.disabled = false; }); }
+      }
+      function jsArg(v) { return esc(JSON.stringify(String(v == null ? '' : v))); }
+      function errText(res, what) { return res.j.error || (res.status === 401 ? 'Your sign-in has expired. Sign out and sign in again.' : res.status === 403 ? 'You are not allowed to do this.' : what + ' (the server answered ' + res.status + ').'); }
 
-      /* Manage access, 25 Sept 2026 (the access model Tahir ruled on). One column per
-         module, drawn from GET /api/platform/catalogue: each module's roles in that
-         module's own words, grouped by its own departments, with a title beside the
-         name where the module gives one. O2S's list comes from O2S's store; PD's from
-         pd-lib; QMS and ComPha show as "not live" until they publish a catalogue. A
-         role somebody still holds that no longer appears in a catalogue stays
-         selectable and is never flagged (R5): a role belongs to its module. */
-      var _catalogue = [];
-      function roleLabel(r) { return r.name + (r.title && r.title !== r.name ? ' · ' + r.title : ''); }
-      function roleSelect(username, module, roles, current, disabled) {
-        var groups = {}, order = [];
-        roles.forEach(function (r) {
-          if (r.archived && r.key !== current) return;          // archived: hidden unless this person still holds it
-          var d = r.department || 'Other';
-          if (!groups[d]) { groups[d] = []; order.push(d); }
-          groups[d].push(r);
-        });
-        if (current && !roles.some(function (r) { return r.key === current; })) {   // held, not listed: keep it visible
-          groups['Held'] = [{ key: current, name: current }]; order.push('Held');
-        }
-        var opts = '<option value="">— none —</option>';
-        if (order.length === 1) {
-          opts += groups[order[0]].map(function (r) { return '<option value="' + esc(r.key) + '"' + (r.key === current ? ' selected' : '') + '>' + esc(roleLabel(r)) + '</option>'; }).join('');
-        } else {
-          order.forEach(function (d) {
-            opts += '<optgroup label="' + esc(d) + '">' + groups[d].map(function (r) { return '<option value="' + esc(r.key) + '"' + (r.key === current ? ' selected' : '') + '>' + esc(roleLabel(r)) + '</option>'; }).join('') + '</optgroup>';
-          });
-        }
-        return '<select class="pdsel"' + (disabled ? ' disabled title="Switched off: switch back on to change roles"' : '') + ' onchange="__setmod(\'' + esc(username) + '\',\'' + module + '\',this.value)">' + opts + '</select>';
-      }
-      function adminToggle(username, module, on) {
-        return '<label class="admtog" title="Can manage access for ' + esc(module.toUpperCase()) + '"><input type="checkbox"' + (on ? ' checked' : '') + ' onchange="__setadmin(\'' + esc(username) + '\',\'' + module + '\',this.checked)"> admin</label>';
-      }
-      async function loadAdmin() {
-        var head = $('adminHead'), body = $('adminBody');
-        body.innerHTML = '<tr><td class="muted" style="padding:16px">Loading…</td></tr>';
-        try {
-          var rs = await Promise.all([fetch('/api/platform/users', {headers: auth()}), fetch('/api/platform/catalogue', {headers: auth()})]);
-          if (!rs[0].ok) {body.innerHTML = '<tr><td class="muted" style="padding:16px">Could not load users (' + rs[0].status + ').</td></tr>'; return;}
-          var data = await rs[0].json();
-          var cat = rs[1].ok ? (await rs[1].json()).modules || [] : [];
-          _catalogue = cat;
-          var users = data.users || [];
-          _adminCaps = data.caps || {isCOO: false, adminModules: []};
-          var isCOO = !!_adminCaps.isCOO;
-          // Fallback when the catalogue could not be read: the flat lists the users call already carries.
-          if (!cat.length) {
-            cat = [
-              {key: 'o2s', name: 'O2S', live: true, roles: (data.o2sRoles || []).map(function (o) {return {key: o, name: o};})}
-            ];
-          }
-          // Columns: the platform administrator sees every module; a subsystem admin only the modules they administer.
-          var cols = cat.filter(function (m) {
-            if (m.key === 'platform') return isCOO;
-            if (!m.live) return isCOO;                                   // the not-live columns are shown to the administrator only
-            return isCOO || (_adminCaps.adminModules || []).indexOf(m.key) >= 0;
-          }).map(function (m) {
-            var roles = m.roles || [];
-            if (!isCOO && m.key === 'o2s') roles = roles.filter(function (x) {return x.key !== 'COO';});   // only the COO can grant COO
-            return {key: m.key, label: m.name, live: m.live, roles: roles};
-          });
-          _adm = {users: users, cols: cols, isCOO: isCOO, platform: data.platform || {people: false, log: false, switchOff: false}};
-          if ($('addUserCard')) $('addUserCard').style.display = isCOO ? 'flex' : 'none';
-          if ($('migWait')) $('migWait').style.display = (isCOO && !_adm.platform.people) ? 'block' : 'none';
-          if ($('adminLead')) $('adminLead').textContent = isCOO
-            ? 'Every person in one list, and 1 role per system, in that system’s own words. Create a person once, then set their roles. Open Details to edit a person, set a new password or switch a leaver off. Tick “admin” to let someone manage access for that system. Every change is recorded.'
-            : 'You administer: ' + (_adminCaps.adminModules || []).map(function (m) {return m.toUpperCase();}).join(', ') + '. Set each person’s role in your system below.';
-          renderPeople();
-          if (_atab === 'holders') loadHolders();
-        } catch (e) {body.innerHTML = '<tr><td class="muted" style="padding:16px">Error loading users.</td></tr>';}
-      }
-
-      /* ---- People and access, 27 Sept 2026 (Tahir's rulings of 26 and 27 Sept) ----
-         People are managed here only. A person's details, a new password and switching a
-         leaver off live in the Details dialog (platform administrator only). Switched-off
-         people keep their roles, so switching back on restores them; they are hidden from
-         the list unless "show switched-off people" is ticked. */
-      var _adm = null, _atab = 'people';
-      function personMeta(u) {
-        var bits = [u.title, u.department, u.company].filter(Boolean);
-        return bits.length ? '<span class="pmeta">' + esc(bits.join(' · ')) + '</span>' : '';
-      }
-      function renderPeople() {
-        if (!_adm) return;
-        var head = $('adminHead'), body = $('adminBody');
-        var isCOO = _adm.isCOO, cols = _adm.cols, showContacts = isCOO && _adm.platform.people;
-        head.innerHTML = '<tr><th>Person</th>' + (showContacts ? '<th>Contact</th>' : '') + cols.map(function (c) {
-          return '<th' + (c.live ? '' : ' class="dim"') + '>' + esc(c.label) + (c.key === 'platform' ? '' : ' role') + '</th>';
-        }).join('') + '</tr>';
-        var q = String(($('pp_q') && $('pp_q').value) || '').trim().toLowerCase();
-        var showOff = !!($('pp_off') && $('pp_off').checked);
-        var nOff = _adm.users.filter(function (u) { return u.active === false; }).length;
-        if ($('pp_offn')) $('pp_offn').textContent = nOff ? '(' + nOff + ')' : '';
-        var list = _adm.users.filter(function (u) {
-          if (u.active === false && !showOff) return false;
-          if (!q) return true;
-          return [u.name, u.username, u.title, u.department, u.company].some(function (x) { return x && String(x).toLowerCase().indexOf(q) >= 0; });
-        });
-        var ncol = 1 + (showContacts ? 1 : 0) + cols.length;
-        body.innerHTML = list.map(function (u) {
-          var off = u.active === false;
-          var mods = u.modules || {}, adminOf = u.adminOf || [];
-          var cells = cols.map(function (c) {
-            if (!c.live) return '<td class="dim"><span class="notlive">not live</span></td>';
-            var cur = mods[c.key] || '';
-            var tog = (isCOO && cur && c.key !== 'platform' && !off) ? adminToggle(u.username, c.key, adminOf.indexOf(c.key) >= 0) : '';
-            return '<td>' + roleSelect(u.username, c.key, c.roles, cur, off) + tog + '</td>';
-          }).join('');
-          var contact = showContacts ? '<td><div class="contact">' + (u.whatsapp ? esc(u.whatsapp) : '<span class="muted">no WhatsApp</span>') + '<br>' + (u.email ? esc(u.email) : '<span class="muted">no email</span>') + '</div></td>' : '';
-          var details = isCOO ? '<br><button class="linkbtn keep" type="button" onclick="__popen(\'' + esc(u.username) + '\')">Details</button>' : '';
-          return '<tr' + (off ? ' class="off"' : '') + '><td><b>' + esc(u.name || u.username) + '</b><span class="umuser">' + esc(u.username) + '</span>'
-            + (off ? '<span class="pillx off keep">Switched off</span>' : '') + personMeta(u) + details + '</td>' + contact + cells + '</tr>';
-        }).join('') || '<tr><td colspan="' + ncol + '" class="muted" style="padding:16px">' + (q ? 'Nobody matches “' + esc(q) + '”.' : 'No people.') + '</td></tr>';
-      }
-      window.__afilter = function () { renderPeople(); };
-      window.__atab = function (t) {
-        _atab = t;
-        $('tabPeople').classList.toggle('on', t === 'people'); $('tabHolders').classList.toggle('on', t === 'holders');
-        $('panePeople').style.display = t === 'people' ? 'block' : 'none';
-        $('paneHolders').style.display = t === 'holders' ? 'block' : 'none';
-        if (t === 'holders') loadHolders();
-      };
-
-      /* Who holds what: each system's roles, grouped by its own departments, with the people
-         holding each. A role nobody (switched on) holds shows as Vacant; an archived role still
-         held, and a held role the system no longer lists ("Not filed"), are marked too. */
-      async function loadHolders() {
-        var pane = $('paneHolders');
-        pane.innerHTML = '<p class="muted" style="margin-top:14px">Loading…</p>';
-        try {
-          var r = await fetch('/api/platform/holders', {headers: auth()});
-          if (!r.ok) { pane.innerHTML = '<p class="muted" style="margin-top:14px">Could not load (' + r.status + ').</p>'; return; }
-          var mods = (await r.json()).modules || [];
-          pane.innerHTML = mods.map(function (m) {
-            var nVac = m.roles.filter(function (x) { return x.vacant && !x.archived; }).length;
-            var depts = {}, order = [];
-            m.roles.forEach(function (x) { var d = x.department || 'Other'; if (!depts[d]) { depts[d] = []; order.push(d); } depts[d].push(x); });
-            var rows = order.map(function (d) {
-              return (order.length > 1 ? '<tr class="dept"><td colspan="3">' + esc(d) + '</td></tr>' : '') + depts[d].map(function (x) {
-                var who = x.holders.length ? x.holders.map(function (h) { return esc(h.name || h.username) + (h.active ? '' : ' <span class="muted">(switched off)</span>'); }).join(', ') : '<span class="muted">nobody</span>';
-                var st = x.notFiled ? '<span class="pillx nf">Not filed</span>' : x.archived ? '<span class="pillx arc">Archived, still held</span>' : x.vacant ? '<span class="pillx vac">Vacant</span>' : '';
-                return '<tr><td><b>' + esc(x.name) + '</b></td><td>' + who + '</td><td>' + st + '</td></tr>';
-              }).join('');
-            }).join('');
-            return '<div class="hcard"><div class="hhead"><b>' + esc(m.name) + '</b><span class="muted">' + m.roles.length + (m.roles.length === 1 ? ' role' : ' roles') + ' · ' + nVac + ' vacant</span></div>'
-              + '<table class="acctable"><thead><tr><th>Role</th><th>Held by</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>';
-          }).join('') || '<p class="muted" style="margin-top:14px">No systems to show.</p>';
-        } catch (e) { pane.innerHTML = '<p class="muted" style="margin-top:14px">Error loading.</p>'; }
-      }
-
-      /* The Details dialog. */
-      var _pu = null, _confirmOff = false;
-      var ACTION_TEXT = {'account.create': 'Login created', 'person.update': 'Details changed', 'account.password_reset': 'New password set',
-        'account.switch_off': 'Switched off', 'account.switch_on': 'Switched back on', 'role.grant': 'Role given', 'role.change': 'Role changed',
-        'role.revoke': 'Role removed', 'admin.grant': 'Made system admin', 'admin.revoke': 'No longer system admin'};
-      var FIELD_TEXT = {full_name: 'name', title: 'title', department: 'department', company: 'company', whatsapp: 'WhatsApp', email: 'email'};
-      function fmtVal(v) { if (v == null || v === '') return ''; try { var o = JSON.parse(v); if (o && typeof o === 'object') return Object.keys(o).map(function (k) { return (FIELD_TEXT[k] || k) + ': ' + (o[k] == null ? '—' : o[k]); }).join(', '); } catch (e) { } return String(v); }
-      window.__popen = function (username) {
-        _pu = (_adm && _adm.users || []).filter(function (u) { return u.username === username; })[0];
-        if (!_pu) return;
-        _confirmOff = false; renderDialog(); $('pdlg').style.display = 'flex'; loadHistory();
-      };
-      window.__pclose = function () { $('pdlg').style.display = 'none'; _pu = null; };
-      function renderDialog() {
-        var u = _pu, p = _adm.platform, off = u.active === false;
-        var f = function (id, label, val, ph) { return '<label>' + label + '<input id="pd_' + id + '" class="inp" value="' + esc(val || '') + '" placeholder="' + esc(ph || '') + '" autocomplete="off"></label>'; };
-        var h = '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px"><div><h3 id="pdlg_t">' + esc(u.name || u.username) + '</h3><span class="umuser" style="margin-left:0">' + esc(u.username) + '</span>'
-          + (off ? '<span class="pillx off">Switched off</span>' : '') + '</div><button class="back" type="button" onclick="__pclose()">Close</button></div>';
-        h += '<div class="dlgsec"><h4>Details</h4>';
-        if (p.people) {
-          h += '<div class="fgrid">' + f('name', 'Name', u.name) + f('title', 'Title', u.title, 'e.g. Plant Manager') + f('department', 'Department', u.department) + f('company', 'Company', u.company, 'e.g. VAN')
-            + f('whatsapp', 'WhatsApp', u.whatsapp, 'e.g. 03001234567') + f('email', 'Email', u.email) + '</div>'
-            + '<div class="dlgrow"><button class="btnp" type="button" onclick="__psave()">Save details</button><span id="pd_err" class="auerr" role="alert"></span></div>';
-        } else {
-          h += '<p class="muted" style="margin:0;font-size:13px">Details need the platform migration P001 applied first.</p>';
-        }
-        h += '</div><div class="dlgsec"><h4>Password</h4><div class="dlgrow" style="margin-top:0"><input id="pd_pw" class="inp au" type="password" placeholder="new password, 6 or more" autocomplete="new-password">'
-          + '<button class="btnw" type="button" onclick="__ppw()">Set new password</button><span id="pd_pwerr" class="auerr" role="alert"></span></div></div>';
-        if (p.switchOff) {
-          h += '<div class="dlgsec"><h4>Login</h4>';
-          if (off) {
-            h += '<p style="margin:0 0 8px;font-size:13px;color:var(--txt2)">This login is switched off. Switching it back on restores the roles it had.</p><button class="btnp" type="button" onclick="__pactive(true)">Switch back on</button>';
-          } else {
-            h += '<p style="margin:0 0 8px;font-size:13px;color:var(--txt2)">Switching off stops this login at once, in every system. Nothing is deleted: the name stays on every record and the roles are kept, so switching back on restores them.</p>'
-              + (_confirmOff ? '<button class="btnr" type="button" onclick="__pactive(false)">Yes, switch off ' + esc(u.name || u.username) + '</button> <button class="btnw" type="button" onclick="__pcancelOff()">Cancel</button>'
-                : '<button class="btnw" type="button" onclick="__poff()">Switch off…</button>');
-          }
-          h += '<div id="pd_acterr" class="auerr" role="alert"></div></div>';
-        }
-        if (p.log) h += '<div class="dlgsec"><h4>History</h4><ul id="pd_hist" class="hist"><li class="muted">Loading…</li></ul></div>';
-        $('pdlg_body').innerHTML = h;
-      }
-      async function loadHistory() {
-        if (!_pu || !_adm.platform.log) return;
-        try {
-          var r = await fetch('/api/platform/people/' + encodeURIComponent(_pu.username) + '/history', {headers: auth()});
-          var j = r.ok ? await r.json() : {rows: []};
-          var el = $('pd_hist'); if (!el) return;
-          el.innerHTML = (j.rows || []).map(function (x) {
-            var what = ACTION_TEXT[x.action] || x.action;
-            var detail = /^account\./.test(x.action) ? '' : [x.module ? x.module.toUpperCase() : '', fmtVal(x.before_val) ? 'from ' + fmtVal(x.before_val) : '', fmtVal(x.after_val) ? 'to ' + fmtVal(x.after_val) : ''].filter(Boolean).join(' ');
-            return '<li><b>' + esc(what) + '</b>' + (detail ? ' · ' + esc(detail) : '') + '<br><span class="muted">' + esc(String(x.at).slice(0, 16)) + ' · by ' + esc(x.actor) + (x.via === 'o2s-users' ? ' in O2S' : '') + '</span></li>';
-          }).join('') || '<li class="muted">Nothing recorded yet.</li>';
-        } catch (e) { }
+      var _adm = null, _atab = 'people', _sel = null, _filt = 'all', _draft = null, _confirm = null, _loginAsk = null, _byUser = {};
+      var APP_HINT = {o2s: 'Order to Ship', c2m: 'Cost to Margin', platform: 'People and access'};
+      var MODNAME = {platform: 'System Administrator'};
+      function modName(k) { if (MODNAME[k]) return MODNAME[k]; var c = (_adm && _adm.allMods || []).filter(function (m) { return m.key === k; })[0]; return c ? c.name : String(k || '').toUpperCase(); }
+      function roleObj(mod, key) { var c = (_adm && _adm.allMods || []).filter(function (m) { return m.key === mod; })[0]; return c && (c.roles || []).filter(function (r) { return r.key === key; })[0]; }
+      function roleName(mod, key) { if (mod === 'platform') return key === 'admin' ? 'System Administrator' : key; var r = roleObj(mod, key); return r ? r.name : key; }
+      function personName(u) { var p = _byUser[String(u || '').toLowerCase()]; return p ? (p.name || p.username) : (u || 'someone'); }
+      function fmtWhen(at) {
+        var m = String(at || '').match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/); if (!m) return String(at || '');
+        return Number(m[3]) + ' ' + ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][Number(m[2]) - 1] + ' ' + m[1] + ', ' + m[4] + ':' + m[5];
       }
       async function send(method, url, body) {
-        var r = await fetch(url, {method: method, headers: Object.assign({'Content-Type': 'application/json'}, auth()), body: JSON.stringify(body || {})});
+        var r;
+        try { r = await fetch(url, {method: method, headers: Object.assign({'Content-Type': 'application/json'}, auth()), body: body ? JSON.stringify(body) : undefined}); }
+        catch (e) { return {ok: false, status: 0, j: {error: 'Cannot reach the server. Check the connection and try again.'}}; }
         var j = {}; try { j = await r.json(); } catch (e) { }
         return {ok: r.ok, status: r.status, j: j};
       }
-      window.__psave = async function () {
-        var body = {}; ['name', 'title', 'department', 'company', 'whatsapp', 'email'].forEach(function (k) { var el = $('pd_' + k); if (el) body[k] = el.value; });
-        var res = await send('PATCH', '/api/platform/people/' + encodeURIComponent(_pu.username), body);
-        if (!res.ok) { $('pd_err').textContent = res.j.error || ('Could not save (' + res.status + ')'); return; }
-        toast(res.j.changed ? 'Details saved' : 'Nothing had changed'); await reloadKeep();
-      };
-      window.__ppw = async function () {
-        var pw = $('pd_pw').value || '';
-        var res = await send('POST', '/api/platform/people/' + encodeURIComponent(_pu.username) + '/password', {password: pw});
-        if (!res.ok) { $('pd_pwerr').textContent = res.j.error || ('Could not set (' + res.status + ')'); return; }
-        $('pd_pw').value = ''; $('pd_pwerr').textContent = ''; toast('New password set for ' + _pu.username); loadHistory();
-      };
-      window.__poff = function () { _confirmOff = true; renderDialog(); loadHistory(); };
-      window.__pcancelOff = function () { _confirmOff = false; renderDialog(); loadHistory(); };
-      window.__pactive = async function (on) {
-        var res = await send('POST', '/api/platform/people/' + encodeURIComponent(_pu.username) + '/active', {active: on});
-        if (!res.ok) { var e = $('pd_acterr'); if (e) e.textContent = res.j.error || ('Could not change (' + res.status + ')'); return; }
-        toast(_pu.username + (on ? ' switched back on' : ' switched off')); _confirmOff = false; await reloadKeep();
-      };
-      // Reload the list and keep the dialog open on the same person, with fresh values.
-      async function reloadKeep() {
-        var u = _pu && _pu.username; await loadAdmin();
-        if (u) { _pu = (_adm.users || []).filter(function (x) { return x.username === u; })[0]; if (_pu) { renderDialog(); loadHistory(); } }
+
+      async function loadAdmin() {
+        var listEl = $('pp_list');
+        if (!_adm && listEl) { listEl.innerHTML = '<p class="pa-muted">Loading…</p>'; if ($('pp_panel')) $('pp_panel').innerHTML = ''; }
+        try {
+          var rs = await Promise.all([fetch('/api/platform/users', {headers: auth()}), fetch('/api/platform/catalogue', {headers: auth()})]);
+          if (!rs[0].ok) { listEl.innerHTML = '<p class="pa-muted">' + (rs[0].status === 401 ? 'Your sign-in has expired. Sign out and sign in again.' : 'Could not load people (the server answered ' + rs[0].status + ').') + '</p>'; return false; }
+          var data = await rs[0].json();
+          var cat = rs[1].ok ? ((await rs[1].json()).modules || []) : [];
+          if (!cat.length) cat = [{key: 'o2s', name: 'O2S', live: true, roles: (data.o2sRoles || []).map(function (o) {return {key: o, name: o};})}];
+          var caps = data.caps || {isCOO: false, adminModules: []}, isCOO = !!caps.isCOO;
+          // Columns: live apps only. The System row (platform admin) for a System Administrator only.
+          var cols = cat.filter(function (m) { return m.key === 'platform' || m.live; }).map(function (m) {
+            return {key: m.key, label: m.key === 'platform' ? 'System' : m.name, roles: m.roles || []};
+          });
+          cols.sort(function (a, b) { return (a.key === 'platform') - (b.key === 'platform'); });
+          _adm = {users: data.users || [], cols: cols, allMods: cat, isCOO: isCOO, caps: caps, platform: data.platform || {people: false, log: false, switchOff: false}};
+          _byUser = {}; _adm.users.forEach(function (u) { _byUser[u.username] = u; });
+          $('adminLead').textContent = 'Everyone with a login, and their access to each app. Pick a person to change their access, details or login. Every change is recorded.';
+          $('pp_add').style.display = isCOO ? 'block' : 'none';
+          $('paTabActivity').style.display = isCOO && _adm.platform.log ? '' : 'none';
+          if (_sel && _sel !== 'new' && !_byUser[_sel]) _sel = null;
+          if (_sel && _sel !== 'new' && (!_draft || !changes().length)) resetDraft();   // fresh data unless the admin has unsaved changes
+          renderList(); renderPerson();
+          if (_atab === 'activity' && !(isCOO && _adm.platform.log)) __atab('people');
+          else if (_atab === 'roles') loadRoles();
+          else if (_atab === 'activity') loadActivity();
+          return true;
+        } catch (e) { if (listEl) listEl.innerHTML = '<p class="pa-muted">Could not load people. Check the connection and try again.</p>'; return false; }
       }
 
-      window.__setmod = async function (username, module, role) {
+      function hasAccess(u) { return Object.keys(u.modules || {}).some(function (k) { return !!u.modules[k]; }); }
+      function summary(u) {
+        var m = u.modules || {}, bits = [];
+        _adm.allMods.forEach(function (c) { if (c.key !== 'platform' && m[c.key]) bits.push(c.name + ' ' + roleName(c.key, m[c.key])); });
+        if (m.platform === 'admin') bits.push('System Administrator');
+        return bits.length ? bits.join(' · ') : 'No access';
+      }
+      function renderList() {
+        if (!_adm) return;
+        var q = String(($('pp_q') && $('pp_q').value) || '').trim().toLowerCase();
+        var on = _adm.users.filter(function (u) { return u.active !== false; }), off = _adm.users.filter(function (u) { return u.active === false; });
+        var noAcc = on.filter(function (u) { return !hasAccess(u); });
+        var chip = function (k, t, n) { return '<button type="button" class="pa-chip' + (_filt === k ? ' on' : '') + '" onclick="__pfilt(\'' + k + '\')">' + t + ' ' + n + '</button>'; };
+        $('pp_chips').innerHTML = chip('all', 'Active', on.length) + chip('none', 'No access', noAcc.length) + (off.length ? chip('off', 'Switched off', off.length) : '');
+        var base = _filt === 'off' ? off : _filt === 'none' ? noAcc : on;
+        var list = base.filter(function (u) {
+          if (!q) return true;
+          return [u.name, u.username, u.title, u.department, u.company, summary(u)].some(function (x) { return x && String(x).toLowerCase().indexOf(q) >= 0; });
+        }).sort(function (a, b) { return String(a.name || a.username).localeCompare(String(b.name || b.username)); });
+        $('pp_list').innerHTML = list.map(function (u) {
+          var meta = [u.title].filter(Boolean).join(' · ');
+          return '<button type="button" class="pa-item' + (u.username === _sel ? ' on' : '') + (u.active === false ? ' off' : '') + '" onclick="__psel(' + jsArg(u.username) + ')">'
+            + '<b>' + esc(u.name || u.username) + '</b><small>' + esc(meta ? meta + ' · ' : '') + esc(summary(u)) + '</small></button>';
+        }).join('') || '<p class="pa-muted">' + (q ? 'Nobody matches “' + esc(q) + '”.' : _filt === 'none' ? 'Everyone has access to at least one app.' : _filt === 'off' ? 'Nobody is switched off.' : 'No people yet.') + '</p>';
+      }
+      window.__afilter = function () { renderList(); };
+      window.__pfilt = function (k) { _filt = k; renderList(); };
+
+      function resetDraft() {
+        var u = _byUser[_sel]; if (!u) { _draft = null; return; }
+        _draft = {role: {}, base: {role: {}}};
+        _adm.cols.forEach(function (c) { _draft.role[c.key] = _draft.base.role[c.key] = (u.modules || {})[c.key] || ''; });
+        _confirm = null;
+      }
+      window.__psel = function (username) { if ((username || null) !== _sel && !leaveOk()) return; _sel = username || null; resetDraft(); _loginAsk = null; $('adminView').classList.toggle('picked', !!_sel); renderList(); renderPerson(); loadHistory(); };
+      window.__punpick = function () { $('adminView').classList.remove('picked'); };
+      window.__pgo = function (username) { if (username !== _sel && !leaveOk()) return; _draft = null; __atab('people'); _filt = (_byUser[username] && _byUser[username].active === false) ? 'off' : 'all'; __psel(username); };
+
+      function changes() {
+        var u = _byUser[_sel], out = [];
+        if (!u || !_draft) return out;
+        _adm.cols.forEach(function (c) {
+          var cur = _draft.base.role[c.key] || '', val = _draft.role[c.key] || '';
+          // Taking away = removing or replacing a role someone holds (review 21 Oct 2026: a demotion asks too).
+          if (val !== cur) out.push({kind: 'role', mod: c.key, from: cur, to: val, takes: !!cur});
+        });
+        return out;
+      }
+      function describeChange(x, who) {
+        if (x.mod === 'platform') return x.to ? 'Make ' + who + ' a System Administrator' : 'Remove ' + who + ' as System Administrator';
+        if (!x.to) return 'Remove ' + who + '’s ' + modName(x.mod) + ' access (' + roleName(x.mod, x.from) + ')';
+        return (x.from ? 'Change ' + who + '’s ' + modName(x.mod) + ' role from ' + roleName(x.mod, x.from) + ' to ' : 'Give ' + who + ' the ' + modName(x.mod) + ' role ') + roleName(x.mod, x.to);
+      }
+      function roleSelect(c, val, disabled) {
+        var groups = {}, order = [];
+        var roles = c.key === 'platform' ? [{key: 'admin', name: 'System Administrator', department: ''}] : c.roles;
+        roles.forEach(function (r) {
+          if (r.archived && r.key !== val) return;
+          var d = r.department || ''; if (!groups[d]) { groups[d] = []; order.push(d); } groups[d].push(r);
+        });
+        if (val && !roles.some(function (r) { return r.key === val; })) { groups['Held now'] = [{key: val, name: roleName(c.key, val)}]; order.push('Held now'); }
+        var opt = function (r) { return '<option value="' + esc(r.key) + '"' + (r.key === val ? ' selected' : '') + '>' + esc(r.name + (r.title && r.title !== r.name ? ' · ' + r.title : '')) + '</option>'; };
+        var opts = '<option value="">' + (c.key === 'platform' ? 'Not a System Administrator' : 'No access') + '</option>';
+        opts += order.length === 1 ? groups[order[0]].map(opt).join('') : order.map(function (d) { return '<optgroup label="' + esc(d || 'Other') + '">' + groups[d].map(opt).join('') + '</optgroup>'; }).join('');
+        return '<label class="sr-only" for="acc_' + c.key + '">' + esc(c.label) + ' role</label><select id="acc_' + c.key + '" class="pa-sel"' + (disabled ? ' disabled' : '') + ' onchange="__pdraft(\'' + c.key + '\',this.value)">' + opts + '</select>';
+      }
+      window.__pdraft = function (mod, val) { if (!_draft) return; _draft.role[mod] = val; _confirm = null; renderPerson(true); };
+      window.__pcancel = function () { resetDraft(); renderPerson(true); };
+
+      function renderPerson(keepHist) {
+        var el = $('pp_panel'); if (!_adm || !el) return;
+        if (!_sel) { el.innerHTML = '<p class="pa-muted">Pick a person from the list' + (_adm.isCOO ? ', or add a new one.' : '.') + '</p>'; return; }
+        if (_sel === 'new') { renderNew(); return; }
+        var u = _byUser[_sel]; if (!u) { el.innerHTML = '<p class="pa-muted">That person is no longer in the list.</p>'; return; }
+        var off = u.active === false, isCOO = _adm.isCOO, who = u.name || u.username, p0 = _adm.platform;
+        var meta = [u.title, u.department, u.company].filter(Boolean).join(' · ');
+        var h = '<button type="button" class="pa-btn pa-back" onclick="__punpick()">← All people</button>'
+          + '<div class="pa-head"><div class="pa-av" aria-hidden="true">' + esc(initials(who)) + '</div><div><p class="pa-name">' + esc(who) + '</p>'
+          + '<p class="pa-sub">' + esc(meta ? meta + ' · ' : '') + 'login ' + esc(u.username) + '</p></div>'
+          + '<span class="pa-tag ' + (off ? 'off">Switched off' : 'on">Active') + '</span></div>';
+        // Access
+        var ch = changes(), dirty = ch.length > 0;
+        var note = off ? 'Switched off: switch this login back on (under Login) before changing access.'
+          : '1 role per app. Change what you need, then press Save access. What each role may do is set under Roles by app.';
+        h += '<div class="pa-sec"><h2>Access</h2><p class="pa-note">' + note + '</p><div class="pa-acc">';
+        _adm.cols.forEach(function (c) {
+          var cur = _draft ? (_draft.base.role[c.key] || '') : ((u.modules || {})[c.key] || ''), val = _draft ? (_draft.role[c.key] || '') : cur;
+          var rowChanged = ch.some(function (x) { return x.mod === c.key; });
+          var lockWhy = (c.key === 'platform' && cur && u.username === window._meUser) ? 'You cannot remove your own System Administrator role.' : '';
+          h += '<div class="pa-row' + (rowChanged ? ' chg' : '') + '"><div class="pa-app">' + esc(c.label) + '<small>' + esc(APP_HINT[c.key] || '') + '</small>' + (rowChanged ? '<span class="pa-chgtxt">Changed, not saved</span>' : '') + '</div>'
+            + '<div>' + roleSelect(c, val, off || !!lockWhy) + (lockWhy ? '<span class="pa-lock">' + esc(lockWhy) + '</span>' : '') + '</div></div>';
+        });
+        h += '</div>';
+        if (_confirm) {
+          h += '<div class="pa-confirm" role="alertdialog" aria-label="Confirm"><b>This takes access away from ' + esc(who) + '. Save all of these changes?</b><ul>'
+            + _confirm.map(function (x) { return '<li>' + esc(describeChange(x, who)) + '</li>'; }).join('') + '</ul>'
+            + '<div class="pa-bar" style="justify-content:flex-start;margin-top:0"><button type="button" class="pa-btn red" onclick="__psave(true)">Yes, save</button><button type="button" class="pa-btn" onclick="__pcancel()">Cancel</button></div></div>';
+        } else {
+          h += '<div class="pa-bar">' + (dirty ? '<span class="pa-muted">' + ch.length + (ch.length === 1 ? ' change' : ' changes') + ' not saved</span>' : '')
+            + '<button type="button" class="pa-btn" onclick="__pcancel()"' + (dirty ? '' : ' disabled') + '>Cancel</button>'
+            + '<button type="button" class="pa-btn pri" onclick="__psave(false)"' + (dirty && !off ? '' : ' disabled') + '>Save access</button></div>';
+        }
+        h += '<div id="pa_accerr" class="pa-err" role="alert"></div></div>';
+        if (isCOO && !p0.people) h += '<div class="pa-sec"><p class="pa-note">Details, switch off and history need the platform migration (P001) on this database. Ask whoever runs the database.</p></div>';
+        if (isCOO) {
+          var p = _adm.platform, f = function (id, label, val, ph, type) { return '<label>' + label + '<input id="pd_' + id + '" class="pa-in" value="' + esc(val || '') + '" placeholder="' + esc(ph || '') + '"' + (type ? ' type="' + type + '"' : '') + ' autocomplete="off"></label>'; };
+          if (p.people) {
+            h += '<div class="pa-sec"><h2>Details</h2><div class="pa-form">' + f('name', 'Name', u.name) + f('title', 'Title', u.title) + f('department', 'Department', u.department)
+              + f('company', 'Company', u.company) + f('whatsapp', 'WhatsApp', u.whatsapp, '03001234567') + f('email', 'Email', u.email, 'name@van.com.pk', 'email') + '</div>'
+              + '<div class="pa-bar"><button type="button" class="pa-btn" onclick="__pdsave()">Save details</button></div><div id="pd_err" class="pa-err" role="alert"></div></div>';
+          }
+          h += '<div class="pa-sec"><h2>Login</h2><p class="pa-note">Login name: ' + esc(u.username) + '</p>'
+            + '<div class="pa-bar" style="justify-content:flex-start"><label class="sr-only" for="pd_pw">New password</label><input id="pd_pw" class="pa-in" style="max-width:260px" type="password" placeholder="New password, 6 or more" autocomplete="new-password">'
+            + '<button type="button" class="pa-btn" onclick="__ppw()">Set new password</button></div><div id="pd_pwerr" class="pa-err" role="alert"></div>';
+          if (p.switchOff && u.username !== window._meUser) {
+            if (_loginAsk) {
+              h += '<div class="pa-confirm" role="alertdialog"><b>' + (off ? 'Switch ' + esc(who) + ' back on?' : 'Switch ' + esc(who) + ' off?') + '</b><p style="margin:6px 0 10px">'
+                + (off ? 'They can sign in again with the roles they had.' : 'They are signed out at once, in every app. Nothing is deleted: their name stays on every record and their roles are kept.') + '</p>'
+                + '<div class="pa-bar" style="justify-content:flex-start;margin-top:0"><button type="button" class="pa-btn ' + (off ? 'pri' : 'red') + '" onclick="__pactive(' + (off ? 'true' : 'false') + ')">' + (off ? 'Yes, switch on' : 'Yes, switch off') + '</button><button type="button" class="pa-btn" onclick="__pask(false)">Cancel</button></div></div>';
+            } else {
+              h += '<div class="pa-bar" style="justify-content:flex-start"><button type="button" class="pa-btn' + (off ? ' pri' : '') + '" onclick="__pask(true)">' + (off ? 'Switch back on…' : 'Switch off…') + '</button></div>';
+            }
+            h += '<div id="pd_acterr" class="pa-err" role="alert"></div>';
+          }
+          h += '</div>';
+          if (p.log) h += '<div class="pa-sec"><h2>History</h2><ul id="pd_hist" class="pa-hist"><li class="pa-muted">Loading…</li></ul></div>';
+        }
+        var histHtml = keepHist && $('pd_hist') ? $('pd_hist').innerHTML : null, typed = {};
+        if (keepHist) ['name', 'title', 'department', 'company', 'whatsapp', 'email', 'pw'].forEach(function (k) { var i = $('pd_' + k); if (i) typed[k] = i.value; });
+        el.innerHTML = h;
+        if (histHtml && $('pd_hist')) $('pd_hist').innerHTML = histHtml;
+        Object.keys(typed).forEach(function (k) { var i = $('pd_' + k); if (i) i.value = typed[k]; });
+        var cf = el.querySelector('.pa-confirm .pa-btn'); if (cf) cf.focus();
+      }
+
+      window.__psave = function (confirmed) { return busy(function () { return psave(confirmed); }); };
+      async function psave(confirmed) {
+        var u = _byUser[_sel]; if (!u || !_draft) return;
+        var ch = changes(); if (!ch.length) return;
+        if (ch.some(function (x) { return x.takes; }) && !confirmed) { _confirm = ch; renderPerson(true); return; }
+        _confirm = null;
+        var who = u.name || u.username, errs = [], saved = [];
+        for (var i = 0; i < ch.length; i++) {
+          var x = ch[i];
+          var res = x.to ? await send('POST', '/api/platform/access', {username: u.username, module: x.mod, role: x.to}) : await send('DELETE', '/api/platform/access', {username: u.username, module: x.mod});
+          if (res.ok) saved.push(describeChange(x, who)); else errs.push(describeChange(x, who) + ': ' + errText(res, 'not saved'));
+        }
+        _draft = null;
+        var fresh = await loadAdmin(); resetDraft(); renderPerson(); loadHistory();
+        var e = $('pa_accerr');
+        var nodot = function (t) { return String(t).replace(/\.+$/, ''); };
+        if (errs.length) { if (e) e.textContent = (saved.length ? 'Saved: ' + saved.map(nodot).join('; ') + '. ' : '') + 'NOT saved: ' + errs.map(nodot).join('; ') + '.'; }
+        else if (!fresh) { if (e) e.textContent = 'Saved, but the list could not be refreshed. Reload the page to see the current access.'; }
+        else toast('Access saved for ' + who);
+      }
+
+      function renderNew() {
+        var f = function (id, label, ph, type) { return '<label>' + label + '<input id="np_' + id + '" class="pa-in" placeholder="' + esc(ph || '') + '"' + (type ? ' type="' + type + '"' : '') + ' autocomplete="off"></label>'; };
+        var ppl = _adm.platform.people;
+        $('pp_panel').innerHTML = '<button type="button" class="pa-btn pa-back" onclick="__punpick()">← All people</button>'
+          + '<p class="pa-name">Add a person</p><p class="pa-sub">Their login starts with no access. Give them their roles once they are created.</p>'
+          + '<div class="pa-sec"><div class="pa-form">' + f('name', 'Full name') + f('user', 'Login name', 'small letters, e.g. first.last')
+          + f('pass', 'First password', '6 or more characters', 'password') + (ppl ? f('title', 'Title') + f('department', 'Department')
+          + f('company', 'Company') + f('whatsapp', 'WhatsApp', '03001234567') + f('email', 'Email', 'name@van.com.pk', 'email') : '') + '</div>'
+          + '<p class="pa-note" style="margin-top:8px">Login name: small letters, numbers, dot, dash or underscore.</p>'
+          + '<div class="pa-bar"><button type="button" class="pa-btn" onclick="__psel(null)">Cancel</button><button type="button" class="pa-btn pri" onclick="__pcreate()">Create login</button></div>'
+          + '<div id="np_err" class="pa-err" role="alert"></div></div>';
+      }
+      window.__pnew = function () { if (!leaveOk()) return; _sel = 'new'; _draft = null; $('adminView').classList.add('picked'); renderList(); renderPerson(); };
+      window.__pcreate = function () { return busy(pcreate); };
+      async function pcreate() {
+        var g = function (id) { var el = $('np_' + id); return el ? el.value.trim() : ''; };
+        var u = g('user').toLowerCase(), n = g('name'), pw = $('np_pass') ? $('np_pass').value : '', err = $('np_err');
+        err.textContent = '';
+        if (!n) { err.textContent = 'Enter their full name.'; return; }
+        if (!/^[a-z0-9._-]{2,}$/.test(u)) { err.textContent = 'Login name: at least 2 small letters, numbers, dot, dash or underscore.'; return; }
+        if (pw.length < 6) { err.textContent = 'The first password needs 6 or more characters.'; return; }
+        if (n.length > 150) { err.textContent = 'The name is too long (150 characters at most).'; return; }
+        var wa = g('whatsapp').replace(/[\s\-().]/g, '');
+        if (wa && !/^\+?\d{10,15}$/.test(wa)) { err.textContent = 'WhatsApp number: digits only, 10 to 15 of them, with an optional + at the start.'; return; }
+        if (g('email') && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(g('email'))) { err.textContent = 'That email address does not look right.'; return; }
+        var res = await send('POST', '/api/platform/users', {username: u, name: n, password: pw});
+        if (!res.ok) { err.textContent = res.status === 409 || /exists/i.test(res.j.error || '') ? 'That login name is taken. Try another.' : errText(res, 'Not created'); return; }
+        var det = {name: n, title: g('title'), department: g('department'), company: g('company'), whatsapp: g('whatsapp'), email: g('email')};
+        var detErr = '';
+        if (_adm.platform.people && (det.title || det.department || det.company || det.whatsapp || det.email)) {
+          var r2 = await send('PATCH', '/api/platform/people/' + encodeURIComponent(u), det);
+          if (!r2.ok) detErr = r2.j.error || 'details not saved';
+        }
+        _sel = u; _draft = null; await loadAdmin(); resetDraft(); renderPerson(); loadHistory();
+        if (detErr) {     // the form is gone, so the message stays on the person's page, with the typed details put back
+          ['title', 'department', 'company', 'whatsapp', 'email'].forEach(function (k) { var i = $('pd_' + k); if (i && det[k]) i.value = det[k]; });
+          var de = $('pd_err'); if (de) de.textContent = 'Login created, but the details were not saved: ' + detErr + ' Correct them below and press Save details.';
+        } else toast('Login created for ' + n + '. Now give their access.');
+      }
+
+      window.__pdsave = function () { return busy(pdsave); };
+      async function pdsave() {
+        var u = _byUser[_sel]; if (!u) return;
+        // Only the boxes the admin changed are sent, so another admin's change to a different box is kept (review 21 Oct 2026).
+        var body = {}; ['name', 'title', 'department', 'company', 'whatsapp', 'email'].forEach(function (k) { var el = $('pd_' + k); if (el && el.value !== String(u[k] == null ? '' : u[k])) body[k] = el.value; });
+        if (!Object.keys(body).length) { toast('Nothing had changed'); return; }
+        var res = await send('PATCH', '/api/platform/people/' + encodeURIComponent(u.username), body);
+        if (!res.ok) { $('pd_err').textContent = errText(res, 'Not saved'); return; }
+        toast(res.j.changed ? 'Details saved' : 'Nothing had changed'); await loadAdmin(); renderPerson(); loadHistory();
+      }
+      window.__ppw = function () { return busy(ppw); };
+      async function ppw() {
+        var u = _byUser[_sel]; if (!u) return;
+        var pw = $('pd_pw').value || '';
+        if (pw.length < 6) { $('pd_pwerr').textContent = 'The new password needs 6 or more characters.'; return; }
+        var res = await send('POST', '/api/platform/people/' + encodeURIComponent(u.username) + '/password', {password: pw});
+        if (!res.ok) { $('pd_pwerr').textContent = errText(res, 'Not set'); return; }
+        $('pd_pw').value = ''; $('pd_pwerr').textContent = ''; toast('New password set for ' + (u.name || u.username)); loadHistory();
+      }
+      window.__pask = function (on) { if (on && !leaveOk()) return; _loginAsk = !!on; renderPerson(true); };
+      window.__pactive = function (on) { return busy(function () { return pactive(on); }); };
+      async function pactive(on) {
+        var u = _byUser[_sel]; if (!u) return;
+        var res = await send('POST', '/api/platform/people/' + encodeURIComponent(u.username) + '/active', {active: on});
+        _loginAsk = null;
+        if (!res.ok) { renderPerson(true); var e = $('pd_acterr'); if (e) e.textContent = errText(res, 'Not changed'); return; }
+        if (!on && _filt !== 'off') _filt = 'off';
+        if (on && _filt === 'off') _filt = 'all';
+        toast((u.name || u.username) + (on ? ' switched back on' : ' switched off')); _draft = null; await loadAdmin(); resetDraft(); renderPerson(); loadHistory();
+      }
+
+      /* History and Activity: plain sentences, names not login names, readable dates. */
+      var FIELD_TEXT = {full_name: 'name', title: 'title', department: 'department', company: 'company', whatsapp: 'WhatsApp', email: 'email'};
+      function fmtVal(v) { if (v == null || v === '') return ''; try { var o = JSON.parse(v); if (o && typeof o === 'object') return Object.keys(o).map(function (k) { return (FIELD_TEXT[k] || k) + ' ' + (o[k] == null || o[k] === '' ? '(blank)' : o[k]); }).join(', '); } catch (e) { } return String(v); }
+      function sentence(x, withSubject) {
+        var subj = withSubject ? personName(x.subject) : '', m = x.module, to = fmtVal(x.after_val), from = fmtVal(x.before_val);
+        var forWho = withSubject ? ' for ' + subj : '';
+        switch (x.action) {
+          case 'account.create': return 'Login created' + forWho;
+          case 'person.update': return 'Details changed' + forWho + (to ? ': ' + to : '');
+          case 'account.password_reset': return 'New password set' + forWho;
+          case 'account.switch_off': return (withSubject ? subj + ' switched off' : 'Switched off');
+          case 'account.switch_on': return (withSubject ? subj + ' switched back on' : 'Switched back on');
+          case 'role.grant': return m === 'platform' ? (withSubject ? subj + ' made System Administrator' : 'Made System Administrator') : (withSubject ? subj + ' given ' : 'Given ') + 'the ' + modName(m) + ' role ' + roleName(m, to);
+          case 'role.change': return modName(m) + ' role changed' + forWho + ' from ' + roleName(m, from) + ' to ' + roleName(m, to);
+          case 'role.revoke': return m === 'platform' ? (withSubject ? subj + ' no longer System Administrator' : 'No longer System Administrator') : modName(m) + ' access removed' + forWho + (from ? ' (was ' + roleName(m, from) + ')' : '');
+          case 'admin.grant': return (withSubject ? subj + ' made' : 'Made') + ' an app admin for ' + modName(m);
+          case 'admin.revoke': return (withSubject ? subj + ' no longer' : 'No longer') + ' an app admin for ' + modName(m);
+          // Roles designed on the Roles by app tab (28 Oct 2026): subject is 'role:<name>'; rights are app codes.
+          case 'role.create': case 'role.rights': case 'role.archive': case 'role.restore': {
+            var rn = String(x.subject || '').replace(/^role:/, ''), pj = function (v) { try { return JSON.parse(v) || {}; } catch (e) { return {}; } };
+            var b = pj(x.before_val), a = pj(x.after_val), br = b.rights || [], ar = a.rights || [];
+            if (x.action === 'role.create') return modName(m) + ' role ' + rn + ' added with ' + ar.length + (ar.length === 1 ? ' right' : ' rights');
+            if (x.action === 'role.archive') return modName(m) + ' role ' + rn + (m === 'c2m' ? ' removed' : ' archived');
+            if (x.action === 'role.restore') return modName(m) + ' role ' + rn + ' restored';
+            var extra = (a.screens || []).map(function (c) { return c.screen + ' ' + c.from + ' → ' + c.to; }).concat(a.department ? ['moved to ' + rDeptName(a.department.to)] : [], a.lead ? ['now leads ' + a.lead.department] : []);
+            var add = ar.filter(function (k) { return br.indexOf(k) < 0; }), rem = br.filter(function (k) { return ar.indexOf(k) < 0; });
+            return modName(m) + ' role ' + rn + ': ' + [add.length ? 'given ' + add.join(', ') : '', rem.length ? 'lost ' + rem.join(', ') : '', (a.label && b.label && a.label !== b.label) ? 'renamed from ' + b.label : ''].concat(extra).filter(Boolean).join('; ') || 'no change';
+          }
+          default: return x.action + forWho;
+        }
+      }
+      function byLine(x) { return fmtWhen(x.at) + ' · by ' + (x.actor === 'system' ? 'the system' : personName(x.actor)) + (x.via === 'o2s-users' ? ' in O2S' : x.via === 'migration' ? ' (data change)' : ''); }
+      async function loadHistory() {
+        if (!_adm || !_adm.isCOO || !_adm.platform.log || !_sel || _sel === 'new') return;
+        var who = _sel;
         try {
-          var r;
-          if (role) {r = await fetch('/api/platform/access', {method: 'POST', headers: Object.assign({'Content-Type': 'application/json'}, auth()), body: JSON.stringify({username: username, module: module, role: role})});}
-          else {r = await fetch('/api/platform/access', {method: 'DELETE', headers: Object.assign({'Content-Type': 'application/json'}, auth()), body: JSON.stringify({username: username, module: module})});}
-          var j = {}; try {j = await r.json();} catch (e) { }
-          if (!r.ok) {toast(j.error || ('Could not update (' + r.status + ')')); loadAdmin(); return;}
-          toast(username + ' — ' + module.toUpperCase() + ' ' + (role ? ('set to ' + role) : 'access removed'));
-          loadAdmin();
-        } catch (e) {toast('Update failed'); loadAdmin();}
-      };
-      // Appoint / remove a subsystem admin (COO only — server enforces).
-      window.__setadmin = async function (username, module, isAdmin) {
-        try {
-          var r = await fetch('/api/platform/admin', {method: 'POST', headers: Object.assign({'Content-Type': 'application/json'}, auth()), body: JSON.stringify({username: username, module: module, is_admin: isAdmin})});
-          var j = {}; try {j = await r.json();} catch (e) { }
-          if (!r.ok) {toast(j.error || ('Could not update (' + r.status + ')')); loadAdmin(); return;}
-          toast(username + (isAdmin ? ' is now' : ' is no longer') + ' a ' + module.toUpperCase() + ' admin');
-          loadAdmin();
-        } catch (e) {toast('Update failed'); loadAdmin();}
+          var r = await fetch('/api/platform/people/' + encodeURIComponent(who) + '/history', {headers: auth()});
+          var el = $('pd_hist'); if (!el || who !== _sel) return;
+          if (!r.ok) { el.innerHTML = '<li class="pa-muted">History could not be loaded (the server answered ' + r.status + ').</li>'; return; }
+          var j = await r.json(), rows = j.rows || [];
+          el.innerHTML = rows.map(function (x) { return '<li><b>' + esc(sentence(x, false)) + '</b><span class="when">' + esc(byLine(x)) + '</span></li>'; }).join('') || '<li class="pa-muted">Nothing recorded yet.</li>';
+          if (rows.length >= 50) el.innerHTML += '<li class="pa-muted">Showing the latest 50 entries.</li>';
+        } catch (e) { var el2 = $('pd_hist'); if (el2) el2.innerHTML = '<li class="pa-muted">History could not be loaded.</li>'; }
+      }
+
+      window.__atab = function (t) {
+        if (_atab === 'roles' && t !== 'roles' && !rLeaveOk()) return;
+        _atab = t;
+        [['people', 'paTabPeople', 'panePeople'], ['roles', 'paTabRoles', 'paneRoles'], ['activity', 'paTabActivity', 'paneActivity']].forEach(function (x) {
+          var on = x[0] === t; $(x[1]).classList.toggle('on', on); $(x[1]).setAttribute('aria-selected', on ? 'true' : 'false'); $(x[2]).style.display = on ? (x[0] === 'people' ? 'grid' : 'block') : 'none';
+        });
+        if (t === 'roles') loadRoles();
+        if (t === 'activity') loadActivity();
       };
 
-      window.__adduser = async function () {
-        var u = ($('au_user').value || '').trim(), n = ($('au_name').value || '').trim(), p = $('au_pass').value || '', err = $('au_err');
-        err.textContent = '';
-        if (!u || !n || !p) {err.textContent = 'Fill in username, name and password.'; return;}
+      /* Roles by app (Tahir, 28 Oct 2026; docs/ROLES-DESIGN.md §3): pick an app, see its roles and who holds them, and design
+         them: add a role, tick what it may do, rename, archive. Each app keeps its own roles; this screen only calls that app's
+         roles service (/api/<app>/rolesvc/...). An app without the service yet shows who holds what, read only. */
+      var _rapp = null, _rsel = null, _rdata = {}, _rdraft = null, _rconfirm = null;
+      function rApps() { return ((_adm && _adm.allMods) || []).filter(function (m) { return m.key !== 'platform' && m.live; }); }
+      function rSame(a, b) { return a.slice().sort().join('|') === b.slice().sort().join('|'); }
+      function rScrSame(a, b) { a = a || {}; b = b || {}; return Object.keys(a).concat(Object.keys(b)).every(function (k) { return a[k] === b[k]; }); }
+      function rDirty() { var d = _rdraft; return !!d && (d.label !== d.base.label || d.department !== d.base.department || !rSame(d.rights, d.base.rights) || !rScrSame(d.screens, d.base.screens) || !!d.lead !== !!d.base.lead || !rSame(d.signoffs || [], d.base.signoffs || [])); }
+      var LVL = {none: 0, view: 1, edit: 2}, LVLNAME = {none: 'No access', view: 'View', edit: 'Edit'};
+      function rScreenName(k) { var x = ((_rdata.cat && _rdata.cat.screens) || []).filter(function (y) { return y.key === k; })[0]; return x ? x.label : k; }
+      // What this save takes away: rights unticked, and screens lowered (Edit to View, anything to No access).
+      function rTakes() {
+        var dr = _rdraft; if (!dr || _rsel === 'new') return [];
+        var out = dr.base.rights.filter(function (k) { return dr.rights.indexOf(k) < 0; }).map(rRightLabel);
+        Object.keys(dr.screens || {}).forEach(function (k) { var a = (dr.base.screens || {})[k], b = dr.screens[k]; if (a && b && LVL[b] < LVL[a]) out.push(rScreenName(k) + ': ' + LVLNAME[a] + ' → ' + LVLNAME[b]); });
+        (dr.base.signoffs || []).forEach(function (k) { if ((dr.signoffs || []).indexOf(k) < 0) out.push('No longer signs: ' + rSignLabel(k)); });
+        return out;
+      }
+      function rSignLabel(k) { var x = ((_rdata.cat && _rdata.cat.signoffs) || []).filter(function (y) { return y.key === k; })[0]; return x ? x.label : k; }
+      function rLeaveOk() { return !rDirty() || window.confirm('Changes to this role are not saved. Leave without saving?'); }
+      window.addEventListener('beforeunload', function (e) { if (rDirty()) { e.preventDefault(); e.returnValue = ''; } });
+      function rHolders(key) {
+        var m = (_rdata.holders || []).filter(function (x) { return x.key === _rapp; })[0], r = m && (m.roles || []).filter(function (x) { return x.key === key; })[0];
+        return r ? r.holders : [];
+      }
+      function rRole(key) { return (_rdata.roles || []).filter(function (x) { return x.key === key; })[0]; }
+      function rRightLabel(k) { var out = k; ((_rdata.cat && _rdata.cat.groups) || []).forEach(function (g) { (g.items || []).forEach(function (i) { if (i.key === k) out = i.label; }); }); return out; }
+      function rDeptName(k) { var d = ((_rdata.cat && _rdata.cat.departments) || []).filter(function (x) { return x.key === k; })[0]; return d ? d.name : (k || ''); }
+      async function loadRoles() {
+        var pane = $('paneRoles'); if (!_adm) return;
+        var apps = rApps(); if (!apps.some(function (a) { return a.key === _rapp; })) _rapp = apps[0] ? apps[0].key : null;
+        if (!_rapp) { pane.innerHTML = '<p class="pa-muted">No live apps to show.</p>'; return; }
+        if (!_rdata.app || _rdata.app !== _rapp) pane.innerHTML = '<p class="pa-muted">Loading…</p>';
+        var get = function (u) { return fetch(u, {headers: auth()}).catch(function () { return null; }); };
+        var rs = await Promise.all([get('/api/platform/holders'), get('/api/' + _rapp + '/rolesvc/catalogue'), get('/api/' + _rapp + '/rolesvc/roles')]);
+        if (!rs[0]) { pane.innerHTML = '<p class="pa-muted">Cannot reach the server. Check the connection and try again.</p>'; return; }
+        if (!rs[0].ok) { pane.innerHTML = '<p class="pa-muted">Could not load who holds what (the server answered ' + rs[0].status + ').</p>'; return; }
+        var svc = !!(rs[1] && rs[1].ok && rs[2] && rs[2].ok);
+        // A real fault is said as it is; only "this address does not exist" (404) means the app has no roles service yet.
+        var bad = [rs[1], rs[2]].filter(function (x) { return !x || (!x.ok && x.status !== 404); })[0];
+        if (!svc && bad !== undefined) {
+          var msg = bad ? (((await bad.json().catch(function () { return {}; })).error) || 'The app answered ' + bad.status + '.') : 'Cannot reach the server.';
+          _rdata = {app: _rapp, holders: [], svc: false}; pane.innerHTML = '<div class="pa-chips">' + rApps().map(function (a) { return '<button type="button" class="pa-chip' + (a.key === _rapp ? ' on' : '') + '" onclick="__rapp(' + jsArg(a.key) + ')">' + esc(a.name) + '</button>'; }).join('') + '</div><p class="pa-err">Roles cannot be loaded for ' + esc(modName(_rapp)) + ': ' + esc(msg) + '</p>'; return;
+        }
+        _rdata = {app: _rapp, holders: (await rs[0].json()).modules || [], svc: svc,
+          cat: svc ? await rs[1].json() : null, roles: svc ? ((await rs[2].json()).roles || []) : null};
+        if (_rsel && _rsel !== 'new' && !rRole(_rsel)) { _rsel = null; _rdraft = null; }
+        renderRoles();
+      }
+      window.__rapp = function (k) { if (k === _rapp || !rLeaveOk()) return; _rapp = k; _rsel = null; _rdraft = null; _rconfirm = null; loadRoles(); };
+      window.__rsel = function (k) {
+        if (k === _rsel || !rLeaveOk()) return;
+        _rsel = k; _rconfirm = null;
+        var r = k === 'new' ? {label: '', department: '', rights: [], screens: {}, lead: false, signoffs: []} : rRole(k);
+        _rdraft = r ? {label: r.label || '', department: r.department || '', rights: (r.rights || []).slice(), screens: Object.assign({}, r.screens || {}), lead: !!r.lead, signoffs: (r.signoffs || []).slice(),
+          base: {label: r.label || '', department: r.department || '', rights: (r.rights || []).slice(), screens: Object.assign({}, r.screens || {}), lead: !!r.lead, signoffs: (r.signoffs || []).slice()}} : null;
+        renderRoles();
+        if (window.innerWidth < 820) { var ed = document.querySelector('#paneRoles .pa-person'); if (ed && ed.scrollIntoView) ed.scrollIntoView({block: 'start'}); }   // on a phone the list sits above the editor
+      };
+      // Typing and ticking update the draft and the buttons in place, so the cursor and the page position never jump.
+      function rCanSave() { var d = _rdata, dr = _rdraft, isNew = _rsel === 'new'; return rDirty() && dr.label.trim().length >= 2 && (!((d.cat && d.cat.departments) || []).length || !isNew || !!dr.department); }
+      function rRefresh() {
+        if (!_rdraft) return; var dirty = rDirty(), hs = _rsel === 'new' ? [] : rHolders(_rsel);
+        var s = $('rl_save'), c = $('rl_cancel'), a = $('rl_archive'), t = $('rl_dirty'), n = $('rl_count');
+        if (s) s.disabled = !rCanSave(); if (c) c.disabled = !dirty; if (a) a.disabled = !!(hs.length || dirty); if (t) t.textContent = dirty ? 'Not saved' : '';
+        if (n) n.textContent = _rdraft.rights.length + ' of ' + _rdata.cat.count + ' ticked.';
+        var cf = document.querySelector('#paneRoles .pa-confirm'); if (cf && _rconfirm) { _rconfirm = null; renderRoles(true); }
+      }
+      window.__rfield = function (f, v) { if (!_rdraft) return; _rdraft[f] = v; rRefresh(); };
+      window.__rscreen = function (k, v, el) { if (!_rdraft) return; _rdraft.screens[k] = v; if (el && el.closest) { var row = el.closest('.pa-scr'); if (row) row.classList.toggle('chg', v !== (_rdraft.base.screens || {})[k]); } rRefresh(); };
+      window.__rlead = function (on) { if (!_rdraft) return; _rdraft.lead = !!on; rRefresh(); };
+      window.__rtick = function (k, on, el) {
+        if (!_rdraft) return; var i = _rdraft.rights.indexOf(k); if (on && i < 0) _rdraft.rights.push(k); if (!on && i >= 0) _rdraft.rights.splice(i, 1);
+        if (el && el.parentNode) el.parentNode.classList.toggle('chg', on !== (_rsel !== 'new' && _rdraft.base.rights.indexOf(k) >= 0));
+        rRefresh();
+      };
+      window.__rsign = function (k, on, el) {
+        if (!_rdraft) return; var l = _rdraft.signoffs, i = l.indexOf(k); if (on && i < 0) l.push(k); if (!on && i >= 0) l.splice(i, 1);
+        if (el && el.parentNode) el.parentNode.classList.toggle('chg', on !== (_rdraft.base.signoffs.indexOf(k) >= 0));
+        rRefresh();
+      };
+      window.__rcancel = function () { var k = _rsel; _rsel = null; _rdraft = null; _rconfirm = null; if (k !== 'new') __rsel(k); else renderRoles(); };
+      function renderRoles(keepScroll) {
+        var pane = $('paneRoles'), d = _rdata, apps = rApps(), app = apps.filter(function (a) { return a.key === _rapp; })[0] || {name: _rapp};
+        var sys = ((d.holders || []).filter(function (m) { return m.key === 'platform'; })[0] || {roles: []}).roles.reduce(function (a, r) { return a.concat(r.holders || []); }, []);
+        var h = '<div class="pa-chips" role="group" aria-label="App">' + apps.map(function (a) { return '<button type="button" class="pa-chip' + (a.key === _rapp ? ' on' : '') + '" onclick="__rapp(' + jsArg(a.key) + ')">' + esc(a.name) + '</button>'; }).join('') + '</div>'
+          + '<p class="pa-lead">Only a System Administrator designs roles' + (sys.length ? ' (' + sys.map(function (x) { return esc(x.name || x.username); }).join(', ') + ')' : '') + '. Give a role to a person on the People tab.</p>';
+        if (!d.svc) {
+          var m = (d.holders || []).filter(function (x) { return x.key === _rapp; })[0] || {roles: []};
+          h += '<div class="pa-card"><h2>' + esc(app.name) + '</h2><p class="pa-note">' + esc(app.name) + ' cannot be designed here yet (it has no roles service), so its roles are still made inside ' + esc(app.name) + '. Who holds what:</p><table class="pa-rtab"><tbody>'
+            + m.roles.map(function (x) { return '<tr><td>' + esc(x.name) + '</td><td>' + (x.holders.length ? x.holders.map(function (p) { return '<button type="button" class="pa-who" onclick="__pgo(' + jsArg(p.username) + ')">' + esc(p.name || p.username) + '</button>'; }).join('') : '<span class="pa-muted">Nobody</span>') + '</td></tr>'; }).join('') + '</tbody></table></div>';
+          pane.innerHTML = h; return;
+        }
+        // the list of roles, grouped by department where the app has departments
+        var groups = {}, order = [];
+        d.roles.forEach(function (r) { var g = r.archived ? '~archived' : (r.department || ''); if (!groups[g]) { groups[g] = []; order.push(g); } groups[g].push(r); });
+        order.sort(function (a, b) { return (a === '~archived') - (b === '~archived'); });
+        var list = order.map(function (g) {
+          return (order.length > 1 || g === '~archived' ? '<p class="pa-glabel">' + esc(g === '~archived' ? 'Archived' : (rDeptName(g) || 'No department')) + '</p>' : '') + groups[g].map(function (r) {
+            var n = rHolders(r.key).length;
+            return '<button type="button" class="pa-item' + (r.key === _rsel ? ' on' : '') + (r.archived ? ' off' : '') + '" onclick="__rsel(' + jsArg(r.key) + ')"><b>' + esc(r.label) + '</b><small>' + (r.locked ? 'every right (locked)' : (r.rights || []).length + ' of ' + d.cat.count + ' rights') + ((r.signoffs || []).length && !r.locked ? ' + ' + r.signoffs.length + (r.signoffs.length === 1 ? ' sign-off' : ' sign-offs') : '') + ' · ' + (n ? n + (n === 1 ? ' person' : ' people') : 'nobody holds it') + '</small></button>';
+          }).join('');
+        }).join('');
+        // "+ Add a role" sits on top of the list (Tahir, 28 Oct 2026).
+        h += '<div class="pa-grid"><aside class="pa-list" aria-label="Roles"><button type="button" class="pa-add top" onclick="__rsel(\'new\')">+ Add a role</button>'
+          + '<div class="pa-items">' + (list || '<p class="pa-muted">No roles yet.</p>') + '</div></aside><section class="pa-person" aria-live="polite">' + roleEditor(app) + '</section></div>';
+        var sc = keepScroll ? window.scrollY : null;
+        pane.innerHTML = h;
+        if (sc !== null) window.scrollTo(0, sc);
+        var cf = pane.querySelector('.pa-confirm .pa-btn'); if (cf) cf.focus();
+      }
+      function roleEditor(app) {
+        var d = _rdata, dr = _rdraft;
+        if (!_rsel || !dr) return '<p class="pa-muted">Pick a role to see and change what it may do, or add a new one.</p>';
+        var isNew = _rsel === 'new', r = isNew ? null : rRole(_rsel), hs = isNew ? [] : rHolders(_rsel), dirty = rDirty();
+        var locked = !!(r && r.locked), canRename = !locked && (isNew || d.cat.rename !== false);
+        var h = '<p class="pa-name">' + esc(isNew ? 'Add a role to ' + app.name : r.label) + '</p>'
+          + '<p class="pa-sub">' + esc(app.name) + (r && r.builtin ? ' · built in' : '') + (r && r.archived ? ' · archived' : '') + (locked ? ' · locked' : '') + '</p>'
+          + (locked ? '<p class="pa-note" style="margin-top:8px">' + esc(d.cat.lockedNote || 'This role cannot be changed here.') + '</p>' : '');
+        h += '<div class="pa-sec"><div class="pa-form"><label>Name<input id="rl_label" class="pa-in" value="' + esc(dr.label) + '"' + (canRename ? '' : ' disabled') + ' autocomplete="off" oninput="__rfield(\'label\',this.value)"></label>';
+        if ((d.cat.departments || []).length) h += '<label>Department<select id="rl_dept" class="pa-sel"' + (isNew || (d.cat.leads && !locked && !(r && r.archived)) ? '' : ' disabled') + ' onchange="__rfield(\'department\',this.value)"><option value="">Choose…</option>'
+          + d.cat.departments.map(function (x) { return '<option value="' + esc(x.key) + '"' + (x.key === dr.department ? ' selected' : '') + '>' + esc(x.name) + '</option>'; }).join('') + '</select></label>';
+        h += '</div>' + (!locked && !isNew && d.cat.rename === false ? '<p class="pa-note" style="margin-top:6px">' + esc(app.name) + ' roles are added, never renamed.</p>' : '');
+        // the department lead (O2S): a lead sees every report of his department; a department always has one
+        if (d.cat.leads && !isNew) h += '<label class="pa-tog" style="margin-top:8px"><input type="checkbox" id="rl_lead"' + (dr.lead ? ' checked' : '') + (locked || dr.base.lead || (r && r.archived) ? ' disabled' : '') + ' onchange="__rlead(this.checked)"> Lead of its department</label>'
+          + (dr.base.lead ? '<p class="pa-note" style="margin-top:4px">This role leads its department. To change that, make another role in the department its lead.</p>' : '');
+        h += '</div>';
+        h += '<div class="pa-sec"><h2>What this role may do</h2><p class="pa-note"><span id="rl_count">' + dr.rights.length + ' of ' + d.cat.count + ' ticked.</span>' + (hs.length && !locked ? ' A change applies to everyone who holds this role.' : '') + '</p>';
+        (d.cat.groups || []).forEach(function (g) {
+          h += '<div class="pa-rgroup"><p class="pa-glabel">' + esc(g.name) + '</p><div class="pa-rights">' + (g.items || []).map(function (i) {
+            // A right the app does not yet answer from these ticks shows the app's own answer today, read only (inForce === false).
+            if (i.inForce === false) { var t = !!(r && ((r.today || []).indexOf(i.key) >= 0 || locked));
+              return '<label class="pa-right ro"><input type="checkbox"' + (t ? ' checked' : '') + ' disabled><span>' + esc(i.label) + '<small>' + esc(i.note || '') + '</small></span></label>'; }
+            var on = dr.rights.indexOf(i.key) >= 0, was = !isNew && dr.base.rights.indexOf(i.key) >= 0;
+            return '<label class="pa-right' + (on !== was ? ' chg' : '') + '"><input type="checkbox"' + (on ? ' checked' : '') + (r && (r.archived || locked) ? ' disabled' : '') + ' onchange="__rtick(' + jsArg(i.key) + ',this.checked,this)"><span>' + esc(i.label) + (i.note ? '<small>' + esc(i.note) + '</small>' : '') + '</span></label>';
+          }).join('') + '</div></div>';
+        });
+        h += '</div>';
+        // What this role signs (O2S sign-offs, D-342): every sign-off listed, ticked for the roles that may sign it. The COO is ticked like any role.
+        if ((d.cat.signoffs || []).length) {
+          h += '<div class="pa-sec"><h2>What this role signs</h2><p class="pa-note">A signature is checked when it is saved: only the roles ticked here may sign. Every sign-off keeps at least one role.' + (hs.length && !locked ? ' A change applies to everyone who holds this role.' : '') + '</p><div class="pa-rights">'
+            + d.cat.signoffs.map(function (i) {
+              var on = dr.signoffs.indexOf(i.key) >= 0, was = dr.base.signoffs.indexOf(i.key) >= 0;
+              return '<label class="pa-right' + (on !== was ? ' chg' : '') + '"><input type="checkbox"' + (on ? ' checked' : '') + (r && (r.archived || locked) ? ' disabled' : '') + ' onchange="__rsign(' + jsArg(i.key) + ',this.checked,this)"><span>' + esc(i.label) + (i.note ? '<small>' + esc(i.note) + '</small>' : '') + '</span></label>';
+            }).join('') + '</div></div>';
+        }
+        // Which screens this role opens (O2S's access matrix): No access, View or Edit. Set after a role is added.
+        if (d.cat.screens) {
+          h += '<div class="pa-sec"><h2>Which screens it opens</h2>' + (isNew ? '<p class="pa-note">Set its screens after adding the role. A new role starts locked out of Lists, People and Correct a record.</p>'
+            : '<p class="pa-note">View: can open and read. Edit: can work on it. ' + (hs.length && !locked ? 'A change applies to everyone who holds this role.' : '') + '</p><div class="pa-scrs">' + d.cat.screens.map(function (x) {
+              var v = (dr.screens || {})[x.key] || 'none', was = (dr.base.screens || {})[x.key];
+              return '<div class="pa-scr' + (v !== was ? ' chg' : '') + '"><span>' + esc(x.label) + '</span><label class="sr-only" for="scr_' + esc(x.key) + '">' + esc(x.label) + '</label><select id="scr_' + esc(x.key) + '" class="pa-sel"' + (locked || (r && r.archived) ? ' disabled' : '') + ' onchange="__rscreen(' + jsArg(x.key) + ',this.value,this)">'
+                + (d.cat.levels || [['none', 'No access'], ['view', 'View'], ['edit', 'Edit']]).map(function (l) { return '<option value="' + l[0] + '"' + (l[0] === v ? ' selected' : '') + '>' + esc(l[1]) + '</option>'; }).join('') + '</select></div>';
+            }).join('') + '</div>') + '</div>';
+        }
+        if (!isNew) h += '<div class="pa-sec"><h2>Who holds it</h2>' + (hs.length ? hs.map(function (p) { return '<button type="button" class="pa-who' + (p.active ? '' : ' off') + '" onclick="__pgo(' + jsArg(p.username) + ')">' + esc(p.name || p.username) + (p.active ? '' : ' (off)') + '</button>'; }).join('') : '<p class="pa-muted">Nobody. Give it to a person on the People tab.</p>') + '</div>';
+        var removed = rTakes();
+        if (locked) {
+          // nothing to save or archive on a locked role
+        } else if (_rconfirm) {
+          h += '<div class="pa-confirm" role="alertdialog" aria-label="Confirm"><b>This takes something away from ' + hs.length + (hs.length === 1 ? ' person' : ' people') + '. Save?</b><ul>'
+            + removed.map(function (k) { return '<li>' + esc(k) + '</li>'; }).join('') + '</ul><p style="margin:0 0 10px">Held by ' + esc(hs.map(function (p) { return p.name || p.username; }).join(', ')) + '.</p>'
+            + '<div class="pa-bar" style="justify-content:flex-start;margin-top:0"><button type="button" class="pa-btn red" onclick="__rsave(true)">Yes, save</button><button type="button" class="pa-btn" onclick="__rcancel()">Cancel</button></div></div>';
+        } else {
+          h += '<div class="pa-bar"><span id="rl_dirty" class="pa-muted">' + (dirty ? 'Not saved' : '') + '</span>'
+            + (!isNew && !r.archived ? '<button type="button" id="rl_archive" class="pa-btn" onclick="__rarchive()"' + (hs.length || dirty ? ' disabled' : '') + '>' + esc(d.cat.archiveWord || 'Archive') + ' role</button>' : '')
+            + '<button type="button" id="rl_cancel" class="pa-btn" onclick="__rcancel()"' + (dirty ? '' : ' disabled') + '>Cancel</button>'
+            + '<button type="button" id="rl_save" class="pa-btn pri" onclick="__rsave(false)"' + (rCanSave() ? '' : ' disabled') + '>' + (isNew ? 'Add role' : 'Save role') + '</button></div>';
+          if (!isNew && r.archived && d.cat.restore) h += '<div class="pa-bar"><button type="button" class="pa-btn" onclick="__rrestore()">Restore role</button></div>';
+          if (!isNew && !r.archived) h += '<p class="pa-note" style="text-align:right;margin-top:6px">' + esc(hs.length ? (d.cat.archiveWord || 'Archive') + ' is possible once nobody holds this role.' : (d.cat.archiveNote || 'An archived role stays on record; nobody can be given it.')) + '</p>';
+        }
+        return h + '<div id="rl_err" class="pa-err" role="alert"></div>';
+      }
+      window.__rsave = function (confirmed) { return busy(function () { return rsave(confirmed); }); };
+      async function rsave(confirmed) {
+        var dr = _rdraft; if (!dr || !rDirty()) return;
+        var isNew = _rsel === 'new', hs = isNew ? [] : rHolders(_rsel);
+        var removed = rTakes();
+        if (removed.length && hs.length && !confirmed) { _rconfirm = true; renderRoles(true); return; }
+        _rconfirm = null;
+        // base / baseLabel: what this screen started from, so the app applies only this admin's own changes (review 28 Oct 2026).
+        var base = '/api/' + _rapp + '/rolesvc/roles', body = {label: dr.label.trim(), rights: dr.rights, base: dr.base.rights, baseLabel: dr.base.label};
+        if (isNew) body.department = dr.department || null;
+        else if (_rdata.cat && _rdata.cat.leads) { body.department = dr.department || null; body.baseDepartment = dr.base.department || null; body.lead = !!dr.lead; body.baseLead = !!dr.base.lead; }
+        if (!isNew && _rdata.cat && _rdata.cat.screens) { body.screens = dr.screens; body.baseScreens = dr.base.screens; }
+        if (_rdata.cat && _rdata.cat.signoffs) { body.signoffs = dr.signoffs; body.baseSignoffs = dr.base.signoffs; }
+        var res = isNew ? await send('POST', base, body) : await send('PUT', base + '/' + encodeURIComponent(_rsel), body);
+        if (!res.ok) { renderRoles(true); var e = $('rl_err'); if (e) e.textContent = errText(res, 'Not saved'); return; }
+        var key = isNew ? ((res.j.role && res.j.role.key) || null) : _rsel;
+        _rdraft = null; _rsel = null;
+        await loadAdmin();          // the People tab offers the new or renamed role at once
+        await loadRoles();
+        if (key) __rsel(key);
+        toast((isNew ? 'Role added: ' : 'Role saved: ') + body.label);
+        if (res.j && res.j.warn) { var w = $('rl_err'); if (w) w.textContent = res.j.warn; }   // e.g. a sign-off nobody can sign now
+      }
+      window.__rarchive = function () { return busy(async function () {
+        var r = rRole(_rsel); if (!r || rHolders(r.key).length) return;
+        var res = await send('POST', '/api/' + _rapp + '/rolesvc/roles/' + encodeURIComponent(r.key) + '/archive', {});
+        if (!res.ok) { var e = $('rl_err'); if (e) e.textContent = errText(res, 'Not archived'); return; }
+        _rdraft = null; var k = _rsel; _rsel = null; await loadAdmin(); await loadRoles(); __rsel(k); toast('Role ' + (_rdata.cat && _rdata.cat.archiveWord === 'Remove' ? 'removed' : 'archived') + ': ' + r.label);
+      }); };
+
+      window.__rrestore = function () { return busy(async function () {
+        var r = rRole(_rsel); if (!r || !r.archived) return;
+        var res = await send('POST', '/api/' + _rapp + '/rolesvc/roles/' + encodeURIComponent(r.key) + '/restore', {});
+        if (!res.ok) { var e = $('rl_err'); if (e) e.textContent = errText(res, 'Not restored'); return; }
+        _rdraft = null; var k = _rsel; _rsel = null; await loadAdmin(); await loadRoles(); __rsel(k); toast('Role restored: ' + r.label);
+      }); };
+
+      /* Activity: every access change, newest first (System Administrator only). */
+      var _acts = [], _actMore = false;
+      async function loadActivity() {
+        var pane = $('paneActivity');
+        pane.innerHTML = '<div class="pa-card"><label class="sr-only" for="act_q">Search activity</label><input id="act_q" class="pa-search" placeholder="Search a name, app or role" oninput="__actfilter()"><ul id="act_list" class="pa-act"><li class="pa-muted">Loading…</li></ul></div>';
         try {
-          var r = await fetch('/api/platform/users', {method: 'POST', headers: Object.assign({'Content-Type': 'application/json'}, auth()), body: JSON.stringify({username: u, name: n, password: p})});
-          var j = {}; try {j = await r.json();} catch (e) { }
-          if (!r.ok) {err.textContent = j.error || ('Could not create (' + r.status + ')'); return;}
-          $('au_user').value = ''; $('au_name').value = ''; $('au_pass').value = '';
-          toast('User ' + j.username + ' created — now grant their modules below');
-          loadAdmin();
-        } catch (e) {err.textContent = 'Create failed.';}
+          var r = await fetch('/api/platform/activity', {headers: auth()});
+          if (!r.ok) { $('act_list').innerHTML = '<li class="pa-muted">Activity could not be loaded (the server answered ' + r.status + ').</li>'; return; }
+          var j = await r.json();
+          _actMore = (j.rows || []).length >= 300;
+          _acts = (j.rows || []).map(function (x) { return {x: x, s: sentence(x, true), b: byLine(x)}; });
+          __actfilter();
+        } catch (e) { $('act_list').innerHTML = '<li class="pa-muted">Could not load the activity.</li>'; }
+      }
+      window.__actfilter = function () {
+        var q = String(($('act_q') && $('act_q').value) || '').trim().toLowerCase(), el = $('act_list'); if (!el) return;
+        var list = _acts.filter(function (a) { return !q || (a.s + ' ' + a.b).toLowerCase().indexOf(q) >= 0; });
+        el.innerHTML = list.map(function (a) { return '<li>' + esc(a.s) + '<span class="when">' + esc(a.b) + '</span></li>'; }).join('') || '<li class="pa-muted">' + (q ? 'Nothing matches.' : 'Nothing recorded yet.') + '</li>';
+        if (_actMore) el.innerHTML += '<li class="pa-muted">Showing the latest 300 changes. Open a person to see their own history.</li>';
       };
 
       if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();

@@ -72,6 +72,6 @@ ok('the DC prints its QC PASSED stamp only on a passed shipment',
 ok('the customer report offers no button while it is pending',
    /if\(g\.qa==='pending'\) return '';/.test(html));
 ok('the QA task is raised for a pending shipment',
-   /qa==='pending'\)\.forEach\(g=>items\.push\(\{role:'QA Inspector'/.test(html));
+   /qa==='pending'\)\.forEach\(g=>items\.push\(\{role:soRole\('inspection'\),alsoRoles:soAlso\('inspection'\)/.test(html));
 
 report('Pre-shipment inspection gate');

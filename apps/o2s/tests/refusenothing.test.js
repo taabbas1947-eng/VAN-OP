@@ -9,7 +9,7 @@ const base = () => ({ console, toasts: [], saved: 0 });
 { const sb = base(); const t = { param: 'K2O', test: 'K2O', spec: '' }; const coa = { status: 'draft', tests: [t] };
   Object.assign(sb, { toast: m => sb.toasts.push(m), state: { role: 'Lab Rep' }, coaCtx: () => ({ b: {}, h: { coa }, L: 'x' }), labIsV2: () => true,
     coaAutoRemark: () => '', sigStamp: () => 'sig', coaOverall: () => 'FIT', qcAudit2: () => {}, logAction: () => {}, save: () => sb.saved++, render: () => {}, closeModal: () => {} });
-  vm.createContext(sb); vm.runInContext(grab('benchSave'), sb);
+  vm.createContext(sb); vm.runInContext(grab('benchSave') + '\n' + H.signoffSrc(), sb);
   sb.benchSave('B', 'L', 0, '30.5', '');
   ok('refused for no FIT/UNFIT', /FIT or UNFIT/.test(sb.toasts.join(' ')));
   eq('the result is not left on the test', t.result, undefined);

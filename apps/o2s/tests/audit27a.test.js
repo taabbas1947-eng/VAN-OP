@@ -12,7 +12,7 @@ const vm = require('vm');
 function run(role, user, rows, fn) {
   const toasts = [];
   const state = { role, currentUser: { name: user, username: user }, audit: [] };
-  const src = ['hardRole', '_uRole', 'truckReadyForReview', 'truckSentBack', 'truckFixers', 'truckSwappers', 'truckMadeByMe', 'reviewTruck'].map(grab).join('\n') + '\nreturn {reviewTruck:reviewTruck,truckMadeByMe:truckMadeByMe};';
+  const src = ['hardRole', '_uRole', 'truckReadyForReview', 'truckSentBack', 'truckFixers', 'truckSwappers', 'truckMadeByMe', 'reviewTruck'].map(grab).join('\n') + '\n' + H.signoffSrc() + '\nreturn {reviewTruck:reviewTruck,truckMadeByMe:truckMadeByMe};';
   const m = new Function('state', 'toast', 'logAction', 'save', 'render', 'shipRowsOf', 'TRUCK_REVIEW_ROLES', 'closeModal', src)(state, t => toasts.push(t), () => {}, () => {}, () => {}, () => rows, ['Supply Chain', 'Warehouse'], () => {});
   if (fn === 'reviewTruck') m.reviewTruck('D1');
   return { toasts, rows, made: m.truckMadeByMe(rows) };

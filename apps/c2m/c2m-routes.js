@@ -72,7 +72,7 @@ module.exports = function mountC2mRoutes(app, deps) {
     try {
       const [[r]] = await q("SELECT role FROM user_module_roles WHERE username=? AND module='c2m'", [req.user.u]);
       const R = r ? (await loadRoles()).get(r.role) : null;
-      if (!R) return res.status(403).json({ error: 'You do not have access to C2M. Ask Tahir to grant it in People and access.' });
+      if (!R) return res.status(403).json({ error: 'You do not have a C2M role. Ask your System Administrator to give you one in People and access.' });
       req.c2m = { role: R.key, user: req.user.u, name: req.user.n || req.user.name || req.user.u, label: R.label, admin: R.admin, actions: R.actions, can: R.can, nav: R.nav, more: R.more };
       next();
     } catch (e) { next(e); }
@@ -175,7 +175,7 @@ module.exports = function mountC2mRoutes(app, deps) {
   async function notice(forRole, text, by) { await q('INSERT INTO c2m_notice (for_role, text, by_user, at) VALUES (?,?,?,?)', [forRole, String(text).slice(0, 400), by, now()]); } // the column holds 400
   /** A cost input that moves GP (labour and FOH rates, packing bills, product type, reprocessed) is saved by Yawar alone;
    *  Tahir is told each time, with how many packs moved (cost review 18 Oct 2026, D-63; ruling 12). */
-  async function costNotice(by, what, re) { await notice('coo', `${what}. ${re ? `${re} pack(s) moved more than the re-approval % and wait in a re-approval item for Yawar.` : 'No pack moved more than the re-approval %.'}`, by); }
+  async function costNotice(by, what, re) { await notice('coo', `${what}. ${re ? `${re} pack(s) moved more than the re-approval % and wait in a re-approval item for the CFO.` : 'No pack moved more than the re-approval %.'}`, by); }
   /** The person who proposed never approves (ruling 19; cost review 18 Oct 2026, D-63). */
   const notSelf = async (proposer, req) => {
     if (req.c2m.admin) return; // the administrator role is exempt from ruling 19 (D-89)
@@ -189,6 +189,72 @@ module.exports = function mountC2mRoutes(app, deps) {
   /* ---------- Page ---------- */
   app.get(['/c2m', '/c2m/'], (req, res) => { res.set('Cache-Control', 'no-store'); res.sendFile(path.join(__dirname, 'c2m.html')); });
   app.get('/c2m/assets/van-logo.png', (req, res) => res.sendFile(path.join(__dirname, 'assets', 'van-logo.png')));
+  /* ---------- Roles service for the platform (Tahir, 28 Oct 2026; platform docs/ROLES-DESIGN.md §4, trial) ----------
+     Only a System Administrator designs C2M's roles, on the platform's Roles by app screen. These 5 calls are registered
+     before the C2M sign-in check below on purpose: a System Administrator needs no C2M role to design C2M's roles.
+     The administrator role (coo, D-89) keeps its business meaning and always holds every action, so it is shown locked. */
+  const SV = deps.services || {};
+  const sysAdmin = async (req, res, next) => {
+    try { if (SV.isSystemAdmin && await SV.isSystemAdmin(req.user.u)) return next(); res.status(403).json({ error: 'Only a System Administrator designs roles.' }); }
+    catch (e) { res.status(503).json({ error: 'C2M cannot check who you are just now. Try again in a minute.' }); }
+  };
+  // subject 'role:<key>', so a role's log rows never mix with a person's history (a role key and a login can be the same word).
+  const svcLog = (action, key, before, after) => { try { if (SV.logAccess) return SV.logAccess({ action, subject: 'role:' + key, module: 'c2m', before, after, via: 'roles' }); } catch (e) {} };
+  const svcRole = r => ({ key: r.key, label: r.label, department: null, builtin: r.builtin, archived: false, locked: !!r.admin, rights: r.actions });
+  app.get('/api/c2m/rolesvc/catalogue', auth, sysAdmin, (req, res) => res.json({
+    groups: AC.CATALOGUE.map(g => ({ name: g.group, items: g.items.map(i => ({ key: i[0], label: i[1] })) })),
+    count: AC.ALL_KEYS.length, rename: true, departments: [], lockedNote: "C2M's administrator role always holds every action (D-89).",
+    archiveWord: 'Remove', archiveNote: 'C2M has no archive: a role nobody holds is removed for good, and C2M\'s change record keeps what it was. Built-in roles cannot be removed.'
+  }));
+  app.get('/api/c2m/rolesvc/roles', auth, sysAdmin, wrap(async (req, res) => { res.json({ roles: [...(await loadRoles()).values()].map(svcRole) }); }));
+  app.post('/api/c2m/rolesvc/roles', auth, sysAdmin, wrap(async (req, res) => {
+    await needTable(); const b = req.body || {}; const label = cleanLabel(b.label), actions = cleanActions(b.rights);
+    const key = AC.slug(label); if (!key) throw bad('Give the role a name of 2 to 60 letters.');
+    await tx(async () => {
+      const [[dup]] = await q('SELECT role_key FROM c2m_role WHERE role_key=? OR LOWER(label)=LOWER(?) FOR UPDATE', [key, label]); if (dup) throw bad('A role with this name already exists.');
+      await q('INSERT INTO c2m_role (role_key, label, is_admin, actions_json, builtin, updated_by, updated_at) VALUES (?,?,0,?,0,?,?)', [key, label, JSON.stringify(actions), req.user.u, now()]);
+      await audit(req.user.u, 'role', key, 'create', null, { label, actions }, null);
+    });
+    await svcLog('role.create', key, null, { label, rights: actions });
+    res.json({ ok: true, role: { key, label } });
+  }));
+  app.put('/api/c2m/rolesvc/roles/:key', auth, sysAdmin, wrap(async (req, res) => {
+    await needTable(); const b = req.body || {}; const label = cleanLabel(b.label), actions = cleanActions(b.rights); let before = null, after = null;
+    const seen = Array.isArray(b.base) ? cleanActions(b.base) : null, seenLabel = b.baseLabel != null ? String(b.baseLabel) : null;
+    await tx(async () => {
+      const [[r]] = await q('SELECT * FROM c2m_role WHERE role_key=? FOR UPDATE', [req.params.key]); if (!r) throw bad('This role does not exist.');
+      if (Number(r.is_admin)) throw bad("C2M's administrator role always holds every action (D-89), so it cannot be changed here.");
+      const [[dup]] = await q('SELECT role_key FROM c2m_role WHERE LOWER(label)=LOWER(?) AND role_key<>?', [label, r.role_key]); if (dup) throw bad('A role with this name already exists.');
+      before = { label: r.label, rights: JSON.parse(r.actions_json) };
+      // Review 28 Oct 2026: apply only this admin's own changes, measured from what their screen showed, onto the role as it is now.
+      const from = seen || before.rights, now0 = before.rights;
+      const added = actions.filter(k => !from.includes(k) && !now0.includes(k)), removed = from.filter(k => !actions.includes(k) && now0.includes(k));
+      const merged = cleanActions(now0.filter(k => !removed.includes(k)).concat(added));
+      const newLabel = (seenLabel != null && label === seenLabel) ? r.label : label;   // unchanged on screen: keep a rename made meanwhile
+      after = { label: newLabel, rights: merged };
+      await q('UPDATE c2m_role SET label=?, actions_json=?, updated_by=?, updated_at=? WHERE role_key=?', [newLabel, JSON.stringify(merged), req.user.u, now(), r.role_key]);
+      await audit(req.user.u, 'role', r.role_key, 'edit', { label: r.label, actions: before.rights }, { label: newLabel, actions: merged }, null);
+    });
+    await svcLog('role.rights', req.params.key, before, after);
+    res.json({ ok: true, role: { key: req.params.key, label } });
+  }));
+  // C2M has no archived mark: a role nobody holds is removed, and C2M's audit keeps what it was (to confirm with C2M's owner).
+  app.post('/api/c2m/rolesvc/roles/:key/archive', auth, sysAdmin, wrap(async (req, res) => {
+    await needTable(); let before = null;
+    await tx(async () => {
+      const [[r]] = await q('SELECT * FROM c2m_role WHERE role_key=? FOR UPDATE', [req.params.key]); if (!r) throw bad('This role does not exist.');
+      if (Number(r.is_admin)) throw bad("C2M's administrator role cannot be removed.");
+      if (AC.BUILTIN.includes(r.role_key)) throw bad('Built-in C2M roles cannot be removed: C2M sends notices to them.');   // review 28 Oct: e.g. notices to 'cfo'
+      const [[n]] = await q("SELECT COUNT(*) n FROM user_module_roles WHERE module='c2m' AND role=?", [r.role_key]);
+      if (n.n) throw bad(`${n.n} ${n.n === 1 ? 'person holds' : 'people hold'} this role. Give them another role on the People tab first.`);
+      before = { label: r.label, rights: JSON.parse(r.actions_json) };
+      await q('DELETE FROM c2m_role WHERE role_key=?', [r.role_key]);
+      await audit(req.user.u, 'role', r.role_key, 'delete', { label: r.label, actions: before.rights }, null, 'archived from the platform Roles screen');
+    });
+    await svcLog('role.archive', req.params.key, before, null);
+    res.json({ ok: true });
+  }));
+
   app.use('/api/c2m', (req, res, next) => checkDates().then(f => f ? res.status(503).json({ error: f }) : next(), () => res.status(503).json({ error: 'C2M cannot reach the database. Try again in a minute.' })), auth, c2mAuth);
 
   /** A viewer type role (a KAM): sees only the lists and clients granted to him. The same test build() uses. */
@@ -679,7 +745,7 @@ module.exports = function mountC2mRoutes(app, deps) {
       for (const l of lines) await q('INSERT INTO c2m_packing_bill_line (packing_bill_id, packing_item_id, level, pieces, packs_per_outer) VALUES (?,?,?,?,?)', [billId, Number(l.itemId), l.level === 'secondary' ? 'secondary' : 'primary', Number(l.pieces), l.level === 'secondary' ? Number(l.packsPerOuter) : null]);
       await audit(req.c2m.user, 'packing_bill', billId, id ? 'update' : 'create', id ? oldBill : null, { name: nm, lines }, null);
       if (id) re = await reapprovalFor(`Packing bill "${nm}" changed, ${today()}`, p => p.packing_bill_id === billId);
-      if (id) await costNotice(req.c2m.user, `Packing bill "${nm}" changed by Yawar`, re);
+      if (id) await costNotice(req.c2m.user, `Packing bill "${nm}" changed by the CFO`, re);
     });
     res.json({ id: billId, reapproval: re });
   }));
@@ -692,7 +758,7 @@ module.exports = function mountC2mRoutes(app, deps) {
       await q('UPDATE c2m_client_pack SET packing_bill_id=? WHERE id=?', [billId || null, p.id]);
       await audit(req.c2m.user, 'client_pack', p.id, 'packing_bill', p.packing_bill_id, billId || null, null);
       re = await reapprovalFor(`Packing bill changed on a pack, ${today()}`, x => x.id === p.id);
-      await costNotice(req.c2m.user, `Packing bill of pack ${p.id} changed by Yawar`, re);
+      await costNotice(req.c2m.user, `Packing bill of pack ${p.id} changed by the CFO`, re);
     });
     res.json({ ok: true, reapproval: re });
   }));
@@ -736,13 +802,13 @@ module.exports = function mountC2mRoutes(app, deps) {
     let id, re = 0;
     await tx(async () => {
       const [r] = await q('INSERT INTO c2m_conversion_rule (name, kind, rs_per_kg, scope_client_product_id, scope_base_product_id, scope_form, scope_reprocessed, scope_pack_min, scope_pack_max, valid_from, source) VALUES (?,?,?,?,?,?,?,?,?,?,?)',
-        [String(b.name).slice(0, 160), b.kind, strictNum(b.rsPerKg), null, scope === 'type' ? Number(b.baseProductId) : null, b.form || null, b.reprocessed == null || b.reprocessed === '' ? null : Number(b.reprocessed), b.packMin ? strictNum(b.packMin) : null, b.packMax ? strictNum(b.packMax) : null, b.validFrom || today(), String(b.source || 'Entered by Yawar').slice(0, 200)]);
+        [String(b.name).slice(0, 160), b.kind, strictNum(b.rsPerKg), null, scope === 'type' ? Number(b.baseProductId) : null, b.form || null, b.reprocessed == null || b.reprocessed === '' ? null : Number(b.reprocessed), b.packMin ? strictNum(b.packMin) : null, b.packMax ? strictNum(b.packMax) : null, b.validFrom || today(), String(b.source || 'Entered by the CFO').slice(0, 200)]);
       id = r.insertId;
       if (scope === 'variant') await q('INSERT INTO c2m_rule_variant (rule_id, pvariant_id) VALUES (?,?)', [id, pvId]);
       for (const cpId of new Set(ids)) await q('INSERT INTO c2m_conversion_rule_product (rule_id, client_product_id) VALUES (?,?)', [id, cpId]);
       await audit(req.c2m.user, 'conversion_rule', id, 'create', null, b, null);
       re = await reapprovalFor(`Conversion rule "${String(b.name).slice(0, 80)}" added, ${today()}`);
-      await costNotice(req.c2m.user, `${b.kind === 'labour' ? 'Labour' : 'FOH'} rate "${String(b.name).slice(0, 80)}" added at Rs ${strictNum(b.rsPerKg)} per kg or L by Yawar`, re);
+      await costNotice(req.c2m.user, `${b.kind === 'labour' ? 'Labour' : 'FOH'} rate "${String(b.name).slice(0, 80)}" added at Rs ${strictNum(b.rsPerKg)} per kg or L by the CFO`, re);
     });
     res.json({ id, reapproval: re });
   }));
@@ -757,7 +823,7 @@ module.exports = function mountC2mRoutes(app, deps) {
       await q('UPDATE c2m_client_product SET base_product_id=? WHERE id=?', [typeId, cp.id]);
       await audit(req.c2m.user, 'client_product', cp.id, 'type', cp.base_product_id, typeId, null);
       re = await reapprovalFor(`Product type changed, ${today()}`, p => p.client_product_id === cp.id);
-      await costNotice(req.c2m.user, `Product type of client product ${cp.id} changed by Yawar`, re);
+      await costNotice(req.c2m.user, `Product type of client product ${cp.id} changed by the CFO`, re);
     });
     res.json({ ok: true, reapproval: re });
   }));
@@ -769,7 +835,7 @@ module.exports = function mountC2mRoutes(app, deps) {
       await q('UPDATE c2m_client_product SET reprocessed=? WHERE id=?', [v, cp.id]);
       await audit(req.c2m.user, 'client_product', cp.id, 'reprocessed', cp.reprocessed, v, null);
       re = await reapprovalFor(`Reprocessed flag changed, ${today()}`, p => p.client_product_id === cp.id);
-      await costNotice(req.c2m.user, `Reprocessed flag of client product ${cp.id} turned ${v ? 'on' : 'off'} by Yawar`, re);
+      await costNotice(req.c2m.user, `Reprocessed flag of client product ${cp.id} turned ${v ? 'on' : 'off'} by the CFO`, re);
     });
     res.json({ ok: true, reapproval: re });
   }));
@@ -926,7 +992,7 @@ module.exports = function mountC2mRoutes(app, deps) {
       const [[cp]] = await q('SELECT * FROM c2m_client_product WHERE id=? FOR UPDATE', [req.params.id]); if (!cp) throw bad('Product not found.');
       if (cp.channel !== 'White label') throw bad('A VAN brand product is put out of use in Setup, Products and variants.');
       if (Number(cp.active) === (on ? 1 : 0)) throw bad(on ? 'It is in use already.' : 'It is out of use already.');
-      if (!on) { const [[w]] = await q("SELECT COUNT(*) n FROM c2m_price p JOIN c2m_client_pack k ON k.id=p.client_pack_id WHERE k.client_product_id=? AND p.status='proposed'", [cp.id]); if (Number(w.n)) throw bad('A price for this product is waiting for Tahir. Let him decide it first.'); }
+      if (!on) { const [[w]] = await q("SELECT COUNT(*) n FROM c2m_price p JOIN c2m_client_pack k ON k.id=p.client_pack_id WHERE k.client_product_id=? AND p.status='proposed'", [cp.id]); if (Number(w.n)) throw bad('A price for this product is waiting for the COO. Let him decide it first.'); }
       if (on) { // put back: no other product of the client may already use its name and a pack size (an O2S line could not tell them apart)
         const D = await engine.loadAll(q); const nm0 = namesOf(cp); const [mk] = await q('SELECT pack_size FROM c2m_client_pack WHERE client_product_id=?', [cp.id]); const mine = mk.map(x => Number(x.pack_size));
         const clash = D.cps.find(c => Number(c.customer_id) === Number(cp.customer_id) && Number(c.id) !== Number(cp.id) && c.channel === 'White label' && namesOf(c).some(n => nm0.some(m => nmK(m) === nmK(n))) && D.packs.some(k => Number(k.client_product_id) === Number(c.id) && mine.some(z => Math.abs(Number(k.pack_size) - z) < 1e-9)));
@@ -1061,7 +1127,7 @@ module.exports = function mountC2mRoutes(app, deps) {
       const gaps = packsWithoutRates(await engine.loadAll(q)); if (gaps.length) throw bad(`Retiring this rate leaves ${gaps.length} pack(s) with no rate, e.g. ${gaps.slice(0, 3).join('; ')}. Add the replacing rate first.`);
       await audit(req.c2m.user, 'conversion_rule', req.params.id, 'retire', null, null, why);
       re = await reapprovalFor(`Conversion rule ${req.params.id} retired, ${today()}`);
-      await costNotice(req.c2m.user, `Labour or FOH rate ${req.params.id} retired by Yawar (${why.slice(0, 120)})`, re);
+      await costNotice(req.c2m.user, `Labour or FOH rate ${req.params.id} retired by the CFO (${why.slice(0, 120)})`, re);
     });
     res.json({ ok: true, reapproval: re });
   }));
@@ -1089,7 +1155,7 @@ module.exports = function mountC2mRoutes(app, deps) {
     if (!String(reason || '').trim()) throw bad('Write the reason the client will read on the list.'); // written by Yawar, never pre-filled (D-56)
     const id = await tx(async () => {
       const [[open]] = await q("SELECT id FROM c2m_price WHERE client_pack_id=? AND status='proposed' FOR UPDATE", [P.p.id]);
-      if (open) throw bad('This pack already has a price waiting for Tahir. Wait for his decision first.');
+      if (open) throw bad('This pack already has a price waiting for the COO. Wait for his decision first.');
       if (replaceId) { const [u] = await q("UPDATE c2m_price SET status='replaced' WHERE id=? AND client_pack_id=? AND status='sent_back'", [replaceId, P.p.id]); if (!u.affectedRows) throw moved(); await audit(req.c2m.user, 'price', replaceId, 'replaced', 'sent_back', 'replaced', 'Revised and sent again'); }
       // 1.0.0: a new price for the pack also closes any older sent-back price of that pack, so none stays on Approvals with no way out (review 19 Oct)
       const [old] = await q("SELECT id FROM c2m_price WHERE client_pack_id=? AND status='sent_back' FOR UPDATE", [P.p.id]);
@@ -1129,7 +1195,7 @@ module.exports = function mountC2mRoutes(app, deps) {
       await audit(req.c2m.user, 'price', p.id, 'approve', cur ? cur.price : null, p.price, from > today() ? `Takes over on ${from}` : null);
       res.locals.out = { ok: true, waitsUntil: from > today() ? from : null, cancelled: waiting.length };
       if (waiting.length) { const issued = []; for (const w of waiting) issued.push(...await docsShowingPrice(w));
-        await notice('cfo', `A price waiting for a later date was cancelled by Tahir's newer approval for the same pack (price ${p.id}).${issued.length ? ` Already issued with the cancelled price: ${issued.join(', ')}. Tell the client.` : ''}`, req.c2m.user); }
+        await notice('cfo', `A price waiting for a later date was cancelled by the COO's newer approval for the same pack (price ${p.id}).${issued.length ? ` Already issued with the cancelled price: ${issued.join(', ')}. Tell the client.` : ''}`, req.c2m.user); }
     });
     res.json(res.locals.out);
   }));
@@ -1143,7 +1209,7 @@ module.exports = function mountC2mRoutes(app, deps) {
       await audit(req.c2m.user, 'price', p.id, 'withdrawn', p.price, null, why);
       // Tell Yawar, and name any price list already issued that shows this price (review: withdraw told nobody)
       const docs = await docsShowingPrice(p);
-      await notice('cfo', `Tahir withdrew the price Rs ${Number(p.price)} waiting from ${String(p.valid_from).slice(0, 10)}. Why: ${why.slice(0, 150)}${docs.length ? `. Already issued with it: ${docs.join(', ')}. Tell the client.` : ''}`, req.c2m.user);
+      await notice('cfo', `The COO withdrew the price Rs ${Number(p.price)} waiting from ${String(p.valid_from).slice(0, 10)}. Why: ${why.slice(0, 150)}${docs.length ? `. Already issued with it: ${docs.join(', ')}. Tell the client.` : ''}`, req.c2m.user);
       res.locals.out = { ok: true, issuedDocs: docs };
     });
     res.json(res.locals.out);
@@ -1215,7 +1281,7 @@ module.exports = function mountC2mRoutes(app, deps) {
     const rid = await tx(async () => {
       await q('SELECT id FROM c2m_client_product WHERE id=? FOR UPDATE', [cp.id]);
       const [[openReq]] = await q("SELECT id FROM c2m_target_request WHERE client_product_id=? AND status='open'", [cp.id]);
-      if (openReq) throw bad('This product already has a target change waiting for Tahir. Wait for his decision first.');
+      if (openReq) throw bad('This product already has a target change waiting for the COO. Wait for his decision first.');
       const [r] = await q('INSERT INTO c2m_target_request (client_product_id, from_gp, to_gp, reason, by_user, at) VALUES (?,?,?,?,?,?)', [cp.id, cp.target_gp, toCo ? 0 : Number(toGp), String(reason).slice(0, 400), req.c2m.user, now()]);
       await audit(req.c2m.user, 'target_request', r.insertId, 'request', cp.target_gp, toCo ? 'company target' : Number(toGp), reason);
       return r.insertId;
@@ -1344,7 +1410,7 @@ module.exports = function mountC2mRoutes(app, deps) {
     const { username, kind, value, on } = req.body || {};
     if (!['list', 'client'].includes(kind)) throw bad('Unknown grant.');
     const [[person]] = await q("SELECT username FROM user_module_roles WHERE username=? AND module='c2m'", [username]); if (!person) throw bad('This person has no C2M access.');
-    if (kind === 'list' && (!PL.AUDIENCES[value] || value === 'mrp')) throw bad(value === 'mrp' ? 'The MRP printing list is for Tahir and Yawar only; it is not given to a manager.' : 'Unknown price list.');
+    if (kind === 'list' && (!PL.AUDIENCES[value] || value === 'mrp')) throw bad(value === 'mrp' ? 'The MRP printing list is for the COO and the CFO only; it is not given to a manager.' : 'Unknown price list.');
     if (kind === 'client') { const [[c]] = await q('SELECT id FROM c2m_customer WHERE name=?', [value]); if (!c) throw bad('Unknown client.'); }
     if (on) await q('INSERT IGNORE INTO c2m_list_grant (username, grant_kind, grant_value, granted_by, granted_at) VALUES (?,?,?,?,?)', [username, kind, value, req.c2m.user, now()]);
     else await q('DELETE FROM c2m_list_grant WHERE username=? AND grant_kind=? AND grant_value=?', [username, kind, value]);
@@ -1499,7 +1565,7 @@ module.exports = function mountC2mRoutes(app, deps) {
           if (!l.noPack) { /* Undo while a revision adds a pack to this list would leave a row with no pack beside that add (review 1.0.1, design finding 6) */
             const [pend] = await q("SELECT items_json FROM c2m_list_revision WHERE list_name=? AND (status='proposed' OR (status='approved' AND applied=0))", [row.list_name]);
             const add = pend.flatMap(x => JSON.parse(x.items_json)).find(it => it.id == null && it.added);
-            if (add) throw bad(`A revision that adds ${add.product} ${add.pack} to this list is with Tahir or waits for its date. Undo the mark after it is decided or takes effect.`); }
+            if (add) throw bad(`A revision that adds ${add.product} ${add.pack} to this list is with the COO or waits for its date. Undo the mark after it is decided or takes effect.`); }
           if (l.noPack) { delete d.packId; d.noPack = 1; d.noPackBy = req.c2m.user; d.noPackAt = today(); } else { delete d.noPack; delete d.noPackBy; delete d.noPackAt; }
           await q('UPDATE c2m_list_price SET data_json=? WHERE id=?', [JSON.stringify(d), id]);
           await audit(req.c2m.user, 'list_price', String(id), l.noPack ? 'not_c2m_pack' : 'not_c2m_pack_undone', l.noPack ? was : 'not a C2M pack', l.noPack ? 'not a C2M pack' : null, `${row.list_name}: ${d.p}${d.pack ? ' ' + d.pack : ''}`); n++;
@@ -1508,7 +1574,7 @@ module.exports = function mountC2mRoutes(app, deps) {
         if (was === pid) continue;
         if (was != null && pid != null) { /* a move of a row an open revision holds would carry its new prices to another pack: refused, as Take off a list (review 1.0.3 re-check, finding 1) */
           const [pend] = await q("SELECT items_json FROM c2m_list_revision WHERE list_name=? AND (status='proposed' OR (status='approved' AND applied=0))", [row.list_name]);
-          if (pend.some(x => JSON.parse(x.items_json).some(it => Number(it.id) === id))) throw bad(`A list revision with Tahir, or approved and waiting for its date, changes ${d.p}${d.pack ? ' ' + d.pack : ''}. Move it after the revision is decided or takes effect.`); }
+          if (pend.some(x => JSON.parse(x.items_json).some(it => Number(it.id) === id))) throw bad(`A list revision with the COO, or approved and waiting for its date, changes ${d.p}${d.pack ? ' ' + d.pack : ''}. Move it after the revision is decided or takes effect.`); }
         if (pid != null) { // 1 row per pack on each list (D-77: each VAN pack held once; this replaces the D-73 tolerance of 2 rows on 1 pack, review 19 Oct)
           const [others] = await q('SELECT id, data_json FROM c2m_list_price WHERE list_name=? AND id<>? FOR UPDATE', [row.list_name, id]);
           const finalPack = o => { const later = links.find(x => x && Number(x.id) === Number(o.id) && x.noPack === undefined); return later ? (later.packId == null || later.packId === '' ? null : Number(later.packId)) : Number(JSON.parse(o.data_json).packId); }; // the batch as a whole: 2 rows can swap packs in 1 save (review 1.0.3)
@@ -1516,7 +1582,7 @@ module.exports = function mountC2mRoutes(app, deps) {
           if (dupRow) throw bad(`Another row of this list (${JSON.parse(dupRow.data_json).p}${JSON.parse(dupRow.data_json).pack ? ' ' + JSON.parse(dupRow.data_json).pack : ''}) is on that pack: each pack has 1 row on a list. ${master ? 'Move that row to another pack in the same save (to swap the 2), or take it off the list first.' : 'Unlink or change that row first.'}`); }
         if (pid != null) { // a pack waiting to be added to this list by a revision cannot also be linked to a row of it (review 1.0.0, finding 2)
           const [pend] = await q("SELECT items_json FROM c2m_list_revision WHERE list_name=? AND (status='proposed' OR (status='approved' AND applied=0))", [row.list_name]);
-          if (pend.some(x => JSON.parse(x.items_json).some(it => it.id == null && it.added && Number(it.packId) === pid))) throw bad(`That pack waits to be added to this list in a revision that is with Tahir or approved and waiting for its date. Link the row after it is decided or takes effect, or ask Tahir to send it back or withdraw it.`); }
+          if (pend.some(x => JSON.parse(x.items_json).some(it => it.id == null && it.added && Number(it.packId) === pid))) throw bad(`That pack waits to be added to this list in a revision that is with the COO or approved and waiting for its date. Link the row after it is decided or takes effect, or ask the COO to send it back or withdraw it.`); }
         if (pid != null) { /* a row whose size and unit can be read links only to a pack of that size and unit: the link renames the printed row (review 1.0.2 re-checks; the screens offer only those packs) */
           const z = lib.listRowSize(row.list_name === 'farmer' ? d.p : d.pack), pk = D.packs.find(k => Number(k.id) === pid), c0 = D.cpById.get(pk.client_product_id);
           if (z && (Math.abs(z.v - Number(pk.pack_size)) > 1e-6 || z.u !== (c0.sold_per || 'kg'))) throw bad(`${d.p}${d.pack ? ' ' + d.pack : ''} is written as ${lib.officialPack(z.v, z.u)}; ${c0.brand} ${lib.officialPack(pk.pack_size, c0.sold_per)} is another size or unit. Pick a pack of the same size and unit: the link renames the row on the printed list.`); }
@@ -1621,7 +1687,7 @@ module.exports = function mountC2mRoutes(app, deps) {
       if (cp.brand !== was.brand || String(cp.o2s_brand).split('|').filter(Boolean).join('|') !== was.o2s) throw Object.assign(new Error(`Someone changed the names of ${cp.brand} a moment ago (now: ${namesOf(cp).join(', ')}). Nothing was saved: check them and edit again.`), { status: 409 });
       const nb = nmClean(brand == null ? cp.brand : brand); if (!nb) throw bad('Write the official name.'); if (nb.length > 120) throw bad('The official name can be at most 120 characters.');
       if (/[|]/.test(nb)) throw bad('A name cannot hold the sign |.');
-      if (nmK(nb) !== nmK(cp.brand) && lib.listRowSize(nb)) throw bad(`The official name is the trade name only (Tahir, 20 Oct 2026): write it with no pack size; the lists add the pack (1 L, 25 kg, 500 ml).`); // a size in the name would be read as the row's size (review 1.0.2 re-check 4, finding 1)
+      if (nmK(nb) !== nmK(cp.brand) && lib.listRowSize(nb)) throw bad(`The official name is the trade name only (ruling of 20 Oct 2026): write it with no pack size; the lists add the pack (1 L, 25 kg, 500 ml).`); // a size in the name would be read as the row's size (review 1.0.2 re-check 4, finding 1)
       const sp = o2sNames == null ? String(cp.o2s_brand).split('|') : o2sNames.slice();
       const uniq = a => { const seen = new Set(); return a.map(nmClean).filter(s => s && !seen.has(nmK(s)) && seen.add(nmK(s))); };
       let list = uniq(sp); if (list.some(s => /[|]/.test(s))) throw bad('A name cannot hold the sign |.');
@@ -1670,7 +1736,7 @@ module.exports = function mountC2mRoutes(app, deps) {
         if (on.length) throw bad(`${cp.brand} is on ${on.length} price list ${on.length === 1 ? 'row' : 'rows'} (${on.slice(0, 3).map(x => x.d.p + (x.d.pack ? ' ' + x.d.pack : '')).join('; ')}). ${(await masterOn()) ? `Take ${on.length === 1 ? 'it' : 'them'} off the ${on.length === 1 ? 'list' : 'lists'} first (Client prices, VAN brand prices, Take off a list), or move ${on.length === 1 ? 'that price' : 'those prices'} to another pack` : `Take ${on.length === 1 ? 'that row' : 'those rows'} off the list, link ${on.length === 1 ? 'it' : 'them'} to the right pack, or unlink, first`}: a list row cannot point to a product out of use.`);
         const [pend] = await q("SELECT items_json FROM c2m_list_revision WHERE status='proposed' OR (status='approved' AND applied=0)"); if (pend.some(r => JSON.parse(r.items_json).some(it => it.id == null && it.added && packIds.includes(Number(it.packId))))) throw bad(`A list revision adds a pack of ${cp.brand}: take it out of use after the revision is decided or takes effect.`);
         { const [[rv]] = await q("SELECT version_no FROM c2m_recipe_version WHERE client_product_id=? AND state IN ('draft','review','endorse','cost') LIMIT 1", [id]); if (rv) throw bad(`${cp.brand} has recipe version ${rv.version_no} in the workflow (production, QC or cost). Take it out of use once that version is approved: out of use, it could not be approved.`); } // review 1.0.2 re-check 2, A1
-        if (packIds.length) { const [[pw]] = await q(`SELECT COUNT(*) n FROM c2m_price WHERE status='proposed' AND client_pack_id IN (${qs(packIds)})`, packIds); if (Number(pw.n)) throw bad(`A price for ${cp.brand} waits for Tahir: decide it first.`); }
+        if (packIds.length) { const [[pw]] = await q(`SELECT COUNT(*) n FROM c2m_price WHERE status='proposed' AND client_pack_id IN (${qs(packIds)})`, packIds); if (Number(pw.n)) throw bad(`A price for ${cp.brand} waits for the COO: decide it first.`); }
         D2 = { ...D, cpById: new Map(D.cpById) }; D2.cpById.delete(id);
       } else {
         const clash = nameClash(D, id, namesOf(cp), (await q('SELECT pack_size FROM c2m_client_pack WHERE client_product_id=?', [id]))[0].map(r => Number(r.pack_size))); if (clash) throw bad(`It cannot come back in use as it is: ${clash}`);
@@ -1832,7 +1898,7 @@ module.exports = function mountC2mRoutes(app, deps) {
       const [rows] = await q("SELECT id, list_name, data_json FROM c2m_list_price WHERE list_name IN ('dist','dealer','farmer') ORDER BY id FOR UPDATE");
       if (await masterOn(true)) throw Object.assign(new Error('The lists were carried into the master a moment ago. Reload the page.'), { status: 409 });
       const [pend] = await q("SELECT DISTINCT list_name FROM c2m_list_revision WHERE status='proposed' OR (status='approved' AND applied=0) FOR UPDATE");
-      if (pend.length) throw bad(`A revision of the ${pend.map(r => r.list_name).join(', ')} list is with Tahir or approved and waiting for its date. Carry the lists into the master once it is decided or takes effect: its rows could leave the lists.`);
+      if (pend.length) throw bad(`A revision of the ${pend.map(r => r.list_name).join(', ')} list is with the COO or approved and waiting for its date. Carry the lists into the master once it is decided or takes effect: its rows could leave the lists.`);
       const [sb] = await q("SELECT id, list_name FROM c2m_list_revision WHERE status='sent_back' ORDER BY id FOR UPDATE");
       const D = await engine.loadAll(q); const P = planCarry(D, rows, b, sb);
       if (P.stale.length) throw Object.assign(new Error(`A pick no longer fits: ${P.stale.join('; ')}. Nothing was saved: check the plan again.`), { status: 409 });
@@ -1848,7 +1914,7 @@ module.exports = function mountC2mRoutes(app, deps) {
         await audit(by, 'list_price', String(lv.id), 'left_list', { list: r.list_name, prices: lv.prices }, r.list_name + '_old', `${r.list_name}: ${lv.name} left the printed list at the carry-over into the master (D-87): ${lv.why}`.slice(0, 400)); } // the prices kept in the change record too (review 1.0.3, code finding 3)
       /* a revision Tahir sent back is closed: its rows may have moved or left; Yawar types the prices again in the grid (review 1.0.3, workflow finding 12) */
       for (const r of sb) { await q("UPDATE c2m_list_revision SET status='replaced' WHERE id=? AND status='sent_back'", [r.id]); await audit(by, 'list_revision', r.id, 'replaced', 'sent_back', 'replaced', 'Closed at the carry-over into the master (D-87): type its prices again in the grid'); }
-      if (sb.length) await notice('cfo', `The carry-over into the master closed ${sb.length} list revision(s) Tahir had sent back (${sb.map(r => LIST_WORD[r.list_name]).join('; ')}). Their prices are listed under Client prices, VAN brand prices, "Closed at the carry-over": type them again in the grid.`, by); // the prices stay on a screen, not in a capped notice (review 1.0.3, third check, finding 2)
+      if (sb.length) await notice('cfo', `The carry-over into the master closed ${sb.length} list revision(s) the COO had sent back (${sb.map(r => LIST_WORD[r.list_name]).join('; ')}). Their prices are listed under Client prices, VAN brand prices, "Closed at the carry-over": type them again in the grid.`, by); // the prices stay on a screen, not in a capped notice (review 1.0.3, third check, finding 2)
       const D2 = await engine.loadAll(q); const rn = await renameRows(D2, by, D2.cps.filter(c => engine.isVanBrand(c)).map(c => c.id), 'official name, at the carry-over into the master (D-87)');
       await audit(by, 'list_master', 'lists', 'carried', null, { carried: P.links.length, linked: P.counts.linked, left: P.leave.length }, `Price lists carried into the master (D-87): ${P.links.length} rows carried, ${P.counts.linked} already linked, ${P.leave.length} left the printed lists`);
       await notice(req.c2m.role === 'cfo' ? 'coo' : 'cfo', `${req.c2m.name || by} carried the price lists into the master: ${P.links.length} rows carried, ${P.counts.linked} already linked kept, ${P.leave.length} left the printed lists (Client prices, VAN brand prices, Off the lists).`, by); // the other person is told (review 1.0.3, workflow finding 11)
@@ -1870,7 +1936,7 @@ module.exports = function mountC2mRoutes(app, deps) {
         const [[row]] = await q("SELECT id, list_name, data_json FROM c2m_list_price WHERE id=? AND list_name IN ('dist','dealer','farmer') FOR UPDATE", [rid]); if (!row) throw Object.assign(new Error('That row is no longer on a list: someone took it off a moment ago. Reload.'), { status: 409 });
         const d = JSON.parse(row.data_json); if (x.wasPack !== undefined && (x.wasPack == null ? null : Number(x.wasPack)) !== (d.packId != null ? Number(d.packId) : null)) throw moved();
         const [pend] = await q("SELECT items_json FROM c2m_list_revision WHERE list_name=? AND (status='proposed' OR (status='approved' AND applied=0)) FOR UPDATE", [row.list_name]);
-        if (pend.some(r => JSON.parse(r.items_json).some(it => Number(it.id) === rid))) throw bad(`A list revision with Tahir, or approved and waiting for its date, changes this row on the ${LIST_WORD[row.list_name]} list. Take it off after the revision is decided or takes effect.`);
+        if (pend.some(r => JSON.parse(r.items_json).some(it => Number(it.id) === rid))) throw bad(`A list revision with the COO, or approved and waiting for its date, changes this row on the ${LIST_WORD[row.list_name]} list. Take it off after the revision is decided or takes effect.`);
         d.left = { at: today(), ts: now(), by, why: `taken off the list: ${w.slice(0, 200)}` };
         await q('UPDATE c2m_list_price SET list_name=?, data_json=? WHERE id=?', [row.list_name + '_old', JSON.stringify(d), rid]);
         const nm = `${d.p}${row.list_name !== 'farmer' && d.pack ? ' ' + d.pack : ''}`; names.push(`${nm} (${LIST_WORD[row.list_name]})`);
@@ -1932,7 +1998,7 @@ module.exports = function mountC2mRoutes(app, deps) {
           if (o) { const back = []; for (const f of LIST_FIELDS[list]) if (to[f] == null && o[f] != null && Number(o[f]) >= 0) { to[f] = Number(o[f]); back.push(f); } if (list === 'dist' && o.terms) keep = { ...(keep || {}), terms: o.terms }; if (back.length || keep) keep = { ...(keep || {}), back }; } }
         onList.add(pid); out.push({ id: null, packId: pid, ...(keep ? { keep } : {}), product: cp.brand, pack: lib.officialPack(pk.pack_size, cp.sold_per), from: {}, to, added: 1 }); continue; // the pack as C2M writes it (D-85; 500 ml, Tahir 20 Oct 2026)
       }
-      const cur = byId.get(Number(it.id)); if (!cur) throw Object.assign(new Error('A row of this revision is no longer on this list (taken off, or left at the carry-over into the master). Reload the page; a revision Tahir sent back drops it when opened again.'), { status: 409 });
+      const cur = byId.get(Number(it.id)); if (!cur) throw Object.assign(new Error('A row of this revision is no longer on this list (taken off, or left at the carry-over into the master). Reload the page; a revision the COO sent back drops it when opened again.'), { status: 409 });
       if (it.wasPack !== undefined && (it.wasPack == null ? null : Number(it.wasPack)) !== (cur.packId != null ? Number(cur.packId) : null)) { const w0 = it.wasPack == null ? null : await packNameNow(Number(it.wasPack)); throw Object.assign(new Error(`The row you typed for${w0 ? ' (' + w0.product + ' ' + w0.pack + ')' : ''} was moved to another pack a moment ago; it now reads ${cur.p}${cur.pack ? ' ' + cur.pack : ''}. Nothing was sent: cancel, open the form again and type the prices again.`), { status: 409 }); } // named by the pack typed for (review 1.0.3, eighth check); the pack the person saw (review 1.0.3 re-check, finding 1)
       const to = {};
       for (const f of LIST_FIELDS[list]) if (it.values && it.values[f] != null && it.values[f] !== '') { const v = strictNum(it.values[f]); if (!(v >= 0) || (f === 'disc' && v >= 1)) throw bad(`${cur.p}: ${f} must be a number${f === 'disc' ? ' below 1 (e.g. 0.05 for 5%)' : ''}.`); to[f] = v; }
@@ -1949,8 +2015,8 @@ module.exports = function mountC2mRoutes(app, deps) {
         if (hit1.length) throw Object.assign(new Error(`${hit1.map(it => it.product + ' ' + it.pack).join(', ')} was put on this list a moment ago (a row was moved onto it). Nothing was sent: reload the page; its price now goes on that row.`), { status: 409 }); } // checked again with the rows locked: an added pack never lands on a row moved onto it at the same moment (review 1.0.3, fourth check, finding 5)
       if (out.some(it => it.added)) { for (const it of out.filter(x => x.added)) { const [[c]] = await q('SELECT c.active, c.brand FROM c2m_client_pack k JOIN c2m_client_product c ON c.id=k.client_product_id WHERE k.id=?', [it.packId]); if (!c || !Number(c.active)) throw bad(`${it.product} ${it.pack} is out of use (Setup, Products and variants): it cannot be added to a list.`); } } // review 1.0.2 re-check 2, finding 1
       const [[wait]] = await q("SELECT valid_from FROM c2m_list_revision WHERE list_name=? AND status='approved' AND applied=0 FOR UPDATE", [list]);
-      if (wait) throw bad(`A revision of this list is approved and waits for ${String(wait.valid_from).slice(0, 10)}. Ask Tahir to withdraw it first, or wait until it takes effect.`);
-      const [[open]] = await q("SELECT id FROM c2m_list_revision WHERE list_name=? AND status='proposed' FOR UPDATE", [list]); if (open) throw bad('This list already has a revision waiting for Tahir.');
+      if (wait) throw bad(`A revision of this list is approved and waits for ${String(wait.valid_from).slice(0, 10)}. Ask the COO to withdraw it first, or wait until it takes effect.`);
+      const [[open]] = await q("SELECT id FROM c2m_list_revision WHERE list_name=? AND status='proposed' FOR UPDATE", [list]); if (open) throw bad('This list already has a revision waiting for the COO.');
       { const ids = out.filter(it => it.id != null).map(it => Number(it.id)); if (ids.length) { const [still] = await q(`SELECT id FROM c2m_list_price WHERE list_name=? AND id IN (${qs(ids)}) FOR UPDATE`, [list, ...ids]); const on = new Set(still.map(r => Number(r.id))); const gone = out.filter(it => it.id != null && !on.has(Number(it.id)));
         if (gone.length) throw Object.assign(new Error(`${gone.map(it => it.product + (it.pack ? ' ' + it.pack : '')).join(', ')} left this list a moment ago (taken off, or at the carry-over into the master). Nothing was sent: reload the page.`), { status: 409 }); } } // rows read again inside the transaction (review 1.0.3, code finding 2)
       if (replaceId) { const [u] = await q("UPDATE c2m_list_revision SET status='replaced' WHERE id=? AND list_name=? AND status='sent_back'", [replaceId, list]); if (!u.affectedRows) throw moved(); await audit(req.c2m.user, 'list_revision', replaceId, 'replaced', 'sent_back', 'replaced', 'Revised and sent again'); }
@@ -1967,8 +2033,8 @@ module.exports = function mountC2mRoutes(app, deps) {
     await tx(async () => {
       await lockNames(); // names before the revision row, as every route that changes names (lock order)
       const [[r]] = await q("SELECT * FROM c2m_list_revision WHERE id=? AND status='proposed' FOR UPDATE", [req.params.id]); if (!r) throw moved(); await notSelf(r.proposed_by, req);
-      { const ids = JSON.parse(r.items_json).filter(it => it.id != null).map(it => Number(it.id)); if (ids.length) { const [still] = await q(`SELECT id FROM c2m_list_price WHERE list_name=? AND id IN (${qs(ids)}) FOR UPDATE`, [r.list_name, ...ids]); if (still.length < new Set(ids).size) throw bad('A row of this revision is no longer on the list (taken off, or left at the carry-over into the master): send this revision back to Yawar.'); } } // review 1.0.3, code finding 2
-      { const adds = JSON.parse(r.items_json).filter(it => it.id == null && it.added); if (adds.length) { for (const it of adds) { const [[c]] = await q('SELECT c.active FROM c2m_client_pack k JOIN c2m_client_product c ON c.id=k.client_product_id WHERE k.id=?', [it.packId]); if (!c || !Number(c.active)) throw bad(`${it.product} ${it.pack} is out of use now: send this revision back to Yawar.`); } } } // review 1.0.2 re-check 2, finding 1
+      { const ids = JSON.parse(r.items_json).filter(it => it.id != null).map(it => Number(it.id)); if (ids.length) { const [still] = await q(`SELECT id FROM c2m_list_price WHERE list_name=? AND id IN (${qs(ids)}) FOR UPDATE`, [r.list_name, ...ids]); if (still.length < new Set(ids).size) throw bad('A row of this revision is no longer on the list (taken off, or left at the carry-over into the master): send this revision back to the CFO.'); } } // review 1.0.3, code finding 2
+      { const adds = JSON.parse(r.items_json).filter(it => it.id == null && it.added); if (adds.length) { for (const it of adds) { const [[c]] = await q('SELECT c.active FROM c2m_client_pack k JOIN c2m_client_product c ON c.id=k.client_product_id WHERE k.id=?', [it.packId]); if (!c || !Number(c.active)) throw bad(`${it.product} ${it.pack} is out of use now: send this revision back to the CFO.`); } } } // review 1.0.2 re-check 2, finding 1
       const [u] = await q("UPDATE c2m_list_revision SET status='approved', decided_by=?, decided_at=? WHERE id=? AND status='proposed'", [req.c2m.user, now(), r.id]); if (!u.affectedRows) throw moved();
       const waits = String(r.valid_from).slice(0, 10) > today() ? String(r.valid_from).slice(0, 10) : null;
       if (!waits) await applyRevision(r);
@@ -1984,7 +2050,7 @@ module.exports = function mountC2mRoutes(app, deps) {
       const [u] = await q("UPDATE c2m_list_revision SET status='withdrawn' WHERE id=? AND status='approved' AND applied=0", [r.id]); if (!u.affectedRows) throw moved();
       await audit(req.c2m.user, 'list_revision', r.id, 'withdrawn', null, null, why);
       const [[d]] = await q("SELECT COUNT(*) n FROM c2m_price_doc WHERE audience IN (?,?,?,?,?,?) AND effective>=?", r.list_name === 'dist' ? ['dist', 'dist', 'dist', 'dist', 'dist', 'dist', String(r.valid_from).slice(0, 10)] : r.list_name === 'dealer' ? ['dealer', 'dealer', 'dealer', 'dealer', 'dealer', 'dealer', String(r.valid_from).slice(0, 10)] : ['farmer_pb', 'farmer_sn', 'farmer_snc', 'web', 'web', 'web', String(r.valid_from).slice(0, 10)]);
-      await notice('cfo', `Tahir withdrew the ${r.list_name} list revision waiting from ${String(r.valid_from).slice(0, 10)}. Why: ${why.slice(0, 150)}${d.n ? `. ${d.n} price list(s) dated on or after it were already issued: tell those who received them.` : ''}`, req.c2m.user);
+      await notice('cfo', `The COO withdrew the ${r.list_name} list revision waiting from ${String(r.valid_from).slice(0, 10)}. Why: ${why.slice(0, 150)}${d.n ? `. ${d.n} price list(s) dated on or after it were already issued: tell those who received them.` : ''}`, req.c2m.user);
     });
     res.json({ ok: true });
   }));

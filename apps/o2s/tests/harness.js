@@ -166,8 +166,15 @@ const BAG_FNS = ['bagMonthOf', 'bagAddMonths', 'bagMonthLabel', 'bagShelfMonths'
 function bagSrc() {
   return "if(typeof SHELF_DEFAULT_MONTHS==='undefined'){ var SHELF_DEFAULT_MONTHS=24, SHELF_MAX_MONTHS=36; }\n"
     + grabTopVar('BAG_MON', '[') + '\n' + BAG_FNS.map(grab).join('\n'); }
+/* 29a (D-341): the sign-off table and maySign, for any suite that runs a gate that saves a signature (coaReview,
+   approveRelease, reviewTruck, lotQASubmit, ...). Those gates now ask maySign. TRUCK_REVIEW_ROLES is given only when
+   the suite has not set its own; the gates' other helpers (hardRole, canEdit, labCovers) stay the suite's to load. */
+function signoffSrc() {
+  const pickBlock = (start, end) => { const a = html.indexOf(start); if (a < 0) throw new Error('not found: ' + start); return html.slice(a, html.indexOf(end, a) + end.length); };
+  return "if(typeof TRUCK_REVIEW_ROLES==='undefined'){ " + pickBlock('var TRUCK_REVIEW_ROLES=', ';') + " }\n"
+    + pickBlock('var SIGNOFF_RULES={', '\n};') + '\n' + grab('signoffRoles') + '\n' + grab('maySign'); }
 module.exports = { bagSrc, BAG_FNS, sandbox, ok, eq, report, grab, grabObj, grabTopVar, matchBlock,
-                   authModelSrc, AUTH_MODEL_FNS, APP, STATE, html };
+                   authModelSrc, AUTH_MODEL_FNS, APP, STATE, html, signoffSrc };
 function report(label) {
   console.log('\n' + label + ': ' + pass + ' passed, ' + fail + ' failed');
   fails.forEach(f => console.log('  FAIL  ' + f));

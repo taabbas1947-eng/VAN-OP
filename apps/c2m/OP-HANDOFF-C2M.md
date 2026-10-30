@@ -515,3 +515,16 @@ Next: Tahir's rulings in rounds of 4; then fix the 5 wrong-price defects and def
 - After the push, check live (read only): Margin, open a client and a pack: trucks show "Approved when the PO came in" and the cost parts; a VAN brand pack says it is priced on the lists. Setup, Clients and Setup, Products and variants are 1 table each. Setup, Record and checks, Change record reads in words with filters. Guide shows the I want to table. Majid sees Products, to read. Approvals has 1 "Packs with no approved cost" item (logged as C2M).
 - Open for Tahir: Majid may tag or clear any product's variant (D-98), which can move cost through a variant rate.
 - 26 Oct 2026 18:30, after the push: migrations 005 and 006 run by Ahmer; live check passed (see doc 12). Tahir ruled (D-135): Majid keeps tagging variants; no channel list price in the VAN brand drill-down; no migration 007 (Magnisium Oxide stays; migration line times stay).
+
+## 29 Oct 2026 — Roles trial: C2M names roles, not people; roles service (MODULE: C2M, branch roles-trial) — NOT PUSHED
+
+A proposal for C2M's owner, built on the platform's roles trial (`docs/ROLES-DESIGN.md` at the repo root, §7A).
+1. **Roles service** for the platform's Roles by app screen: `/api/c2m/rolesvc/*` in `c2m-routes.js`, registered before
+   `c2mAuth`, System Administrator only; `roles.manage` removed from `c2m-access.js`, so no C2M role designs roles; COO
+   keeps `is_admin` (D-89) and shows locked; built-in roles cannot be removed.
+2. **Roles instead of names** in every screen text and message (Tahir, 29 Oct): Tahir → the COO, Yawar → the CFO,
+   Majid → the Production Manager, Himayat → the QC Head, Fahim → the Plant Manager; "(Tahir, date)" → "(ruling of date)".
+   The no-role message now says "Ask your System Administrator to give you one in People and access." Text only:
+   code matching stored data (`/^Yawar's Master Cost Sheet/`) and comments unchanged; the printed price list keeps
+   "Yawar Hussain". Checked: both files parse; C2M opens with no console error; the Guide shows no names.
+Still for C2M's owner: `docs/` 03, 05, 11 still describe roles.manage and name people; the old Roles screen text.

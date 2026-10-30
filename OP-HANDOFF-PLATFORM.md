@@ -1346,3 +1346,182 @@ C2M's Roles screen. Its note asked the platform to read that table. Done in `ser
 and access shows C2M's 6 built-in roles, exactly as before.
 
 Pushed: **no**.
+
+## 21 Oct 2026 (2) — Piece A: the System Administrator holds all access power; COO is an ordinary role (MODULE: PLATFORM) — NOT PUSHED
+
+Tahir asked to restructure People and access and to describe the access matrix. His rulings (multiple choice):
+person-first layout; Save button plus confirm; one name, **"System Administrator"**; and on the COO: "now on COO
+has the ultimate power so all the power goes to System Administrator and COO become any other role in the system".
+Then: only a System Administrator gives O2S COO and C2M CFO/COO; the "last O2S COO" guard is dropped.
+
+Checked first on the 17 Oct live export: the only O2S COOs (tahir, ahmer) both already hold platform/admin, so
+nobody loses access power.
+
+**Built (piece A, rights; `server.js`, `launcher.html`):**
+- The `admin` gate, `isPlatformAdmin`, `/api/me` and `loadAdminCaps` read only the `platform`/`admin` grant.
+  Local-file mode (no database) still lets the O2S COO stand in.
+- The launcher's `_isCOO` is `me.platformAdmin` only. The role line reads "System Administrator · all systems".
+- **Start-up seed:** the grant is copied from O2S COO rows **only when no platform/admin row exists at all** (a
+  fresh database). Before, it was copied on every boot, which re-promoted any new O2S COO.
+- Grant guard reworded: "Only a System Administrator can give the O2S COO role" (still refused to an app admin).
+  C2M CFO/COO and custom C2M roles: System Administrator only.
+- Switch-off: the "last O2S COO" guard is removed. The last System Administrator stays protected.
+- Messages:
+  - "System Administrator" in every access error;
+  - the switched-off message;
+  - the too-many-failed-sign-ins message ("ask your System Administrator to reset the password");
+  - the catalogue label.
+- Docs: `docs/ACCESS-MODEL.md` (System Administrator section and switch-off guards).
+
+**Tests:**
+- `tests/people-access.test.js`, on a throwaway copy of the 17 Oct live export, dropped after: **19 of 20**. New:
+  - "an O2S COO who is not System Administrator has no access power": `/api/me` platformAdmin false; People and
+    access 403; create login 403;
+  - "the only O2S COO can be switched off like anyone; a second System Administrator can switch the first off and
+    on";
+  - both restore their rows in `finally`; "every grant that existed before is still there, unchanged" passes.
+- The 1 failure is old: "new password" needs a login `lab`, which neither the live data nor local has. The test
+  was written for an older fixture.
+- The "last System Administrator" refusal cannot be reached through the app: the caller is always an active
+  admin and cannot switch themselves off. It stays as a backstop and is noted in the test.
+- `tests/c2m-mount.test.js` 24/24; `tests/pd-removed.test.js` 17/17.
+
+**Independent review: "push but know".** Fixed: wording ("ask the COO"), docs, weak tests. Open, for the **O2S
+session** (O2S-owned; not changed here):
+1. O2S's own Users and Access screen (`o2s.html` `addUser`, `saveEditUser`, `delUser`, `migrateAccountsV1`)
+   still shows to the O2S COO. For a COO who is not System Administrator its saves now get 403 "admin only" or
+   "Could not add user". Suggest hiding it or saying "ask your System Administrator". O2S's Change-password text
+   says "the COO resets it from People".
+2. O2S work routed to the COO role (approvals, alerts in `notify-routes.js`) has nobody if the only COO is
+   switched off. O2S's own `/api/users` still refuses to demote or delete the last COO, so the 2 screens
+   disagree. O2S to decide.
+
+Also known: the start-up seed counts rows, not active admins. Every admin switched off but rows present → no
+seed, so recovery is by database edit. Not reachable through the app.
+
+Pushed: **no**. Next: piece B, the new People and access screen (person-first; tabs People / Roles by app /
+Activity; Save plus confirm; live apps only; the new look).
+
+
+## 21 Oct 2026 (3) — Piece B: the new People and access screen, and the review fixes (MODULE: PLATFORM) — NOT PUSHED
+
+Tahir's rulings (21 Oct): person-first layout; changes saved with a Save button and a confirm; one name,
+"System Administrator"; live apps only. Tahir: "lets not push until we test every thing working as we want to
+be". Pieces A and B go out together, after Tahir has tested them himself.
+
+**Files:** `launcher.html` (People and access rebuilt: `#adminView`, CSS `.pa-*`, JS from `__manage` to
+`__actfilter`), `server.js` (`GET /api/platform/activity`; review guards below), `docs/ACCESS-MODEL.md`,
+`tests/people-access.test.js`.
+
+**The screen.**
+- Tabs: People / Roles by app / Activity. Activity is for a System Administrator only.
+- People: a list on the left (search; chips Active, No access, Switched off; "+ Add a person"). On the
+  right, one person: Access (1 row per live app plus the System row, App admin tick), Details, Login
+  (password; switch off/on with a confirm) and History in plain sentences.
+- Access changes are a draft: "N changes not saved", then Save access. Anything that removes or replaces
+  a held role asks first and lists every change. The phone layout stacks, with "← All people".
+- An app admin sees only their own app's ordinary roles. There is no Add, Details, Login or Activity for them.
+
+**Independent review (4 reviewers: code, screen, workflow, data safety). Fixed:**
+1. **Server:** an app admin could demote or remove an O2S COO, C2M CFO/COO or C2M custom role. The guard
+   checked only the role being given. New `sysAdminOnlyRole()` also checks the held role on POST and DELETE.
+   Tested (new test, plus a browser check as a C2M app admin).
+2. **Server:** removing a System Administrator is refused if no other active one would remain.
+3. **Screen:** rows the server would refuse are locked, with the reason shown (System Administrator's row,
+   protected held role, own System row). No "Switch off" on your own login.
+4. **Screen:** a dropped connection says so. One save at a time (buttons disabled). A refused role skips its
+   App admin tick, and the message lists exactly what saved and what did not.
+5. **Screen:** unsaved changes ask before being dropped (other person, Roles click, Launcher, closing the tab).
+6. **Screen:** the draft remembers what the admin saw, so another admin's change to an untouched app is not
+   reverted. Typed Details and password survive a redraw. Save details sends only the changed boxes.
+7. **Screen:** Add a person checks WhatsApp and email before creating the login. If details fail afterwards,
+   the error stays on the person's page with the typed values put back.
+8. **Screen:** History and Activity say when they failed to load, not "Nothing recorded yet". Their limits are
+   shown (50 / 300).
+9. **Screen:** sign-out clears the screen, so the next person on a shared PC never sees the last one's page.
+   Readable greys; changed rows marked in words, not by colour alone; usernames passed safely in onclick.
+10. Removed example text that looked like real data (Plant Manager / Production / VAN / Muhammad Ali).
+
+**Tests:** people-access 20 of 21 on a throwaway copy (the 1 failure is the old fixture gap: no `lab` login).
+c2m-mount 24/24, pd-removed 17/17, notify-mount 15/15. Browser-tested on port 3001 as System Administrator,
+C2M app admin, ordinary user and at phone width. Test rows were removed and local roles restored.
+
+**Not fixed: decisions for Tahir or the app owners (recorded in `docs/ACCESS-MODEL.md`):**
+- O2S Authorisation panel: the O2S COO still sets every O2S role's rights (o2s.html `granter==='COO'`), saved
+  through `/api/state`. O2S session.
+- C2M Roles screen: the C2M COO can widen a built-in role, which an app admin may then give. C2M session.
+- O2S CFO is not protected the way C2M CFO is (an O2S app admin can give it). Tahir to rule.
+- A demoted O2S COO keeps COO inside O2S until their next sign-in (token up to 30 days). Switch off is
+  immediate.
+- O2S `DELETE /api/users` hard-deletes a login with no log entry, including a System Administrator's. O2S
+  session.
+- Two System Administrators acting in the same second could still leave none (read-then-write, no lock).
+  Very unlikely with 2 admins; recovery by database edit.
+- The launcher's own role line shows C2M role keys ("C2M · viewer") instead of names.
+
+**Before the push, run on live (read only), to confirm nobody loses access power:**
+`SELECT username FROM user_module_roles WHERE module='platform';` and
+`SELECT username FROM user_module_roles WHERE module='o2s' AND role='COO';`
+Anyone who is COO but not on the first list loses access power at deploy, and anyone on the first list keeps it.
+
+Pushed: **no**. Next: Tahir tests with the checklist; then one push for pieces A and B together.
+
+## 24 Oct 2026 — Local database moved to MariaDB 13; tests fixed for live data; access flow on hold (MODULE: PLATFORM) — NOT PUSHED
+
+**Local database.** XAMPP MySQL crashed twice after abrupt shutdowns (damaged system table `mysql.proxies_priv`). Tahir
+removed XAMPP's MySQL and installed **MariaDB 13.0** as a Windows service on port 3306. `van_platform` was rebuilt from
+the live export of 24 Oct (`E:\VAN\VAN Systems\VAN Platform\jodilkah_vanop_db.sql`, outside the repo): local data =
+live as of that day. C2M migrations 004 and 005 were already in live. `.env` now connects as root (git-ignored). Old
+XAMPP data folder kept at `E:\VAN\Backups\xampp_mysql_data_2026-10-24` (MariaDB 13 cannot open it directly: the 10.4
+server did not shut down cleanly). An unused `vanplatform` user exists on `van_platform.*`.
+
+**Live checks answered by the export.** System Administrators = ahmer, tahir; O2S COOs = ahmer, tahir, so pieces A and B
+take access power from nobody. The only app admin on live is tahir (O2S), redundant as he is System Administrator.
+
+**Tests** (`tests/people-access.test.js`): 3 tests assumed the old local test data and are now data-independent: role-
+grant logging clears and restores fahim's existing C2M role; who-holds-what checks the vacant mark is correct instead
+of requiring a vacant C2M role; new-password makes its own `pw.test` login (no `lab` login on live). Result on a
+throwaway copy of the live data: **21 of 21**. c2m-mount 24/24, pd-removed 17/17, notify-mount 15/15. The throwaway
+copy reads the root login from `.env`.
+
+**On hold (Tahir, 24 Oct): the access flow.** Tahir wants more brainstorming before deciding. Open questions:
+1. Remove app admin? (Proposed: yes. The 3 rules: System Administrator = logins and who gets which role; each app's
+   top role designs that app's roles; if an app has nobody in its top role, a System Administrator gives it.)
+2. Ahmer (IT): System Administrator plus an "IT User" role per app instead of COO? Tahir's idea: IT User + app admin.
+3. O2S CFO: System Administrator only, like C2M CFO?
+4. Who designs roles: today O2S COO (`addRole`, o2s.html) and C2M's `roles.manage`; a System Administrator cannot
+   unless he holds those roles.
+
+Pushed: **no**. Pieces A and B and these test fixes wait for the flow decision, Tahir's own test, then one push.
+
+
+## 28 Oct 2026 — Roles trial: System Administrator designs every app's roles from one screen (PLATFORM, then C2M, then O2S) — LOCAL TRIAL, NOT PUSHED
+
+**Rulings (Tahir, 28 Oct).** All access power with the System Administrator: he creates roles, sets their rights and
+assigns them, in every app, from one platform screen; COO and CFO keep their business powers as rights; app admin is
+dropped; Option A (each app keeps its roles and offers a roles service). Design: `docs/ROLES-DESIGN.md` (§7A = what the
+trial found, the review fixes and what is still open). Tahir: build it locally, test it, then share it with the others
+and take their recommendations on the flow.
+
+**Where it is.** Git branch `roles-trial`, its own folder `E:\VAN\VAN Systems\VAN Platform\VAN-OP-roles-trial` (a git
+worktree; `node_modules` is a link to VAN-OP's), its own database `roles_trial` (a copy of `van_platform`, the live export
+of 24 Oct). Pieces A and B stay uncommitted in `VAN-OP` on `main`, untouched. Trial server: port 3003 (sign in with the
+live passwords).
+
+**Built, one module per piece:**
+1. PLATFORM: app admin removed (`/api/platform/admin` answers 410; only a System Administrator manages access); the Roles
+   by app tab is the role designer; apps get `isSystemAdmin` and `logAccess` in `platformServices`; role changes logged
+   as `role:<name>`.
+2. C2M (a proposal for the collaborator): `/api/c2m/rolesvc/*`; `roles.manage` removed from the catalogue; COO keeps
+   `is_admin` (D-89 business rules) and shows locked; "Remove" (C2M has no archive), never a built-in role.
+3. O2S: `apps/o2s/o2s-rolesvc.js` (mounted by 1 guarded line); edits `masters.roles/roleRights/roleRightsSet` with the
+   revision guard; only the 21 rights in force can be set, the other 12 show O2S's own answer; separation of duties
+   checked; O2S COO shown locked; `o2s.html` unchanged.
+
+**Tested (trial):** people-access 23/23 twice on fresh copies; c2m-mount 25/25; pd-removed 17/17; notify-mount 15/15;
+each service 15/15 (scratch script); O2S obeys a role made on the platform; the screen's answers for rights not in
+force match O2S's own check; phone width. Independent review (code, data safety): findings fixed, the rest listed in
+`docs/ROLES-DESIGN.md` §7A "Still open".
+
+Pushed: **no**. Next: Tahir tests the trial; then share it (collaborator for C2M; O2S's own Authorisation panel must
+close before the rule holds in O2S); then decide what goes live, piece by piece.

@@ -62,9 +62,9 @@ const CATALOGUE = [
     ['see.granted_lists', 'The price lists given to this person'],
     ['guide.all', 'The whole Guide (otherwise a short Guide)'],
   ] },
-  { group: 'Administration', items: [
-    ['roles.manage', 'Create and edit roles'],
-  ] },
+  /* 'Administration' (roles.manage, 'Create and edit roles') was removed on 28 Oct 2026 (Tahir; platform
+     docs/ROLES-DESIGN.md, trial): only a System Administrator designs roles, on the platform's Roles by app screen,
+     through the roles service in c2m-routes.js. No C2M role, the administrator role included, creates or edits roles. */
 ];
 const ALL_KEYS = CATALOGUE.flatMap(g => g.items.map(i => i[0]));
 const LABEL = Object.fromEntries(CATALOGUE.flatMap(g => g.items));

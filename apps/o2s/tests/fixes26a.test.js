@@ -128,7 +128,7 @@ function tsWorld(role) {
   b.hardRole = r => role === 'COO' || r.indexOf(role) > -1;
   b._uRole = () => ({ by: b.state.currentUser.name, user: b.state.currentUser.username, role });
   vm.createContext(b);
-  vm.runInContext(H.matchBlock(html.indexOf('var TS_STEP='), 'TS_STEP') + ';\nvar tsForm=null;\n' + ['shipRowsOf','truckSentBack','sendBackTruck','truckFixed','truckReviewSince'].map(grab).join('\n'), b);
+  vm.runInContext(H.matchBlock(html.indexOf('var TS_STEP='), 'TS_STEP') + ';\nvar tsForm=null;\n' + ['shipRowsOf','truckSentBack','sendBackTruck','truckFixed','truckReviewSince'].map(grab).join('\n') + '\n' + H.signoffSrc(), b);
   return b; }
 { const b = tsWorld('Plant Manager');
   b.sendBackTruck('D1', 'release', '');
@@ -157,7 +157,7 @@ function labWorld(role, user) {
     save() {}, logAction(m) { b.logged.push(m); }, coaFSClose() {}, qcAudit2() {}, labCovers: () => false, renderCOAModal() {}, coaEsc: x => String(x == null ? '' : x) };
   b.toast = m => b.toasts.push(String(m));
   vm.createContext(b);
-  vm.runInContext("var coaForm={bid:'B1',lid:'L1'};\n" + ['coaCtx','sigStamp','labIsV2','coaOpenReturn','coaCloseReturn','coaSendBack','coaReturnBanner'].map(grab).join('\n'), b);
+  vm.runInContext("var coaForm={bid:'B1',lid:'L1'};\n" + ['coaCtx','sigStamp','labIsV2','coaOpenReturn','coaCloseReturn','coaSendBack','coaReturnBanner'].map(grab).join('\n') + '\n' + H.signoffSrc(), b);   // 29a: coaSendBack asks maySign
   b.coa = () => b.state.batches[0].lots[0].coa;
   b.as = (r, u) => { b.state.role = r; b.state.currentUser = { name: u, username: u.toLowerCase() }; };
   b.note = n => vm.runInContext('coaForm._sb={note:' + JSON.stringify(n) + '}', b);
@@ -213,7 +213,7 @@ function bpWorld(role, user) {
   vm.runInContext('var bpForm=null;\n' + ['bpEsc','bpId','bpReasonHTML','bpFacts','bpHistory','bpOwnerFromName','poReturnOpen','poOwner','poLinesHTML','poFactsHTML','openAckSheet','renderAckSheet','sendBackPO','openPoReturn','poReturnFixed','ackOrder',
     'prRec','prArgs','prFactsHTML','openPRSheet','renderPRSheet','refusePR','openPRRefused','prAskAgain','prDrop','cfoApprovePR',
     'custReturnOpen','custFindByCode','custFactsHTML','openCustSheet','renderCustSheet','sendBackCustomer','openCustReturn','custReturnFixed','approveCustomer',
-    'shipRowsOf','rejectDC','dcRejectNote','dcRejectJobs','dcRejectSeen'].map(grab).join('\n'), b);
+    'shipRowsOf','rejectDC','dcRejectNote','dcRejectJobs','dcRejectSeen'].map(grab).join('\n') + '\n' + H.signoffSrc(), b);   // 29a: rejectDC asks maySign
   return b; }
 { const w = bpWorld('Supply Chain', 'Saad Jamal'); const o = w.state.orders[0];
   w.openAckSheet('O1');

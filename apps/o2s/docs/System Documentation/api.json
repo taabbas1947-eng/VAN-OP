@@ -227,7 +227,7 @@
        ],
        [
         "Errors",
-        "401 'Incorrect username or password'; 429 'Too many failed sign-ins for this account. Try again in about N minutes, or ask the COO to reset the password.'; 403 switched-off message; 500."
+        "401 'Incorrect username or password'; 429 'Too many failed sign-ins for this account. Try again in about N minutes, or ask your System Administrator to reset the password.'; 403 switched-off message; 500."
        ],
        [
         "What O2S does next",

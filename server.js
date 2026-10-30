@@ -232,7 +232,7 @@ async function migrateAuth() {
    an explicit switch-off ever puts a name here; every other account passes exactly as
    before. A token already issued to a switched-off person stops working at once. */
 const switchedOff = new Set();
-const SWITCHED_OFF_MSG = 'This account has been switched off. Ask your platform administrator.';
+const SWITCHED_OFF_MSG = 'This account has been switched off. Ask your System Administrator.';
 function auth(req, res, next) {
   const p = readToken((req.headers.authorization || '').replace(/^Bearer /, ''));
   if (!p) return res.status(401).json({ error: 'unauthorized' });
@@ -241,13 +241,14 @@ function auth(req, res, next) {
   reqCtx.run({ actor: p.u, path: req.originalUrl || req.url || '' }, next);
 }
 /* PLATFORM, 25 Sept 2026 (Tahir's ruling R2): the platform administrator is a grant of
-   its own - user_module_roles (module 'platform', role 'admin') - seeded from the O2S
-   COO rows by runPlatformMigration. The COO role in the token keeps working during the
-   changeover, so nobody is locked out while the row is being seeded. */
+   its own - user_module_roles (module 'platform', role 'admin'). 21 Oct 2026: called
+   System Administrator, and the only access power; the O2S COO role in the token no
+   longer counts (except in local-file mode, where there is no role table). */
 async function admin(req, res, next) {
   try {
     if (!req.user) return res.status(403).json({ error: 'admin only' });
-    if (req.user.r === 'COO') return next();
+    // Tahir, 21 Oct 2026: the System Administrator holds all access power; COO is an ordinary role. Only local-file mode (no database, development only) has no role table, so there the O2S COO stands in.
+    if (!pdq && req.user.r === 'COO') return next();
     if (pdq && await isPlatformAdmin(req.user.u)) return next();
     return res.status(403).json({ error: 'admin only' });
   } catch (e) { res.status(500).json({ error: String(e) }); }
@@ -280,7 +281,7 @@ app.post('/api/login', async (req, res) => {
     const u = String((req.body && req.body.username) || '').trim().toLowerCase();
     const p = String((req.body && req.body.password) || '');
     const mins = loginBlockedFor(u);
-    if (mins) return res.status(429).json({ error: 'Too many failed sign-ins for this account. Try again in about ' + mins + ' minute' + (mins === 1 ? '' : 's') + ', or ask the COO to reset the password.' });
+    if (mins) return res.status(429).json({ error: 'Too many failed sign-ins for this account. Try again in about ' + mins + ' minute' + (mins === 1 ? '' : 's') + ', or ask your System Administrator to reset the password.' });
     const usr = await store.getUser(u);
     if (!usr || !verifyPw(p, usr.pass_hash)) { noteLoginFail(u); return res.status(401).json({ error: 'Incorrect username or password' }); }
     // PLATFORM 27 Sept: only a login switched off on People and access is refused here.
@@ -335,10 +336,11 @@ async function clearModuleRole(username, module) {
   if (LEGACY_COL[module]) await pdq(`UPDATE auth_users SET ${LEGACY_COL[module]}=NULL WHERE username=?`, [username]);
   if (before) await logAccess({ action: 'role.revoke', subject: username, module, before: before, after: null });
 }
-// Platform administrator (R2): the 'platform'/'admin' grant, with the O2S COO role accepted during the changeover.
+// Platform administrator (R2): the 'platform'/'admin' grant.
 async function isPlatformAdmin(username) {
   if (!pdq) return false;
-  const [rows] = await pdq("SELECT 1 FROM user_module_roles WHERE username=? AND ((module='platform' AND role='admin') OR (module='o2s' AND role='COO')) LIMIT 1", [username]);
+  // System Administrator = the 'platform'/'admin' grant only (Tahir, 21 Oct 2026: the System Administrator holds all access power; COO is an ordinary role).
+  const [rows] = await pdq("SELECT 1 FROM user_module_roles WHERE username=? AND module='platform' AND role='admin' LIMIT 1", [username]);
   return rows.length > 0;
 }
 
@@ -429,7 +431,9 @@ async function contactsFor(usernames) {
     WHERE a.username IN (${list.map(() => '?').join(',')}) AND ${activeSql('a', t)} ORDER BY a.name`, list);
   return rows.map(r => ({ username: r.username, name: r.name, title: r.title || null, whatsapp: r.whatsapp || null, email: r.email || null }));
 }
-const platformServices = { holdersOf, contactsFor };   // handed to each app module when it is mounted (see ACCESS-MODEL.md)
+// Handed to each app module when it is mounted (see ACCESS-MODEL.md). 28 Oct 2026: isSystemAdmin and logAccess, so an
+// app's roles service (docs/ROLES-DESIGN.md §4) admits only a System Administrator and writes to the one access log.
+const platformServices = { holdersOf, contactsFor, isSystemAdmin: isPlatformAdmin, logAccess };
 
 /* The role catalogue: every module's roles, in that module's own words, read from
    where that module keeps them. O2S: its own store (masters.roles carries name,
@@ -479,7 +483,7 @@ async function roleCatalogue() {
   heldIn('c2m', c2mRoles);
   const byKey = { o2s, c2m: c2mRoles };
   const modules = MODULE_LIST.map(m => ({ key: m.key, name: m.name, live: m.live, roles: byKey[m.key] || [] }));
-  modules.push({ key: 'platform', name: 'Platform', live: true, roles: [{ key: 'admin', name: 'Platform administrator', title: null, department: 'Platform', archived: false, builtin: true }] });
+  modules.push({ key: 'platform', name: 'Platform', live: true, roles: [{ key: 'admin', name: 'System Administrator', title: null, department: 'Platform', archived: false, builtin: true }] });
   return modules;
 }
 
@@ -490,16 +494,16 @@ app.get('/api/me', auth, async (req, res) => {
     let modules = [];
     if (pdq) {
       // user_module_roles is the single source of truth for ACCESS (which modules you may enter).
-      const [rows] = await pdq('SELECT module, role, is_admin FROM user_module_roles WHERE username=?', [req.user.u]);
-      modules = rows.map(r => ({ module: r.module, role: r.role, admin: !!r.is_admin }));
+      const [rows] = await pdq('SELECT module, role FROM user_module_roles WHERE username=?', [req.user.u]);
+      modules = rows.map(r => ({ module: r.module, role: r.role }));
     } else if (req.user.r) {
-      modules = [{ module: 'o2s', role: req.user.r, admin: req.user.r === 'COO' }]; // file-store fallback (no relational table)
+      modules = [{ module: 'o2s', role: req.user.r }]; // file-store fallback (no relational table)
     }
     const o2s = modules.find(m => m.module === 'o2s');
-    // Platform administrator: the 'platform'/'admin' grant, or the O2S COO role during the changeover (R2).
-    const isCOO = modules.some(m => m.module === 'platform' && m.role === 'admin') || !!(o2s && o2s.role === 'COO');
-    // Which modules this person may ADMINISTER: the platform admin administers all; others only their is_admin grants.
-    const adminModules = isCOO ? REAL_MODULES.slice() : modules.filter(m => m.admin).map(m => m.module);
+    // System Administrator: the 'platform'/'admin' grant only (Tahir, 21 Oct 2026: the System Administrator holds all access power; COO is an ordinary role). The name isCOO is kept for the launcher's code.
+    const isCOO = modules.some(m => m.module === 'platform' && m.role === 'admin') || (!pdq && !!(o2s && o2s.role === 'COO'));
+    // Which apps this person may administer: a System Administrator all, nobody else any (Tahir, 28 Oct 2026: app admin removed).
+    const adminModules = isCOO ? REAL_MODULES.slice() : [];
     // PLATFORM 27 Sept: the person's title, when People and access has one (additive; null otherwise).
     let title = null;
     try { if ((await platformTables()).people) { const [t] = await pdq('SELECT pp.title FROM platform_people pp JOIN auth_users a ON a.id = pp.account_id WHERE a.username = ?', [req.user.u]); title = t[0] ? t[0].title || null : null; } } catch (e) {}
@@ -533,19 +537,17 @@ async function validModuleRole(module, role) {
 const REAL_MODULES = ['o2s'].concat(C2M_INSTALLED ? ['c2m'] : []);
 // Load a caller's platform-admin capabilities fresh from the DB (roles/admin can change between logins).
 async function loadAdminCaps(username) {
-  const [rows] = await pdq('SELECT module, role, is_admin FROM user_module_roles WHERE username=?', [username]);
-  // isCOO keeps its name for the launcher: it now means "platform administrator" (R2).
-  const isCOO = rows.some(r => (r.module === 'platform' && r.role === 'admin') || (r.module === 'o2s' && r.role === 'COO'));
-  const adminModules = isCOO ? REAL_MODULES.slice() : rows.filter(r => r.is_admin).map(r => r.module);
-  return { isCOO, adminModules };
+  const isCOO = await isPlatformAdmin(username);
+  // isCOO keeps its name: it means "System Administrator". Tahir, 28 Oct 2026: the System Administrator alone creates
+  // roles, sets their rights and assigns them; app admin is removed, so nobody else administers any app.
+  return { isCOO, adminModules: isCOO ? REAL_MODULES.slice() : [] };
 }
-async function isUserCOO(username) { return isPlatformAdmin(username); }
-// Gate for access administration: the COO (platform admin) OR any subsystem admin. Caps land on req.adminCaps.
+// Gate for access administration: a System Administrator only (28 Oct 2026). Caps land on req.adminCaps.
 async function accessAdmin(req, res, next) {
   if (!pdq) return res.status(503).json({ error: 'Platform access admin needs DATABASE_URL (relational store).' });
   try {
     const caps = await loadAdminCaps(req.user.u);
-    if (!caps.isCOO && caps.adminModules.length === 0) return res.status(403).json({ error: 'You are not an access administrator.' });
+    if (!caps.isCOO) return res.status(403).json({ error: 'Only a System Administrator can manage people and access.' });
     req.adminCaps = caps;
     next();
   } catch (e) { res.status(500).json({ error: String(e) }); }
@@ -564,12 +566,9 @@ app.get('/api/platform/users', auth, accessAdmin, async (req, res) => {
     const [users] = await pdq(`SELECT a.username, a.name${t.active ? ', a.active' : ''}${t.people ? ', pp.person_id, pp.title, pp.department, pp.company, pp.whatsapp, pp.email' : ''}
       FROM auth_users a ${t.people ? 'LEFT JOIN platform_people pp ON pp.account_id = a.id' : ''} ORDER BY a.username`);
     const seeContacts = !!req.adminCaps.isCOO;
-    const [roles] = await pdq('SELECT username, module, role, is_admin FROM user_module_roles');
-    const byUser = {}, adminBy = {};
-    roles.forEach(r => {
-      (byUser[r.username] = byUser[r.username] || {})[r.module] = r.role;
-      if (r.is_admin) (adminBy[r.username] = adminBy[r.username] || []).push(r.module);
-    });
+    const [roles] = await pdq('SELECT username, module, role FROM user_module_roles');
+    const byUser = {};
+    roles.forEach(r => { (byUser[r.username] = byUser[r.username] || {})[r.module] = r.role; });
     // O2S role options = O2S's master roles list (from app_state) UNION roles already assigned,
     // so a newly-created O2S role shows up in the grid even before anyone holds it.
     let masterRoles = [];
@@ -577,7 +576,7 @@ app.get('/api/platform/users', auth, accessAdmin, async (req, res) => {
     const [o2sRoleRows] = await pdq("SELECT DISTINCT role FROM auth_users WHERE role IS NOT NULL AND role <> ''");
     const o2sRoles = Array.from(new Set(masterRoles.concat(o2sRoleRows.map(r => r.role)))).filter(Boolean).sort();
     res.json({
-      users: users.map(u => Object.assign({ username: u.username, name: u.name, modules: byUser[u.username] || {}, adminOf: adminBy[u.username] || [] },
+      users: users.map(u => Object.assign({ username: u.username, name: u.name, modules: byUser[u.username] || {} },
         { active: t.active ? Number(u.active) !== 0 : true },
         t.people ? { personId: u.person_id || null, title: u.title || null, department: u.department || null, company: u.company || null } : {},
         (t.people && seeContacts) ? { whatsapp: u.whatsapp || null, email: u.email || null } : {})),
@@ -587,7 +586,7 @@ app.get('/api/platform/users', auth, accessAdmin, async (req, res) => {
     });
   } catch (e) { res.status(500).json({ error: String(e) }); }
 });
-// Set/replace a user's role in a module (dual-write). COO does any module; a subsystem admin only their own.
+// Set/replace a user's role in a module (dual-write). System Administrator only (accessAdmin).
 app.post('/api/platform/access', auth, accessAdmin, async (req, res) => {
   try {
     const username = String((req.body && req.body.username) || '').trim().toLowerCase();
@@ -600,37 +599,22 @@ app.post('/api/platform/access', auth, accessAdmin, async (req, res) => {
     // no behaviour change. Tahir's ruling: the word now, the rest of server.js as
     // its own piece of work with its own test pass.
     if (!(await validModuleRole(module, role))) return res.status(400).json({ error: 'The ' + module.toUpperCase() + ' module has no role called "' + role + '".' });
-    const caps = req.adminCaps;
-    if (module === 'platform' && !caps.isCOO) return res.status(403).json({ error: 'Only a platform administrator can appoint another.' });
-    if (!caps.isCOO) {                                                  // subsystem-admin guardrails
-      if (caps.adminModules.indexOf(module) < 0) return res.status(403).json({ error: 'You administer only: ' + (caps.adminModules.join(', ') || '(none)') + '.' });
-      if (module === 'o2s' && role === 'COO') return res.status(403).json({ error: 'Only the COO can assign the COO role.' });
-      if (module === 'c2m' && (role === 'cfo' || role === 'coo')) return res.status(403).json({ error: 'Only a platform administrator can give the C2M CFO or COO role.' }); // C2M docs 11 §11.6
-      // Piece 1b review (21 Oct 2026): a role made on C2M's Roles screen can carry approving rights, so only a platform
-      // administrator gives it. A C2M sub-admin gives C2M's built-in roles only (as before roles could be made).
-      if (module === 'c2m') { const r = await c2mRole(role); if (r && !r.builtin) return res.status(403).json({ error: "Only a platform administrator can give a role made on C2M's Roles screen." }); }
-      if (await isUserCOO(username)) return res.status(403).json({ error: "You can't change the COO's access." });
-    }
     const [ex] = await pdq('SELECT username FROM auth_users WHERE username=?', [username]);
     if (!ex[0]) return res.status(404).json({ error: 'no such user' });
     await setModuleRole(username, module, role);
     res.json({ ok: true, username, module, role });
   } catch (e) { res.status(500).json({ error: String(e) }); }
 });
-// Revoke a user's access to a module (dual-write). COO does any module; a subsystem admin only their own.
+// Revoke a user's access to a module (dual-write). System Administrator only (accessAdmin).
 app.delete('/api/platform/access', auth, accessAdmin, async (req, res) => {
   try {
     const username = String((req.body && req.body.username) || '').trim().toLowerCase();
     const module = String((req.body && req.body.module) || '').trim().toLowerCase();
     if (!username || !module) return res.status(400).json({ error: 'username and module required' });
-    const caps = req.adminCaps;
     if (module === 'platform') {
-      if (!caps.isCOO) return res.status(403).json({ error: 'Only a platform administrator can remove one.' });
-      if (username === String(req.user.u).toLowerCase()) return res.status(400).json({ error: 'You cannot remove your own platform administration. Ask another administrator.' });
-    }
-    if (!caps.isCOO) {                                                  // subsystem-admin guardrails
-      if (caps.adminModules.indexOf(module) < 0) return res.status(403).json({ error: 'You administer only: ' + (caps.adminModules.join(', ') || '(none)') + '.' });
-      if (await isUserCOO(username)) return res.status(403).json({ error: "You can't change the COO's access." });
+      if (username === String(req.user.u).toLowerCase()) return res.status(400).json({ error: 'You cannot remove your own System Administrator role. Ask another System Administrator.' });
+      const [left] = await pdq("SELECT COUNT(DISTINCT r.username) AS n FROM user_module_roles r JOIN auth_users a ON a.username = r.username WHERE r.module='platform' AND r.role='admin' AND COALESCE(a.active,1) <> 0 AND r.username <> ?", [username]);
+      if (Number(left[0].n) === 0) return res.status(400).json({ error: 'This is the last System Administrator. Appoint another before removing this one.' });
     }
     await clearModuleRole(username, module);
     res.json({ ok: true, username, module, revoked: true });
@@ -656,23 +640,9 @@ app.post('/api/platform/users', auth, admin, async (req, res) => {
     res.json({ ok: true, username, name });
   } catch (e) { res.status(500).json({ error: String(e) }); }
 });
-// Appoint / remove a SUBSYSTEM ADMIN for a module (sets user_module_roles.is_admin). COO-only.
-// The person must already have a role in that module — admin is an attribute of an existing grant.
-app.post('/api/platform/admin', auth, admin, async (req, res) => {
-  try {
-    if (!pdq) return res.status(503).json({ error: 'Platform admin needs DATABASE_URL.' });
-    const username = String((req.body && req.body.username) || '').trim().toLowerCase();
-    const module = String((req.body && req.body.module) || '').trim().toLowerCase();
-    const isAdmin = !!(req.body && req.body.is_admin);
-    if (!username || REAL_MODULES.indexOf(module) < 0) return res.status(400).json({ error: 'valid username and module (' + REAL_MODULES.join('|') + ') required' });
-    const [ex] = await pdq('SELECT role FROM user_module_roles WHERE username=? AND module=?', [username, module]);
-    if (!ex[0]) return res.status(400).json({ error: 'Grant ' + username + ' a role in ' + module.toUpperCase() + ' first, then make them its admin.' });
-    const [was] = await pdq('SELECT is_admin FROM user_module_roles WHERE username=? AND module=?', [username, module]);
-    await pdq('UPDATE user_module_roles SET is_admin=? WHERE username=? AND module=?', [isAdmin ? 1 : 0, username, module]);
-    if (!!(was[0] && was[0].is_admin) !== isAdmin) await logAccess({ action: isAdmin ? 'admin.grant' : 'admin.revoke', subject: username, module });
-    res.json({ ok: true, username, module, is_admin: isAdmin });
-  } catch (e) { res.status(500).json({ error: String(e) }); }
-});
+// App admin was removed (Tahir, 28 Oct 2026): the System Administrator alone administers every app. The column
+// user_module_roles.is_admin stays in the table, unread. The old address answers so nothing fails silently.
+app.post('/api/platform/admin', auth, (req, res) => res.status(410).json({ error: 'App admin was removed on 28 Oct 2026. Only a System Administrator manages access.' }));
 
 /* ---------- PLATFORM, 27 Sept 2026: People and access — the person, the login, the history ----------
    Platform administrator only (the admin gate). Each change writes 1 row to the access log.
@@ -749,10 +719,9 @@ app.post('/api/platform/people/:username/active', auth, admin, async (req, res) 
       if (username === String(req.user.u).toLowerCase()) return res.status(400).json({ error: 'You cannot switch off your own login.' });
       const others = async (sql) => { const [r] = await pdq(sql, [username]); return Number(r[0].n); };
       const isAdm = await isPlatformAdmin(username);
-      if (isAdm && await others("SELECT COUNT(DISTINCT r.username) AS n FROM user_module_roles r JOIN auth_users a ON a.username = r.username WHERE ((r.module='platform' AND r.role='admin') OR (r.module='o2s' AND r.role='COO')) AND COALESCE(a.active,1) <> 0 AND r.username <> ?") === 0)
-        return res.status(400).json({ error: 'This is the last platform administrator. Appoint another before switching this login off.' });
-      if ((await heldRole(username, 'o2s')) === 'COO' && await others("SELECT COUNT(*) AS n FROM user_module_roles r JOIN auth_users a ON a.username = r.username WHERE r.module='o2s' AND r.role='COO' AND COALESCE(a.active,1) <> 0 AND r.username <> ?") === 0)
-        return res.status(400).json({ error: 'This is the last O2S COO. Give another person the COO role first.' });
+      if (isAdm && await others("SELECT COUNT(DISTINCT r.username) AS n FROM user_module_roles r JOIN auth_users a ON a.username = r.username WHERE (r.module='platform' AND r.role='admin') AND COALESCE(a.active,1) <> 0 AND r.username <> ?") === 0)
+        return res.status(400).json({ error: 'This is the last System Administrator. Appoint another before switching this login off.' });
+      // The 'last O2S COO' guard was dropped (Tahir, 21 Oct 2026): COO is an ordinary role; only the last System Administrator is protected.
     }
     await pdq('UPDATE auth_users SET active=? WHERE username=?', [on ? 1 : 0, username]);
     if (on) switchedOff.delete(username); else switchedOff.add(username);
@@ -769,16 +738,23 @@ app.get('/api/platform/people/:username/history', auth, admin, async (req, res) 
     res.json({ rows, log: true });
   } catch (e) { res.status(500).json({ error: String(e) }); }
 });
+/* Activity: every access change, newest first, for the People and access "Activity" tab (piece B, 21 Oct 2026).
+   System Administrator only, like a person's history. Read-only; at most 300 rows. */
+app.get('/api/platform/activity', auth, admin, async (req, res) => {
+  try {
+    if (!pdq || !(await platformTables()).log) return res.json({ rows: [], log: false });
+    const [rows] = await pdq('SELECT log_id, at, actor, action, subject, module, before_val, after_val, via FROM platform_access_log ORDER BY log_id DESC LIMIT 300');
+    res.json({ rows, log: true });
+  } catch (e) { res.status(500).json({ error: String(e) }); }
+});
 /* Who holds what: every app's roles with the people holding each, so a vacant role shows.
-   Names only; contacts are not part of this view. The platform administrator sees every
-   app; an app admin sees only the apps they administer. */
+   Names only; contacts are not part of this view. System Administrator only (28 Oct 2026). */
 app.get('/api/platform/holders', auth, accessAdmin, async (req, res) => {
   try {
     const t = await platformTables();
     const cat = await roleCatalogue();
     const [grants] = await pdq(`SELECT r.module, r.role, a.username, a.name${t.active ? ', a.active' : ''} FROM user_module_roles r JOIN auth_users a ON a.username = r.username ORDER BY a.name`);
-    const caps = req.adminCaps;
-    const modules = cat.filter(m => m.live && (caps.isCOO || (m.key !== 'platform' && caps.adminModules.indexOf(m.key) >= 0))).map(m => ({
+    const modules = cat.filter(m => m.live).map(m => ({
       key: m.key, name: m.name,
       roles: (m.roles || []).map(r => {
         const holders = grants.filter(g => g.module === m.key && g.role === r.key).map(g => ({ username: g.username, name: g.name, active: t.active ? Number(g.active) !== 0 : true }));
@@ -860,13 +836,18 @@ require('./apps/o2s/public-routes')(app, { store });
   /* A broken alerts file must never stop the launcher, PD or O2S from starting: it is logged and skipped. */
   if (fs.existsSync(o2sNotify)) { try { require(o2sNotify)(app, { store, pdq, auth, admin, services: platformServices, express, path, fs }); }
     catch (e) { console.error('O2S alerts not mounted:', e && e.message); } } }
+/* O2S roles service for the platform's Roles by app screen (Tahir, 28 Oct 2026, trial; docs/ROLES-DESIGN.md §4):
+   apps/o2s/o2s-rolesvc.js claims /api/o2s/rolesvc/* only. Same guard as the alerts: a broken file is logged and skipped. */
+{ const o2sRoles = path.join(__dirname, 'apps', 'o2s', 'o2s-rolesvc.js');
+  if (fs.existsSync(o2sRoles)) { try { require(o2sRoles)(app, { store, pdq, auth, services: platformServices, path, fs }); }
+    catch (e) { console.error('O2S roles service not mounted:', e && e.message); } } }
 
 /* C2M (Cost to Margin; Tahir, 17 Oct 2026): apps/c2m/c2m-routes.js claims /c2m and /api/c2m/* only.
    Mounted only when its roles loaded (C2M_INSTALLED), so the mount and People and access always agree; before
    the /api 404 and the O2S catch-all. It runs wholly on its own small pool (dbPool), never on O2S's connections;
    without one (local-file mode) C2M answers 503 itself and everything else carries on.
    A broken C2M file is logged and skipped: it can never stop the launcher, O2S or PD from starting. */
-if (C2M_INSTALLED) { try { require(C2M_FILE)(app, { pdq: dbPool ? (sql, params) => dbPool.execute(sql, params || []) : null, pool: dbPool, auth, path, fs, crypto }); }
+if (C2M_INSTALLED) { try { require(C2M_FILE)(app, { pdq: dbPool ? (sql, params) => dbPool.execute(sql, params || []) : null, pool: dbPool, auth, path, fs, crypto, services: platformServices }); }
   catch (e) { console.error('C2M not mounted:', e && e.message); } }
 
 const _NOCACHE = 'no-store, no-cache, must-revalidate';
@@ -928,8 +909,13 @@ async function runPlatformMigration() {
   // is_admin: marks a grant as a SUBSYSTEM ADMIN of that module (can manage roles within it).
   // Additive + idempotent — error 1060 (duplicate column) on re-run is expected and ignored.
   try { await pdq("ALTER TABLE user_module_roles ADD COLUMN is_admin TINYINT(1) NOT NULL DEFAULT 0"); } catch (e) { if (e && e.errno !== 1060) console.log('is_admin column add skipped: ' + e.message); }
-  // PLATFORM 25 Sept 2026 (R2): the platform administrator as a grant of its own, seeded once from the O2S COO rows.
-  try { await pdq("INSERT IGNORE INTO user_module_roles (username, module, role) SELECT username, 'platform', 'admin' FROM user_module_roles WHERE module='o2s' AND role='COO'"); } catch (e) { console.log('platform admin seed skipped: ' + e.message); }
+  // PLATFORM 25 Sept 2026 (R2): the platform administrator as a grant of its own, seeded from the O2S COO rows.
+  // 21 Oct 2026 (Tahir, 21 Oct 2026: the System Administrator holds all access power; COO is an ordinary role): seeded ONLY when nobody holds it at all (a fresh database), so a new O2S COO no longer becomes
+  // System Administrator on the next restart.
+  try {
+    const [pa] = await pdq("SELECT COUNT(*) AS n FROM user_module_roles WHERE module='platform' AND role='admin'");
+    if (Number(pa[0].n) === 0) await pdq("INSERT IGNORE INTO user_module_roles (username, module, role) SELECT username, 'platform', 'admin' FROM user_module_roles WHERE module='o2s' AND role='COO'");
+  } catch (e) { console.log('platform admin seed skipped: ' + e.message); }
   try { const [c] = await pdq('SELECT COUNT(*) AS n FROM user_module_roles'); console.log('Platform migration: user_module_roles ready (' + (c[0] ? c[0].n : '?') + ' rows).'); } catch (e) {}
 }
 

@@ -19069,6 +19069,223 @@
      }
     }
    ]
+  },
+  {
+   "id": "D-339",
+   "title": "People, roles, rights, departments, leads and screen access are set by the System Administrator on the launcher; O2S reads the role from the server when it opens (trial)",
+   "owner": "Tahir (ruling)",
+   "rules": [
+    "R-045",
+    "R-019"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir in chat, 28 Oct 2026: the System Administrator creates roles, sets their rights and assigns them, from one platform screen (platform docs/ROLES-DESIGN.md)",
+    "Tahir in chat, 29 Oct 2026: 'go with 1 & 2' (O2S's own Authorisation and Users screens removed; screen access moves to the platform Roles screen); 'yes add it' (the role from the server)",
+    "fn accessMoved, fn roleFromServer, fn screenPeople",
+    "tests/accessmoved.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-29"
+       ],
+       [
+        "Ruled by",
+        "Tahir"
+       ],
+       [
+        "Decision",
+        "O2S no longer changes people, logins, passwords of others, roles, their rights, departments, department leads or screen access. All of them are set by the System Administrator on the launcher (People and access). The 14 writers in o2s.html refuse with one message (accessMoved). Back Office → People shows who holds which role, read only, with a link to the launcher. Each time O2S opens it asks the server for the person's role (/api/me), so a role given or taken away counts at once instead of at the next sign-in."
+       ],
+       [
+        "What does not change",
+        "The COO's business powers (approvals, corrections, closing orders, free samples) and the pages fixed to named roles. The O2S COO still holds every right in O2S's own code (locked; a separate decision). A person still changes their own password."
+       ],
+       [
+        "Status",
+        "Built on the trial branch roles-trial; not live."
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-340",
+   "title": "The O2S COO is an ordinary role: its rights and screens are ticks the System Administrator sets (trial)",
+   "owner": "Tahir (ruling)",
+   "rules": [
+    "R-045",
+    "R-019"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir in chat, 29 Oct 2026: 'lets remove lock from COO role'",
+    "Tahir in chat, 28 Oct 2026: during the trial the COO keeps every right it has today, ticked",
+    "fn cooUnlockV1, fn mayRole, fn mayHere, fn accessLevelOn, fn canEdit, fn _canEditOn",
+    "tests/accessmoved.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-29"
+       ],
+       [
+        "Ruled by",
+        "Tahir"
+       ],
+       [
+        "Decision",
+        "O2S no longer gives the COO every right and every screen in its code. The 5 shortcuts (mayRole, mayHere, accessLevelOn, canEdit, _canEditOn) are gone; the COO's rights and screens are ticks, set by the System Administrator on the launcher like any role's."
+       ],
+       [
+        "On the day",
+        "A one-time step (cooUnlockV1, masters._cooUnlockV1; the roles service runs the same step on the server copy) gave the COO every right in force and Edit on every screen, so nothing changed for the COO. Checked in O2S: every right, every screen and every sign-off answered as before."
+       ],
+       [
+        "What does not change",
+        "Business powers fixed to the COO by name stay: 'COO only' approvals and corrections, the sign-offs, and the rights not yet in force that O2S fixes by role name. The separation-of-duties check still exempts the COO, as before."
+       ],
+       [
+        "Status",
+        "Built on the trial branch roles-trial; not live."
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-341",
+   "title": "The gates that save one of the 7 sign-offs ask one table (SIGNOFF_RULES); who may sign stays exactly as before (trial)",
+   "owner": "Tahir (ruling)",
+   "rules": [
+    "R-003",
+    "R-045"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir in chat, 29 Oct 2026: 'go with the phase 1'; 'do phase 1 exactly as today'",
+    "Inventory of the sign-off gates, 29 Oct 2026",
+    "var SIGNOFF_RULES, fn maySign, fn signoffRoles",
+    "tests/signoffs.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-29"
+       ],
+       [
+        "Ruled by",
+        "Tahir"
+       ],
+       [
+        "Decision",
+        "The 16 gate lines that save a signature (COA submit, bench results, review, approve and their send-backs; lot, pack and truck inspection and opening those forms; truck review, release and send-back; approve and reject a delivery challan) ask maySign(action). The table SIGNOFF_RULES holds each gate rule as it was, leave covers and the COO included."
+       ],
+       [
+        "Exactly as before",
+        "Proved by tests/signoffs.test.js: the old conditions, copied word for word, give the same answer as maySign in 3,456 cases (9 rules × 16 roles × 4 covers × 3 access-matrix cases × 2 screens)."
+       ],
+       [
+        "What the inventory found",
+        "The old list SIGNOFF_ROLES did not match the gates: the COO cannot sign a COA; old-flow COA submit is the Lab Rep only; Supply Chain can also reject a DC; a leave cover signs review and approve. SIGNOFF_ROLES is left as it was for the 2-person rules. Gaps kept for Tahir to decide: old-flow draft results have no gate; release has no loader check; inspection passes with Edit on the screen."
+       ],
+       [
+        "Not yet",
+        "Not routed yet, each keeps its own rule: the free-sample check, review and release (smpCheck, smpReview, smpRelease); provisional release (provMay); corrections that withdraw an inspection or re-issue a COA (correctAllowed); the Plant Manager's deviation or rework of an UNFIT COA; the unused coaReject. The buttons on screen and the Guide's \"What you sign\" (which still reads SIGNOFF_ROLES) keep their own conditions. Phase 2 makes the table editable on the platform Roles screen."
+       ],
+       [
+        "Status",
+        "Built on the trial branch roles-trial; not live."
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-342",
+   "title": "Who may sign is a list per sign-off, ticked by the System Administrator on the launcher; the COO is ticked like every role (trial)",
+   "owner": "Tahir (ruling)",
+   "rules": [
+    "R-003",
+    "R-045"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir in chat, 29 Oct 2026: 'i want it to be dynamic list all sign off and check it for the roles'; COO: '(a) Ticks like every role'; scope: 'The 7 sign-offs now; the rest later'",
+    "var SIGNOFF_RULES, fn signoffRoles, fn maySign, fn soRole, fn soAlso, fn holdsSignoff",
+    "o2s-rolesvc.js (signoffs)",
+    "tests/signoffs.test.js",
+    "tests/rolesvc-signs.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-29"
+       ],
+       [
+        "Ruled by",
+        "Tahir"
+       ],
+       [
+        "Decision",
+        "The 7 sign-offs (inspection, COA draft, COA review, COA approve, truck review, truck release, DC approval) are shown as 9 ticks, one per gate: COA draft is split into old-flow submit and bench results, and DC approval into approve and reject. On the launcher, People and access, Roles by app, each role has a section called \"What this role signs\". O2S keeps the lists in masters.signoffs. With no list saved, the default in SIGNOFF_RULES applies, and it is the same as today."
+       ],
+       [
+        "The COO",
+        "The COO is a role in the lists wherever it signs today: inspection, truck review, release, and DC approve and reject. It never signs a COA. Taking the tick away takes the signature away, because the COO shortcut is gone from maySign and from holdsSignoff."
+       ],
+       [
+        "One list, everywhere",
+        "The saves (maySign), the buttons on screen, the Today jobs (soRole and soAlso) and the 2-person rules (holdsSignoff) all read the same list."
+       ],
+       [
+        "Guard rails",
+        "Every sign-off keeps at least one role. The 5 two-person rules are checked against the lists, and the COO is exempt, as in separationRefusal. Only the admin's own changes are applied (a delta from what their screen showed). If a sign-off is left with nobody active to sign it, the save goes through with a warning. Inspection still needs Edit on the screen, except for the COO. The named leave cover for the AQCM or the QCM still signs."
+       ],
+       [
+        "Later",
+        "The other signatures (free samples, provisional release, corrections, UNFIT decisions) stay as they are for now."
+       ],
+       [
+        "Status",
+        "Built on the trial branch roles-trial; not live."
+       ]
+      ]
+     }
+    }
+   ]
   }
  ]
 }

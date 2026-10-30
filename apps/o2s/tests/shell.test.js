@@ -168,7 +168,7 @@ ok("BUILD_ID is 2026-09-23t or later", /var BUILD_ID='2026-(09-(2(3[t-z]|4[a-z])
 }
 /* 24c: the 2-person rules can refuse */
 {
-  ok('the sign-offs stay OUT of the catalogue', ['inspection.perform','coa.draft','coa.review','coa.approve','shipment.release','dc.approve'].every(c => !new RegExp("code:'" + c.replace('.', '\\.') + "'").test(html)));
+  ok('the sign-offs stay OUT of the catalogue', ['inspection.perform','coa.draft','coa.review','coa.approve','shipment.release','dc.approve'].every(c => !new RegExp("code:'" + c.replace('.', '\\.') + "'").test(html.replace(/var SIGNOFF_RULES=\{[\s\S]*?\n\};/, ''))));   /* the sign-off table names each one's code (D-342); the catalogue is everything else */
   ok('but each one names the role that holds it today', /var SIGNOFF_ROLES=\{'inspection\.perform':\['QA Inspector'\],'coa\.draft':\['Lab Rep','AQCM','QCM'\],'coa\.review':\['AQCM'\],'coa\.approve':\['QCM'\],'shipment\.release':\['Plant Manager'\],'dc\.approve':\['Plant Manager'\],'shipment\.review':\['Supply Chain','Warehouse'\]\}/.test(html));
   ok('separationRefusal reads a sign-off half from that map and never grants it', /holdsCode\(targetRole,other\)/.test(grab('separationRefusal')) && /rightByCode\(code\)\?mayHere\(role,code\):holdsSignoff\(role,code\)/.test(grab('holdsCode')));
   ok('the Roles editor shows a rule already broken', /sodConflicts\(role\)/.test(grab('roleEditorHTML')) && /A 2-person rule is broken/.test(grab('roleEditorHTML')));

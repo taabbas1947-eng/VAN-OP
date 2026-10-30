@@ -220,8 +220,8 @@ const sumKg = (s, lid) => s.packingLog.filter(p => p.lid === lid).reduce((a, p) 
 { const s = fix(); delete s.masters.customProducts; delete s.masters.groupOfBrand; delete s.corrections; delete s.audit; sb.dataFix27dV1(s); ok('missing optional tables: no crash and the work is done', s.masters._fix27d && s.corrections.length === 2 && s.audit.length >= 2); }
 
 /* ---- the code ---- */
-ok('it runs in the load chain after productGenericV1 and before the recipes', /productGenericV1\(s\); dataFix27dV1\(s\); loadBaseRecipesV2\(s\);/.test(html));
-ok('build id is 2026-10-27d', /BUILD_ID='2026-10-27d'/.test(html));
+ok('it runs in the load chain after productGenericV1 and before the recipes', /productGenericV1\(s\); dataFix27dV1\(s\); (cooUnlockV1\(s\); )?loadBaseRecipesV2\(s\);/.test(html));
+ok('build id is 2026-10-27d or later', ((/var BUILD_ID='([^']+)'/.exec(html) || [])[1] || '') >= '2026-10-27d');   // 29 Oct: any later build
 { const body = html.split('\n').filter(l => !l.startsWith('/*SYSDOC_DATA_START*/')).join('\n');
   const left = (body.match(new RegExp(BAD, 'g')) || []).length;
   eq('the old base spelling appears in the code only in the comment and the recipe alias', left, 2);

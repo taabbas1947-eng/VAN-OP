@@ -7034,3 +7034,59 @@ Note: the migration runs on load and is stored with the next save by any user, s
 After the push: verify live read only (main level with origin, file byte-identical, BUILD_ID 2026-10-27d, health 200; V-Transfarm pack void, Back Office "does not match" item gone, VT10450 packed 4,314, BS26001 row gone, base spelling, 79 products, _fix27d flag with skipped empty).
 Files to push (O2S only): apps/o2s/o2s.html, apps/o2s/tests/names27d.test.js, apps/o2s/tests/names27b.test.js, apps/o2s/tests/names27c.test.js, apps/o2s/docs/System Documentation (decisions, dictionary, schema, tests json), this file. (backlog.test.js and entry (9) are already in the local commit 5506b49.)
 Still open, not asked for yet: DC 11 (PO 00453, VL-NPK, July) counted with no gate pass; 22 old lab-template keys that match no product name; the VLM26001 / VLM 26001 batch pair.
+
+## 29 Oct 2026 — Build 2026-10-29a (trial): access is set on the launcher; the role comes from the server (MODULE: O2S, branch roles-trial) — NOT PUSHED
+
+Tahir, 28-29 Oct: the System Administrator creates roles, sets rights and screen access and assigns them, from the
+platform's Roles screen ("go with 1 & 2"); O2S reads the person's role from the server (platform docs/ROLES-DESIGN.md).
+- **Closed in O2S:** the 14 writers refuse (`accessMoved`): ppSave, addUser, delUser, openEditUser, saveEditUser,
+  rightTick, amxSet, amxCycle, setDeptLead, setRoleDept, addRole, renameRole, archiveRole, restoreRole. People is
+  read only with a link to the launcher; the People desk says "Change on the launcher". Own password still works.
+- **Role from the server:** `roleFromServer` (in `bootState`, before the first paint) uses `/api/me`'s o2sRole; no O2S
+  role: O2S does not open. Seen on the trial: a role given back reached O2S only after a new sign-in.
+- **Roles service** `apps/o2s/o2s-rolesvc.js` (new, mounted by 1 guarded line in server.js): rights in force, screens,
+  department, lead, archive, restore; separation of duties; only the 21 rights in force are written.
+- **Words:** access messages name the System Administrator; Guide rule R-045 "Who sets your access"; D-339; changelog
+  2026-10-29a; BUILD_ID and SYSDOC_VER 2026-10-29a; names27b/c/d build pins now "or later".
+- **Tests:** new `tests/accessmoved.test.js` 43/43 (runs the real functions); all suites as before except the 2 old
+  failures (audit17c is date-bound; truckback17a stops on a null). 27 suites need data/state.json (not on this PC).
+- **Trap, Windows:** `build_sysdoc.py` must be run as `python -X utf8 build_sysdoc.py`, and on Windows it rewrites
+  o2s.html with CRLF line endings; convert back to LF afterwards (the harness and several tests break on CRLF).
+- **For the real build:** delete the now unreachable People screen code and the tests that pin it by text (shell,
+  rolemodel, authmodel) together. O2S COO stays locked with every right (Tahir has not decided).
+
+## 29 Oct 2026 (2) — Build 2026-10-29a (trial): the COO is an ordinary role, D-340 (MODULE: O2S, branch roles-trial) — NOT PUSHED
+
+Tahir: "lets remove lock from COO role". The 5 COO shortcuts are gone: mayRole, mayHere, accessLevelOn, canEdit,
+_canEditOn. One-time step `cooUnlockV1` (load chain, after dataFix27dV1; masters._cooUnlockV1) gives the COO every right
+in force and Edit on every screen as ticks; the roles service runs the same step on the server copy when it starts.
+Checked in O2S as the COO: all 33 rights, all 21 screens and all sign-offs answer as before; a right and a screen taken
+from the COO on the platform were refused by O2S, then given back. Unchanged: "COO only" business checks (state.role
+=== 'COO'), hardRole, holdsSignoff, the hard-coded rights, the separation-of-duties exemption for the COO.
+Docs: D-340, access.json, changelog line in 2026-10-29a. Tests: accessmoved 53/53 (COO checks added); names27b/c/d
+load-order pins accept the new step. All suites as before except the 2 old failures.
+
+## 29 Oct 2026 (3) — Build 2026-10-29a (trial): sign-offs Phase 1, one table, exactly as before, D-341 (MODULE: O2S, branch roles-trial) — NOT PUSHED
+
+Tahir: "do phase 1 exactly as today". `var SIGNOFF_RULES` (9 rules) + `maySign(action)` + `signoffRoles`. The 16 gate lines
+that save one of the 7 sign-offs ask maySign: coaSubmitAnalyst, benchSave, coaReview, coaApprove, coaSendBack (isAQ/isQM),
+lotQASubmit, savePackInspect, dispQASubmit, openPackInspect, openDispatchQA, reviewTruck, approveRelease, sendBackTruck
+(review and release), approveDC, rejectDC. Each rule is the old line as it was ('role' with leave cover, 'hard' = hardRole,
+'edit' = canEdit or COO). Proved: tests/signoffs.test.js compares the old conditions word for word with maySign in 3,456
+cases (0 differences) and fails on a broken rule (checked 5 ways, me and the reviewer). harness.js `signoffSrc()` gives
+the table to suites that run a gate (audit27a, truckreview, fixes26a, pallet, refusenothing; dispatchauthority reads the
+rule from the table). The roles service shows the real sign-offs per role from SIGNOFF_RULES (no more "COO signs COAs").
+Independent review: exactness confirmed. NOT routed (own rules, for Phase 2 scope): free-sample check/review/release,
+provisional release (provMay), corrections supersede (correctAllowed), UNFIT deviation/rework, unused coaReject (delete
+or route), lotQACorrect/clearQaHold (not signatures). The buttons on screen and the Guide's "What you sign" (reads the
+old SIGNOFF_ROLES, wrong before this change) are unchanged. Kept gaps for Tahir: old-flow draft results have no gate;
+release has no loader check; inspection widens with Edit on the screen; the COO cannot sign COAs.
+
+## 29 Oct 2026 (4) — Build 2026-10-29a (trial): a 1-to-6-day Today job looked like a red warning box (MODULE: O2S, branch roles-trial) — NOT PUSHED
+
+Found while Tahir tested the sign-offs: Himayat's Today showed the 6-day "Approve COA" card pink with a red border and its
+button on the right, more alarming than the 12-day one. Cause (also in live, commit 00b869b): `.tdcard.warn` set only the
+edge colour, so the unrelated `.warn` warning-box rule (later in the file, same weight) gave the card its display, padding,
+border and background. Fix: `.tdcard.warn` sets every property `.warn` sets. Checked in the browser: both cards plain,
+button on the left, red edge for late, amber for 1-6 days. Test `tests/tdcardwarn.test.js` 6/6 (fails on the old version,
+8 properties). Changelog line in 2026-10-29a. Worth sending live on its own: it affects live O2S today.

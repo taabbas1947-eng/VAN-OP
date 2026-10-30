@@ -33,9 +33,33 @@ anything else.
 
 ## Platform administrator
 
-A grant of its own: module `platform`, role `admin`, seeded once at boot from
-the O2S COO rows. The `admin` gate and Manage access read it; the COO role in
-the token keeps working during the changeover.
+A grant of its own: module `platform`, role `admin`, shown as **System Administrator**. The `admin` gate
+and People and access read it.
+
+**Ruled by Tahir, 21 Oct 2026: the System Administrator holds all access power; COO is an ordinary role.**
+The O2S COO no longer counts as administrator (the changeover rule ended): not in the `admin` gate, `/api/me`,
+the admin capabilities or the launcher. The start-up step that seeded the grant from the O2S COO rows now runs
+only when no System Administrator exists at all (a fresh database). Only a System Administrator gives O2S COO,
+C2M CFO or COO, and roles made on C2M's Roles screen. Local-file mode (no database, development only) has no
+role table, so there the O2S COO stands in. Before this ruling the two live O2S COOs (tahir, ahmer) were checked
+to hold the System Administrator grant, so nobody lost access power.
+
+Review of 21 Oct 2026, same day: those roles are also changed and taken away only by a System Administrator. An
+app admin may not move someone off O2S COO, C2M CFO or COO, or a C2M custom role (`sysAdminOnlyRole` in server.js;
+the screen shows the row locked with the reason). Removing a System Administrator is refused when no other active
+System Administrator would remain (the same rule as switching one off). The start-up seed counts grant rows, not
+active logins: if every System Administrator is switched off, recovery is by hand in the database.
+
+**What this ruling does not reach (recorded 21 Oct 2026, not built; for Tahir and the app owners):** O2S's own
+Authorisation panel still lets the O2S COO set every O2S role's rights, and C2M's Roles screen still lets the C2M COO
+widen a built-in role that an app admin may then give. O2S's Users & Access refuses an O2S COO who is not a System
+Administrator. A role taken away takes effect in O2S at the person's next sign-in (the token carries the O2S role
+for up to 30 days); switching off takes effect at once.
+
+**Ruled by Tahir, 28 Oct 2026 (design agreed, not built):** the System Administrator creates every
+role, sets its rights and assigns it, in every app, from one platform screen; COO and CFO become
+ordinary roles; app admin will be dropped. Each app keeps its roles and offers a roles service.
+Design and open questions: `docs/ROLES-DESIGN.md`. Until it is built, the rules above stand.
 
 ## For the next module (QMS, ComPha)
 
@@ -108,13 +132,14 @@ Design and rulings: `docs/PLATFORM-DESIGN.md`. In short:
 
 Created by `migrations/P001_people_and_access_log.sql` (local) and
 its `.PRODUCTION.sql` copy. Until P001 is applied, the server behaves exactly
-as before and the page says the migration is waiting.
+as before; the person's page then says Details, switch off and history need migration P001.
 
 **Switched off.** Only an explicit switch-off on People and access sets
 `active = 0`. From then on the login is refused and any open session stops
 (checked in `auth()` from a set held in memory, loaded at boot). Roles are
 kept, so switching back on restores them. Guards: not yourself, not the last
-platform administrator, not the last O2S COO.
+System Administrator. (The "last O2S COO" guard was dropped on 21 Oct 2026, Tahir: COO is an ordinary role.
+O2S's own `/api/users` routes still refuse to demote or delete the last COO; that is O2S's to decide.)
 
 **Logged actions:** `account.create`, `person.update`,
 `account.password_reset` (never the password), `account.switch_off`,

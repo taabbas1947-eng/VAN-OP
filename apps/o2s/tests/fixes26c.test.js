@@ -186,7 +186,7 @@ ok('the Production Manager can clear a hold after fixing it', /state\.role==='Pr
 
 /* ---------- a lot failing QA needs a reason; only QA inspects ---------- */
 { const q = grab('lotQASubmit');
-  ok('only the QA Inspector (or COO) submits a lot inspection', /^function lotQASubmit\(\)\{ if\(!\(canEdit\(\['QA Inspector'\]\)\|\|state\.role==='COO'\)\)/.test(q));
+  ok('only the QA Inspector (or COO) submits a lot inspection', /^function lotQASubmit\(\)\{ if\(!maySign\('inspection'\)\)/.test(q) && /'inspection':\s*\{[^}]*how:'edit', roles:\['QA Inspector','COO'\]/.test(H.html));
   ok('a failed lot needs Remarks (at least 5 characters), checked before anything is saved', /m==='fail'\)\|\|_lpk\.some\(x=>x\.result==='fail'\)\|\|lotQAForm\.dates==='fail'\) && String\(lotQAForm\.remarks\|\|''\)\.trim\(\)\.length<5/.test(q) && q.indexOf('.length<5') < q.indexOf('p.qa=Object.assign'));
   ok('the "QA failed lot" job carries the reason', /p\.qa\.remarks\?\(': \\u201c'/.test(grab('actionItems'))); }
 

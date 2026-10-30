@@ -7212,3 +7212,27 @@ F. 29a left (entry 18): long-open POs keep asking for a note daily (Maxim Old PO
 G. On hold since 28 Oct: KAM and Finance Desk Officer order entry, new role and right seeding, waiting for Tahir's decision on whether the role matrix (Ahmer, platform) lives in O2S or on the platform.
 H. Tests: audit17c (4f, 4g) and truckback17a fail on the date, before and after every build today; worth fixing their clocks so the suite is green.
 Security: nothing new found today.
+
+
+## 30 Oct 2026 (29) - live check of build 2026-10-30c (commit ab4f547, pushed 14:08) PASS; no code change (MODULE: O2S)
+Checked about 14:20 on van-control-tower.onrender.com/o2s, signed in as Tahir (COO), read only. Other roles by _asRole inside the call only. No record written by Claude; no button tapped.
+1. BUILD_ID and SYSDOC_VER read 2026-10-30c; changelog has the 30c entry ("Each lot's lab job is its own job: Defer, is on it and alerts per lot"); Guide carries "Each lot is its own job"; no console errors after a reload.
+2. 3 open lab jobs (all Lab QC), each with its own key: Lab QC|b:B5570-subk|u:LOT5773-gort (HG26047-L4), Lab QC|b:B5570-subk|u:LOT5879-fjbg (HG26047-L5), Lab QC|b:B5881-oy1n|u:LOT5884-ziue (HG26048-L1). None deferred, none shows anyone on it.
+3. Waiting days from the lot date, unchanged from 30b: L4 2 d (28 Oct), L5 1 d (29 Oct), HG26048-L1 1 d (29 Oct).
+Note: state.taken still holds the old shared key Lab QC|b:B5570-subk (Mubeen Ahmed, 12:01). No job matches it now, so it shows nowhere; it drops out on its own after 8 hours (tdTakenBy age limit). state.acDefer holds 2 old batch-only lab keys (B2062-9qas, B2428-t1x6), the 2 defers that ended in Sep; harmless.
+Still to hear from Tahir: whether Himayat and Fahim saw the one-time alerts and were told; whether Fahim or Majid have opened Truck and PO comments today (30a).
+Tahir's answers (panel, 30 Oct): Himayat and Fahim got the one-time alerts and were told beforehand (closed). Fahim and Majid have not opened the comments fold yet (left open). Next piece chosen: D, the 29c small remainder close leftovers.
+
+
+## 30 Oct 2026 (30) - Tahir's rulings on the 29c small remainder close leftovers (af to am); docs only, nothing built yet (MODULE: O2S)
+Asked as panel questions with context, 30 Oct about 14:30. His answers:
+(af) Reopen notice: whoever closed the line gets a Today notice when the COO reopens it (not the Plant Manager).
+(af) Reopen clock: a reopened line's jobs count their waiting days from the reopen day, not from the PO's received date.
+(am) After a reopen, the normal route stays: Supply Chain may ask and the Plant Manager may approve a new close. No change.
+(ah) COO notice of a small close: a line on the COO's Morning view with the count of yesterday's small closes and a link to the Closed short report. No Today job.
+(ag) Audit rows lost in a save clash: fix it, as its own build (audit rows merge by id so both are kept). Applies to all audit rows, not only short close.
+(ai) Late packing on a closed line: accept a pack entry dated on or before the close day, with a mark on the line and a notice to the COO. A pack entry dated after the close stays refused.
+(aj) 7 day rule: save the entry day on every new PO; the 7 days count from the later of the received date and the entry day; old POs (no entry day saved) keep the received date.
+(al) A line with nothing delivered can NOT be closed by the small remainder route; it goes the normal route (Plant Manager approves). This REPLACES the 29 Oct ruling "a line with nothing delivered may be closed this way". Today's 2 qualifying lines both have deliveries (Maxim 22868 Max Potash 29,960 of 30,000; BKK 00694 VL-Boron 48 of 50), so they still qualify.
+(ak) Closed short report role list vs Custom report: leave it. The data is not secret; the list only decides who sees the report button.
+Proposed builds: 30d = af, ah, ai, aj, al (one change, Guide, changelog, D-number, R-048 text, PO-SHORT-CLOSE.md, tests). 30e = ag on its own.

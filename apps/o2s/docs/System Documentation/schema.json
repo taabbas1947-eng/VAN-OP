@@ -6098,7 +6098,8 @@
     "o2s.html fn alsoBasesV1",
     "fn applyProductsV1",
     "fn pmSave",
-    "D-346"
+    "D-346",
+    "D-355"
    ],
    "blocks": [
     {
@@ -6118,7 +6119,7 @@
         "no",
         "none",
         "Other bases the brand may also be packed from, shown in the Pack window of a batch of that base. Never the brand's own base (dropped if present). Set for Tornado 500 ML and Max Amino to Liquid Bio Stimulant.",
-        "alsoBasesV1 once; kept by an edit of the product (pmSave)"
+        "alsoBasesV1 once; from 30f alsoSaveWin (Pack sheet window) and pmSave (Back Office form), each add or remove with a reason and an audit row. Stored as it is: it may hold the main base itself after a main-base change (alsoRaw); alsoListOf hides that entry on screen and brandsForPack is not changed by it"
        ],
        [
         "masters._also29b",
@@ -6127,6 +6128,30 @@
         "absent",
         "One-time flag: the link was made. Absent until Liquid Bio Stimulant and both brands exist.",
         "alsoBasesV1"
+       ],
+       [
+        "masters._compost30f",
+        "{at, by, did, skipped}",
+        "no",
+        "absent",
+        "Set once by compostTests30fV1 (30f) when the Compost base got the 5 tests of the old V Compost list",
+        "compostTests30fV1"
+       ],
+       [
+        "masters.labTemplates.Compost",
+        "list of tests",
+        "no",
+        "absent until 30f",
+        "The Compost base's lab tests; used by coaTemplate for every brand of base Compost",
+        "compostTests30fV1, then the lab"
+       ],
+       [
+        "masters._bs26001se30f",
+        "{at, did, skipped, again}",
+        "no",
+        "absent",
+        "Set by bs26001Shift30fV1 (30f) when it removed BS26001's wrong shift row; again records a second removal",
+        "bs26001Shift30fV1"
        ]
       ]
      }

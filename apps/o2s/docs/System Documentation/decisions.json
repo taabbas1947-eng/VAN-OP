@@ -19977,6 +19977,125 @@
      }
     }
    ]
+  },
+  {
+   "id": "D-354",
+   "title": "A pool is held, not stuck (30e)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-022"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Live check 30 Oct 2026 of the open data findings (handoff entry 33)",
+    "Tahir's panel answers in chat, 30 Oct 2026: show as held; trust the 11,025 Kg",
+    "o2s.html changelog 2026-10-30e",
+    "fn isBatchStuck",
+    "fn heldPools",
+    "fn heldPoolRowsHTML",
+    "tests/held30e.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-30"
+       ],
+       [
+        "What happened",
+        "The Nitro Sulfur by-product pool B3879-eyyp (Sulfur Coated Urea leftovers, no batch number, 11,025 Kg/L, open since 26 Sep, never called back) was on the Stuck batches list of How are we doing (isBatchStuck: open 7 days or more, idle 3 days or more) and counted in 'N batches stuck'. Plant's own stuck list (plBatchClass) already left pools out."
+       ],
+       [
+        "Decision",
+        "Tahir: keep it on the list, marked as a held pool, not stuck. isBatchStuck returns false for a pool, so no pool is counted as stuck; heldPools lists the open pools, and both Stuck batches tables (the leadership and operations views of How are we doing) add a Held pool row after the stuck rows: product, days open, 'held, not stuck', Kg/L kept and its kind (by-product, diverted material, for rework)."
+       ],
+       [
+        "Also ruled",
+        "The pool's 11,025 Kg/L is trusted (the 26 Sep leftovers of 28 SCU batches went in); the figure stays although only 2 source batches are named (VU26187 475, VU26188 25)."
+       ],
+       [
+        "Effect on the push",
+        "The Nitro Sulfur pool moves from a red idle row to a Held pool row; the stuck count on How are we doing drops by 1. No record changes."
+       ],
+       [
+        "Review",
+        "Push. Fixed after: an emptied pool (0.5 Kg/L or less, called back in full) is not listed; the operations table title adds 'and held pools'. Left: the red Needs reconcile card on the Production tab still counts pools (it answers a different question)."
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-355",
+   "title": "Change which bases a brand is packed from; Compost lab tests; BS26001 shift row (30f)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-047"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir tried to add a second base for Tornado in Back Office and could not, 30 Oct 2026",
+    "Tahir's panel answers in chat, 30 Oct 2026; picture page Also Packed From (v2)",
+    "Himayat (QCM), via Tahir, 30 Oct 2026: the 5 tests are for V-Compost and every brand made from the Compost base",
+    "o2s.html changelog 2026-10-30f",
+    "fn alsoPackLine",
+    "fn openAlsoWin",
+    "fn alsoSaveWin",
+    "fn alsoAudit",
+    "fn pmAlsoField",
+    "fn pmSave",
+    "fn compostTests30fV1",
+    "tests/also30f.test.js",
+    "Abdul Majid's answers via Tahir, 30 Oct 2026 (with screenshots: order sheet COBO-2608-4613, Batch trace BS26001, packing report Zinc 21%)",
+    "fn bs26001Shift30fV1"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-30"
+       ],
+       [
+        "What happened",
+        "Also packed from (products[].alsoBases, 29b) had no screen: it was set once by alsoBasesV1 for Tornado 500 ML and Max Amino. Tahir could not add Liquid Bio Stimulant to plain Tornado."
+       ],
+       [
+        "Records check (Tahir asked first)",
+        "Tornado 500 ML: 1 order, United Distributor Pakistan Ltd 250700003, 500 packed 28 Oct from Liquid Bio Stimulant BS26002. Tornado: VAN (COBO) 60, VGreen 12, a farmer 1.5 (and a VGreen 7 closed short), all from Amino Acid AM26002. BKK never ordered it. Tahir: same product and brand, either base, 2 labels (VAN's and UDL's); keep the 2 records."
+       ],
+       [
+        "Decision",
+        "Who changes it: the COO, CFO, Plant Manager and Production Manager (alsoMay). Where: on the Pack sheet, under the brand once picked, the line Packed from with the link Change which bases this brand is packed from (window: main base read only, Also packed from chips, + Add a base, x, reason); and in the Back Office product form under the base for the COO, CFO and Plant Manager. Back Office stays closed to the Production Manager. A reason of 4 characters or more is required; each add or remove writes 1 audit row (field Also packed from, who, base, reason) and 1 log line; the product maps are rebuilt (applyCustomProducts). After the independent review: the list is stored as it is, so a second base that becomes the main base in Back Office stays in the list (hidden while it is the main base) and is a second base again if the main base changes back (the 29b promise); changing the main base asks no reason and writes no Also packed from row (the Edited product log line records it). The main base select redraws the field. If the window takes off the base of the batch being packed, the Pack sheet drops the brand and its PO. Brand and base names are escaped with bfxJs inside the links, so an apostrophe does not break them."
+       ],
+       [
+        "Compost tests",
+        "compostTests30fV1 (once, flag masters._compost30f): when the Compost base has no tests of its own, it gets a copy of the 5 tests of the old V Compost list (Physical Status, Color, Moisture, OM, CEC), with 1 audit row (fixed id AU-compost30f). The old V Compost list stays (Tahir: leave the old lists). coaTemplate then gives them to V-Compost and any brand of base Compost."
+       ],
+       [
+        "BS26001 shift row",
+        "Abdul Majid (via Tahir, 30 Oct): BS26001 was opened by mistake under Amino Acid and closed with no production; the 500 L was LBS26001 (its own shift row of 28 Sep). 27d (D-336) removed the production log row PLmui1quhjd2tqj6 but not the shift log row SE3828-gcy6 (26 Sep, Morning, Muhammad Imran, 500), which the Morning view shift figures (M.shifts) and batchLastActivity read. bs26001Shift30fV1 removes it on every load while the batch is exactly as read on 30 Oct (closed, 0 produced, 0 packed, no lots, no production log row), so a save from an old screen cannot bring it back; 1 audit row (fixed id AU-bs26001se30f); flag masters._bs26001se30f (again = when it was removed a second time; skipped and skippedAt = it came back with other figures and was left as it is). V-Transfarm COBO-2608-4613: Majid confirmed only 300 was packed; already settled by 27d (the 26 Aug pack void)."
+       ],
+       [
+        "Not in this build",
+        "Production still counts only the main base (the 2 bases problem, waiting for Tahir's solution). Plain Tornado gets Liquid Bio Stimulant when Tahir or Majid adds it through the new window. The Brand owner fix for Tornado 500 ML and showing the owner beside names come with the 2 bases build."
+       ]
+      ]
+     }
+    }
+   ]
   }
  ]
 }

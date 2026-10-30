@@ -32,8 +32,8 @@
       "rows": [
        [
         "Passed",
-        "121 files with every check passed",
-        "14,799 checks passed (in the 122 files that print a count), 30 Oct 2026, build 2026-10-30d"
+        "123 files with every check passed",
+        "14,828 checks passed (in the 123 files that print a count), 30 Oct 2026, build 2026-10-30f"
        ],
        [
         "Failed",
@@ -42,8 +42,8 @@
        ],
        [
         "All files",
-        "123",
-        "14,801 checks counted"
+        "124",
+        "14,813 checks counted"
        ]
       ]
      }
@@ -721,19 +721,19 @@
         "names27b.test.js",
         "One name for each product: V Germinator Pro and Cala Mag V join V-Germinator Pro and Cal-Mag V (clients and packs joined, old spelling inactive and marked); V-Mg Essential takes the full specification; 4 empty placeholders are removed, or retired if a record uses them; no order, batch, CoA, packing or QA record is rewritten; a second run changes nothing; old spellings still find the lab template and the brand map; Add product refuses a retired or look-alike spelling; the Guide and the change log say so.",
         "R-044",
-        "102 passed, 0 failed (27 Oct 2026)"
+        "102 passed, 0 failed (27 Oct 2026); load chain pattern widened for 30f (30 Oct 2026)"
        ],
        [
         "names27c.test.js",
         "V-Germinator Pro final recipe: the generic is set to P 27% + N 4.5% + K 2% on the VAN entry and the retired spelling; a hand-typed text is kept; once; no product list or product absent is safe; the code catalogue no longer carries the old text.",
         "D-334",
-        "18 passed, 0 failed (27 Oct 2026)"
+        "18 passed, 0 failed (27 Oct 2026); load chain pattern widened for 30f (30 Oct 2026)"
        ],
        [
         "names27d.test.js",
         "Records settled: the repeated V-Transfarm pack is voided and its inspection withdrawn (batch and register follow); the BS26001 production row and lot go (not when it has an order or a certified lot); the base spelling is renamed wherever it stands, history left as written, and the 6 ingredient recipe kept; the empty lab list goes and coaTemplate ignores a list with no tests, so a COA gets its tests; a multi batch with a certified lot and a row with an order are left alone; history (action log, users, corrections) is never rewritten; a skip shows on the audit trail; the unused product and 6 old names are removed and stay removed through the real catalogue rebuild; every guard leaves a different record alone and records the skip; once and harmless; the documentation card version equals the build.",
         "D-335 to D-338",
-        "93 passed, 0 failed (27 Oct 2026)"
+        "93 passed, 0 failed (27 Oct 2026); load chain pattern widened for 30f (30 Oct 2026)"
        ],
        [
         "dailycomment29a.test.js",
@@ -776,6 +776,18 @@
         "30d: a line with nothing delivered goes the normal route (Maxim 22868 and BKK 00694 still qualify); 7 days from the later of received and entered, the sentence with both dates, order entry and Data Fix save the day; the reopen card to the closer of a small close, the asker of a normal close (also found by name), nobody for the COO's own close, Seen clears it; the reopen clock from the Pakistan reopen day with Ship kept; late pack on or before the close day allowed, after it refused, Pack sheet list and label, doPack writes latePacks, log and audit after the pack; the COO's Morning view rows; the New for you card once more; Pack QC on a closed line; Guide, rules, changelog, D-353, LG-42, SC-45.",
         "D-353",
         "90 passed, 0 failed (30 Oct 2026, after review round 2)"
+       ],
+       [
+        "held30e.test.js",
+        "30e: a pool is never stuck, a real batch still is; the stuck list and count leave pools out; open pools are listed as Held pool with days open, held not stuck, Kg/L kept and kind; closed or voided pools are not listed, a diverted pool is; both How are we doing tables add the rows; Guide rule, changelog, D-354.",
+        "D-354",
+        "12 passed, 0 failed (30 Oct 2026, after review)"
+       ],
+       [
+        "also30f.test.js",
+        "30f: who may change Also packed from (COO, CFO, Plant Manager, Production Manager; not others); the Pack sheet line and link; the window: main base not offered, reason required, saved with 1 audit row and 1 log line, maps rebuilt, back to the Pack sheet; removing the last base; no change writes nothing; a role that may not cannot open it; the Back Office field and reason box; pmSave refuses without a reason, writes the list and audit, keeps an old form's list; the Compost tests copied once, old list kept, never over a Compost list of its own; Guide, changelog. BS26001 shift row: removed, LBS26001 kept, 1 audit row with a fixed id, removed again if brought back, nothing removed if the records no longer match, and a skip note kept even after an earlier removal. After the review: pmSave run for real (no change, remove with and without a reason, main base changed to the second base and back keeps it, old form, a base added twice, the Production Manager refused); the window keeps a hidden main-base entry; the Pack sheet drops a brand whose batch base was taken off; an apostrophe or backslash in a name keeps the links working; the main base select redraws the field.",
+        "D-355",
+        "59 passed, 0 failed (30 Oct 2026)"
        ]
       ]
      }

@@ -292,8 +292,8 @@ Finance and Warehouse can open the Closed short report (added 29 Oct).
 Third review round (29 Oct): a reopened line gets its Pack job back; the Closed short
 report keeps an earlier close that was reopened and replaced; the refusal and the
 Ask and approval windows name who reopened a line, when and why. Left, to tell
-Tahir: C2M still reads a reopened line as closed (apps/c2m/c2m-o2s.js line 36
-needs `&& !sc.reopenedAt`, a separate C2M piece); nobody is told of a reopen and
+Tahir: C2M used to read a reopened line as closed; fixed in C2M on 29 Oct (C2M D-136,
+commit e5611ab; a reopen reaches C2M after its next Pull now); nobody is told of a reopen and
 the reopened line's jobs age from the PO's received date; the COO gets no notice of
 a tiny close; late packing is refused on a closed line; a backdated received date
 skips the 7 day rule; small farmer orders qualify after 7 days.

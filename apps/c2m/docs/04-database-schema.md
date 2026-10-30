@@ -791,3 +791,15 @@ Why link tables and not new columns: the live tables stay untouched and migratio
 
 ## Migration 006 (26 Oct 2026, D-133)
 Data only, no table change: 3 rows of c2m_raw_material renamed (spelling), with 1 c2m_audit line each.
+
+## 4.12 Migration 007: out of use and the Default recipe (30 Oct 2026, D-139, D-140)
+Run migrations/007_c2m_out_of_use_default_recipe.sql on the local database first; the PRODUCTION file is for phpMyAdmin, run by hand later. Creates 3 tables, changes no existing table, safe to run twice. Until it is run C2M works as before; Take out of use, another recipe and Make default answer that migration 007 is needed (409). The number 007 is used here; D-135 had said no migration 007 was needed for the Magnisium Oxide spelling.
+
+| Table | Column | Type | Meaning |
+|---|---|---|---|
+| c2m_out_of_use | entity, entity_id (key) | VARCHAR(30), INT | material_grade, packing_item, packing_bill or customer, and its id. No row = in use |
+| c2m_out_of_use | by_user, at, why | VARCHAR(64), DATETIME, VARCHAR(400) | who took it out of use, when, why |
+| c2m_recipe_name | recipe_version_id (key), recipe_name | INT, VARCHAR(80) | a version's recipe name; no row = "Main" |
+| c2m_recipe_default | client_product_id (key), recipe_name, set_by, set_at | INT, VARCHAR(80), VARCHAR(64), DATETIME | the recipe that sets the product's cost; no row = "Main" |
+
+c2m_audit actions added: delete (entity material, packing_item, packing_bill, conversion_rule, freight, customer, client_product, recipe; old values in old_value), out of use and in use (material_grade, packing_item, packing_bill, customer), edit (material, packing_item, conversion_rule, client_product), replace (conversion_rule), default (recipe).

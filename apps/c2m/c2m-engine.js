@@ -65,7 +65,7 @@ async function loadRecipes(q) {
 async function loadAll(q) {
   // Speed: these reads do not depend on each other, so they run together (one wait instead of 16 in a row).
   const soft = async sql => { try { return (await q(sql))[0]; } catch (e) { if (e && (e.code === 'ER_NO_SUCH_TABLE' || e.errno === 1146)) return null; throw e; } };
-  const [settings, rates, packing, recipes, [customers], [cps], [packs], [rules], [ruleProducts], [types], [freight], [versions], fam, pvs, exts, pexts, rvs] = await Promise.all([
+  const [settings, rates, packing, recipes, [customers], [cps], [packs], [rules], [ruleProducts], [types], [freight], [versions], fam, pvs, exts, pexts, rvs, rnames, rdefs, ooUse] = await Promise.all([
     loadSettings(q), loadRates(q), loadPacking(q), loadRecipes(q),
     q('SELECT * FROM c2m_customer ORDER BY grp DESC, name'),
     q('SELECT * FROM c2m_client_product WHERE active=1 ORDER BY customer_id, brand'),
@@ -77,8 +77,15 @@ async function loadAll(q) {
     q('SELECT * FROM c2m_cost_version ORDER BY client_pack_id, valid_from'),
     // Piece 3 (D-98): families, variants, follows and client-only packs live in 5 link tables (migration 003). Until it is run they read as empty.
     soft('SELECT id, name FROM c2m_product_family ORDER BY name'), soft('SELECT id, family_id, name FROM c2m_product_variant ORDER BY family_id, name'),
-    soft('SELECT * FROM c2m_product_ext'), soft('SELECT * FROM c2m_pack_ext'), soft('SELECT * FROM c2m_rule_variant')]);
+    soft('SELECT * FROM c2m_product_ext'), soft('SELECT * FROM c2m_pack_ext'), soft('SELECT * FROM c2m_rule_variant'),
+    // Migration 007 (D-139, D-140): recipe names, the default recipe of each product, and items out of use. Until it is run they read as empty.
+    soft('SELECT recipe_version_id, recipe_name FROM c2m_recipe_name'), soft('SELECT client_product_id, recipe_name FROM c2m_recipe_default'), soft('SELECT entity, entity_id FROM c2m_out_of_use')]);
   const variantsReady = fam != null && pvs != null && exts != null && pexts != null && rvs != null;
+  const m007 = rnames != null && rdefs != null && ooUse != null;
+  const rn = new Map((rnames || []).map(r => [Number(r.recipe_version_id), r.recipe_name]));
+  for (const v of recipes.byVer.values()) v.rname = rn.get(Number(v.id)) || MAIN; // a version with no name row is the main recipe
+  const recDefault = new Map((rdefs || []).map(r => [Number(r.client_product_id), r.recipe_name]));
+  const outOfUse = new Set((ooUse || []).map(r => `${r.entity}:${Number(r.entity_id)}`));
   const ext = new Map((exts || []).map(e => [e.client_product_id, { familyId: e.family_id, pvariantId: e.pvariant_id, followsId: e.follows_product_id }]));
   const packExt = new Map((pexts || []).map(e => [e.client_pack_id, e.client_only_id]));
   const ruleVar = new Map((rvs || []).map(e => [e.rule_id, e.pvariant_id]));
@@ -88,15 +95,22 @@ async function loadAll(q) {
   versions.forEach(v => { if (!verByPack.has(v.client_pack_id)) verByPack.set(v.client_pack_id, []); verByPack.get(v.client_pack_id).push(v); });
   const ruleObjs = rules.map(r => ({ id: r.id, name: r.name, kind: r.kind, isBase: r.is_base, products: ruleProducts.filter(x => x.rule_id === r.id).map(x => x.client_product_id), scopePvariantId: ruleVar.has(r.id) ? ruleVar.get(r.id) : null, rsPerKg: Number(r.rs_per_kg), scopeClientProductId: r.scope_client_product_id, scopeBaseProductId: r.scope_base_product_id,
     scopeForm: r.scope_form, scopeReprocessed: r.scope_reprocessed, scopePackMin: r.scope_pack_min, scopePackMax: r.scope_pack_max, validFrom: r.valid_from, active: r.active, source: r.source }));
-  return { settings, rates, packing, recipes, customers, custById, cps, cpById, packs, rules: ruleObjs, productTypes: types, freight, verByPack, families: fam || [], pvariants: pvs || [], ext, packExt, variantsReady };
+  return { settings, rates, packing, recipes, customers, custById, cps, cpById, packs, rules: ruleObjs, productTypes: types, freight, verByPack, families: fam || [], pvariants: pvs || [], ext, packExt, variantsReady, m007, recDefault, outOfUse };
 }
 
 /** The product whose recipe a product uses: itself, or the VAN product it follows (D-98: material cost only; packing, labour and overhead stay its own). */
 function recipeOwner(D, cpId) { const e = D.ext && D.ext.get(cpId); return e && e.followsId ? e.followsId : cpId; }
+/** The name of the recipe that sets a product's cost (D-140): the product's Default, "Main" when none is set. */
+const MAIN = 'Main';
+function defaultName(D, cpId) { const o = recipeOwner(D, cpId); return (D.recDefault && D.recDefault.get(Number(o))) || MAIN; }
+/** Every approved recipe of a product: 1 per recipe name (approving a version makes the earlier one of the same name old). */
+function approvedVersions(D, cpId) { return (D.recipes.byCp.get(recipeOwner(D, cpId)) || []).filter(v => v.state === 'approved'); }
+/** The approved version that sets cost, price for target and margin: the Default recipe's (D-140). A product whose Default name has no
+ *  approved version (before migration 007, or an old product) uses its latest approved version, as before. */
 function approvedVersion(D, cpId) {
-  const list = D.recipes.byCp.get(recipeOwner(D, cpId)) || [];
-  const appr = list.filter(v => v.state === 'approved');
-  return appr.length ? appr[appr.length - 1] : null;
+  const appr = approvedVersions(D, cpId); if (!appr.length) return null;
+  const dn = defaultName(D, cpId); const d = appr.filter(v => (v.rname || MAIN) === dn);
+  return d.length ? d[d.length - 1] : appr[appr.length - 1];
 }
 function latestVersion(D, cpId) { const list = D.recipes.byCp.get(recipeOwner(D, cpId)) || []; return list.length ? list[list.length - 1] : null; }
 
@@ -214,4 +228,4 @@ function isVanBrand(cp) { return !!cp && cp.channel === 'VAN brand'; }
 /** O2S channel words as C2M shows them. */
 const CHANNEL_NAME = { Cobo: 'COBO', Vgreen: 'VGreen', 'White Label': 'White label' };
 
-module.exports = { recipeOwner, loadAll, packCost, priceRecipe, nutrients, costOnDate, versionOnDate, latestApproved, approvedVersion, latestVersion, matcher, isVanBrand, CHANNEL_NAME, freightFor, today };
+module.exports = { MAIN, defaultName, approvedVersions, recipeOwner, loadAll, packCost, priceRecipe, nutrients, costOnDate, versionOnDate, latestApproved, approvedVersion, latestVersion, matcher, isVanBrand, CHANNEL_NAME, freightFor, today };

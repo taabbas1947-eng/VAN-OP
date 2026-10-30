@@ -266,3 +266,17 @@ Changed in 0.3.0 and 0.3.1: rs_per_kg fixed (1 rate of 1 kind, labour or FOH). A
 - parts (sale, D-124): the 4 cost parts [materials, packing, conversion, freight], Rs per kg or L, of the cost version used for a truck; sent with each sale, not stored.
 - Change record line (D-125): at, by (user name), entity, entity id, action, why, from c2m_audit; the screen adds the item's name and a kind (recipes, costs, prices, products, settings).
 - Product, Variant, Pack, Client product (D-128): the 4 product words; see doc 07, "The 4 product words".
+
+## 10.13 Added on 30 Oct 2026 (owner: Tahir; D-138 to D-140)
+| Word | Meaning | Where |
+|---|---|---|
+| Variant | The form of a product: Powder, Pellets, Granular, Crystal. Never a size | Setup, Products and variants; Add a product; Add a variant |
+| Pack | A size: 1 L, 3 L, 20 L, 25 kg. Each pack has its own packing bill | every product |
+| Packing bill | The packing items for 1 pack (bag, label, carton) and how many of each | Setup, Costs, Packing |
+| Find box | The search above a list; "2 of 59" = rows shown of rows in the list | every list |
+| Delete | Removes an entry nothing uses, with a reason; its values stay in the change record | every list |
+| Take out of use / Put back in use | Hides an entry from forms and pickers while every approved cost keeps it; undone from its row | materials, packing items, packing bills, clients, products |
+| Default recipe | The approved recipe that sets a product's cost, price for target and margin | product page, Recipe |
+| Another recipe | A second approved way to make a product (e.g. DAP in place of TSP), named; its cost is shown, never used | product page, Recipe; Recipes |
+| Make default | Yawar switches the Default to another approved recipe; cost moves from that moment | product page, Recipe |
+| Main | The name of a product's first recipe when none was given | recipe names |

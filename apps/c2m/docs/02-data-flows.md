@@ -255,3 +255,8 @@ c2m_list_price (farmer rows, by packId) -> lib.printMrp -> the MRP printing list
 ### Round 4 (26 Oct 2026, D-124, D-125)
 - c2m_cost_version (version on the truck date) → each sale's `parts` in GET /state → Margin drill-down. c2m_price (Price history) → approved price on the truck date, worked out in the page.
 - c2m_audit → GET /api/c2m/audit, joined in the route to client products, packs, prices, recipe versions, materials, packing items and bills, rules, target and setting requests, list revisions and price documents for their names → Change record. Read only.
+
+## 2.23 Out of use and the Default recipe (owner: Tahir; D-139, D-140; migration 007)
+- Take out of use writes 1 row in c2m_out_of_use (material grade, packing item, packing bill, client); Put back deletes it. The state call sends outOfUseKeys ("customer:12") and the pickers leave those items out unless already picked. No cost is recalculated: approved costs keep the item.
+- Delete writes the old values to c2m_audit (action delete) and removes the rows. Its uses are read from: recipe lines (materials), packing bill lines (packing items), client packs (packing bills), today's pack costs (labour and FOH, freight), client products, O2S PO lines, KAM grants and issued price lists (clients), recipe versions, approved costs, prices, followers, VAN list rows, open re-approvals, waiting targets and O2S lines (products).
+- The Default recipe: c2m_recipe_default holds the recipe name per product (none = "Main"); c2m_recipe_name holds a version's name (none = "Main"). The engine's approvedVersion picks the Default's approved version; Make default writes c2m_cost_version rows (cause "Default recipe set to ...") for the product and its followers, and 1 notice for Tahir.

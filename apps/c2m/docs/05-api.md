@@ -298,3 +298,18 @@ Changed: recipes/new refuses a follower; recipes/:id/advance writes cost version
 - GET /api/c2m/audit (right see.margin): query `who` (user name), `kind` (recipes, costs, prices, products, settings), `from` and `to` (YYYY-MM-DD), `q` (up to 80 characters, searched in the item name, reason, person, entity and action). Bad values are ignored. Returns `{ rows: [{ at, by, byName, entity, action, kind, item, id, what, why }] (newest first, at most 300; what and why in plain words, rule codes taken out), total, capped, cap: 5000, people: [{ u, n }] }`. Person, dates and kind are filtered in the database over the newest 5,000 matching lines (capped is true when 5,000 were read); the search then runs over the item name, what, why and person.
 - GET /api/c2m/state: each item of `sales` carries `parts`: [materials, packing, conversion, freight] per kg or L of the cost version approved on the truck date, or null with no cost.
 - Each sale also carries `rcv`, the date its PO came in (c2m_o2s_po_line.received).
+
+## 5.18 Edit, Delete, Take out of use, the Default recipe (30 Oct 2026; owner: Tahir; D-139, D-140)
+| Method and path | Right | Body | Answer |
+|---|---|---|---|
+| GET /api/c2m/uses/:kind/:id | the list's right (3.26) | kind: grade, pitem, bill, rule, freight, customer, product, recipe | {label, uses: [lines], out: out, retire or none, isOut, channel} |
+| POST /api/c2m/delete | the list's right | {kind, id, why} | {ok, label}; 409 with the uses when something uses it; 400 without a reason |
+| POST /api/c2m/outofuse | the list's right | {kind: grade, pitem, bill or customer, id, on, why} | {ok}; why required to take out; 409 without migration 007 |
+| POST /api/c2m/edit/grade/:id | material.save | {name, grade, unit} | {ok}; names unique |
+| POST /api/c2m/edit/pitem/:id | packing.manage | {name, kind} | {ok} |
+| POST /api/c2m/edit/rule/:id | labour.manage | {name, source} | {ok} |
+| POST /api/c2m/rules/conversion/:id/replace | labour.manage | {name, rsPerKg, validFrom, source} | {id, reapproval}: a new rate, same kind and scope; the old one retired |
+| POST /api/c2m/products/:id/full | client.add | {brand, o2sNames, typeId, packingMode, pvariantId or family and variant, packs: [{id, billId, clientOnly, remove} or {size, billId, clientOnly}]} | {ok, changed, reapproval} |
+| POST /api/c2m/recipes/new | recipe.start | adds recipeKind: default or other, recipeName | {id}; other needs migration 007 |
+| POST /api/c2m/recipes/:id/default | recipe.step.cost | {} | {ok, packs}; only an approved recipe that is not the Default |
+GET /api/c2m/state adds: m007, outOfUseKeys; on each product defaultName and others [{id, name, version, packs: [{id, total}]}]; on each recipe rname, isDefault, defaultName. POST /api/c2m/variants and /products/:id/variant refuse a variant name that is a pack size.

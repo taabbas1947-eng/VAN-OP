@@ -306,7 +306,7 @@ h1.topic{font-size:17px;letter-spacing:.04em}
 @media (max-width:760px){.jrow .sw{text-align:left;min-width:0}.jrow{flex-direction:column;align-items:stretch}.jrow .btn{min-height:44px;width:100%}}
 /* Products (D-99 B, D-93): client list left */
 .ptools{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;margin:0 0 12px}.ptools input{flex:0 1 260px;min-width:180px}.ptools .chips{margin:0;flex:1 1 100%;order:3}.ptools .newm{margin-left:auto}
-.lfh{display:none!important}.find.lf{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:6px 0}.find.lf input{flex:1 1 220px;max-width:420px}
+.lfh{display:none!important}.wnscrim{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:40}.wn{position:fixed;z-index:41;left:50%;top:50%;transform:translate(-50%,-50%);width:min(660px,calc(100vw - 32px));max-height:86vh;display:flex;flex-direction:column;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:10px;box-shadow:0 12px 40px rgba(0,0,0,.25)}.wn .wnh{padding:16px 18px 8px;border-bottom:1px solid var(--line)}.wn .wnh h2{margin:0;font-size:18px}.wn .wnb{padding:6px 18px 10px;overflow:auto}.wn .wnf{padding:10px 18px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:8px}.wn ul{margin:8px 0 0;padding-left:20px}.wn li{margin-bottom:8px;line-height:1.55}.wn .wnd{font-size:12px;color:var(--muted)}.wn hr{border:0;border-top:1px solid var(--line);margin:14px 0}tr.gjhl td{background:var(--latebg)}.find.lf{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:6px 0}.find.lf input{flex:1 1 220px;max-width:420px}
 .audf{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:flex-end;padding:10px 12px}.audf label{display:flex;flex-direction:column;gap:3px;font-size:12.5px;color:var(--muted,#667);margin:0}.audf select,.audf input{min-width:150px}.audf #audq{min-width:230px}.acts{display:flex;flex-wrap:wrap;gap:4px;min-width:200px}
 .newm{position:relative}.newm>summary{list-style:none;cursor:pointer;background:var(--blue);color:#fff;border-color:var(--blue);padding:7px 16px;font-weight:600}.newm>summary::-webkit-details-marker{display:none}.newm .pp{position:absolute;right:0;top:calc(100% + 6px);z-index:30;width:320px;max-width:90vw;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:4px;box-shadow:0 8px 24px rgba(0,0,0,.18)}.newm .mi{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;text-align:left;background:none;border:0;border-radius:6px;padding:9px 10px;min-height:44px;cursor:pointer;font:inherit}.newm .mi:hover,.newm .mi:focus-visible{background:var(--bg,#eef3f9)}.newm .mi span{font-size:12px;color:var(--muted)}
 .cr{background:var(--surface);border:1px solid var(--line);border-radius:4px;margin:0 0 8px}.cr .crh{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;width:100%;text-align:left;background:none;border:0;padding:12px 14px;min-height:48px;font:inherit;cursor:pointer}.cr .crh .sub{color:var(--muted);flex:1 1 140px}.cr .crh .chev{margin-left:auto;color:var(--muted)}.cr .wrapx{border-top:1px solid var(--line)}.cr table{margin:0;width:100%}
@@ -421,7 +421,7 @@ async function savePdf(id) {
   setTimeout(() => URL.revokeObjectURL(url), 30000);
 }
 async function load() { ST = await api('/api/c2m/state' + (PV ? '?as=' + encodeURIComponent(PV) : '')); const B = SET('budget_gp'); if (B != null) { (ST.products || []).forEach(p => { if (p.target == null || Number(p.target) <= 0) { p.target = B > 0 ? B : null; p.targetDefault = B > 0; } }); (ST.sales || []).forEach(r => { if (r.target == null || Number(r.target) <= 0) r.target = B > 0 ? B : 0; }); (ST.open || []).forEach(r => { if (r.target == null || Number(r.target) <= 0) r.target = B > 0 ? B : 0; }); } // D-75: no target set = the company GP target
-  if (!ST.me.nav.concat(ST.me.more || []).includes(scr)) scr = ST.me.nav[0]; render(); if (lm.open && !lmDone()) lmLoad(); } // the carry-over plan follows every change made meanwhile (a rename in Product names; review 1.0.3 re-check, finding 5)
+  if (!ST.me.nav.concat(ST.me.more || []).includes(scr)) scr = ST.me.nav[0]; render(); checkWhatsNew(); if (lm.open && !lmDone()) lmLoad(); } // the carry-over plan follows every change made meanwhile (a rename in Product names; review 1.0.3 re-check, finding 5)
 let actBusy = false;
 async function act(path, body, okMsg) { if (actBusy) { toast('Wait: the last save is still running.'); return false; } actBusy = true; try { return await act0(path, body, okMsg); } finally { actBusy = false; } } // a double click sends 1 save (review 1.0.2 re-check, finding 5)
 async function act0(path, body, okMsg) { { const pn = document.querySelector('aside.panel'); panAt = pn && pn.contains(document.activeElement) ? panItems(pn).indexOf(document.activeElement) : null; if (panAt < 0) panAt = null; } try { const j = await api(path, body); if (okMsg) toast(typeof okMsg === 'function' ? okMsg(j) : okMsg); if (pan) panFocus = true; aud.data = null; await load(); return j; } catch (e) { toast(e.message, true); return null; } }
@@ -1448,6 +1448,62 @@ function enhanceTables() {
       rows.forEach(r => [...r.cells].forEach((c, i) => { if (pri.includes(i) || c.querySelector('input,select,button,textarea')) c.classList.add('k'); })); all0.filter(att).forEach(r => { r.classList.add('att'); r.cells[0].classList.add('k'); }); if (tb.tFoot) [...tb.tFoot.rows].forEach(r => { const c = [...r.cells]; if (c[0]) c[0].classList.add('k'); if (c.length > 1) c[c.length - 1].classList.add('k'); }); }
   });
 }
+/* ---------- What changed: the update notice at login (Tahir, 30 Oct 2026, D-141), like O2S's "What's changed since you last logged in" ----------
+   Each release adds 1 entry to CHANGELOG (newest last). Each line names who it is for by what they may do in C2M (an action such as
+   recipe.start), so a role made in Roles is covered too; 'all' = everyone who works in C2M beyond the price lists. The first time a person opens
+   C2M after an entry is added, a box lists the entries since the last one they saw (newest first, at most 5), only the lines for their job,
+   each with a link to its row in the Guide. "Got it" keeps the entry seen in this browser (a new device shows it once more, as in O2S).
+   The Guide keeps every entry under "What changed", for reading again. A release without its entry here is not finished (doc 06, D-141). */
+const CHANGELOG = [
+  { ver: '2026-10-29a', date: '2026-10-29', title: 'Reopened O2S lines count as open again', items: [
+    { t: 'A PO line the COO reopens in O2S counts as an open order in C2M again, after the next Pull now. Old reopened lines come back into open orders and the open-order figures.', for: ['see.margin'], guide: 'See margin and why it moved' }] },
+  { ver: '2026-10-30a', date: '2026-10-30', title: 'Search on every list, Edit and Delete, and the Default recipe', items: [
+    { t: 'Lists have a Find box above them (Materials keeps its own). Type any part of a name, client, kind or date: the list shows only the rows that match and says how many ("2 of 59").', for: ['see.products', 'see.margin'], guide: 'Find a row in a list' },
+    { t: 'Edit and Delete in each row. Edit opens the same form as Add, filled in; a new rate or price is saved as a new dated entry, so past trucks keep their cost.', for: ['material.save', 'packing.manage', 'labour.manage', 'freight.edit', 'client.add', 'lists.link'], guide: 'Edit a row' },
+    { t: 'Delete works only when nothing uses the row, and asks why. When something uses it, C2M names what and offers Take out of use: hidden from forms and pickers, kept for past costs, and Put back in use in its row.', for: ['material.save', 'packing.manage', 'labour.manage', 'freight.edit', 'client.add', 'lists.link'], guide: 'Delete a row' },
+    { t: 'A client product is edited with the Add a product form, filled in: its page, Edit this product.', for: ['client.add'], guide: 'Edit a row' },
+    { t: 'A product can keep another recipe beside its Default, for example DAP in place of TSP. When you start a version, pick "Another recipe for this product" and name it: Majid writes it, Yawar approves its cost, and it never moves cost.', for: ['recipe.start', 'recipe.step.cost'], guide: 'Keep another recipe for a product' },
+    { t: 'Only the Default recipe sets cost, price for target and margin. Yawar makes another approved recipe the Default on the product page, Recipe, Make default: every pack gets a new approved cost from that moment, and Tahir is told.', for: ['recipe.step.cost', 'price.approve'], guide: 'Change the Default recipe' },
+    { t: 'A draft recipe version started by mistake can be deleted: Delete this draft, on its page.', for: ['recipe.start'], guide: null },
+    { t: 'Materials, packing items and packing bills taken out of use are not offered when you pick one.', for: ['recipe.edit', 'packing.manage'], guide: null },
+    { t: 'Variant means the form of a product (Powder, Pellets, Granular). A size such as 1 L or 25 kg is a pack: add it under Packs. A variant typed as a size is stopped.', for: ['variant.add', 'client.add'], guide: 'Add a variant of a product' },
+    { t: 'Send back on a VAN brand list revision opens its reason box again.', for: ['list.approve'], guide: null }] },
+  { ver: '2026-10-30b', date: '2026-10-30', title: 'This box: what changed, at login', items: [
+    { t: 'When C2M changes, this box shows what changed for your job the first time you open it. Every update stays in the Guide, under What changed.', for: ['see.products', 'see.margin'], guide: null }] }
+];
+let _wnShown = false, wnGuide = null;
+/** A Guide link only when that row is on this person's Guide (Yawar's rows, Tahir's rows, and Both; D-141). */
+const gjVisible = n => { if (!CAN('see.margin')) return false; const me = ST.me.role === 'coo' || ADM() ? 'Tahir' : 'Yawar'; return GUIDE_JOBS().some(r => r[0] === n && (r[1] === 'Both' || r[1] === me)); };
+const wnLines = c => (c.items || []).filter(it => ADM() || (it.for || ['all']).some(a => a === 'all' ? CAN('see.products') || CAN('see.margin') : CAN(a)));
+const wnKey = () => 'c2m_changelog_seen_' + String((ST && ST.me && ST.me.user) || '').toLowerCase();
+const wnMine = () => CHANGELOG.filter(c => wnLines(c).length);
+function checkWhatsNew() {
+  if (_wnShown || !ST || !ST.me || PV || !CHANGELOG.length) return;
+  let seen = ''; try { seen = localStorage.getItem(wnKey()) || ''; } catch (_) {}
+  const latest = CHANGELOG[CHANGELOG.length - 1].ver; if (seen === latest) return;
+  const i = seen ? CHANGELOG.findIndex(c => c.ver === seen) : -1;
+  const show = (i >= 0 ? CHANGELOG.slice(i + 1) : CHANGELOG.slice()).filter(c => wnLines(c).length);
+  if (!show.length) { try { localStorage.setItem(wnKey(), latest); } catch (_) {} return; } // nothing for this job: remembered quietly
+  _wnShown = true; const el = document.createElement('div'); el.id = 'wnbox'; el.innerHTML = wnHtml(show); document.body.appendChild(el);
+  { const a = $('app'); if (a) a.setAttribute('inert', ''); } // nothing behind the box takes a click or a key (review 30 Oct)
+  const b = el.querySelector('.wnf [data-wnok]'); if (b) b.focus();
+}
+function wnEntry(c, i) { return `${i ? '<hr>' : ''}<div><b>${esc(c.title)}</b><div class="wnd">${esc(fmtD(c.date))}</div><ul>${wnLines(c).map(it => `<li>${esc(it.t)}${it.guide && gjVisible(it.guide) ? ` <button class="lnk" data-wnguide="${esc(it.guide)}">See it in the Guide</button>` : ''}</li>`).join('')}</ul></div>`; }
+function wnHtml(entries) {
+  const all = entries.slice().reverse(), shown = all.slice(0, 5), rest = all.length - shown.length;
+  return `<div class="wnscrim" data-wnok></div><div class="wn" role="dialog" aria-modal="true" aria-labelledby="wnh"><div class="wnh"><h2 id="wnh">What's changed since you last opened C2M</h2><div class="wnd">${pl(entries.length, 'update', 'updates')} for your job</div></div>
+  <div class="wnb">${shown.map(wnEntry).join('')}${rest > 0 ? `<p class="wnd">${pl(rest, 'earlier update', 'earlier updates')} not shown: every update is in the Guide, What changed.</p>` : ''}</div>
+  <div class="wnf"><button class="btn ghost" data-wnguide="">Open the Guide</button><button class="btn" data-wnok>Got it</button></div></div>`;
+}
+function wnDismiss() { try { localStorage.setItem(wnKey(), CHANGELOG[CHANGELOG.length - 1].ver); } catch (_) {} const el = $('wnbox'); if (el) el.remove(); const a = $('app'); if (a) a.removeAttribute('inert'); const f = document.querySelector('.hdr nav button'); if (f && scr !== 'guide') f.focus(); }
+document.addEventListener('click', e => { const t = e.target.closest('[data-wnok],[data-wnguide]'); if (!t || !ST) return;
+  if (t.dataset.wnguide != null) { const inBox = !!t.closest('#wnbox'); if (inBox) wnDismiss(); wnGuide = t.dataset.wnguide || null; scr = 'guide'; closePanel(); render(); const r = document.querySelector('tr.gjhl'); if (r) { r.scrollIntoView({ block: 'center' }); r.querySelector('td').setAttribute('tabindex', '-1'); r.querySelector('td').focus(); } return; }
+  wnDismiss(); });
+document.addEventListener('keydown', e => { const box = $('wnbox'); if (!box) return; if (e.key === 'Escape') { e.stopPropagation(); e.preventDefault(); wnDismiss(); return; }
+  if (e.key === 'Tab') { const f = [...box.querySelectorAll('button')]; if (!f.length) return; const i = f.indexOf(document.activeElement); e.preventDefault(); f[(i + (e.shiftKey ? -1 : 1) + f.length) % f.length].focus(); e.stopPropagation(); return; }
+  if (!e.target.closest || !e.target.closest('#wnbox')) { e.stopPropagation(); e.preventDefault(); } }, true); // the keyboard stays in the box (Ctrl K and the rest wait; review 30 Oct)
+/** The Guide keeps every update for this job, newest first (D-141). */
+function wnGuideBox() { const M = wnMine(); return M.length ? `<h2>What changed</h2><details class="box" style="margin-bottom:12px"><summary><b>${pl(M.length, 'update', 'updates')} for your job</b> <span class="ans">newest first; the same lines shown at login</span></summary><div style="padding:8px 4px">${M.slice().reverse().map((c, i) => `${i ? '<hr style="border:0;border-top:1px solid var(--line);margin:12px 0">' : ''}<b>${esc(c.title)}</b> <span class="ans">${esc(fmtD(c.date))}</span><ul style="margin:6px 0 0;padding-left:20px">${wnLines(c).map(it => `<li>${esc(it.t)}</li>`).join('')}</ul>`).join('')}</div></details>` : ''; }
 /* ---------- List search (Yawar, 29 Oct 2026; D-138): 1 box above each list, the same everywhere. It filters as you type across every
    column shown, says "2 of 59", and keeps what was typed while you move around C2M in that sitting. A Detail or Edit row moves with its row. ---------- */
 const LFQ = {};
@@ -1471,6 +1527,7 @@ document.addEventListener('click', e => { const th = e.target.closest && e.targe
 document.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.classList && e.target.classList.contains('srt')) { e.preventDefault(); e.target.click(); } });
 document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target && e.target.id === 'audq') { e.preventDefault(); aud.q = e.target.value; aud.data = null; audLoad(); } });
 function render() {
+  if (scr !== 'guide') wnGuide = null; // the Guide row mark lasts while the Guide is open (D-141)
   const M = ST.me; const J = jobs();
   const app = $('app');
   /* Keep the cursor where the person is typing across a redraw (UX review M1, M2) */
@@ -2839,12 +2896,12 @@ function vGuide() {
     const J = GUIDE_JOBS(); const mine = J.filter(r => r[1] === 'Both' || r[1] === me);
     return `${head('Guide', 'I want to…', `Find the job, go where it says, and read what happens next. Rows for ${me} and for both of you; the full system documentation is in Setup, Record and checks.`)}
   <h2>Your first day in 5 steps</h2><ol class="box form" style="margin:0 0 14px;padding:12px 12px 12px 32px">${(me === 'Tahir' ? ['Open <b>Approvals</b>. Do "Your next move", then the prices, list revisions, targets and settings waiting for you.', 'Open <b>Client prices</b>. A price from Yawar shows "Open to approve" in its row.', 'Open <b>Margin</b>. It opens on the whole company for this month; open a line, then a pack, down to each truck.', 'Open <b>Products</b>. Each client is a row: open it for its products, then a product for its recipe, cost by pack and history.', 'Open <b>Setup, Settings</b> for KAM lists and Roles.'] : ['Open <b>Approvals</b>. Do "Your next move", then the rest of your list.', 'Open <b>Products</b>. Each client is a row: open it for its products, then a product for its recipe, cost by pack and history.', 'Open <b>Client prices</b>. Pick a client, type a new price or target in the row, see the GP at once, then Send to Tahir.', 'Open <b>Margin</b>. It opens on the whole company for this month; open a line, then a pack, down to each truck.', 'Open <b>Setup, Costs</b> when a material, packing, labour or FOH rate changes. Every change is dated and logged.']).map(x => `<li>${x}</li>`).join('')}</ol>
-  <h2>I want to…</h2><div class="box wrapx"><table class="cards" id="gjobs" data-nosort><thead><tr><th data-key="1">Job</th><th>Who</th><th data-key="2">Where</th><th>What happens next</th></tr></thead><tbody>
-  ${mine.map(r => `<tr><td data-l="Job"><b>${esc(r[0])}</b></td><td data-l="Who">${esc(r[1])}</td><td data-l="Where">${esc(r[2])}</td><td data-l="Next">${esc(r[3])}</td></tr>`).join('')}</tbody></table></div>
+  ${wnGuideBox()}<h2>I want to…</h2><div class="box wrapx"><table class="cards" id="gjobs" data-nosort><thead><tr><th data-key="1">Job</th><th>Who</th><th data-key="2">Where</th><th>What happens next</th></tr></thead><tbody>
+  ${mine.map(r => `<tr data-gj="${esc(r[0])}"${r[0] === wnGuide ? ' class="gjhl"' : ''}><td data-l="Job"><b>${esc(r[0])}</b></td><td data-l="Who">${esc(r[1])}</td><td data-l="Where">${esc(r[2])}</td><td data-l="Next">${esc(r[3])}</td></tr>`).join('')}</tbody></table></div>
   <details class="how" style="margin-top:12px"><summary>Who does what in the recipe chain</summary>${whoBox}</details>
   ${skinRow}`;
   }
-  return `${head('Guide', `Your job in C2M, ${esc(ST.me.label)}.`, '')}
+  return `${head('Guide', `Your job in C2M, ${esc(ST.me.label)}.`, '')}${wnGuideBox()}
   <div class="two"><div class="box form"><b>Your job</b><ol style="margin:0;padding-left:20px">${(Object.prototype.hasOwnProperty.call(GUIDE, ST.me.role) ? GUIDE[ST.me.role] : GUIDE_CUSTOM).map(x => `<li>${esc(x)}</li>`).join('')}</ol></div>
   <div class="box form"><b>How C2M works</b><ol style="margin:0;padding-left:20px"><li>Each client product has its own recipe: Majid writes, Himayat reviews, Fahim endorses, Yawar approves cost. A product can keep another recipe beside it (Majid writes, Yawar approves); only the Default sets cost.</li><li>A variant is the form of a product (Powder, Pellets); a size such as 1 L or 25 kg is a pack.</li><li>Yawar keeps rates current; C2M recosts every recipe.</li><li>Yawar proposes prices; Tahir approves; managers see the approved lists.</li><li>A product can have variants (Humi Grow: Powder, Pellets); a variant's recipe starts as a copy.</li><li>KAMs see only the lists and clients Yawar or Tahir give them. Cost and margin never reach them.</li><li>Every change is dated and logged.</li></ol></div></div>
   ${skinRow}

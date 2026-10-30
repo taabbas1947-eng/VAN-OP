@@ -41,6 +41,9 @@ The app shows each of them the rows marked with their name and the rows marked B
 | Change the Default recipe | Yawar | The product's page, Recipe, Approved recipes: Make default | Only the Default sets cost, price for target and margin. Make default gives every pack a new approved cost from that moment; trucks from tomorrow carry it. Tahir is told. Switching back needs no new steps. |
 | Correct a mistake | Both | Where the mistake was made | A price or target waiting for Tahir: Take back, in its row on Client prices. A price approved for a later date: Withdraw (Tahir). A client product: its page, Edit this product or Delete. A row in a Setup list: Edit or Delete in its row. An item from Yawar's sheets: Setup, Record and checks, Sheet items. Every correction is logged. |
 
+## What changed (in the Guide, and at login)
+The first time you open C2M after an update, a box lists what changed for your job, with a link to its row here. Every update stays in the Guide under What changed.
+
 ## Your first day in 5 steps
 Yawar:
 1. Open **Approvals**. Do "Your next move", then the rest of your list.

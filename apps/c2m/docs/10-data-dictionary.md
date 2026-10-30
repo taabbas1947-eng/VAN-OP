@@ -280,3 +280,5 @@ Changed in 0.3.0 and 0.3.1: rs_per_kg fixed (1 rate of 1 kind, labour or FOH). A
 | Another recipe | A second approved way to make a product (e.g. DAP in place of TSP), named; its cost is shown, never used | product page, Recipe; Recipes |
 | Make default | Yawar switches the Default to another approved recipe; cost moves from that moment | product page, Recipe |
 | Main | The name of a product's first recipe when none was given | recipe names |
+| What changed | The box at login, and the Guide section, listing the updates for your job | login; Guide |
+| CHANGELOG | The list of updates inside c2m.html, 1 entry per release, each line marked with who it is for | c2m.html |

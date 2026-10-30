@@ -48,7 +48,7 @@ flowchart LR
 ```
 
 - 1 version in progress per client product (R-2 Recipes).
-- A one-time change (e.g. TSP replaced by DAP) is an ordinary new version and goes through all 4 steps; Majid writes another version to switch back (R-5i 2).
+- A one-time change (e.g. TSP replaced by DAP) was an ordinary new version (R-5i 2, D-22). Since 30 Oct 2026 (D-140) it is another recipe of the product, kept beside the Default: see 1.24.
 - On cost approval the previous approved version becomes "earlier version" and every pack gets a new dated cost version.
 - Cost approval is refused, naming the pack, until every pack is fully costed on the version: material rates, a priced packing bill for a VAN-packed pack, a labour and a FOH rate (D-40, 0.6.0).
 - The plant is not forced to make the C2M recipe for now (R-5c).
@@ -586,3 +586,42 @@ Yawar changes a Sindh credit price on Client prices, VAN brand prices (the send 
 - Who changed it? Setup, Record and checks, Change record: pick the person, the kind or the dates, or search a name, then Show.
 - First cost of old packs: the first time Yawar or Tahir opens this version, packs with no approved cost wait on Approvals in 1 item; Yawar approves them like any re-approval.
 - A VAN brand list revision that would put a price above the printed MRP is named in Tahir's panel before he approves; he may approve.
+
+## 1.23 Edit and Delete a row (owner: Tahir rules; Yawar and Tahir act; Majid deletes his own drafts; D-139, 30 Oct 2026)
+
+```mermaid
+flowchart TB
+  subgraph Person["Yawar or Tahir (Majid: a draft recipe)"]
+    E[Edit in the row] --> F[The Add form, filled in]
+    D[Delete in the row]
+  end
+  F --> W{What changed?}
+  W -- words: name, kind, source --> S1[Saved at once, logged]
+  W -- material rate or packing price --> S2[Try a rate or Change packing price opens filled in: effect shown, then saved as a new dated entry]
+  W -- labour or FOH Rs or date --> S3[New rate, same scope, replaces the old one; costs over the re-approval % wait on Approvals]
+  W -- freight Rs --> S4[New dated freight row]
+  D --> U{C2M checks what uses it}
+  U -- nothing --> R[Write why, press Delete twice] --> X[Deleted; values kept in the change record]
+  U -- something --> N[C2M names what uses it]
+  N --> O{List}
+  O -- material, packing item, packing bill, client --> OU[Take out of use, with a reason: hidden from forms and pickers, kept for past costs; Put back in use in its row]
+  O -- labour or FOH --> RT[Retire, as before]
+  O -- product --> PO[Take out of use, as before]
+```
+- Never deleted: approved prices, approved or old recipe versions, approved costs, trucks.
+- A client product's Edit (its page, Edit this product) saves names, product type, variant, who packs, packs added or removed, packing bills and client-only packs in 1 save.
+
+## 1.24 Another recipe and the Default (owner: Tahir rules; Majid writes; Yawar approves and switches; D-140, 30 Oct 2026)
+
+```mermaid
+stateDiagram-v2
+  [*] --> draft: Majid, Another recipe for this product (named)
+  draft --> cost: Majid sends (short path)
+  cost --> approved: Yawar approves cost (no cost is written)
+  cost --> draft: Yawar sends back
+  approved --> Default: Yawar, Make default (new approved cost on every pack; Tahir told)
+  Default --> approved: another recipe made the Default
+  approved --> old: a newer version of the same recipe is approved
+```
+- A new version of the Default recipe goes Majid, Himayat, Fahim, Yawar, as in 1.1, and replaces the Default once approved.
+- Only the Default sets cost, price for target and margin. The other approved recipes show their cost beside it, for reading only.

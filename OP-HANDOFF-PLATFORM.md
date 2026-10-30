@@ -1525,3 +1525,14 @@ force match O2S's own check; phone width. Independent review (code, data safety)
 
 Pushed: **no**. Next: Tahir tests the trial; then share it (collaborator for C2M; O2S's own Authorisation panel must
 close before the rule holds in O2S); then decide what goes live, piece by piece.
+
+## 30 Oct 2026 — Roles trial: committed, published, caught up with main (MODULE: PLATFORM, branch roles-trial) — NOT PUSHED
+
+- 30 Oct: the 5 uncommitted access files in the main folder (pieces A and B of 21 Oct, the tests of 24 Oct, the 28 Oct
+  entry, docs/ROLES-DESIGN.md) were checked against the trial: the trial holds all of it, or replaced it on purpose (app
+  admin removed). Committed on roles-trial (426277c); Tahir published the branch and discarded the main folder's copies.
+- The trial's O2S numbers that main took meanwhile were renumbered (D-350..D-353, R-049, build 2026-10-30a; c09bd5d).
+- main (a4d0593, d64ccf3, aaaa16b) merged into roles-trial. Details: O2S and C2M handoffs, 30 Oct. Platform files had no
+  conflicts. Platform suites: c2m-mount 25/25, notify-mount 15/15, pd-removed 17/17 (people-access needs a throwaway
+  database, not run).
+- Next: Tahir tests the trial; his 3 sign-off questions; then the collaborator's review; then what goes live, piece by piece.

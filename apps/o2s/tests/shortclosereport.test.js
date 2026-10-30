@@ -191,6 +191,23 @@ eq('several orders and lines all come through',
      '90 customer / 50 ours');
 }
 
+/* ================= 9. A REOPENED CLOSE SURVIVES A SECOND CLOSE (29 Oct) ================= */
+{
+  const first = sc({ approvedAt: '2026-10-02', reopenedAt: '2026-10-05T05:00:00Z', reopenedBy: 'Tahir Abbas', reopenedWhy: 'closed by mistake', tinyRemainder: true, orderedAtClose: 100, deliveredAtClose: 60 });
+  const second = sc({ approvedAt: '2026-10-09', orderedAtClose: 100, deliveredAtClose: 70, approvedBy: 'Fahim Asghar' });
+  const refused = sc({ approvedAt: undefined, refusedAt: '2026-09-01', refusedBy: 'Fahim Asghar' });
+  const rows = run([order([line({ shortClose: second, shortCloseHistory: [Object.assign({ id: 'SCH1' }, first), Object.assign({ id: 'SCH2' }, refused)] })])]);
+  eq('a line closed twice gives 2 rows (the reopened one is not lost); a refused request is not a close', rows.length, 2);
+  const r1 = rows.find(r => r.status === 'Reopened'), r2 = rows.find(r => r.status === 'Closed');
+  ok('the earlier close reads Reopened, shortfall 0, its 40 in the reopened measure, reopened date shown', r1 && r1.shortfall === 0 && r1.reopened === 40 && r1.reopenedon === '2026-10-05');
+  ok('the later close reads Closed with its own 30 shortfall', r2 && r2.shortfall === 30 && r2.reopened === 0);
+  eq('summing the shortfall counts only the close that stands', rows.reduce((a, r) => a + r.shortfall, 0), 30);
+  ok('the earlier one still reads as a tiny close in the How column', /Tiny/.test(r1.how));
+  eq('a line never closed twice still gives 1 row', run([order([line({ shortClose: sc() })])]).length, 1);
+  eq('history entries that were never approved or never reopened add no row', run([order([line({ shortClose: sc(), shortCloseHistory: [refused, sc({ approvedAt: '2026-08-01' })] })])]).length, 1);
+  ok('the default columns carry Status, so a reopened close is not mistaken for a live one', /cols:\[[^\]]*'shortfall','status'/.test(H.html.slice(H.html.indexOf("{id:'shortclose', t:'Closed short'"), H.html.indexOf("{id:'shortclose', t:'Closed short'") + 400)));
+}
+
 console.log('\nShort-close report — shortfall by reason and by month: ' + pass + ' passed, ' + fail + ' failed');
 fails.forEach(f => console.log('  FAIL  ' + f));
 process.exit(fail ? 1 : 0);

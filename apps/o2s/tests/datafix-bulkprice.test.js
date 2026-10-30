@@ -116,12 +116,13 @@ const SCREENS_SRC = (function () {
                'screenEditOK', 'mayWork', 'whoMayEdit', 'denyWork', 'bulkPDWhoMay',
                'bulkPDMayAnswer', 'bulkPDDenied', 'saveBulkPrintDecision'].map(H.grab).join('\n')
   + '\n' + ['scr', 'accessOv', '_ownerEdit', 'accessLevelOn', 'accessLevel', 'screenEditOK', 'hardRole'].map(H.grab).join('\n')
-  + '\n' + H.authModelSrc();
+  + '\n' + H.authModelSrc() + '\n' + SCREENS_SRC;   // 30 Oct 2026 (D-351): with no COO shortcut, scr() reads SCREENS
   function box(opts) {
     const b = {
       console, Date, JSON,
+      /* D-351: the COO holds its screens as ticks (cooUnlockV1 gives Edit on every screen), so the fixture carries them */
       state: { role: 'COO', currentUser: { name: 'tahir' }, orders: opts.orders,
-               masters: { accessMatrix: {}, roles: [{ name: 'KAM' }] } },
+               masters: { accessMatrix: { COO: { entry: { v: true, e: true } } }, roles: [{ name: 'KAM' }, { name: 'COO' }] } },
       bulkPD: opts.pick, asked: [], toasts: [],
       confirm: m => { b.asked.push(m); return opts.answer; },
       recallPrintPrice: brand => (opts.history || []).indexOf(brand) >= 0 ? 1250 : 0,

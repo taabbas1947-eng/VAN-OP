@@ -142,8 +142,10 @@ function eq(n, got, want) { ok(n, JSON.stringify(got) === JSON.stringify(want),
   ok('GUARD: the PO Tracker audit writer still mints an id',
      !!line && /id:\s*nid\('AU'\)/.test(line[0]), line ? line[0].slice(0, 90) : 'writer not found');
   const others = (H.html.match(/audit\.unshift\(|audit\.push\(/g) || []).length;
-  ok('GUARD: still only four writers into state.audit (3 are spent one-time migrations)',
-     others === 4, 'found ' + others);
+  /* 28d: 2 more writers, restoreDC5264V1 and dedupeShipmentsV1, each mints a fixed id (AU5264-restore, AUdup-<row id>) so the array stays on the id-matching path */
+  ok('GUARD: still only six writers into state.audit (3 are spent one-time migrations, 2 are the 28d truck-row repair and clean-up with fixed ids)',
+     others === 6, 'found ' + others);
+  ok('GUARD: the 2 writers added in 28d carry an id', /id:'AU5264-restore'/.test(H.html) && /id:'AUdup-'/.test(H.html));
 }
 
 console.log('\nSave-path defects (measured against the real merge3): ' + pass + ' passed, ' + fail + ' failed');

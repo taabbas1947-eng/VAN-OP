@@ -131,7 +131,7 @@ const ALL = (STATE.masters.roles || []).map(r => r.name).concat(['COO'])
   ok('refusal names what was refused', /Submitting a PO/.test(msg), msg);
   ok('refusal names the SCREEN whose access decides it', /New order/.test(msg), msg);   /* 'New PO Entry' became 'New order' in 23s */
   ok('refusal names who can, from the matrix', /Finance/.test(msg) && /CFO/.test(msg), msg);
-  ok('refusal says where to go', /Back Office → People/.test(msg), msg);
+  ok('refusal says where to go', /System Administrator \(People and access, on the launcher\)/.test(msg), msg);   // 29 Oct 2026 (D-350): access is set on the launcher
 }
 
 /* whoMayEdit must not fall over when the roles list is missing or malformed —
@@ -216,6 +216,7 @@ const ALL = (STATE.masters.roles || []).map(r => r.name).concat(['COO'])
     ['coaDeviation',   'Plant Manager', 'accepting a lab deviation'],
     ['coaRework',      'Plant Manager', 'sending a batch for rework'],
   ];
+  const SO_OF = { coaReview: 'coa.review', coaApprove: 'coa.approve', approveDC: 'dc.approve', approveRelease: 'truck.release', rejectDC: 'dc.reject' };
   mustStayHard.forEach(([fn, role, what]) => {
     let body = '';
     try { body = H.grab(fn); } catch (e) { /* reported below */ }
@@ -223,7 +224,10 @@ const ALL = (STATE.masters.roles || []).map(r => r.name).concat(['COO'])
        /* 24u (Tahir: "remove the COO's ability to sign certificates, yes"): the 2
           certificate signatures are gated on the role itself, stricter than hardRole
           (which also lets the COO through), plus the Plant Manager's leave cover. */
-       !!body && (new RegExp("hardRole\\(\\[[^\\]]*'" + role + "'").test(body) || new RegExp("state\\.role==='" + role + "'\\|\\|labCovers\\('" + role + "'\\)").test(body)),
+       !!body && (new RegExp("hardRole\\(\\[[^\\]]*'" + role + "'").test(body) || new RegExp("state\\.role==='" + role + "'\\|\\|labCovers\\('" + role + "'\\)").test(body)
+         /* 29 Oct 2026 (D-352, D-353): a sign-off gate asks maySign; its default list names the role, and it never follows the access matrix */
+         || (SO_OF[fn] && new RegExp("^\\s*function " + fn + "\\([^)]*\\)\\s*\\{\\s*if\\(!maySign\\('" + SO_OF[fn].replace('.', '\\.') + "'\\)\\)").test(body)
+             && new RegExp("'" + SO_OF[fn].replace('.', '\\.') + "':\\s*\\{[^}]*roles:\\[[^\\]]*'" + role + "'").test(H.html))),
        body ? 'no hardRole([...' + role + '...]) found' : 'function ' + fn + ' not found');
     ok('KIND B not converted by mistake: ' + fn + ' does not call mayWork',
        !!body && !/mayWork\(/.test(body));

@@ -40,7 +40,7 @@ const fix = () => ({ masters: { products: [
   const s = { masters: { products: [{ brand: 'Enrich', generic: 'x' }] } }; sb.productGenericV1(s);
   ok('product absent: nothing changed', s.masters.products[0].generic === 'x' && s.masters._genericV1.n === 0); }
 
-ok('it runs in the load chain right after productNamesV1', /productNamesV1\(s\); productGenericV1\(s\); (dataFix27dV1\(s\); )?(cooUnlockV1\(s\); )?loadBaseRecipesV2\(s\);/.test(html));
+ok('it runs in the load chain right after productNamesV1', /productNamesV1\(s\); productGenericV1\(s\); (dataFix27dV1\(s\); )?(alsoBasesV1\(s\); )?(cooUnlockV1\(s\); )?loadBaseRecipesV2\(s\);/.test(html));
 ok('the catalogue in the code no longer carries N 1% + K 6% for V-Germinator Pro', !/"generic": "P 27% \+ N 1% \+ K 6%"/.test(html) && (html.match(/"brand": "V-Germinator Pro", "base": "V-Germinator Pro", "generic": "P 27% \+ N 4\.5% \+ K 2%"/g) || []).length === 4);
 ok('build id is 2026-10-27c or later', ((/var BUILD_ID='([^']+)'/.exec(html) || [])[1] || '') >= '2026-10-27c');   // 29 Oct: any later build
 ok('change log 2026-10-27c exists', /ver:'2026-10-27c'/.test(html) && /V-Germinator Pro: the final recipe/.test(html));

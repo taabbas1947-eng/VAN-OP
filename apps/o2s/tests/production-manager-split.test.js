@@ -94,7 +94,8 @@ function granted() {
   b.state.masters.roles.push({ id: 'production-manager', name: 'Production Manager',
     deptId: 'production', builtin: false, archived: false });
   b.seedDeptRightsV1(b.state);
-  b.setDeptLead('production', 'production-manager');
+  /* 30 Oct 2026 (roles trial, D-350): O2S's own setDeptLead is closed; the platform's roles service sets the lead, like this */
+  b.state.masters.departments.find(d => d.id === 'production').leadRoleId = 'production-manager';
   const pm = b.state.masters.roleRights['production-manager'];
   const pr = b.state.masters.roleRights[b.roleIdOf('Production')];
   /* the seven shared rights: both keep them (explicitly NOT manager-only) */
@@ -109,7 +110,7 @@ function granted() {
 {
   const b = granted();
   ok('Production Manager is now the department lead', b.deptLeadRole('production') === 'Production Manager');
-  ok('...and it was logged', b.logged.some(l => /Department lead: Production/.test(l) && /Production Manager/.test(l)));
+  ok("...and O2S's own lead switch is closed (the launcher sets it; D-350)", /^function setDeptLead\(deptId,roleId\)\{ if\(accessMoved\(\)\) return;/.test(H.grab('setDeptLead')));
 
   /* the seven shared rights: BOTH roles hold them */
   PROD_CODES.forEach(c => {

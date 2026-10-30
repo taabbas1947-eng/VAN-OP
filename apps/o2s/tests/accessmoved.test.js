@@ -80,13 +80,13 @@ for (const w of WRITERS) {
         + '\nfunction accessOvNone(){}', ctx);
       const st = { masters: { roles: [{ id: 'coo', name: 'COO', builtin: true }, { id: 'kam', name: 'KAM' }], roleRights: { coo: { 'order.acknowledge': true }, kam: { 'order.create': true } }, roleRightsSet: {}, accessMatrix: { KAM: { entry: { v: true, e: false } } } } };
       ctx.st = st; vm.runInContext('cooUnlockV1(st)', ctx);
-      const live = ctx.RIGHTS.filter(r => ctx.RIGHTS_LIVE[r.code] === true).map(r => r.code);
-      ok('the step ticks every right in force for the COO (' + live.length + ')', live.every(c => st.masters.roleRights.coo[c] === true && st.masters.roleRightsSet.coo[c] === true));
+      const all = ctx.RIGHTS.map(r => r.code);   // review 30 Oct: every right, also those still on O2S's old rule, so a later switch keeps the COO
+      ok('the step ticks every right for the COO (' + all.length + ')', all.every(c => st.masters.roleRights.coo[c] === true && st.masters.roleRightsSet.coo[c] === true));
       ok('and gives the COO Edit on every screen (' + ctx.SCREENS.length + ')', ctx.SCREENS.every(sc => st.masters.accessMatrix.COO[sc.id] && st.masters.accessMatrix.COO[sc.id].e === true && st.masters.accessMatrix.COO[sc.id].v === true));
       ok('another role is not touched', JSON.stringify(st.masters.roleRights.kam) === '{"order.create":true}' && JSON.stringify(st.masters.accessMatrix.KAM) === '{"entry":{"v":true,"e":false}}');
       const once = JSON.stringify(st); vm.runInContext('cooUnlockV1(st)', ctx);
       ok('it runs once (masters._cooUnlockV1)', JSON.stringify(st) === once && !!st.masters._cooUnlockV1);
-      ok('it runs at load, after the 27d step', /dataFix27dV1\(s\); cooUnlockV1\(s\);/.test(html)); }
+      ok('it runs at load, after the 27d step', /dataFix27dV1\(s\); (alsoBasesV1\(s\); )?cooUnlockV1\(s\);/.test(html)); }   // 30a: main's 29b step sits between
     report('29a: access set on the launcher, role from the server');
   })();
 }

@@ -28,7 +28,8 @@ function ctx(orders) {
     scr: id => (id === 'entry' ? { id: 'entry', name: 'New PO Entry', owners: ['KAM'] }
                                : { id, name: id, owners: [] }),
     state: { role: 'COO', currentUser: { name: 'tahir' }, orders,
-             masters: { accessMatrix: { 'Plant Manager': { entry: { v: true, e: true } },
+             /* 30 Oct 2026 (D-351): no COO shortcut; the COO holds Edit on every screen as a tick (cooUnlockV1) */
+             masters: { accessMatrix: { 'COO': { entry: { v: true, e: true } }, 'Plant Manager': { entry: { v: true, e: true } },
                                         'Production':    { entry: { v: false, e: false } },
                                         'CFO':           { entry: { v: true, e: false } } },
                         roles: [{ name: 'KAM' }, { name: 'Plant Manager' },

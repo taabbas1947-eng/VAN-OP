@@ -3434,6 +3434,131 @@
      }
     }
    ]
+  },
+  {
+   "id": "DD-35",
+   "title": "The daily comment: the words (29a)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-045"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Guide rule The daily comment on a job waiting for a truck",
+    "D-344"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Word",
+       "Meaning in O2S",
+       "Where it comes from"
+      ],
+      "rows": [
+       [
+        "Daily comment",
+        "1 line a day on a PO saying why it is still here.",
+        "D-344"
+       ],
+       [
+        "No comment today",
+        "A label on a card. It is not a job, not an alert, and not counted in the Today numbers.",
+        "D-344"
+       ],
+       [
+        "Same as yesterday",
+        "Repeats yesterday's reason, time and note for today, marked copied. Offered only when yesterday has a comment of the same kind.",
+        "D-344"
+       ],
+       [
+        "POs not ready to ship, comment due",
+        "The list on Today of open POs, 15 days or older, with no stock ready for a truck. Shown separately, never counted in the Today numbers.",
+        "D-344"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "DD-36",
+   "title": "Print / Save PDF and Also packed from: the words (29b)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-046",
+    "R-047"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Guide rules Opening a document does not print it and A brand that can be packed from more than one base",
+    "D-345",
+    "D-346"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Word",
+       "Meaning in O2S",
+       "Where it comes from"
+      ],
+      "rows": [
+       [
+        "Print / Save PDF",
+        "The green button in the top bar of every opened document. It is the only thing that opens the print box. The bar is not printed.",
+        "D-345"
+       ],
+       [
+        "Also packed from",
+        "A list on a product: other bases the brand can be packed from, besides its own base. It only widens the Pack window list.",
+        "D-346"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "DD-37",
+   "title": "Close small remainder, tiny remainder, left: the words (29c)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-048"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Guide rule A PO line with 50 Kg/L or less left",
+    "D-348"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Word",
+       "Meaning in O2S",
+       "Where it comes from"
+      ],
+      "rows": [
+       [
+        "Close small remainder",
+        "The button for a line with 50 Kg/L or less left. It closes the line short at once.",
+        "D-348"
+       ],
+       [
+        "Tiny remainder",
+        "The mark on a close made that way. The Closed short report shows it in the column How it was closed.",
+        "D-348"
+       ],
+       [
+        "Left",
+        "Ordered minus delivered, for this rule. Not minus packed. A line with stock made and not yet delivered is refused, so what is left is stock that does not exist yet.",
+        "D-348"
+       ]
+      ]
+     }
+    }
+   ]
   }
  ]
 }

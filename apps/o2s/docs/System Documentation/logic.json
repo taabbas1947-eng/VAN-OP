@@ -929,7 +929,10 @@
     "tests/today.test.js",
     "tests/fixesC.test.js",
     "tests/audit15g.test.js",
-    "tests/shell.test.js"
+    "tests/shell.test.js",
+    "tests/dcreject28a.test.js",
+    "fn dcRejectCovered",
+    "fn dcRejectWaitKg"
    ],
    "blocks": [
     {
@@ -1277,7 +1280,7 @@
        [
         "DC rejected / Truck failed",
         "Supply Chain",
-        "rejected DC or failed truck not read",
+        "rejected DC or failed truck not read, and not yet covered: some line of the same PO with a product from the failed DC still has packed, cleared stock waiting for a truck (lineCleared above 0.5, the figure the Ship job uses). Stock on another truck, planned, loading or gone, is not waiting; only stock packed on or before the day of the failure counts (dcRejectCovered, dcRejectWaitKg, 28 Oct 2026)",
         "-",
         "none"
        ],
@@ -2840,6 +2843,333 @@
       "Jobs: Release provisionally (AQCM, also QCM) while provWhyNot is empty; Provisional lot UNFIT (Plant Manager) while the lot is failed, a run at VAN is undecided or a truck that left is undecided; Provisional lot referred (COO) for each truck referred until a complaint (not cancelled) has an item of that truck.",
       "Plant Manager's run decisions: rework is refused while part of the run is on a planned truck that has not left (shipKg above the Kg on trucks that left); rework writes qaHold and sets insKg to the Kg on trucks (provReinsp keeps the before). A truck is asked about only if one of its runs from the lot was not decided at VAN. The COO job says to wait while the truck is not confirmed delivered; it carries alsoRoles Plant Manager when Tahir is marked away."
      ]
+    }
+   ]
+  },
+  {
+   "id": "LG-34",
+   "title": "Morning view: what each page shows and how (28b)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-019"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn mvModel, mvDayMaps, mvToday, mvSplit, mvPageFor, screenMorning",
+    "fn mvPageTahir, mvPageYawar, mvPageFahim, mvPageMajid, mvPageSaad, mvPageHimayat, mvPageIsmaeel",
+    "D-340",
+    "tests/morning28b.test.js"
+   ],
+   "blocks": [
+    {
+     "p": "The page is worked out each time it opens from the lists O2S already has (orders, batches, lots, certificates, trucks, Today jobs, Sales & Budget). Nothing is stored and nothing is written."
+    },
+    {
+     "list": [
+      "Day: the view date is today in Pakistan; yesterday is the day before it, always (a Monday shows Sunday). The month and the financial year come from the view date.",
+      "Sold: net value of the trucks that left, the same figure How are we doing uses; against the month target, which is the sum of the client monthly targets in Sales & Budget. A client with no monthly figure shows not set and is left out; the yearly target is not divided by 12.",
+      "Month target: the target total is the sum of clients that have a figure; what is sold is counted for those clients only for the percentage, and sales to other clients are shown beside it. Open orders in the month bar are likewise for clients with a figure.",
+      "Late: an order line whose committed date has passed and is not delivered or short-closed (the same test How are we doing uses). Money is the unsent quantity at the line price.",
+      "To invoice (Ismaeel): yesterday's trucks with DC, SO and gross value; gross is net x 1.05 where the order's FED mode is Exclusive or Inclusive; sales tax is not added.",
+      "Today and watching: the signed-in person's Today jobs (Today scope), with jobs escalated to them shown apart as watching. The COO list is limited to jobs escalated to him or given to the COO role, not the whole plant.",
+      "On-time ownership: not made or not packed shows under Majid (production); made and ready but not delivered shows under Saad (delivery).",
+      "Units: every quantity carries its unit from the product (Kg or L; Kg/L for a base).",
+      "A page that cannot be worked out shows a plain message, never a blank screen or a wrong figure.",
+      "Money: PKR is shown to the roles that may see it elsewhere in O2S (COO, CFO, Plant Manager, KAM, and the roles of How are we doing). Finance sees quantities, and PKR only on the to-invoice list. A DC is counted once however many product lines it has; a DC with 2 POs is 2 lines to invoice; a free-of-charge order is not invoiced. A shift is expected only if it logged on 3 or more different days in the last 14 (28c); one stray entry does not make a shift 'running'."
+     ]
+    }
+   ]
+  },
+  {
+   "id": "LG-35",
+   "title": "Removing a duplicate truck row, by line (dedupeShipmentsV1, restoreDC5264V1)",
+   "owner": "COO",
+   "rules": [],
+   "status": "confirmed",
+   "src": [
+    "fn dedupeShipmentsV1",
+    "fn restoreDC5264V1",
+    "fn ensureState",
+    "fn reconcileLotShipKgV1",
+    "fn linePackSize",
+    "D-343",
+    "tests/dcrow28d.test.js",
+    "tests/review25m.test.js"
+   ],
+   "blocks": [
+    {
+     "lanes": {
+      "roles": [
+       "O2S (every page load)"
+      ],
+      "steps": [
+       {
+        "role": "O2S (every page load)",
+        "text": "Take every truck row that has left (counted in dispatched) and is not cancelled",
+        "kind": "start"
+       },
+       {
+        "role": "O2S (every page load)",
+        "text": "Group the rows by PO and line id (a row with no line id: by PO and product)",
+        "kind": "task"
+       },
+       {
+        "role": "O2S (every page load)",
+        "text": "Do the rows of 1 group add up to MORE than that line's dispatched?",
+        "kind": "decision"
+       },
+       {
+        "role": "O2S (every page load)",
+        "text": "Yes: remove the fewest rows of the same DC that bring it back to dispatched, never below. No: touch nothing",
+        "kind": "task"
+       },
+       {
+        "role": "O2S (every page load)",
+        "text": "A line of the same product on the same truck is a different group and is never touched",
+        "kind": "end"
+       }
+      ]
+     }
+    },
+    {
+     "table": {
+      "head": [
+       "Rule",
+       "Result"
+      ],
+      "rows": [
+       [
+        "2 lines of 1 product on 1 truck (5 L and 20 L)",
+        "Each is compared with its own dispatched; both rows stay"
+       ],
+       [
+        "The same row twice on the same DC",
+        "The extra copy is removed"
+       ],
+       [
+        "A truck still planned or loading",
+        "Never looked at (it is not yet counted in dispatched)"
+       ],
+       [
+        "A row with no line id (older trucks)",
+        "On a PO with 2 or more lines of that product: compared with the sum of those lines, so it can only cut less. On a 1 line PO: compared with that line, as before"
+       ],
+       [
+        "DC 5264 row of 2,500 Kg/L (restoreDC5264V1)",
+        "Put back while the row is missing, dispatched is 2,500 and the 3 packing runs hold 2,500; checked again on every load, never marked done; same truck, same DC; prints (revised); a delivered truck is left alone"
+       ],
+       [
+        "Every row the clean-up removes",
+        "A line is written to the audit (AUdup-, the row id), so a removal is never silent"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "LG-36",
+   "title": "Who needs a daily comment today (dcState)",
+   "owner": "COO",
+   "rules": [
+    "R-045"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn dcState",
+    "fn dcShipLines",
+    "fn dcShipDays",
+    "fn acDeferActive",
+    "D-344",
+    "tests/dailycomment29a.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Case",
+       "Kind",
+       "Needs a comment today?"
+      ],
+      "rows": [
+       [
+        "A line is not delivered and has cleared stock to ship (the same test as the Ship job in actionItems)",
+        "Ship job",
+        "Yes when days since the oldest cleared lot is 15 or more, and the job is not deferred. No ready date: counted from the QC pass date, then from the PO received date."
+       ],
+       [
+        "The PO has no cleared stock, and at least one line is not delivered and not closed short",
+        "Open PO, not ready to ship",
+        "Yes when the PO was received 15 or more days ago."
+       ],
+       [
+        "Every line delivered or closed short, with nothing cleared to ship",
+        "None",
+        "No. The comments already written stay on the PO."
+       ],
+       [
+        "A closed-short line with packed stock not shipped (PO 21301)",
+        "Ship job",
+        "Yes, as a Ship job, until the stock ships or the decision is made."
+       ],
+       [
+        "A Ship job deferred from Today",
+        "Ship job",
+        "No, until it comes back."
+       ],
+       [
+        "A job marked Waiting for client (every line it covers)",
+        "Ship job or PO not ready to ship",
+        "No, while the mark stands. It is due again when the mark ends or its date passes."
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Every save is its own row on the PO, with its own id (DC, the date and a random tail). The comment that shows is the end of the chain of replaced saves for the day (the later device clock decides only between 2 saves made side by side, and the PO page lists the other one as also saved). A PO takes at most 20 saves a day. The earlier saves stay as history; the earlier saves of that day stay as history, and a row that replaces another names it. 2 people saving the same day both keep their rows. Same as yesterday names the person who first wrote it. A second tap with the same words writes nothing. Nothing here makes a job or an alert, and nothing in the Today count reads it."
+    }
+   ]
+  },
+  {
+   "id": "LG-37",
+   "title": "Which brands the Pack window offers for a base batch (brandsForPack)",
+   "owner": "COO",
+   "rules": [
+    "R-047"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn brandsForPack",
+    "fn brandsForBase",
+    "fn applyProductsV1",
+    "fn alsoBasesV1",
+    "D-346",
+    "tests/printbase29b.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Case",
+       "Offered in the Pack window of a batch of base X?"
+      ],
+      "rows": [
+       [
+        "The brand's own base is X",
+        "Yes (as before)"
+       ],
+       [
+        "The brand's own base is Y and its Also packed from list has X",
+        "Yes (new in 29b)"
+       ],
+       [
+        "The brand's Also packed from list has only its own base",
+        "The own base is dropped from the list; no change"
+       ],
+       [
+        "The Divert dialog",
+        "Not widened: it uses the brand's own base only, and refuses a line whose base differs"
+       ],
+       [
+        "Packing, price, batch numbers, the quantity cap",
+        "Unchanged. The PO line is the brand's own line, so the pack goes to the PO the person picks."
+       ]
+      ]
+     }
+    },
+    {
+     "p": "alsoBasesV1 runs once at load (flag masters._also29b). It sets Also packed from = Liquid Bio Stimulant on Tornado 500 ML and Max Amino only when their own base is something else and the Liquid Bio Stimulant product exists; if a part is missing it does nothing for that part and tries again at the next load. It writes 1 audit line with the fixed id AU-also29b (so devices that each run it before anyone saves merge into 1 line and no one else's audit rows are lost); it writes no action-log line. A link removed later by hand is not put back."
+    }
+   ]
+  },
+  {
+   "id": "LG-38",
+   "title": "Fold-outs stay open across a redraw (render, detCapture, detRestore)",
+   "owner": "COO",
+   "rules": [],
+   "status": "confirmed",
+   "src": [
+    "fn render",
+    "fn detList",
+    "fn detCapture",
+    "fn detRestore",
+    "D-347",
+    "tests/printbase29b.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Step",
+       "What happens"
+      ],
+      "rows": [
+       [
+        "Before the draw",
+        "render() records, for the screen on the page now, which details elements are open, keyed by the first 50 characters of the heading plus its order among equal headings"
+       ],
+       [
+        "The draw",
+        "The screen function writes the page as before"
+       ],
+       [
+        "After the draw",
+        "If the screen is the same as before, each fold-out that was open is opened again. None is ever closed by this step. A different screen is left as drawn."
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "LG-39",
+   "title": "Closing a small remainder (tinyShortClose)",
+   "owner": "COO",
+   "rules": [
+    "R-048"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn tinyRefusal",
+    "fn tinyShortClose",
+    "fn closeLineButtonHTML",
+    "D-348",
+    "tests/tinyclose29c.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Step",
+       "What happens"
+      ],
+      "rows": [
+       [
+        "Button",
+        "The product card in the order sheet shows Close small remainder to a person whose role holds po.shortclose_small, when the line passes every check below (tinyRefusal answers empty). The COO and anyone who can close a whole PO see the ordinary close instead."
+       ],
+       [
+        "Window",
+        "Shows ordered, delivered, left, packed; a reason list (the same reasons as the normal close); a note for Other. It says it closes now, nobody approves it, the Plant Manager is not told, the line drops out of the production and packing jobs and production is not told, and only the COO can reopen it. A new order must be 7 days old (counted from the day the PO was received) or the screen says so. After a reason is picked it says whether the reason is listed as ours in the Closed short report or not. Cancel or a tap outside while the latest figures are checked closes nothing; the check gives up after 15 seconds. The button is Close N Kg/L short now; it calls tinyConfirm and is disabled while the latest figures are checked."
+       ],
+       [
+        "Checks at the moment of closing",
+        "The right; the line exists; not already closed; no request waiting; something still open; no earlier refusal or reopen on the line or in its history; 50 or less left right now (not when the window opened; shown with up to 2 decimals so 50.01 is never printed as 50); no stock made and not yet delivered (produced, packed or dispatched, whichever is most, minus delivered, more than 0.5 is refused); no raw material purchase request still open on the line; a reason from the list; words if Other. A refusal writes nothing. Before the close, tinyConfirm calls tinyFresh: it asks the server for the revision, pulls and merges the newer state with the same merge the 7-second refresh uses if it moved, and refuses to close when a save is still going through, when the server cannot be reached, when the line no longer qualifies, or when the quantity left is not the one the window showed (the window then shows the new figure and asks again)."
+       ],
+       [
+        "Write",
+        "An earlier decided record is moved to the line history first (it cannot be a refused or reopened one on this route; scArchive stays in case the checks change). Then line.shortClose is written with requested and approved by the same person and time, the reason, tinyRemainder true, tinyLimit 50, leftAtClose, and the ordered, delivered and packed quantities at that moment."
+       ],
+       [
+        "Trace",
+        "One action log line and one audit line (field Tiny remainder closed short). Saved once."
+       ],
+       [
+        "After",
+        "lineShortClosed is true, so the line reads Closed short and production, packing and raw material refuse it as for any closed line. Reopening is by the COO's Reopen this line button on the order sheet (reopenConfirm, then reopenShortClose, right po.reopen); a reason is required, and the close stays as history. A reopened line cannot be closed this way again. A new order must be 7 days old."
+       ]
+      ]
+     }
     }
    ]
   }

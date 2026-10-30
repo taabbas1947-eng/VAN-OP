@@ -15,7 +15,7 @@ const { ok, eq, report, grab, html } = H;
 
 const src = ['lineShortClosed','lineShortRequested','lineShortRefused','lineRefusalOpen','scArchive','scReason','scWho','scFreeze','_scLine',
              'shortCloseGap','shortCloseAgainstUs','shortCloseRefusal',
-             'scPackedConflict','scPackedConflictMsg','requestShortClose','approveShortClose','rejectShortClose','reopenShortClose']
+             'scPackedConflict','scPackedConflictMsg','requestShortClose','approveShortClose','rejectShortClose','reopenShortClose','nid']
   .map(n => { try { return grab(n); } catch (e) { return ''; } }).join('\n\n');
 
 function world(opts) {
@@ -24,7 +24,7 @@ function world(opts) {
   const o = { id:'O1', po:'PO-2609-018', client:'Arysta', lines:[l] };
   const box = {
     console, l, o,
-    state: { orders:[o], role: opts.role || 'Supply Chain', currentUser: opts.user ? {name:opts.user} : null, audit:[] },
+    state: { orders:[o], role: opts.role || 'Supply Chain', currentUser: opts.user ? {name:opts.user} : null, audit:[], seq:1 },
     toasts: [], logged: [],
     may: c => (opts.rights || ['po.shortclose_request','po.shortclose_approve','po.reopen']).indexOf(c) > -1,
     denyRight: (c,w) => 'denied: ' + w,

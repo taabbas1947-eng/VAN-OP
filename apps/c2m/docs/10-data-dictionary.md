@@ -21,7 +21,7 @@ Changed in 0.3.0 and 0.3.1: rs_per_kg fixed (1 rate of 1 kind, labour or FOH). A
 | Field | Meaning | Unit or values | Source | Rule |
 |---|---|---|---|---|
 | net_price | Price per kg or L on the O2S PO line, without FED | Rs | O2S orders[].lines[].invoicePrice; / (1 + FED %) when fedMode is Inclusive (fed_pct, 5 now); 0 for free orders | F-10, D-72 |
-| open_kg | Kg still to ship on a PO line | kg or L | ordered less dispatched; 0 when short-closed or in an "Old POs" customer | D-15 |
+| open_kg | Kg still to ship on a PO line | kg or L | ordered less dispatched; 0 when short-closed and not reopened, or in an "Old POs" customer | D-15 |
 | truck_date | Day the truck counts as a sale | date | O2S shipments[].approvedDate (gate pass approved); a truck still loading is not a sale yet | D-16, D-60 |
 | qty (recipe line) | Input per 1 kg (or L) of product, loss included | kg per kg | Majid; day 1 from Yawar's sheet | R-2 Recipes |
 | rate | Latest purchase rate of a material grade | Rs per kg or L | Yawar, with source | D-10 |
@@ -266,3 +266,19 @@ Changed in 0.3.0 and 0.3.1: rs_per_kg fixed (1 rate of 1 kind, labour or FOH). A
 - parts (sale, D-124): the 4 cost parts [materials, packing, conversion, freight], Rs per kg or L, of the cost version used for a truck; sent with each sale, not stored.
 - Change record line (D-125): at, by (user name), entity, entity id, action, why, from c2m_audit; the screen adds the item's name and a kind (recipes, costs, prices, products, settings).
 - Product, Variant, Pack, Client product (D-128): the 4 product words; see doc 07, "The 4 product words".
+
+## 10.13 Added on 30 Oct 2026 (owner: Tahir; D-138 to D-140)
+| Word | Meaning | Where |
+|---|---|---|
+| Variant | The form of a product: Powder, Pellets, Granular, Crystal. Never a size | Setup, Products and variants; Add a product; Add a variant |
+| Pack | A size: 1 L, 3 L, 20 L, 25 kg. Each pack has its own packing bill | every product |
+| Packing bill | The packing items for 1 pack (bag, label, carton) and how many of each | Setup, Costs, Packing |
+| Find box | The search above a list; "2 of 59" = rows shown of rows in the list | every list |
+| Delete | Removes an entry nothing uses, with a reason; its values stay in the change record | every list |
+| Take out of use / Put back in use | Hides an entry from forms and pickers while every approved cost keeps it; undone from its row | materials, packing items, packing bills, clients, products |
+| Default recipe | The approved recipe that sets a product's cost, price for target and margin | product page, Recipe |
+| Another recipe | A second approved way to make a product (e.g. DAP in place of TSP), named; its cost is shown, never used | product page, Recipe; Recipes |
+| Make default | Yawar switches the Default to another approved recipe; cost moves from that moment | product page, Recipe |
+| Main | The name of a product's first recipe when none was given | recipe names |
+| What changed | The box at login, and the Guide section, listing the updates for your job | login; Guide |
+| CHANGELOG | The list of updates inside c2m.html, 1 entry per release, each line marked with who it is for | c2m.html |

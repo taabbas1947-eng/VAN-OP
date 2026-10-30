@@ -19071,6 +19071,664 @@
    ]
   },
   {
+   "id": "D-339",
+   "title": "A failed truck or rejected DC leaves Supply Chain's list when its material is no longer waiting for a truck (28a)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-011",
+    "R-017"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir in chat, 28 Oct 2026: 'Why this is showing in system of saad, this vehicle has already dispatched and left'; 'yes' to the fix",
+    "o2s.html changelog 2026-10-28a",
+    "fn dcRejectCovered",
+    "fn dcRejectWaitKg",
+    "fn dcRejectJobs",
+    "tests/dcreject28a.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-28"
+       ],
+       [
+        "Ruled by",
+        "Tahir (COO)"
+       ],
+       [
+        "Decision",
+        "The Truck failed (and DC rejected) job closes by itself when, for every product on the failed DC, no line of that PO with that product has packed, cleared stock waiting for a truck (the figure the Ship job uses). Stock on another truck, planned, loading or gone, is not waiting. If part of it, or other stock of the PO, still waits, the job stays. Reading the note still closes it by hand."
+       ],
+       [
+        "Why",
+        "DC 5260 (EXCL002, Humi Grow, 10,000 Kg) failed inspection on 26 Oct. The same truck left on DC 5261 on 27 Oct and the PO was delivered, but the job stayed on Supply Chain's list until it was read on 28 Oct, because the note did not look at what happened to the material after the failure."
+       ],
+       [
+        "Changes",
+        "dcRejectCovered and dcRejectWaitKg added; dcRejectJobs skips a covered note; Guide (My job, Supply Chain) and change log 2026-10-28a; tests/dcreject28a.test.js."
+       ],
+       [
+        "Left as built",
+        "The note is not deleted, only left off Today, and it returns if the stock is waiting again (for example the replacement truck is cancelled) and nobody has read it. A DC whose rows, order or product lines are not found is never closed by this rule. The first version of this change looked for a later truck with a gate pass and at least the same Kg; two independent reviews showed it would hide the note when a second truck of the same PO was always planned, or when 2 trucks failed and 1 replaced them, so it was replaced the same day by the rule above. Second review (same day): only stock packed on or before the day of the failure counts as waiting, so the next part of the same PO, packed later, does not bring an old unread note back (function dcRejectWaitKg). Known and accepted: a lot on QA hold, a complaint hold, with no batch number or sent back for re-inspection is not shippable, so the note stays off the list until the lot is shippable; stock moved to another PO leaves that PO's own Ship job to carry it; a leftover above 0.5 Kg after the replacement truck keeps the note until it is read; a truck row with no batch list gives no stock back (rare, old rows only)."
+       ],
+       [
+        "Status",
+        "Current"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-340",
+   "title": "Morning view: one read-only page for each of 7 people, own page only (28b)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-019"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir in chat, 21 Oct 2026 (design settled) and 28 Oct 2026: 'Own page only, COO included'; 'yes, and move on the morning view'",
+    "o2s.html changelog 2026-10-28b",
+    "fn screenMorning",
+    "fn mvPageFor",
+    "fn mvModel",
+    "tests/morning28b.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-28"
+       ],
+       [
+        "Ruled by",
+        "Tahir (COO)"
+       ],
+       [
+        "Decision",
+        "A Morning view tab after Today in the header, for 7 people only: Tahir (COO), Yawar (CFO), Fahim (Plant Manager), Majid (Production Manager), Saad (Supply Chain), Himayat (QC Manager), Ismaeel (Finance). Each sees only their own page, the COO included; there is no picker. It is read only and has its own skin (steel, ash, graphite), scoped so it cannot touch other screens."
+       ],
+       [
+        "Rulings inside it",
+        "Yesterday is always the day before today. Jobs escalated to a person are shown apart as watching. Ismaeel gets a list of yesterday's trucks to invoice (DC, SO, gross with FED). Monthly targets are read from Sales & Budget (masters.salesTargetsMonthly); a client with no figure shows not set and stays out of the total; the yearly target is never divided by 12. On-time ownership: Majid for production (not made or packed), Saad for delivery (ready)."
+       ],
+       [
+        "Who gets which page",
+        "By login name first (tahir, yawar, fahim, majid, saad, himayat, ismaeel), then by role (COO, CFO, Plant Manager, Production Manager, Supply Chain, QCM, Finance), so a second COO login sees the COO page. Any other role sees no Morning view word."
+       ],
+       [
+        "Changes",
+        "Header word, SCREENS entry, render dispatch, the module in o2s.html (mv functions), the .mv skin, fonts Inter and Source Serif 4; Guide (How the app works, My job); change log 2026-10-28b; tests/morning28b.test.js."
+       ],
+       [
+        "Left as built",
+        "The page works out its figures when it opens and writes nothing. Figures were tied to How are we doing and Plant on the live data of 28 Oct 2026. Found and fixed by the independent reviews the same day: the month percentage counts sales of clients that have a target only (sales to other clients are shown beside it); a DC counts once; a free-of-charge DC is not on Ismaeel's list; a DC with 2 POs is 2 lines; a shift is chased only if it logged on 3 or more different days in the last 14 (28c; first ruled as any entry in 14 days); money follows the existing rule (COO, CFO, Plant Manager, KAM, and the roles in How are we doing see PKR; Finance sees quantities and PKR only on its own to-invoice list); folds keep their open state; every job is reachable (And N more). Known and accepted: Ismaeel's list is yesterday only, as ruled, and O2S does not record which invoices are sent, so a day he does not open is not carried forward. Late means from the committed day, as in How are we doing, so a line due today counts as late. The per-role pages other than the signed-in one were checked on fixtures, not live."
+       ],
+       [
+        "Status",
+        "Current"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-341",
+   "title": "FOC samples leave the header: one + New entry button on Today (28b)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-005"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir in chat, 21 Oct 2026 and 28 Oct 2026: 'Same build as Morning view'",
+    "o2s.html changelog 2026-10-28b",
+    "fn tdNewEntry",
+    "fn tdEntryChoices",
+    "fn boDesks",
+    "tests/morning28b.test.js",
+    "tests/samples.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-28"
+       ],
+       [
+        "Ruled by",
+        "Tahir (COO)"
+       ],
+       [
+        "Decision",
+        "FOC samples is no longer a header word. On Today, + New order and + Ask for a free sample become one button, + New entry, which offers a Commercial order or an FOC sample, each person seeing only what their role allows. With one choice it goes straight to it. The list of all samples becomes a Back Office tile (COO, CFO, Plant Manager)."
+       ],
+       [
+        "Changes",
+        "Roles that may see samples but have no Back Office get a FOC samples link on Today; the choice sheet has See all samples. The COO is offered the order only (he approves samples, he does not ask for them), as before. Nothing about who may ask for, approve, issue or release a sample changed."
+       ],
+       [
+        "Status",
+        "Current, changed in part by D-342 (28c): the choice window is gone, the COO is offered both forms, and the Today link shows for every role that may open the list."
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-342",
+   "title": "+ New entry opens 2 tabs on top of the form; one click to the FOC samples list; a shift needs 3 days to count as running (28c)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-005"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir in chat, 28 Oct 2026: 'BOTH. CORRECT BOTH. We have decided the New entry should open 2 tabs, New order entry or FOC, and then the selected form'; panel answer 'Tabs stay on top of the form'; 'anyone can ask the FOC samples'",
+    "o2s.html changelog 2026-10-28c",
+    "fn tdEntryTabs",
+    "fn tdTab",
+    "fn tdNewEntry",
+    "fn tdEntryChoices",
+    "fn tdStarts",
+    "fn mvShiftNames",
+    "tests/morning28c.test.js",
+    "tests/morning28b.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-28"
+       ],
+       [
+        "Ruled by",
+        "Tahir (COO)"
+       ],
+       [
+        "Decision",
+        "+ New entry shows 2 tabs, New order and FOC sample, on top of the selected form; clicking a tab swaps the form without going back to Today. The FOC samples link on Today shows for every role that may open the list. A shift counts as running only if it logged on 3 or more different days in the last 14."
+       ],
+       [
+        "Options seen",
+        "Tabs first, then the form opens, switching means going back (not chosen). For a person who may start only 1 of the 2, Tahir answered 'anyone can ask the FOC samples'; it is read as: the FOC tab is offered to every role that already holds the right to ask, and now the COO too. No other role was given the right to ask. If Tahir meant every role, that is a separate ruling on the access rules. Known and left: the COO can ask for a sample and approve it himself, the existing guard is a note of 5 or more letters and the approval is marked as made by the person who asked; two people sending a sample at the same moment can get the same SMP number (as before 28c, no duplicate check for samples yet)."
+       ],
+       [
+        "Why",
+        "The live test of 28b found 4 roles (Supply Chain, Finance, CFO, Plant Manager) needed 2 clicks to reach the samples list, the COO was offered the sample form on the samples page but not in + New entry, and Fahim and Majid were chased for an Evening shift that logged once in 16 days."
+       ],
+       [
+        "Changes",
+        "tdNewEntry opens the first form (New order) with no choice window when there are 2 choices, and goes straight to the form when there is 1 (no tabs). tdEntryTabs draws the tabs on the order screen and on the sample form. tdTab switches; a half-typed sample form is kept until Cancel, Send or sign-out, and shown again when the person returns to the FOC tab. tdEntryChoices no longer excludes the COO; the Back Office tile offers him Ask for a free sample too. tdStarts no longer hides the FOC samples link for roles with Back Office (the tile stays). mvModel counts distinct days per shift (3 or more in 14, or an entry on the day shown). Review fixes: a sent sample no longer resets the order typed on the screen under it; the tab label stays readable on hover; setSession (sign-out and sign-in) drops a half-typed sample. Nothing about who may approve, issue or release a sample changed."
+       ],
+       [
+        "Status",
+        "Current"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-343",
+   "title": "A truck with 2 lines of one product keeps both lines on its DC; pack size read by line; DC 5264 put back to 4,500 Kg/L (28d)",
+   "owner": "COO (Tahir)",
+   "rules": [],
+   "status": "confirmed",
+   "src": [
+    "Supply Chain officer's report to Tahir, 28 Oct 2026: planned 4,500 L of V-Germinator Pro, QA passed 4,500, the printed DC showed 2,000 and the rest was neither on the gate pass nor back in stock",
+    "Tahir in chat, 28 Oct 2026: 'Kindly pay some attention to this issue' (passed on from the officer)",
+    "o2s.html changelog 2026-10-28d",
+    "fn dedupeShipmentsV1",
+    "fn linePackSize",
+    "fn restoreDC5264V1",
+    "fn printDC",
+    "fn printGatePass",
+    "fn psiLinesFor",
+    "tests/dcrow28d.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-28"
+       ],
+       [
+        "Ruled by",
+        "Not a new rule: a defect found from the officer's report. Tahir asked for it to be solved; the fix puts the system back to what the officer did and QA passed."
+       ],
+       [
+        "Decision",
+        "The duplicate-truck clean-up compares each PO line with its own dispatched total, by line id. The pack size on the DC, the gate pass and the inspection report is the pack of the line on the truck. DC 5264 is put back to 4,500 Kg/L: checked on every load, it adds the one row only while the figures are exactly as found, and does nothing once the row is there."
+       ],
+       [
+        "What happened",
+        "RUDP1026 has 2 lines of V Germinator Pro, 5 L (2,500 Kg/L) and 20 L (2,000 Kg/L), on 1 truck (DC 5264). After release, the clean-up that runs on every page load matched lines by product name, read the 20 L line's 2,000 as the product's dispatched total, saw 4,500 on the DC and removed the 2,500 row as the excess. The DC printed 2,000, the 20 L bags printed as 5 L (128 and 272 packs instead of 32 and 68), the line still showed 2,500 dispatched and the 3 packing runs (500, 500, 1,500) stayed marked shipped, so the stock was on no DC and not available."
+       ],
+       [
+        "Options seen",
+        "(1) Fix the clean-up by line, fix the pack size by line, put the one row back (chosen). (2) Remove the clean-up (not chosen: it exists to remove a real duplicate row, and a test still proves it does)."
+       ],
+       [
+        "Known and left",
+        "6 other POs have 2 lines of one product (Maxim Old POs, 06493, PO0250, 22032, RULOK0910, 4224000021). Checked on the live data on 28 Oct: none has lost a row. The truck left at 16:37 and the papers were handed to the driver at 16:44 with the wrong DC: a new DC must be printed and sent to the customer. The 2 bag numbers of V Germinator Pro are typed with different spacing on different runs (VG26001, VG 26002, VG  26002), which splits a DC line in two; not changed. A truck that is delivered before this build loads is not repaired automatically (the new row would be born delivered and the line never credited): tell Tahir. After the push, check the live data for any other line whose dispatched is higher than its truck rows."
+       ],
+       [
+        "Changes",
+        "dedupeShipmentsV1 groups rows by PO and line id and compares with that line's dispatched (rows with no line id are compared with the sum of the PO's lines of that product, so they can only cut less). linePackSize takes the line id; printDC, printGatePass and psiLinesFor pass it. restoreDC5264V1 puts back the one row from the 3 runs still marked shipped, only while the row is missing, dispatched is 2,500 and the 3 runs hold 2,500, with a fixed row id and fixed ids on its audit and action log lines; it is not marked done, because the page keeps its merge baseline after it runs and a save clash would otherwise drop the row for good; a truck already delivered is left alone. The clean-up now writes a line to the audit for every row it removes. The line key is used only where a PO has 2 or more lines of one product."
+       ],
+       [
+        "Status",
+        "Current"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-344",
+   "title": "A daily comment on every Ship job waiting 15 days or more and every open PO 15 days old (29a)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-045"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Shoaib's proposal, reviewed by the team, 28 Oct 2026 (Daily Comment Review page)",
+    "Tahir in chat, 28 and 29 Oct 2026: answers to the 4 review questions and 'Yes, build it'",
+    "o2s.html changelog 2026-10-29a",
+    "fn dcState",
+    "fn dcShipLines",
+    "fn dcShipDays",
+    "fn dcMissing",
+    "fn dcPoDue",
+    "fn dcSave",
+    "fn dcSameAsYesterday",
+    "fn openDayComment",
+    "fn renderDayComment",
+    "fn dcCardHTML",
+    "fn dcBtnHTML",
+    "fn dcDueHTML",
+    "fn dcPanelHTML",
+    "tests/dailycomment29a.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-29"
+       ],
+       [
+        "Ruled by",
+        "Tahir, 28 Oct 2026 (4 review answers) and 29 Oct 2026 ('Yes, build it'). The idea is Shoaib's."
+       ],
+       [
+        "Decision",
+        "A Ship job that has waited 15 days or more as a Ship job, and any other open PO received 15 days or more ago, carries 1 comment a day (every calendar day) saying why it is still here. A Ship job picks 1 reason from 5 (the client's vehicle, truck arrangement, truck committed with the time, quality hold, other); any other PO takes a note only. A missing comment shows a label, No comment today, and nothing else: no job, no alert, not counted in the Today numbers. A deferred job needs none, and neither does a job marked Waiting for client (every line it covers) while the mark stands (Tahir, 29 Oct 2026). It stops when nothing is left open on the PO (delivered or closed short; a closed short line with packed stock still waiting is still a Ship job). Every save is kept as its own row, the latest of the day shows, and 2 people saving at the same time both keep their rows. Supply Chain, Supply Chain Officer, Warehouse and the COO write it (the holders of shipment.plan); everyone who opens the PO reads it, view only."
+       ],
+       [
+        "Answers that set the rules",
+        "15 days old for a Ship job is days waiting as a Ship job (the card's waiting N d), not the PO's age. The pick list of 5 is right for Ship jobs. 1 line a day is enough; no hourly update. Once deferred, no more comments. Readers: anyone who opens the PO, read only. No separate catch-up on Day 1."
+       ],
+       [
+        "Options seen",
+        "(1) Count from the PO received date: 14 Ship jobs on Day 1 (not chosen). (2) Count from days waiting as a Ship job: 9 Ship jobs on Day 1 (chosen, Tahir's answer)."
+       ],
+       [
+        "Known and left",
+        "Closing a tiny remainder (for example PO 00694 VL-Boron, 2 kg) is a separate ruling: Saad (Supply Chain) or Finance closes it up to 50 Kg/L left on a line, with no Plant Manager step. Tahir ruled the limit on 29 Oct 2026 (fixed 50 Kg/L, no share of the order). It was not built in that build; it is built in build 2026-10-29c (see D-348). Other open POs are counted from the day the PO was received (a reading, to be corrected if the team means otherwise). A PO that is not ready to ship and under 15 days old has no button for a comment (only Ship cards and the due list carry it)."
+       ],
+       [
+        "Changes",
+        "orders[].dayComments (new). Helpers dcState, dcShipLines, dcShipDays, dcMissing, dcPoDue. Card: label No comment today, Comment for today or Change today's comment, today's comment and the 3 latest earlier days. Window: openDayComment, renderDayComment, dcPick, dcFormSave, dcSave (append only: earlier saves of the day stay as history, a replaced row is named), dcSameAsYesterday (a copy keeps copiedFrom, the person who first wrote it). dcList shows the latest save of each day. Today: POs not ready to ship, comment due, drawn after the Waiting on you list and never in its count. PO page: Daily comments, view only. Guide rule R-045."
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-345",
+   "title": "No document opens the print box by itself (29b)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-046"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Fahim in the O2S group, 29 Oct 2026: the print box opens by itself when a report is opened to review",
+    "Tahir in chat, 29 Oct 2026: 'All documents'",
+    "o2s.html changelog 2026-10-29b",
+    "fn printDoc",
+    "fn printDC",
+    "fn printGatePass",
+    "fn printCOA",
+    "fn printPSI",
+    "tests/printbase29b.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-29"
+       ],
+       [
+        "Ruled by",
+        "Tahir, 29 Oct 2026, after Fahim's report. Asked: only reports, or every document. Answer: every document."
+       ],
+       [
+        "Decision",
+        "Every document opens in a new page to be read: reports, CoA, delivery challan (including the client copy), gate pass, pre-shipment inspection report, PO, QC lists, complaints. The print box opens only when the person taps the green Print / Save PDF button in the top bar. The bar is not printed. Back to O2S is unchanged."
+       ],
+       [
+        "What happened",
+        "5 openers added an onload that called the print box 250 or 350 ms after the page opened: printCOA, printDoc (PO, QC lists, inspection, report, complaint), printDC, printGatePass (when released) and printPSI. A reader who only wanted to look at it had the print box in the way. Each page already had the Print / Save PDF button in its top bar, so nothing is lost."
+       ],
+       [
+        "Options seen",
+        "(1) Reports only (not chosen). (2) Every document (chosen). (3) Keep as it was."
+       ],
+       [
+        "Known and left",
+        "The pop-up that opens the page can still be blocked by the browser, as before; this is not changed. The explicit Print button inside the lab certificate list and the bar button are the same as before. Many buttons are still called Print (Print DC, Print gate pass, Print COA, Print the outcome report): each now opens the page and the green button prints. The records now mean opened, not printed: the PO register (printedAt, printCount, the 'not printed' amber) is stamped when the PO page opens, and the complaint history line 'Outcome report printed' is written when the report opens; both were already written before the person pressed print. The toasts for a draft DC and an unreleased gate pass were reworded to say they open marked draft or not permitted. The gate pass page loads an Urdu font from Google Fonts: on a very slow connection the page can show the bar before the sheet. The green button is white on #2e9e44 (3.45 to 1). After a passed inspection the report still opens by itself, with no print box."
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-346",
+   "title": "A brand may also be packed from another base: Tornado 500 ML and Max Amino from Liquid Bio Stimulant (29b)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-047"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Majid in the O2S group, 29 Oct 2026, with a screenshot of the Pack bulk base, brand, PO window for batch BS26002: Tornado is not in the list; link Tornado 500 ML and Max Amino 1 L with the Liquid Bio Stimulant base",
+    "Tahir in chat, 29 Oct 2026: 'Both bases'",
+    "o2s.html changelog 2026-10-29b",
+    "fn brandsForPack",
+    "fn applyProductsV1",
+    "fn alsoBasesV1",
+    "fn pmSave",
+    "tests/printbase29b.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-29"
+       ],
+       [
+        "Ruled by",
+        "Tahir, 29 Oct 2026. Asked: move them to the Liquid Bio Stimulant base, or keep Amino Acid and add Liquid Bio Stimulant. Answer: both bases."
+       ],
+       [
+        "Decision",
+        "The product master has a new optional field alsoBases (a list of base names). The Pack bulk base, brand, PO window lists, for a base batch, the brands made from that base and the brands that list it in alsoBases. Tornado 500 ML and Max Amino (base Amino Acid) get alsoBases = Liquid Bio Stimulant by a one-time fix at load. They stay packable from an Amino Acid batch. Their own base, recipe, costing, orders and client lists are not changed. In the dropdown a brand packed from a base that is not its own shows that base in brackets, for example Tornado 500 ML (base Amino Acid), so a packer can see it is borrowed; a multi-PO batch planned for one such brand pre-selects it."
+       ],
+       [
+        "What happened",
+        "The Pack window lists the brands whose base equals the batch's base. Both brands have base Amino Acid, so a Liquid Bio Stimulant batch (BS26002) could not list them."
+       ],
+       [
+        "Options seen",
+        "(1) Move them to Liquid Bio Stimulant only (not chosen: Amino Acid batches such as AM26002 would stop listing them, and their recipe and cost follow the base). (2) Both bases (chosen)."
+       ],
+       [
+        "Known and left",
+        "The Production plan cards and Run bulk still follow the PO line's own base (Amino Acid), so a Production card may still say the base is short while Liquid Bio Stimulant stock exists. Doing it by hand in Pack works. Only Tornado 500 ML and Max Amino were asked for; plain Tornado (also 0.5 L, base Amino Acid) is not linked. Tornado and Tornado 500 ML both exist as products, possibly the same product under 2 names; not changed. The Back Office product form does not yet show or edit Also packed from; an edit of a product keeps it. A deactivated Tornado 500 ML or Max Amino is still listed in the Liquid Bio Stimulant Pack window, as an inactive brand of an own base already is. Masters.products has no ids, so 2 people editing different products at the same time keep only the last save's whole list (as before 29b); a save from an old-build tab in the first minutes after the push can drop the new link, and the fix does not run again because its flag is set. After the push, check the link on the live list. The Today Production cards still say base Amino Acid is short for these 2 brands and do not offer the Liquid Bio Stimulant batch. The CoA of a bulk batch carries the base name, so a Tornado 500 ML packed from a Liquid Bio Stimulant batch may read Liquid Bio Stimulant: to be asked of the lab."
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-347",
+   "title": "Fold-out lists stay open when the page is redrawn (29b)",
+   "owner": "COO (Tahir)",
+   "rules": [],
+   "status": "confirmed",
+   "src": [
+    "Fahim in the O2S group, 29 Oct 2026, video: the list on Today (See their list) closes by itself after about 5 seconds",
+    "o2s.html changelog 2026-10-29b",
+    "fn render",
+    "fn detCapture",
+    "fn detRestore",
+    "tests/printbase29b.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-29"
+       ],
+       [
+        "Ruled by",
+        "Not a new rule: a defect found from the team's video."
+       ],
+       [
+        "Decision",
+        "render() notes which fold-outs (details elements) are open on the screen before it draws and opens the same ones again after. They are matched by the first 50 characters of their heading with the digits ignored (a heading that says 16 jobs and then 15 is the same fold-out) and, for equal headings, their order. Only on the same screen. It only opens: it never closes a fold-out the screen opens on purpose (the Back Office focus card, the complaint trail), so a fold-out the person closed and the screen draws open on purpose comes back open."
+       ],
+       [
+        "What happened",
+        "The background refresh checks the server every 7 s and, when anyone has saved, draws the whole screen again. Every fold-out was drawn closed, so See their list shut itself."
+       ],
+       [
+        "Options seen",
+        "(1) Remember the open ones across the redraw (chosen, fixes every fold-out). (2) Stop the refresh while a list is open (not chosen: the screen would go stale)."
+       ],
+       [
+        "Known and left",
+        "If the heading of a fold-out changes in its first 50 characters, or 2 fold-outs with the same heading swap places, the open state can land on the neighbour. A fold-out the person closed that the screen draws open by default (the complaint trail) is open again after a redraw. A screen that redraws only part of the page (for example the daily comment window) is not changed."
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-348",
+   "title": "A PO line with 50 Kg/L or less left is closed short at once by Supply Chain, Finance or Warehouse (29c)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-048",
+    "R-008",
+    "R-019"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir's request and his comments on the design page, 29 Oct 2026",
+    "PO-SHORT-CLOSE.md (23 Sep 2026)",
+    "o2s.html changelog 2026-10-29c",
+    "fn tinyShortClose",
+    "fn tinyRefusal",
+    "fn openTinyClose",
+    "fn closeLineButtonHTML",
+    "RIGHTS po.shortclose_small",
+    "tests/tinyclose29c.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-29"
+       ],
+       [
+        "Ruled by",
+        "Tahir (COO). He asked for it, saw the design page first, and answered each point in a comment on it."
+       ],
+       [
+        "Decision",
+        "When a PO line has 50 Kg/L or less left, the roles Supply Chain, Finance and Warehouse can close it short themselves, at once: no request, no Plant Manager approval, and the Plant Manager is not told. Today those roles are held by Saad (Supply Chain), Ismaeel (Finance) and Shoaib (Warehouse). The Supply Chain Officer (Zain Ghaffar), the CFO and the Finance Desk Officer cannot. 'Left' is ordered minus delivered, the number the PO and the close window already show. A line with nothing delivered counts (36 ordered, 0 delivered). There is no limit per PO. The number 50 is fixed in the program (SHORTCLOSE_SMALL_KG) and is not a setting. The person picks one of the same reasons as the normal close. The close writes the same line.shortClose record the approved route writes, so production, packing, raw material and the reports treat it as any closed line, plus 3 marks: tinyRemainder, tinyLimit, leftAtClose. A line with more than 50 Kg/L left goes the normal way. After 4 independent reviews the same day it also refuses a line where a close was already refused or reopened (the Plant Manager or the COO decided it), a line with stock made and not yet delivered (the most of produced, packed and dispatched is more than delivered), and a line with a raw material purchase request still open. Before it closes it asks the server for the latest figures and closes nothing if they changed or cannot be checked. The right is po.shortclose_small, held by roles (never a person), not delegable."
+       ],
+       [
+        "What happened",
+        "The 23 Sep route needs a request and the Plant Manager's approval even for a few Kg. On 29 Oct, 4 open lines had 50 Kg/L or less left: Maxim Old POs Grain Set (36 ordered, 0 delivered), PO 22868 Max Potash (40), PO 22867 Grain Set (37), PUR-ORD-2026-00694 VL-Boron (2)."
+       ],
+       [
+        "Options seen",
+        "(1) Count 'left' as ordered minus packed: not chosen, it would let RUDP1026 V Germinator Pro qualify now (40 not packed) while 1,960 Kg/L packed still wait for trucks. (2) Tell the Plant Manager on a list: Tahir said no. (3) One fixed reason 'tiny remainder': Tahir said the same reasons as today. (4) A limit per PO: Tahir said none. (5) A message in the O2S group as well as the card: Tahir said the card, My job and the Guide are enough. (6) No age limit on a new order: not chosen; Tahir ruled the PO must be at least 7 days old. (7) Leave Reopen unbuilt: not chosen; Tahir ruled a COO Reopen button."
+       ],
+       [
+        "Known and left",
+        "(a) The 23 Sep two-person rule (the one who asks cannot be the one who approves) does not apply on this route: one person asks and closes. It still applies to every other close. (b) The Plant Manager learns of a tiny close only from the PO page or the Closed short report (column How it was closed). (c) A line with stock made and not yet delivered is refused, so PO 22867 Grain Set (37 left, 19 packed beyond delivered) cannot be closed this way until the 19 ship. The shortfall frozen at the close is the figure at that moment; a later delivery does not change it. (d) The right belongs to the role: a person given the role Supply Chain, Finance or Warehouse later holds it and sees the Today card. (e) The reasons list has 8 reasons, not 7 as said in conversation; all 8 are offered. (f) The Stuck at packing job still files an ordinary request. (g) A line with a request already waiting for the Plant Manager cannot be closed this way until he decides it. (h) Reopen: until 29 Oct no screen could reopen a line closed short. Tahir then ruled to add a Reopen this line button for the COO only (see the row Added after Tahir's four answers). (i) The produce and pack jobs for the line drop off Today and production is not told; this is the same as the 23 Sep route. A new batch can still be opened against a closed line. (j) On this route Asked by and Approved by show the same name. (k) If two people act on one line in the same second, the saves can merge into a mixed record; the screen's check of the latest figures makes this very rare but not impossible. (l) Finance and Warehouse hold no right to ask, so for a line with more than 50 Kg/L left they see no button. For a line of 50 Kg/L or less that cannot be closed this way they now see the reason in place of the button (added after the reviews). (m) The Closed short report keeps the shortfall frozen at the close even if the customer is later delivered the rest on another route. (n) The warning in the normal close window, This counts against our delivery performance, is older than this work; no performance figure reads the reason, and the report only shows it in the Counts against column."
+       ],
+       [
+        "Changes",
+        "RIGHTS po.shortclose_small, SHORTCLOSE_SMALL_KG, scLeft, tinyFmt, tinyMade, tinyRefusal, tinyMay, openTinyClose, renderTinyClose, tinyFresh, tinyConfirm, tinyShortClose, closeLineButtonHTML, the Closed short report column how (now also in the default view), Guide rule R-048 and a My job note. Also changed outside this route: on a tiny close (record mark tinyRemainder) a frozen delivered figure of 0 is read as 0 (it was read as missing, so a line closed with nothing delivered showed the wrong shortfall after a later delivery; a close on the older route keeps its old reading, so no old closed line changes), and the report label Approved by the Plant Manager now reads Approved by the Plant Manager or the COO."
+       ],
+       [
+        "Fixed after the independent reviews (code, data safety, design, workflow)",
+        "(1) Cancel, or a tap outside, while the latest figures were being checked used to leave the close running: the line was closed anyway, possibly minutes later, with a toast. Now closeModal puts the form away, tinyWindowOpen checks that the small remainder window is still the one on screen, and the check gives up after 15 seconds (an abort on the two fetches). (2) A line of 50 Kg/L or less that Supply Chain, Finance or Warehouse cannot close this way now shows the reason (tinyWhyNot, in closeLineButtonHTML) where the button would be; before, the refusal sentences could only be seen on a stale screen. (3) The window no longer promises a mark the report does not carry; it says whether the reason is listed as ours in the Closed short report or not. (4) The words no Undo button on this screen became it cannot be undone. (5) The Closed short report shows Approved by as None, closed at once for a tiny close. (6) The zero-delivered reading of the frozen figure now applies to tiny closes only, so no old closed line changes its shortfall. (7) The unit is written next to 50 and next to ordered. (8) The changelog names Saad, Ismaeel and Shoaib as the role table does. (9) The notice, the Guide and the My job note use shorter sentences and say that Supply Chain can ask for a line of more than 50 Kg/L. Second review round: (10) after Cancel during the check, the figures the check brought in are drawn on the page behind (unless another window is open). (11) The button is taken out of 'Checking' when the close refuses afterwards. (12) A 401 reads 'You are signed out', not 'check the connection'. (13) An older state from the server (our own save landed meanwhile) is not merged in and the revision is never wound back. (14) The reason line is its own full-width row; no 'waiting' line is drawn beside a live Ask button. (15) The window says when nothing has been delivered, and says whether the reason is listed as ours in the Closed short report (it no longer says 'the customer's'). (16) Finance and Warehouse read 'Tell Supply Chain; they can ask the Plant Manager' where Supply Chain reads 'A new request goes to the Plant Manager'. (17) The Guide and the notice say who can open the Closed short report and that you can see your own close under History on the line. (18) Plain wording: 'Close or receive that request first' replaces the older hard wording; the changelog is cut into shorter items."
+       ],
+       [
+        "Added after Tahir's four answers (29 Oct, build 2026-10-29c)",
+        "(1) Reopen: the COO alone sees a Reopen this line button on the order sheet for a line closed short. It asks for a reason (required), re-reads the latest figures, then reopens; the close stays in the history with who, when and why (reopenedBy, reopenedAt, reopenedWhy), the action log and the audit row carry the reason. A line reopened can no longer be closed the quick way (it counts as refused or reopened). (2) A raw material request still open blocks the quick close: Tahir said keep it. (3) A new order: the PO must be at least 7 days old, counted in calendar days from the day it was received (Pakistan time); the number 7 is in the program (SHORTCLOSE_TINY_MIN_DAYS), not a setting. (4) The Closed short report is now open to Finance and Warehouse as well. Tests: 316 checks in tinyclose29c.test.js; each new rule was broken on purpose in a copy and a test failed every time."
+       ],
+       [
+        "Known and left, second round (tell Tahir)",
+        "(o) A small new order with nothing delivered can be closed at once by any of the 3 roles once the PO is 7 days old (Tahir's ruling of 29 Oct). There is no check that the PO was acknowledged, no limit per person, and the KAM and Sales are not told. A PO with no readable received date is not held back. (p) The open raw material request refusal blocks a common tiny remainder (the last Kg of material never arrived). Supply Chain cannot close that request; the way round is a false RM received tap or the CFO refusing it. (q) Late paperwork: a truck that left but is keyed later is not seen by the stock-made check; the line then shows delivered in full and Closed short, and only the COO can reopen it, from the order sheet. (r) Output not yet logged (a batch open, a shift not logged) is not seen by the stock-made check; production can still credit output to the closed line. (s) Two people acting within a few seconds: the saves merge field by field, so one person's reason or name can be replaced, and the audit row (it has no id, like most audit writers) of the first can be lost; the action log keeps both. (t) A close does not enter On-time % (it counts lines delivered in full) and Fulfilment % drops every closed line whatever the reason; PO-SHORT-CLOSE.md says customer-side only. This is as before this build. (u) The Access screen shows the right as not live yet, and ticking it does not change who holds it (as for the other hard-listed rights). (v) Closed: Finance and Warehouse can now open the Closed short report (Tahir's ruling of 29 Oct). (w) The pack run sheet, the Stuck decision window and the Running batch page still offer Ask to close this line short, to the Plant Manager, for a small line. (x) If the sign-in has expired, the check says check the connection. (y) A request for a normal close that was opened on an older copy of the screen and sent after a tiny close can overwrite fields of the tiny close (the two records merge field by field); the 23 Sep route has the same gap and checks nothing against the server. (z) A delivery that lands in the 0.4 to 40 seconds between the check and the save still ends up under a tiny close; the report keeps the figures frozen at the close. (aa) On a very slow line the whole state may not come down in 15 seconds; the person is told it could not be checked and can try again or use the normal route. (ab) The older sentence in the normal close window, This counts against our delivery performance, is untrue and unchanged. (ac) A tiny close that the COO has reopened reads Approved by None, closed at once in the report, and its history shows the reopening. (ad) The report's Counts against column calls Supplied from stock outside O2S a customer reason, as before."
+       ],
+       [
+        "Fixed after the third round of reviews (code, data safety, workflow, design)",
+        "(1) A reopened line did not get its Pack job back (packLineOwes read the bare close mark); it now uses lineShortClosed, which also repairs a reopened 23 Sep close. (2) The Closed short report now lists an earlier close that was reopened and then replaced by a new close, and its default view has the Status column. (3) The audit rows written by the tiny close and by the reopen carry an id. (4) The Reopen window no longer tells the COO that a new close goes to the Plant Manager (he can close it himself), says when the whole PO was closed too and opens again, and wants a reason of at least 4 characters. (5) A young PO is refused with the day the button opens, written out; a received date in the future gets its own sentence. (6) The refusal, the Ask window and the Plant Manager's approval window say who reopened the line, when and why. (7) The refusal for stock made is split into on a truck, packed and waiting, and made but not packed; the raw material refusal names Supply Chain or the CFO. (8) The Today card is 3 short paragraphs. (9) Three older test files (fixesC, fixesE, shortcloseactions) were given the functions they now need. Tests: 334 checks in tinyclose29c.test.js and 77 in shortclosereport.test.js; each fix was broken on purpose and a test failed."
+       ],
+       [
+        "Known and left, third round (tell Tahir)",
+        "(ae) C2M, the sales and finance app, read a reopened line as closed. FIXED in C2M on 29 Oct 2026 (C2M D-136, commit e5611ab, apps/c2m/c2m-o2s.js line 36 now reads closed = !!sc.approvedAt && !sc.reopenedAt). A reopen reaches C2M only after the next Pull now there. (af) Nobody is told when a line is reopened (the closer, the KAM, the Plant Manager). The reopened line's jobs age from the PO's received date, so they can show as overdue at once (for example Add reason, Overdue N d). (ag) The id on the new audit rows does not stop a save clash from losing another person's audit row: the audit list merges as one block unless every row has an id, and about 41 other writers add rows without one. (ah) The COO gets no notice when a small close is made; the Closed short report shows the reopened date but no reopened-by or reason column. (ai) Late paperwork: if packing is keyed after the close, the pack screen refuses with Packing is closed. Stock already packed can still ship; Inspect and Pack QC jobs are dropped for a closed line; only a COO reopen brings them back. (aj) A received date typed in backwards at PO entry skips the 7 day rule (Finance enters POs); after entry only the CFO and Plant Manager can correct it. (ak) The role list of the Closed short report is cosmetic: Custom report shows the same data to every role. (al) Any line with nothing delivered and 50 Kg/L or less ordered (small farmer orders) can be closed in one tap after 7 days; there is no share-of-order test and the KAM and Sales are not told. (am) After a reopen, Supply Chain can ask and the Plant Manager can approve, which closes the line again; the windows now say who reopened it and why, but nothing stops it."
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-349",
+   "title": "A one-time card on Today tells each of the 3 roles they hold the new right (29c)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-048"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir's comments on the design page, 29 Oct 2026: 'they should be aware they have this right', 'ENOUGH'",
+    "fn tinyNoticeCard",
+    "fn tinyNoticeDue",
+    "fn tinySeen",
+    "fn screenToday",
+    "tests/tinyclose29c.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-29"
+       ],
+       [
+        "Ruled by",
+        "Tahir (COO)"
+       ],
+       [
+        "Decision",
+        "Each person who holds po.shortclose_small sees a card, New for you, at the top of Today (under the alerts card) until they tap Read. It says the rule in plain words. The same is in My job and in the Guide, The rules. No message goes to the O2S group. The COO is not shown the card."
+       ],
+       [
+        "Where it is kept",
+        "state.tinyCloseSeen: one entry per username with the time they tapped Read. Two people reading at the same moment keep both marks when the saves are merged. Reading is written to the action log."
+       ],
+       [
+        "Why not a job",
+        "A job counts on Today, raises a phone alert and escalates when nobody does it. A notice must do none of these."
+       ],
+       [
+        "Known and left",
+        "The card is for the person, not the login: a shared login is told once per username. It is not a phone alert."
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
    "id": "D-350",
    "title": "People, roles, rights, departments, leads and screen access are set by the System Administrator on the launcher; O2S reads the role from the server when it opens (trial)",
    "owner": "Tahir (ruling)",
@@ -19155,11 +19813,15 @@
        ],
        [
         "On the day",
-        "A one-time step (cooUnlockV1, masters._cooUnlockV1; the roles service runs the same step on the server copy) gave the COO every right in force and Edit on every screen, so nothing changed for the COO. Checked in O2S: every right, every screen and every sign-off answered as before."
+        "A one-time step (cooUnlockV1, masters._cooUnlockV1; the roles service runs the same step on the server copy) gave the COO every right ticked (all of them, also those O2S still decides by its old rule, so a later switch keeps the COO: review of 30 Oct) and Edit on every screen, so nothing changed for the COO. Checked in O2S: every right, every screen and every sign-off answered as before."
        ],
        [
         "What does not change",
         "Business powers fixed to the COO by name stay: 'COO only' approvals and corrections, the sign-offs, and the rights not yet in force that O2S fixes by role name. The separation-of-duties check still exempts the COO, as before."
+       ],
+       [
+        "A screen added later",
+        "The step runs once. A screen added after it is not given to the COO by itself: the System Administrator ticks it, as for any role."
        ],
        [
         "Status",
@@ -19264,15 +19926,23 @@
        ],
        [
         "The COO",
-        "The COO is a role in the lists wherever it signs today: inspection, truck review, release, and DC approve and reject. It never signs a COA. Taking the tick away takes the signature away, because the COO shortcut is gone from maySign and from holdsSignoff."
+        "The COO is a role in the lists wherever it signs today: inspection, truck review, release, and DC approve and reject. It never signs a COA. Taking the tick away takes the signature away, because the COO shortcut is gone from maySign and from holdsSignoff, except for inspection (see Known limits). A COO who may release goes straight to Release on the truck card, as before."
        ],
        [
         "One list, everywhere",
-        "The saves (maySign), the buttons on screen, the Today jobs (soRole and soAlso) and the 2-person rules (holdsSignoff) all read the same list."
+        "The saves (maySign), the buttons on screen, the Today jobs (soRole and soAlso) and the 2-person rules (holdsSignoff) all read the same list. Not yet: the phone and laptop alerts, which still go to fixed roles."
        ],
        [
         "Guard rails",
         "Every sign-off keeps at least one role. The 5 two-person rules are checked against the lists, and the COO is exempt, as in separationRefusal. Only the admin's own changes are applied (a delta from what their screen showed). If a sign-off is left with nobody active to sign it, the save goes through with a warning. Inspection still needs Edit on the screen, except for the COO. The named leave cover for the AQCM or the QCM still signs."
+       ],
+       [
+        "Known limits (review of 29-30 Oct)",
+        "Inspection: a role with Edit on the screen where it is done can still inspect without the tick, as before this change; whether the tick alone should decide is Tahir's question. The named leave cover of the AQCM and the QCM still signs for them. Supply Chain now sees the Reject button on a pending DC, which it was always allowed to use."
+       ],
+       [
+        "2-person rules",
+        "Rejecting a DC is not approving one: \"Reject a delivery challan\" carries no 2-person code, so Supply Chain does not count as an approver (review of 30 Oct)."
        ],
        [
         "Later",

@@ -5992,6 +5992,209 @@
      "p": "Nothing is removed. The certificate (lots[].coa) is not changed by a provisional release."
     }
    ]
+  },
+  {
+   "id": "SC-42",
+   "title": "orders[].dayComments (new in 29a)",
+   "owner": "Supply Chain, Warehouse, COO",
+   "rules": [
+    "R-045"
+   ],
+   "status": "confirmed",
+   "src": [
+    "o2s.html fn dcSave",
+    "D-344"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Type",
+       "Required",
+       "Default",
+       "Meaning",
+       "Written by"
+      ],
+      "rows": [
+       [
+        "id",
+        "text",
+        "yes",
+        "",
+        "DC, the date and a random tail, for example DC2026-10-29-lq3x9k2f. Every save has its own id, so 2 people saving the same day never meet on one row.",
+        "dcSave"
+       ],
+       [
+        "date",
+        "date (YYYY-MM-DD)",
+        "yes",
+        "today",
+        "The calendar day the comment is for (Pakistan time).",
+        "dcSave"
+       ],
+       [
+        "kind",
+        "ship or po",
+        "yes",
+        "",
+        "ship when the PO had stock ready for a truck at that moment, po for any other open PO.",
+        "dcSave"
+       ],
+       [
+        "reason",
+        "client-vehicle, truck-arrangement, truck-committed, quality-hold, other",
+        "Ship job only",
+        "",
+        "The 1 reason true that day.",
+        "dcSave"
+       ],
+       [
+        "time",
+        "HH:MM",
+        "truck-committed only",
+        "",
+        "The time the truck will be at the plant.",
+        "dcSave"
+       ],
+       [
+        "note",
+        "text, up to 600 characters",
+        "other and PO not ready to ship",
+        "",
+        "What was said and by whom.",
+        "dcSave"
+       ],
+       [
+        "copied",
+        "true or false",
+        "no",
+        "false",
+        "true when made by Same as yesterday.",
+        "dcSave"
+       ],
+       [
+        "by, user, role, at",
+        "text, text, text, date-time",
+        "yes",
+        "signed-in person",
+        "Who wrote it and when.",
+        "dcSave"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "SC-43",
+   "title": "masters.products[].alsoBases (new in 29b)",
+   "owner": "COO",
+   "rules": [
+    "R-047"
+   ],
+   "status": "confirmed",
+   "src": [
+    "o2s.html fn alsoBasesV1",
+    "fn applyProductsV1",
+    "fn pmSave",
+    "D-346"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Type",
+       "Required",
+       "Default",
+       "Meaning",
+       "Written by"
+      ],
+      "rows": [
+       [
+        "alsoBases",
+        "list of base names",
+        "no",
+        "none",
+        "Other bases the brand may also be packed from, shown in the Pack window of a batch of that base. Never the brand's own base (dropped if present). Set for Tornado 500 ML and Max Amino to Liquid Bio Stimulant.",
+        "alsoBasesV1 once; kept by an edit of the product (pmSave)"
+       ],
+       [
+        "masters._also29b",
+        "{at, by, did}",
+        "no",
+        "absent",
+        "One-time flag: the link was made. Absent until Liquid Bio Stimulant and both brands exist.",
+        "alsoBasesV1"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "SC-44",
+   "title": "line.shortClose tiny marks and state.tinyCloseSeen (new in 29c)",
+   "owner": "COO",
+   "rules": [
+    "R-048"
+   ],
+   "status": "confirmed",
+   "src": [
+    "o2s.html fn tinyShortClose",
+    "fn tinySeen",
+    "D-348",
+    "D-349"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Type",
+       "Required",
+       "Default",
+       "Meaning",
+       "Written by"
+      ],
+      "rows": [
+       [
+        "order.lines[].shortClose.tinyRemainder",
+        "true",
+        "no",
+        "absent",
+        "The close was made by the 50 Kg/L route, with no approval step. Absent on every other close.",
+        "tinyShortClose"
+       ],
+       [
+        "order.lines[].shortClose.tinyLimit",
+        "number",
+        "no",
+        "absent",
+        "The limit that applied at the time (50).",
+        "tinyShortClose"
+       ],
+       [
+        "order.lines[].shortClose.leftAtClose",
+        "number (Kg/L)",
+        "no",
+        "absent",
+        "Ordered minus delivered at the moment of the close.",
+        "tinyShortClose"
+       ],
+       [
+        "state.tinyCloseSeen",
+        "object: username to ISO time",
+        "no",
+        "absent",
+        "Who has tapped Read on the New for you card on Today.",
+        "tinySeen"
+       ]
+      ]
+     }
+    }
+   ]
   }
  ]
 }

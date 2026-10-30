@@ -34,7 +34,15 @@ The app shows each of them the rows marked with their name and the rows marked B
 | Close the month | Both | Setup, Record and checks, Monthly checks | Enter actual labour and FOH; type ERP sales and COGS to tie the month to the books. Tahir checks the 15 biggest material rates against the purchase register. |
 | Find who changed something | Both | Setup, Record and checks, Change record | Filter by person, kind, dates, or search a product, client or reason. It searches the newest 5,000 changes for the person, kind and dates picked; pick dates for older ones. |
 | Read a report | Both | More, Reports | GP bridge, PO price against approved, VAN brand list margin. |
-| Correct a mistake | Both | Where the mistake was made | A price or target waiting for Tahir: Take back, in its row on Client prices. A price approved for a later date: Withdraw (Tahir). A client product's name, out of use, a pack added by mistake: its page, Correct. One of our products' name or out of use: Setup, Products and variants. A rate: save the right rate in Setup, Costs. An item from Yawar's sheets: Setup, Record and checks, Sheet items. Every correction is logged. |
+| Find a row in a list | Both | The Find box above the list | Type any part of a name, client, kind or date: the list shows only the rows that match and says how many ("2 of 59"). What you typed stays while you move around C2M. |
+| Edit a row | Both | Edit, in its row (Setup lists; a client product: its page, Edit this product) | Edit opens the same form as Add, filled in. Names and words save at once and are logged. A new rate, packing price, labour or FOH Rs or freight Rs is saved as a new dated entry: past trucks keep their cost, and a cost that moves more than the re-approval % waits on Approvals. A size, kg or L, and where a product's recipe comes from cannot change. |
+| Delete a row | Both | Delete, in its row | C2M first checks what uses it. Nothing: write why, press Delete twice, and it leaves the list; its values stay in the change record. Something: C2M names it and offers Take out of use (hidden from forms and pickers, kept for past costs; Put back in use in its row). Approved prices and approved recipes are never deleted. |
+| Keep another recipe for a product | Both | Recipes, Write a new recipe version: Another recipe for this product | Name it (e.g. DAP in place of TSP). Majid writes it and Yawar approves its cost; it never moves cost. Its cost shows beside the Default on the product page, Recipe. |
+| Change the Default recipe | Yawar | The product's page, Recipe, Approved recipes: Make default | Only the Default sets cost, price for target and margin. Make default gives every pack a new approved cost from that moment; trucks from tomorrow carry it. Tahir is told. Switching back needs no new steps. |
+| Correct a mistake | Both | Where the mistake was made | A price or target waiting for Tahir: Take back, in its row on Client prices. A price approved for a later date: Withdraw (Tahir). A client product: its page, Edit this product or Delete. A row in a Setup list: Edit or Delete in its row. An item from Yawar's sheets: Setup, Record and checks, Sheet items. Every correction is logged. |
+
+## What changed (in the Guide, and at login)
+The first time you open C2M after an update, a box lists what changed for your job, with a link to its row here. Every update stays in the Guide under What changed.
 
 ## Your first day in 5 steps
 Yawar:
@@ -58,7 +66,7 @@ A role made in Setup, Settings, Roles reads: "This role was set up by the admini
 
 ### Majid, Production Manager (role production)
 1. Today shows recipes to check or revise; each opens in a panel.
-2. Write a new version from Recipes when a recipe changes, including a one-time change.
+2. Write a new version from Recipes when the Default recipe changes. For a one-time way of making it (e.g. DAP in place of TSP), pick Another recipe for this product and name it: it goes straight to Yawar for its cost and never moves cost unless Yawar makes it the Default. A draft started by mistake: Delete this draft, on its page.
 3. A recipe sent back carries a reason and advice; revise and resend it, and it goes straight back to whoever sent it.
 4. Products: every client product, to read: its recipe, packs and cost. Nothing on it changes a price or a cost.
 5. Add a variant: Products, + New, Add a variant, or the product's page, Add a variant. Name the variant and its packs; its recipe starts as a copy of the product's, as a draft. Change what differs and send it on like any recipe. Labour and overhead for a variant are set by Yawar.
@@ -78,12 +86,13 @@ A role made in Setup, Settings, Roles reads: "This role was set up by the admini
 3. If no list shows, none is granted to you yet: ask Tahir or Yawar.
 
 ### How C2M works (shown to everyone else)
-1. Each client product has its own recipe: Majid writes, Himayat reviews, Fahim endorses, Yawar approves cost.
-2. Yawar keeps rates current; C2M recosts every recipe.
-3. Yawar proposes prices; Tahir approves; managers see the approved lists.
-4. A product can have variants (Humi Grow: Powder, Pellets); a variant's recipe starts as a copy.
-5. KAMs see only the lists and clients Yawar or Tahir give them. Cost and margin never reach them.
-6. Every change is dated and logged.
+1. Each client product has its own recipe: Majid writes, Himayat reviews, Fahim endorses, Yawar approves cost. A product can keep another recipe beside it (Majid writes, Yawar approves); only the Default sets cost.
+2. A variant is the form of a product (Powder, Pellets); a size such as 1 L or 25 kg is a pack.
+3. Yawar keeps rates current; C2M recosts every recipe.
+4. Yawar proposes prices; Tahir approves; managers see the approved lists.
+5. A product can have variants (Humi Grow: Powder, Pellets); a variant's recipe starts as a copy.
+6. KAMs see only the lists and clients Yawar or Tahir give them. Cost and margin never reach them.
+7. Every change is dated and logged.
 
 ## Who does what (every role)
 | Who | Does | Next |
@@ -98,5 +107,5 @@ A role made in Setup, Settings, Roles reads: "This role was set up by the admini
 ## The 4 product words
 - **Product**: what VAN makes and sells under its own brand (Humi Grow).
 - **Variant**: a form of 1 product (Humi Grow Powder, Humi Grow Pellets). Each variant has its own recipe, packs, cost and rates.
-- **Pack**: 1 size of a product or client product (1 kg, 25 kg), with its own packing bill, cost and price.
+- **Pack**: 1 size of a product or client product (1 kg, 3 L, 20 L, 25 kg), with its own packing bill (the packing items for that pack), cost and price. A size is never a variant.
 - **Client product**: a product as one client buys it, under the client's brand name. It has its own recipe, or follows one of our products' recipe.

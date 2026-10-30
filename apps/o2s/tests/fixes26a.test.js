@@ -213,7 +213,7 @@ function bpWorld(role, user) {
   vm.runInContext('var bpForm=null;\n' + ['bpEsc','bpId','bpReasonHTML','bpFacts','bpHistory','bpOwnerFromName','poReturnOpen','poOwner','poLinesHTML','poFactsHTML','openAckSheet','renderAckSheet','sendBackPO','openPoReturn','poReturnFixed','ackOrder',
     'prRec','prArgs','prFactsHTML','openPRSheet','renderPRSheet','refusePR','openPRRefused','prAskAgain','prDrop','cfoApprovePR',
     'custReturnOpen','custFindByCode','custFactsHTML','openCustSheet','renderCustSheet','sendBackCustomer','openCustReturn','custReturnFixed','approveCustomer',
-    'shipRowsOf','rejectDC','dcRejectNote','dcRejectJobs','dcRejectSeen'].map(grab).join('\n') + '\n' + H.signoffSrc(), b);   // 29a: rejectDC asks maySign
+    'shipRowsOf','rejectDC','dcRejectNote','localDateOf','dcRejectWaitKg','dcRejectCovered','dcRejectJobs','dcRejectSeen'].map(grab).join('\n') + '\n' + H.signoffSrc(), b);   // 29a: rejectDC asks maySign
   return b; }
 { const w = bpWorld('Supply Chain', 'Saad Jamal'); const o = w.state.orders[0];
   w.openAckSheet('O1');

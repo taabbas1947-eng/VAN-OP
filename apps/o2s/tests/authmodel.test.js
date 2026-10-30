@@ -14,6 +14,9 @@
 
    Run: node authmodel.test.js */
 const H = require('./harness.js');
+const SO_OF = { coaReview: ['coa.review', 'AQCM'], coaApprove: ['coa.approve', 'QCM'], approveDC: ['dc.approve', 'Plant Manager'], approveRelease: ['truck.release', 'Plant Manager'], rejectDC: ['dc.reject', 'Supply Chain'] };
+const soGate = (fn, body) => !!SO_OF[fn] && new RegExp("^\\s*function " + fn + "\\([^)]*\\)\\s*\\{\\s*if\\(!maySign\\('" + SO_OF[fn][0].replace('.', '\\.') + "'\\)\\)").test(body)
+  && new RegExp("'" + SO_OF[fn][0].replace('.', '\\.') + "':\\s*\\{[^}]*roles:\\[[^\\]]*'" + SO_OF[fn][1] + "'").test(H.html);   // 29 Oct 2026 (D-352, D-353)
 const fs = require('fs');
 const vm = require('vm');
 const STATE = JSON.parse(fs.readFileSync(H.STATE, 'utf8')).data;
@@ -255,6 +258,10 @@ const asRole = r => { B.state.role = r; };
     'po.shortclose_approve': { handler: 'approveShortClose', since: '23 Sep 2026',
                          why: 'Approving that close. Separate from asking for it on purpose: '
                             + 'the requester may not approve his own request.' },
+    'po.shortclose_small':   { handler: 'tinyShortClose', since: '29 Oct 2026',
+                         why: 'Closing a line short at once when 50 Kg/L or less is left on it. Tahir, 29 Oct: '
+                            + 'Saad Jamal, Muhammad Ismail and Muhammad Shoaib, not Zain. Before this a close of any size '
+                            + 'needed a request and the Plant Manager.' },
     'po.reopen':             { handler: 'reopenShortClose', since: '23 Sep 2026',
                          why: 'Putting a closed line back into play. COO only.' },
     'po.close':              { handler: 'submitClosePO', since: '24 Sep 2026',
@@ -483,7 +490,7 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
        /not in Commercial|Only the COO/.test(refuse('KAM', 'Production', 'order.create')),
        refuse('KAM', 'Production', 'order.create'));
     ok('somebody who is not a lead cannot tick at all',
-       /Only the COO and a department lead/.test(refuse('Lab Rep', 'Sales Officer', 'order.create')),
+       /Only the COO and a department lead|Only the System Administrator changes rights/.test(refuse('Lab Rep', 'Sales Officer', 'order.create')),
        refuse('Lab Rep', 'Sales Officer', 'order.create'));
     ok('and a right that does not exist cannot be granted',
        /does not exist/.test(refuse('KAM', 'Sales Officer', 'no.such.right')));
@@ -584,7 +591,7 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
    'approveRelease', 'doReopenBatch', 'openReopenBatch'].forEach(fn => {
     const body = H.grab(fn);
     /* 24u: the COA signatures are gated on the role itself (no COO), plus the Plant Manager's leave cover */
-    ok('SIGN-OFF still hard-gated: ' + fn, /hardRole\(\[/.test(body) || /state\.role==='(AQCM|QCM)'\|\|labCovers\('(AQCM|QCM)'\)/.test(body), body.slice(0, 110));
+    ok('SIGN-OFF still hard-gated: ' + fn, /hardRole\(\[/.test(body) || /state\.role==='(AQCM|QCM)'\|\|labCovers\('(AQCM|QCM)'\)/.test(body) || soGate(fn, body), body.slice(0, 110));
     ok('SIGN-OFF asks for no right: ' + fn, !/(^|[^\w])may\(/.test(body), body.slice(0, 110));
   });
 }
@@ -793,7 +800,7 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
      b.rightByCode('customer.create').delegable === false && b.rightByCode('customer.amend').delegable === false);
   ['customer.create', 'customer.amend'].forEach(c => {
     ok('the Commercial LEAD cannot hand out ' + c,
-       /only be changed by the COO/.test(b.grantRefusal('KAM', 'Sales Officer', c)),
+       /only be changed by the COO|changed only by the System Administrator/.test(b.grantRefusal('KAM', 'Sales Officer', c)),
        b.grantRefusal('KAM', 'Sales Officer', c));
     ok('...and the refusal says why it is held back',
        /held back/i.test(b.grantRefusal('KAM', 'Sales Officer', c)));
@@ -822,6 +829,7 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
     });
     vm.runInContext(['_at', 'screenEditOK', 'accessLevel', 'authRepaint', 'rightTickById', 'rightTick', 'authPick', 'authDriftBanner', 'authLoopholeBanner', 'authCard']
                     .map(H.grab).join('\n\n'), b);
+                    vm.runInContext('function accessMoved(){ return false; }', b);   // 30 Oct 2026: the old panel's own logic, kept in o2s.html until the roles trial goes live (ROLES-DESIGN §7A item 6); closed by accessMoved, pinned in accessmoved.test.js
     b.state.masters.accessMatrix[role] = b.state.masters.accessMatrix[role] || {};
     if (role !== 'COO') b.state.masters.accessMatrix[role].admin = { v: true, e: false };
     /* The lead-ticks machinery below is exercised with the KAM holding
@@ -845,10 +853,10 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
   }
   /* every refusal reaches the WRITER, not just the button */
   [['KAM', 'KAM', 'order.create', /cannot change his own/],
-   ['KAM', 'Production', 'order.create', /not in Commercial|Only the COO/],
-   ['KAM', 'Sales Officer', 'customer.create', /only be changed by the COO/],
-   ['Lab Rep', 'Sales Officer', 'order.create', /Only the COO and a department lead/],
-   ['Production', 'Sales Officer', 'order.create', /Only the COO|not in/]
+   ['KAM', 'Production', 'order.create', /not in Commercial|Only the COO|Only the System Administrator/],
+   ['KAM', 'Sales Officer', 'customer.create', /only be changed by the COO|changed only by the System Administrator/],
+   ['Lab Rep', 'Sales Officer', 'order.create', /Only the COO and a department lead|Only the System Administrator/],
+   ['Production', 'Sales Officer', 'order.create', /Only the COO|not in|Only the System Administrator/]
   ].forEach(([who, target, code, re]) => {
     const b = panel(who);
     const before = JSON.stringify(b.state.masters.roleRights);
@@ -892,7 +900,7 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
     ok('it names the department lead', /KAM/.test(html));
     ok('it shows the head count per role', /2 people/.test(html), html.slice(0, 300));
     ok('it marks rights that are not live yet', /not live yet/.test(html));
-    ok('it marks the COO-only rights', /COO only/.test(html));
+    ok('it marks the COO-only rights', /COO only|System Administrator only/.test(html));   // D-350: the System Administrator holds them
     ok('it wires the ticks to the writer', /rightTickById\(/.test(html));
     ok('and it uses ONE card key for every tab, so clicking a tab does not close it',
        (html.match(/<CARD authpanel>/g) || []).length === 1, html.slice(0, 120));
@@ -1075,6 +1083,7 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
     _pe: x => String(x == null ? '' : x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') });
   vm.runInContext(['_at', 'screenEditOK', 'accessLevel', 'authRepaint', 'rightTickById', 'rightTick', 'authPick', 'authDriftBanner', 'authLoopholeBanner', 'authCard']
                   .map(H.grab).join('\n\n'), b);
+                  vm.runInContext('function accessMoved(){ return false; }', b);   // 30 Oct 2026: the old panel's own logic, kept in o2s.html until the roles trial goes live (ROLES-DESIGN §7A item 6); closed by accessMoved, pinned in accessmoved.test.js
   preR5(b);
   const html = b.authCard();
   ok('setting up: the Plant Manager really does hold order.create',
@@ -1104,6 +1113,7 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
       _pe: x => String(x == null ? '' : x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') });
     vm.runInContext(['_at', 'screenEditOK', 'accessLevel', 'authRepaint', 'rightTickById', 'rightTick', 'authPick', 'authDriftBanner', 'authLoopholeBanner', 'authCard']
                     .map(H.grab).join('\n\n'), b);
+                    vm.runInContext('function accessMoved(){ return false; }', b);   // 30 Oct 2026: the old panel's own logic, kept in o2s.html until the roles trial goes live (ROLES-DESIGN §7A item 6); closed by accessMoved, pinned in accessmoved.test.js
     return b.authCard();
   }
   const none = card([]);
@@ -1125,6 +1135,7 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
     b.seedDeptRightsV1(b.state);
     Object.assign(b, { toasts: [], toast: m => b.toasts.push(m), save: () => {}, render: () => {}, logAction: () => {} });
     vm.runInContext(['accessLevel', 'authRepaint', 'rightTickById', 'rightTick'].map(H.grab).join('\n\n'), b);
+    vm.runInContext('function accessMoved(){ return false; }', b);   // 30 Oct 2026: the old panel's own logic, kept in o2s.html until the roles trial goes live (ROLES-DESIGN §7A item 6); closed by accessMoved, pinned in accessmoved.test.js
     preR5(b);
     b.state.masters.accessMatrix['KAM'].admin = { v: false, e: false };
     b.rightTick('Sales Officer', 'order.create', true);
@@ -1141,6 +1152,7 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
     const c = mk('COO');
     Object.assign(c, { toasts: [], toast: m => c.toasts.push(m), save: () => {}, render: () => {}, logAction: () => {} });
     vm.runInContext(['accessLevel', 'authRepaint', 'rightTickById', 'rightTick'].map(H.grab).join('\n\n'), c);
+    vm.runInContext('function accessMoved(){ return false; }', c);   // 30 Oct 2026: the old panel's own logic, kept in o2s.html until the roles trial goes live (ROLES-DESIGN §7A item 6); closed by accessMoved, pinned in accessmoved.test.js
     const before = JSON.stringify(c.state.masters.roleRights);
     c.rightTick('No Such Role', 'order.create', true);
     eq('a tick for a role that does not exist writes nothing',
@@ -1235,6 +1247,7 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
       _pe: x => String(x == null ? '' : x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') });
     vm.runInContext(['_at', 'screenEditOK', 'accessLevel', 'authRepaint', 'rightTickById', 'rightTick', 'authPick', 'authDriftBanner', 'authLoopholeBanner', 'authCard']
                     .map(H.grab).join('\n\n'), b);
+                    vm.runInContext('function accessMoved(){ return false; }', b);   // 30 Oct 2026: the old panel's own logic, kept in o2s.html until the roles trial goes live (ROLES-DESIGN §7A item 6); closed by accessMoved, pinned in accessmoved.test.js
     return b;
   }
   const b = panel2('COO');
@@ -1274,6 +1287,7 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
   b.seedDeptRightsV1(b.state);
   Object.assign(b, { toasts: [], toast: m => b.toasts.push(m), save: () => {}, render: () => {}, logAction: () => {} });
   vm.runInContext(['accessLevel', 'authRepaint', 'rightTickById', 'rightTick'].map(H.grab).join('\n\n'), b);
+  vm.runInContext('function accessMoved(){ return false; }', b);   // 30 Oct 2026: the old panel's own logic, kept in o2s.html until the roles trial goes live (ROLES-DESIGN §7A item 6); closed by accessMoved, pinned in accessmoved.test.js
   eq('seeded from the matrix: he may raise a PO', b.state.masters.roleRights['so11']['order.create'], true);
   b.rightTick('Sales Officer', 'order.create', false);          /* the COO decides otherwise */
   eq('the COO unticks it', b.state.masters.roleRights['so11']['order.create'], false);
@@ -1295,6 +1309,7 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
   Object.assign(b, { toasts: [], toast: m => b.toasts.push(m), save: () => {}, render: () => {}, logAction: () => {},
     _roleById: id => b.state.masters.roles.find(r => r.id === id) });
   vm.runInContext(H.grab('setRoleDept'), b);
+  vm.runInContext('function accessMoved(){ return false; }', b);   // 30 Oct 2026: the old panel's own logic, kept in o2s.html until the roles trial goes live (ROLES-DESIGN §7A item 6); closed by accessMoved, pinned in accessmoved.test.js
   b.setRoleDept('kam', 'finance');
   eq('a department lead cannot be moved out, leaving his department without one',
      b.roleDeptId('KAM'), 'commercial');
@@ -1317,6 +1332,7 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
     _pe: x => String(x == null ? '' : x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') });
   vm.runInContext(['_at', 'screenEditOK', 'accessLevel', 'authRepaint', 'rightTickById', 'rightTick', 'authPick', 'authDriftBanner', 'authLoopholeBanner', 'authCard']
                   .map(H.grab).join('\n\n'), c);
+                  vm.runInContext('function accessMoved(){ return false; }', c);   // 30 Oct 2026: the old panel's own logic, kept in o2s.html until the roles trial goes live (ROLES-DESIGN §7A item 6); closed by accessMoved, pinned in accessmoved.test.js
   const html = c.authCard();
   ok('an archived role holding a right is shown', /Supply Chain Officer/.test(html));
   { /* Look in the COLUMN HEADER, not anywhere in the card — the drift banner
@@ -1356,6 +1372,7 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
                        logAction: () => {}, $: () => null });
     vm.runInContext(['accessLevel', 'authRepaint', 'rightTickById', 'rightTick', 'authCard',
                      '_at', 'authDriftBanner', 'screenEditOK'].map(H.grab).join('\n\n'), b);
+                     vm.runInContext('function accessMoved(){ return false; }', b);   // 30 Oct 2026: the old panel's own logic, kept in o2s.html until the roles trial goes live (ROLES-DESIGN §7A item 6); closed by accessMoved, pinned in accessmoved.test.js
     b.acOpen = {}; b.authDept = 'commercial'; b.usersList = [];
     b.acard = (k, t, h, body) => body;
     b._pe = x => String(x == null ? '' : x);
@@ -1402,7 +1419,7 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
     .forEach(([fn, role]) => {
       const body = H.grab(fn);
       ok('SIGN-OFF still hard-gated: ' + fn,
-         body.indexOf("hardRole([" + role + "])") > -1, body.slice(0, 120));
+         body.indexOf("hardRole([" + role + "])") > -1 || soGate(fn, body), body.slice(0, 120));
       ok('SIGN-OFF not converted by mistake: ' + fn + ' asks for no right',
          !/(^|[^\w])may\(/.test(body), body.slice(0, 120));
     });
@@ -1550,6 +1567,7 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
     _pe: x => String(x == null ? '' : x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') });
   vm.runInContext(['_at', 'screenEditOK', 'accessLevel', 'authRepaint', 'rightTickById', 'rightTick',
                    'authPick', 'authDriftBanner', 'authLoopholeBanner', 'authCard'].map(H.grab).join('\n\n'), c);
+                   vm.runInContext('function accessMoved(){ return false; }', c);   // 30 Oct 2026: the old panel's own logic, kept in o2s.html until the roles trial goes live (ROLES-DESIGN §7A item 6); closed by accessMoved, pinned in accessmoved.test.js
   const html = c.authCard();
   /* If the check itself cannot run, the card must NOT print the clean sentence.
      That sentence is the one an earlier version printed while people were quietly
@@ -1562,6 +1580,7 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
       _pe: x => String(x == null ? '' : x) });
     vm.runInContext(['_at', 'screenEditOK', 'accessLevel', 'authRepaint', 'rightTickById', 'rightTick',
                      'authPick', 'authDriftBanner', 'authLoopholeBanner', 'authCard'].map(H.grab).join('\n\n'), d);
+                     vm.runInContext('function accessMoved(){ return false; }', d);   // 30 Oct 2026: the old panel's own logic, kept in o2s.html until the roles trial goes live (ROLES-DESIGN §7A item 6); closed by accessMoved, pinned in accessmoved.test.js
     d.screenLoopholes = () => { throw new Error('boom'); };
     const broken = d.authCard();
     ok('a broken loophole check does NOT print the clean sentence',
@@ -1581,6 +1600,7 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
       acard: (k, t, h, body) => '<CARD>' + body + '</CARD>', _pe: x => String(x == null ? '' : x) });
     vm.runInContext(['_at', 'screenEditOK', 'accessLevel', 'authRepaint', 'rightTickById', 'rightTick',
                      'authPick', 'authDriftBanner', 'authLoopholeBanner', 'authCard'].map(H.grab).join('\n\n'), live);
+                     vm.runInContext('function accessMoved(){ return false; }', live);   // 30 Oct 2026: the old panel's own logic, kept in o2s.html until the roles trial goes live (ROLES-DESIGN §7A item 6); closed by accessMoved, pinned in accessmoved.test.js
     const shipped = live.authCard();
     ok('SHIPPED: the Supply Chain tab has no screen loophole left to warn about',
        !/only because of another screen/.test(shipped), (shipped.match(/only because[^<]{0,120}/) || [''])[0]);
@@ -1626,6 +1646,7 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
       _pe: x => String(x == null ? '' : x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') });
     vm.runInContext(['_at', 'screenEditOK', 'accessLevel', 'authRepaint', 'rightTickById', 'rightTick',
                      'authPick', 'authDriftBanner', 'authLoopholeBanner', 'authCard'].map(H.grab).join('\n\n'), b);
+                     vm.runInContext('function accessMoved(){ return false; }', b);   // 30 Oct 2026: the old panel's own logic, kept in o2s.html until the roles trial goes live (ROLES-DESIGN §7A item 6); closed by accessMoved, pinned in accessmoved.test.js
     return b;
   }
   ['commercial', 'supply-chain'].forEach(dep => {
@@ -1808,6 +1829,7 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
        the grant table yet, so the hard list is what answers today. */
     'po.shortclose_request':{ kind: 'hard',    scr: undefined },
     'po.shortclose_approve':{ kind: 'hard',    scr: undefined },
+    'po.shortclose_small':  { kind: 'hard',    scr: undefined },
     'po.reopen':            { kind: 'hard',    scr: undefined },
     'po.close':             { kind: 'hard',    scr: undefined },
     'sample.request':       { kind: 'hard',    scr: undefined },
@@ -2119,6 +2141,7 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
       _pe: x => String(x == null ? '' : x), _at: x => String(x == null ? '' : x),
       _roleById: id => b.state.masters.roles.find(r => r.id === id) });
     vm.runInContext(H.grab('setDeptLead'), b);
+    vm.runInContext('function accessMoved(){ return false; }', b);   // 30 Oct 2026: the old panel's own logic, kept in o2s.html until the roles trial goes live (ROLES-DESIGN §7A item 6); closed by accessMoved, pinned in accessmoved.test.js
     return b;
   }
   {
@@ -2191,6 +2214,7 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
       _pe: x => String(x == null ? '' : x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') });
     vm.runInContext(['_at', 'screenEditOK', 'accessLevel', 'authRepaint', 'rightTickById', 'rightTick',
                      'authPick', 'authDriftBanner', 'authLoopholeBanner', 'authCard'].map(H.grab).join('\n\n'), b);
+                     vm.runInContext('function accessMoved(){ return false; }', b);   // 30 Oct 2026: the old panel's own logic, kept in o2s.html until the roles trial goes live (ROLES-DESIGN §7A item 6); closed by accessMoved, pinned in accessmoved.test.js
     b.state.masters.roles.push({ id: 'production-manager', name: 'Production Manager', deptId: 'production', builtin: false, archived: false });
     b.seedDeptRightsV1(b.state);
     const html = b.authCard();
@@ -2502,6 +2526,7 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
       + 'function logAction(m){logs.push(String(m));}\n'
       + 'function save(){}\nfunction render(){}\nfunction confirm(){return true;}\n'
       + ['_roleById', 'archiveRole', 'restoreRole'].map(H.grab).join('\n\n'), c);
+      vm.runInContext('function accessMoved(){ return false; }', c);   // 30 Oct 2026: the old panel's own logic, kept in o2s.html until the roles trial goes live (ROLES-DESIGN §7A item 6); closed by accessMoved, pinned in accessmoved.test.js
 
     const pd = c.state.masters.departments.filter(d => d && d.id === 'production')[0];
     pd.leadRoleId = 'prod-mgr';

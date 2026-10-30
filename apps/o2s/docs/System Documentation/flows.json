@@ -1462,7 +1462,8 @@
     "R-008",
     "R-024",
     "R-011",
-    "R-003"
+    "R-003",
+    "R-048"
    ],
    "status": "confirmed",
    "src": [
@@ -1549,6 +1550,9 @@
     },
     {
      "note": "An Approve close short job waiting 1 day reaches the COO. Who may ask is the right po.shortclose_request; who may approve is po.shortclose_approve."
+    },
+    {
+     "note": "A line with 50 Kg/L or less left follows PF-27 instead: Supply Chain, Finance or Warehouse close it at once, with no request and no approval."
     }
    ]
   },
@@ -1802,7 +1806,7 @@
       "steps": [
        {
         "role": "KAM",
-        "text": "Ask under FOC samples (the KAM for himself, or Finance on behalf of the person sending it): who, to whom, purpose, why (10 characters or more), products and packs, needed-by date, how it goes.",
+        "text": "Ask from + New entry on Today (the FOC sample tab) or under FOC samples (the KAM for himself, or Finance on behalf of the person sending it): who, to whom, purpose, why (10 characters or more), products and packs, needed-by date, how it goes.",
         "kind": "start",
         "rule": "R-005"
        },
@@ -2620,6 +2624,127 @@
        }
       ]
      }
+    }
+   ]
+  },
+  {
+   "id": "PF-26",
+   "title": "The daily comment on a job waiting for a truck (29a)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-045"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn openDayComment, dcSave, dcSameAsYesterday, dcDueHTML",
+    "D-344",
+    "tests/dailycomment29a.test.js"
+   ],
+   "blocks": [
+    {
+     "lanes": {
+      "roles": [
+       "Supply Chain, Supply Chain Officer, Warehouse, COO",
+       "Anyone who opens the PO"
+      ],
+      "steps": [
+       {
+        "role": "Supply Chain, Supply Chain Officer, Warehouse, COO",
+        "text": "Morning: a Ship job waiting 15 days or more, or a PO not ready to ship that is 15 days old, shows the label No comment today (Ship card, or the list POs not ready to ship, comment due).",
+        "kind": "start",
+        "rule": "R-045"
+       },
+       {
+        "role": "Supply Chain, Supply Chain Officer, Warehouse, COO",
+        "text": "Tap Comment for today. Ship job: pick 1 of 5 reasons (time if truck committed, note if other). Other PO: write the note.",
+        "kind": "task"
+       },
+       {
+        "role": "Supply Chain, Supply Chain Officer, Warehouse, COO",
+        "text": "Or, if yesterday has a comment of the same kind: Same as yesterday (marked copied).",
+        "kind": "decision"
+       },
+       {
+        "role": "Supply Chain, Supply Chain Officer, Warehouse, COO",
+        "text": "Save for today: 1 row on the PO, action log line, label goes. A second save replaces it.",
+        "kind": "task"
+       },
+       {
+        "role": "Anyone who opens the PO",
+        "text": "Reads Daily comments on the PO page, view only. The comments stay after the truck leaves.",
+        "kind": "end"
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "PF-27",
+   "title": "Close a small remainder: 50 Kg/L or less left (29c)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-048",
+    "R-008"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn closeLineButtonHTML",
+    "fn openTinyClose",
+    "fn tinyShortClose",
+    "D-348",
+    "D-349",
+    "tests/tinyclose29c.test.js"
+   ],
+   "blocks": [
+    {
+     "lanes": {
+      "roles": [
+       "Supply Chain, Finance or Warehouse",
+       "Plant Manager",
+       "COO"
+      ],
+      "steps": [
+       {
+        "role": "Supply Chain, Finance or Warehouse",
+        "text": "First time after the update: the card New for you on Today says they may close a small remainder. Read.",
+        "kind": "start",
+        "rule": "R-048"
+       },
+       {
+        "role": "Supply Chain, Finance or Warehouse",
+        "text": "Opens the order, finds the product. 50 Kg/L or less left (ordered minus delivered)? yes: the button Close small remainder shows; no: the normal route, ask and the Plant Manager approves (PF-14).",
+        "kind": "decision",
+        "rule": "R-048"
+       },
+       {
+        "role": "Supply Chain, Finance or Warehouse",
+        "text": "Picks one of the usual reasons (Other needs words). The screen asks the server for the latest figures; if they changed or cannot be checked, nothing is closed. A line with stock made and not yet delivered, a line where a close was refused or reopened before, and a line with a raw material request still open are refused with a sentence saying why.",
+        "kind": "task",
+        "rule": "R-008"
+       },
+       {
+        "role": "Supply Chain, Finance or Warehouse",
+        "text": "Close short now: the line is Closed short at once. It drops out of the production and packing jobs; production is not told. Who, when, why and the quantities are kept, marked tiny remainder.",
+        "kind": "task",
+        "rule": "R-008"
+       },
+       {
+        "role": "Plant Manager",
+        "text": "Not told. No job, no approval. He can read it on the PO page and in the Closed short report.",
+        "kind": "task"
+       },
+       {
+        "role": "COO",
+        "text": "Only the COO can reopen the line: Reopen this line on the order sheet, with a reason that is required. The close stays as history (who, when, why).",
+        "kind": "end",
+        "rule": "R-008"
+       }
+      ]
+     }
+    },
+    {
+     "note": "A line with a request already waiting for the Plant Manager cannot be closed this way until he decides it."
     }
    ]
   }

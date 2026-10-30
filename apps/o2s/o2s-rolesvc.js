@@ -57,7 +57,7 @@ module.exports = function mountO2sRolesvc(app, deps) {
     const M = st && st.masters; if (!M || M._cooUnlockV1) return false;
     const r = (M.roles || []).find(x => x && x.name === 'COO'); if (!r) return false;
     M.roleRights = M.roleRights || {}; M.roleRightsSet = M.roleRightsSet || {}; M.accessMatrix = M.accessMatrix || {};
-    const row = M.roleRights[r.id] || {}, set = M.roleRightsSet[r.id] || {}; LIVE.forEach(c => { row[c] = true; set[c] = true; }); M.roleRights[r.id] = row; M.roleRightsSet[r.id] = set;
+    const row = M.roleRights[r.id] || {}, set = M.roleRightsSet[r.id] || {}; CODES.forEach(c => { row[c] = true; set[c] = true; }); M.roleRights[r.id] = row; M.roleRightsSet[r.id] = set;   // every right (review 30 Oct): a right still on the old rule keeps the COO when it goes live
     const cells = Object.prototype.hasOwnProperty.call(M.accessMatrix, 'COO') && M.accessMatrix.COO ? M.accessMatrix.COO : {};
     L.ALLSCREENS.forEach(id => { cells[id] = { v: true, e: true }; }); M.accessMatrix.COO = cells;
     M._cooUnlockV1 = { at: new Date().toISOString(), by: 'ruling of 29 Oct 2026 (D-351), roles service', rights: LIVE.length, screens: L.ALLSCREENS.length };

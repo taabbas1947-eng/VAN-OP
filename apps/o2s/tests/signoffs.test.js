@@ -86,5 +86,7 @@ ok('the 2-person checks inside the COA gates are unchanged', /coaSamePerson/.tes
   ['inspection', 'coa.submit', 'coa.review', 'coa.approve', 'truck.review', 'truck.release', 'dc.approve'].forEach(a =>
     ok('Today: the ' + a + ' job goes to the roles in its list', new RegExp("role:soRole\\('" + a.replace('.', '\\.') + "'\\),alsoRoles:soAlso\\('" + a.replace('.', '\\.') + "'\\)").test(ai)));
   ok('Today: no sign-off job names a fixed role any more', !/role:'(QA Inspector|AQCM|QCM)'/.test(ai) && !/role:'Lab Rep',(who|batch)/.test(ai));
+  ok('rejecting a DC is not approving one: Supply Chain does not count as holding "Approve a delivery challan" (review 30 Oct)',
+    !/'dc\.reject':[^\n]*code:/.test(html) && /'dc\.approve':[^\n]*code:'dc\.approve'/.test(html));
   ok('who holds a sign-off (2-person rules, the Guide) follows the lists, with no COO shortcut', /signoffRoles\(a\)\.indexOf\(role\)>=0/.test(grab('holdsSignoff')) && !/role==='COO'/.test(grab('holdsSignoff'))); }
 report('29a: sign-off gates in one table, exactly as before');

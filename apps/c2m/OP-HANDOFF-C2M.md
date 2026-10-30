@@ -516,6 +516,40 @@ Next: Tahir's rulings in rounds of 4; then fix the 5 wrong-price defects and def
 - Open for Tahir: Majid may tag or clear any product's variant (D-98), which can move cost through a variant rate.
 - 26 Oct 2026 18:30, after the push: migrations 005 and 006 run by Ahmer; live check passed (see doc 12). Tahir ruled (D-135): Majid keeps tagging variants; no channel list price in the VAN brand drill-down; no migration 007 (Magnisium Oxide stays; migration line times stay).
 
+## 29 Oct 2026 Reopened O2S lines read as open again (D-136). PUSHED (commit e5611ab, 19:09). No migration.
+- MODULE: C2M. One line changed: `apps/c2m/c2m-o2s.js` line 36, `const closed = !!sc.approvedAt && !sc.reopenedAt;`. Before, a line the COO reopened in O2S (new Reopen button) kept its approval date, so C2M kept reading it as short-closed (short_closed 1, open_kg 0). Now it reads as open: open_kg = ordered minus dispatched. Matches O2S `lineShortClosed`.
+- Docs changed: 02-data-flows, 04-database-schema, 06-decisions (D-136), 08-release-notes, 10-data-dictionary, 12-tests-issues-assumptions.
+- Review: 2 independent reviewers (code, data safety). Both: Push, but know this. No other reader of the flag; no data lost.
+- Know this: (1) a reopen reaches C2M only after the next "Pull now" (the pull is the only caller; it writes C2M tables, so it was NOT pressed in the live check). (2) An old reopened line comes back into Margin open orders and the open-quantity impact figures. Tell Yawar and Tahir. (3) C2M open uses dispatched, O2S uses delivered (older difference, not touched).
+- Tests: a 9-case check (fails 3 of 9 on the old file, passes 9 of 9 on the new) was run OUTSIDE the repo. The full C2M suite (`npm test` in "C2M App", needs the c2m_test database) is NOT run: it lives on Tahir's PC and was not reachable. Run it there once. The new test is not yet in `C2M App/tests`; a stronger two-sync test (real upsert) exists in scratch and can be placed there when that folder is connected.
+- After the first real reopen in O2S: press "Pull now", then check that line on Margin open orders (open_kg back above 0).
+
+## 30 Oct 2026 Yawar's feedback and the Send back fault (D-137 to D-140). NOT PUSHED. Needs migration 007 (MODULE: C2M)
+- Tahir's rulings (panel, 30 Oct): Delete only what nothing uses, else Take out of use; clients can be deleted or taken out of use; the Default recipe replaces D-22; another recipe takes the short path (Majid writes, Yawar approves); Yawar alone switches the Default, Tahir gets a notice. Proposal page: https://claude.ai/artifact/4XGAzXDk2oQWidtkFVk56N
+- Built: D-137 Send back on a VAN brand list revision opens its reason box (revBox, rev.list). D-138 a Find box on every list ("2 of 59"); variant = the form, a size is a pack, a variant named like a size is stopped. D-139 Edit and Delete on every list, Take out of use and Put back for materials, packing items, packing bills and clients, Edit this product (the Add a product form), delete a draft recipe. D-140 another recipe beside the Default, Make default, approved recipes and their cost on the product page.
+- Files: c2m.html, c2m-routes.js, c2m-engine.js, migrations/007_c2m_out_of_use_default_recipe.sql and its PRODUCTION file, docs 01 to 12. No server.js, O2S or platform file touched.
+- Migration 007 (3 new tables): run on local van_platform first; production by hand later. Without it C2M works as before; Take out of use, another recipe and Make default say migration 007 is needed.
+- Tests (cloud copy of the C2M App kit with today's code, MariaDB 10.11): yw1 17/17, yw2 9/9, no007 passed; the old kit suite 183 passed, 46 failed, 0 crashed, the same failing tests as before the change. yw1, yw2 and no007 are now in C2M App\tests.
+- Independent review: 4 serious findings (a product-only rate becoming a rate for every product after a product delete; Edit removing a pack on an open re-approval; a short-path version becoming the Default unchecked; VAN product delete ignoring list revisions) and smaller ones, all fixed and tested (doc 12, 12.11).
+- Not confirmed, for Tahir: Make default approves the new pack costs at once (Yawar is the cost approver), so the 3% re-approval does not apply to the switch itself; the proposal page said it did.
+- After the push and migration 007: check live, read only: a Find box on Setup lists; Edit and Delete in rows; a product page, Recipe, Approved recipes; Send back on a list revision panel opens its box.
+
+## 30 Oct 2026 (2) Pushed and checked live; update notice at login (D-141). PUSHED (commit d64ccf3, 11:01). No migration (MODULE: C2M)
+- D-137 to D-140 pushed by Tahir (commit a4d0593). Live check as Tahir, read only: Find boxes on Setup lists (clients 31, packing items 47, bills 67, rates 8, products 29; "humi" gave 2 of 29); Edit and Delete in rows; the variant line on Products and variants; Delete on a material in a recipe names the recipe and says migration 007 is needed. Migration 007 is NOT run on live yet (m007 false): Take out of use, another recipe and Make default wait for it; check them live after Ahmer runs it.
+- D-141 built (Tahir: like O2S; panel: only changes for their job; remembered in the browser): CHANGELOG in c2m.html, a box at login with the updates since the last one seen, lines filtered by the person's actions, links to Guide rows, Got it; the Guide keeps What changed. Files: c2m.html, docs 03, 06, 07, 08, 10, 12. No database change.
+- Standing rule: every C2M release adds its CHANGELOG entry in the same change (yw3 W-04 counts entries against release notes on the newest date).
+- Tests: yw3 4/4 (new, in C2M App\tests), yw1 17/17, yw2 9/9; old kit suite 182 passed, 47 failed (ui09 V-02 presses Escape while the new box is open: expected). Independent review: 2 defects (keyboard focus, screen behind not inert) and 5 smaller, all fixed.
+- After the push: open C2M as Tahir; the box should list 3 updates; Got it; reopen: no box.
+
+## 30 Oct 2026 (3) Where to resume (MODULE: C2M)
+- State: D-137 to D-141 are all pushed (a4d0593, d64ccf3); the local folder matches GitHub. Nothing is waiting in the folder.
+- Next 1: live check of D-141, read only. Tahir opens C2M: the box lists 3 updates (29 Oct, 30 Oct, 30 Oct notice); press Got it; open C2M again: no box. Then the same as Majid if he can sign in (his box should show only lines for his job).
+- Next 2: Ahmer runs migration 007 (migrations/007_c2m_out_of_use_default_recipe.sql on local first, then the .PRODUCTION.sql by hand). Do not press for it. After it runs, check live, read only: m007 true; Take out of use on a material; Keep another recipe; Make default (as Yawar).
+- Open question for Tahir: Make default approves the new pack costs at once (the 3% re-approval does not apply to the switch), as the proposal page said. Confirm or change.
+- Old note (D-136): after the first real reopen in O2S, press Pull now and check that line on Margin open orders (open quantity back above 0). Tell Yawar old reopened lines will reappear in the open-order and impact figures.
+- Known test note: old kit ui09 V-02 fails because the new box is open when it presses Escape. Expected; new tests are yw1, yw2, yw3 and no007 in C2M App\tests.
+- Rules: Tahir pushes; migrations local first, production by hand; no server.js, O2S or platform files; live checks read only; no passwords; the price import pack never leaves scratch.
+
 ## 29 Oct 2026 — Roles trial: C2M names roles, not people; roles service (MODULE: C2M, branch roles-trial) — NOT PUSHED
 
 A proposal for C2M's owner, built on the platform's roles trial (`docs/ROLES-DESIGN.md` at the repo root, §7A).
@@ -528,3 +562,14 @@ A proposal for C2M's owner, built on the platform's roles trial (`docs/ROLES-DES
    code matching stored data (`/^Yawar's Master Cost Sheet/`) and comments unchanged; the printed price list keeps
    "Yawar Hussain". Checked: both files parse; C2M opens with no console error; the Guide shows no names.
 Still for C2M's owner: `docs/` 03, 05, 11 still describe roles.manage and name people; the old Roles screen text.
+
+## 30 Oct 2026 — Roles trial caught up with main: Yawar's feedback (D-137 to D-141) merged, said with roles (MODULE: C2M, branch roles-trial) — NOT PUSHED
+
+Main's C2M commits (e5611ab, a4d0593, d64ccf3, aaaa16b) merged into roles-trial. c2m.html had 11 conflicts, all between
+main's new screens and the trial's names-to-roles text: each took main's side, then the trial's ruling (29 Oct: C2M names
+roles, not people) was applied to main's new lines only, with the same function as before: 19 lines in c2m.html, 6 in
+c2m-routes.js, and 5 nested-template lines by hand (e.g. "Majid writes it and Yawar approves its cost" → "The Production
+Manager writes it and the CFO approves its cost"; "Tahir is told" → "The COO is told"). Code values follow: the new Guide
+filter gjVisible compares 'COO' / 'CFO', like the trial's Guide. The default source of a rate, 'Entered by Yawar', is
+'Entered by the CFO' as in the trial's other line. Names left only in code comments. c2m.html script parses; c2m-routes.js
+loads; platform c2m-mount 25/25. C2M's own suite (C2M App, c2m_test) not run here. Migration 007 is main's, unchanged.

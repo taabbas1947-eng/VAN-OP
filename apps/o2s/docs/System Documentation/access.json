@@ -544,6 +544,14 @@
         "no (COO only)"
        ],
        [
+        "po.shortclose_small",
+        "Close a PO line short when 50 Kg/L or less is left",
+        "Commercial",
+        "no",
+        "Supply Chain, Finance, Warehouse",
+        "no (COO only)"
+       ],
+       [
         "po.reopen",
         "Reopen a short-closed line",
         "Leadership",
@@ -1308,6 +1316,112 @@
        [
         "Everyone else",
         "See provisional and HA pending on the screens; not release or decide."
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "AC-15",
+   "title": "Morning view: who sees what (28b)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-019"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn mvPageFor, mvMine, mvMay, screenMorning, tdEntryChoices, smpMayView",
+    "D-340, D-341"
+   ],
+   "blocks": [
+    {
+     "p": "Checked by the page itself every time it opens; no role is given edit, and the screen writes nothing."
+    },
+    {
+     "table": {
+      "head": [
+       "Who",
+       "Sees"
+      ],
+      "rows": [
+       [
+        "Tahir (COO); any other COO login",
+        "The COO page"
+       ],
+       [
+        "Yawar (CFO)",
+        "The CFO page"
+       ],
+       [
+        "Fahim (Plant Manager)",
+        "The Plant Manager page"
+       ],
+       [
+        "Majid (Production Manager)",
+        "The Production Manager page"
+       ],
+       [
+        "Saad (Supply Chain)",
+        "The Supply Chain page"
+       ],
+       [
+        "Himayat (QC Manager)",
+        "The QC Manager page"
+       ],
+       [
+        "Ismaeel (Finance)",
+        "The Finance page: quantities, and PKR only on the to-invoice list (the existing rule: Finance sees money on the invoicing report only)"
+       ],
+       [
+        "Everyone else",
+        "No Morning view word; if they reach the address, a plain message that the page is not set up for their role"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "+ New entry on Today offers a Commercial order to whoever may enter orders (Finance, CFO, COO) and an FOC sample to whoever holds the right to ask for one, the COO included (28c). A person who may start both sees 2 tabs, New order and FOC sample, on top of the form; a person who may start only 1 goes straight to that form. The list of all samples opens from Back Office (COO, CFO, Plant Manager) and from a FOC samples link on Today for every role that may see samples."
+    },
+    {
+     "p": "Morning view is listed in a role's screens, the command palette and the Guide only for roles that have a page. If the COO sets Samples to No access for a role, no route to the samples list is shown to that role."
+    }
+   ]
+  },
+  {
+   "id": "AC-16",
+   "title": "The daily comment: who writes, who reads (29a)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-045"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn openDayComment, dcSave, dcBtnHTML, dcDueHTML, dcPanelHTML",
+    "D-344"
+   ],
+   "blocks": [
+    {
+     "p": "No new right and no new role. The right is shipment.plan, the one that opens Plan the truck."
+    },
+    {
+     "table": {
+      "head": [
+       "Who",
+       "May"
+      ],
+      "rows": [
+       [
+        "Supply Chain, Supply Chain Officer, Warehouse, COO (hold shipment.plan, checked live on 29 Oct 2026)",
+        "Write and change today's comment; see the label and the list on Today"
+       ],
+       [
+        "Plant Manager, CFO, Finance, KAM, Production Manager (do not hold shipment.plan)",
+        "Read the Daily comments on the PO page, view only"
+       ],
+       [
+        "Anyone who can open a PO",
+        "Read the Daily comments, view only"
        ]
       ]
      }

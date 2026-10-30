@@ -156,7 +156,9 @@ function authModelSrc() {
        + grabTopVar('CUSTOMER_LIVE', '[') + grabTopVar('CUSTOMER_GRANT', '{')
        + grabTopVar('ACCESS_RULED_V2', '{') + '\n'
        + grabTopVar('SIGNOFF_ROLES', '{') + grabTopVar('SIGNOFF_NAMES', '{') + '\n'
-       + AUTH_MODEL_FNS.map(grab).join('\n\n');
+       + AUTH_MODEL_FNS.map(grab).join('\n\n')
+       /* 30 Oct 2026 (roles trial, D-353): holdsSignoff reads the sign-off lists, so the table and signoffRoles come too */
+       + '\n' + signoffSrc();
 }
 
 /* 16b: the bag-month helpers, for any suite that runs a packing or QA path. The shelf-life

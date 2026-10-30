@@ -35,7 +35,7 @@ C2M writes to no other system (D-12). O2S holds no recipes; C2M is the recipe ma
 |---|---|---|
 | 1 | c2m_source (claim: status to Pulling, only if not already Pulling, or Pulling for more than 10 minutes) | c2m_source.status, last_pull_note "Pulling since ..." |
 | 2 | app_state.data (orders, shipments) | c2m_sync_run (start) |
-| 3 | each order line | c2m_o2s_po_line: net price (FED-inclusive / (1 + FED %), fed_pct, 5 now; free 0), ordered, dispatched, open kg (0 if short-closed or "Old POs") |
+| 3 | each order line | c2m_o2s_po_line: net price (FED-inclusive / (1 + FED %), fed_pct, 5 now; free 0), ordered, dispatched, open kg (0 if short-closed and not reopened, or "Old POs") |
 | 4 | each shipment not voided, with a known line | c2m_o2s_truck: date (approvedDate: the gate pass approval), kg. A truck still loading has no approvedDate and is left out until its gate pass (D-60) |
 | 5 | rows from older pulls | deleted from c2m_o2s_po_line and c2m_o2s_truck |
 | 6 | customers not matched; prices below Rs 10 | c2m_sync_run.issues_json; c2m_source status Read (or Failed with the reason); c2m_audit (action pull, with the counts) |
@@ -255,3 +255,8 @@ c2m_list_price (farmer rows, by packId) -> lib.printMrp -> the MRP printing list
 ### Round 4 (26 Oct 2026, D-124, D-125)
 - c2m_cost_version (version on the truck date) → each sale's `parts` in GET /state → Margin drill-down. c2m_price (Price history) → approved price on the truck date, worked out in the page.
 - c2m_audit → GET /api/c2m/audit, joined in the route to client products, packs, prices, recipe versions, materials, packing items and bills, rules, target and setting requests, list revisions and price documents for their names → Change record. Read only.
+
+## 2.23 Out of use and the Default recipe (owner: Tahir; D-139, D-140; migration 007)
+- Take out of use writes 1 row in c2m_out_of_use (material grade, packing item, packing bill, client); Put back deletes it. The state call sends outOfUseKeys ("customer:12") and the pickers leave those items out unless already picked. No cost is recalculated: approved costs keep the item.
+- Delete writes the old values to c2m_audit (action delete) and removes the rows. Its uses are read from: recipe lines (materials), packing bill lines (packing items), client packs (packing bills), today's pack costs (labour and FOH, freight), client products, O2S PO lines, KAM grants and issued price lists (clients), recipe versions, approved costs, prices, followers, VAN list rows, open re-approvals, waiting targets and O2S lines (products).
+- The Default recipe: c2m_recipe_default holds the recipe name per product (none = "Main"); c2m_recipe_name holds a version's name (none = "Main"). The engine's approvedVersion picks the Default's approved version; Make default writes c2m_cost_version rows (cause "Default recipe set to ...") for the product and its followers, and 1 notice for Tahir.

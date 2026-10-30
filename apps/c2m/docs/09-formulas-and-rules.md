@@ -107,3 +107,13 @@ A pack takes 1 labour rate and 1 FOH rate, each the first match of these levels:
 | B-30 | Prices above the printed MRP (D-122) | Farmer Punjab, Farmer Sindh, Dealer FRP, Dealer net with FED, Distributor price with FED, Dealer and Distributor Recommended MRP; each named with its MRP on Approvals and Margin | Punjab 1,300 against MRP 1,250 is named | D-122 | fix09.test |
 | F-30 | Approved price for a truck (26 Oct 2026, D-124) | For a client product: the approved price of the pack whose start is on or before the day the truck's PO came in and whose end, if any, is on or after it; with 2, the later start (as the PO price report, F-20). VAN brand packs: none per pack (priced on the lists). A PO price that differs by more than Rs 0.005 is marked, with the gap. Used only to show; GP still uses the PO price. |
 | F-31 | Cost parts of a truck (D-124) | materials + packing + conversion + freight of the cost version approved on the truck date (F-27) = that truck's cost per kg or L. Restated view: today's parts. |
+
+## Yawar's feedback (owner: Tahir; D-139, D-140, 30 Oct 2026; code c2m-routes "Yawar's feedback", c2m-engine approvedVersion)
+| Rule | Says | Decision | Test |
+|---|---|---|---|
+| B-30 | An entry is deleted only when nothing uses it, with a reason; its values go to the change record first. Approved prices, approved or old recipe versions, approved costs and trucks are never deleted | D-139 | yw1 Y-03 to Y-08, Y-12; yw2 YU-04 |
+| B-31 | An entry in use is taken out of use instead: hidden from forms and pickers, kept in every approved cost, put back from its row | D-139 | yw1 Y-03, Y-07; yw2 YU-05 |
+| B-32 | Edit never rewrites a cost: a new rate, packing price, labour or FOH Rs or freight Rs is a new dated entry; the re-approval % applies as before | D-139 | yw1 Y-06b; yw2 YU-06 |
+| B-33 | Only the Default recipe sets cost, price for target and margin. Another approved recipe writes no cost | D-140 | yw1 Y-09 |
+| B-34 | Make default writes a new approved cost for every pack of the product and its followers from that moment; trucks dated the next day on carry it (costOnDate) | D-140 | yw1 Y-11; yw2 YU-08 |
+| B-35 | A variant name is never a pack size (a number with kg, g, L or ml) | D-138 | yw1 Y-02; yw2 YU-03 |

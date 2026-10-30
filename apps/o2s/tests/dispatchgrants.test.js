@@ -112,8 +112,10 @@ function makeBox() {
     PROC.forEach(x => ok(r + ' can NOT ' + x + ' - not even standing on Shipments', c.indexOf(x) < 0, c.join(' ')));
     /* Nothing beyond dispatch, apart from one asymmetry recorded below. */
     eq(r + ' holds exactly the dispatch four and nothing else',
-       c.filter(x => x !== 'sample.issue').slice().sort().join(' '), DISPATCH.slice().sort().join(' '));
+       c.filter(x => x !== 'sample.issue' && x !== 'po.shortclose_small').slice().sort().join(' '), DISPATCH.slice().sort().join(' '));
     ok(r + ' also issues free samples (25o, ruled 25 Sep)', c.indexOf('sample.issue') > -1);
+    /* 29c, Tahir 29 Oct: Warehouse (Shoaib) may close a line short when 50 Kg/L or less is left; the Supply Chain Officer (Zain) may not */
+    ok(r + (r === 'Warehouse' ? ' holds' : ' does NOT hold') + ' po.shortclose_small (29c)', (c.indexOf('po.shortclose_small') > -1) === (r === 'Warehouse'));
   });
 
   /* Saad keeps both halves - he is the department. */

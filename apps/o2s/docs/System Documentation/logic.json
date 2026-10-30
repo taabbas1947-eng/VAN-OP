@@ -1706,7 +1706,7 @@
        ],
        [
         "Batch jobs",
-        "closed date, else opened date",
+        "closed date, else opened date (lab steps: see LG-41)",
         "yes except Lab QC"
        ],
        [
@@ -3239,6 +3239,84 @@
     },
     {
      "p": "The heading count is the number of POs listed and the number with a comment on the day; a missing comment is not counted. A deferred Ship job names who put it off and until when (acDeferActive, read only). If working out one PO's state or comments fails, that PO is left out and the page still draws. Nothing in these functions writes."
+    }
+   ]
+  },
+  {
+   "id": "LG-41",
+   "title": "From which day each lab step on Today waits (labStageSince)",
+   "owner": "COO",
+   "rules": [],
+   "status": "confirmed",
+   "src": [
+    "fn labStageSince",
+    "fn actTiming",
+    "D-351",
+    "tests/labdates30b.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Step",
+       "Who",
+       "Waits from",
+       "If that date is missing"
+      ],
+      "rows": [
+       [
+        "Lab COA (test and draft)",
+        "Lab Rep",
+        "the lot's production date (lots[].date, typed in Log output)",
+        "the batch close date, else the open date"
+       ],
+       [
+        "Lab COA after rework",
+        "Lab Rep",
+        "the day Rework done was pressed",
+        "the lot date"
+       ],
+       [
+        "Lab COA of a re-issued certificate",
+        "Lab Rep",
+        "the re-issue date (coa.issueDate on a draft that supersedes)",
+        "the lot date"
+       ],
+       [
+        "Assign sample (new lab flow)",
+        "QCM",
+        "the lot's production date",
+        "the batch close date, else the open date"
+       ],
+       [
+        "Review COA",
+        "AQCM",
+        "the day the analyst finished (coa.analyst.date)",
+        "the lot date, then the batch dates"
+       ],
+       [
+        "Approve COA",
+        "QCM",
+        "the day the reviewer finished (coa.reviewer.date)",
+        "the analyst date, then the lot date, then the batch dates"
+       ],
+       [
+        "Correct COA, Review COA again",
+        "Lab Rep, AQCM",
+        "the day it was sent back (unchanged)",
+        "-"
+       ],
+       [
+        "Lab test, Lab late",
+        "Lab Rep, Plant Manager",
+        "the assignment and its due time (unchanged)",
+        "-"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "A date is used only if it reads as YYYY-MM-DD; the time is cut off. A future date counts as 0 days. With a date of its own the count is exact, not approximate."
     }
    ]
   }

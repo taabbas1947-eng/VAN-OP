@@ -19788,6 +19788,64 @@
      }
     }
    ]
+  },
+  {
+   "id": "D-351",
+   "title": "The lab's waiting days count from each lot's own production date, and each later step from when it reached the person (30b)",
+   "owner": "COO (Tahir)",
+   "rules": [],
+   "status": "confirmed",
+   "src": [
+    "Himayat (QCM) in the O2S group, 30 Oct 2026: Humi Grow lot wise production date management",
+    "Tahir's panel answers in chat, 30 Oct 2026 (picture: Lot Date Lab Waiting)",
+    "o2s.html changelog 2026-10-30b",
+    "fn labStageSince",
+    "fn actTiming",
+    "fn actionItems",
+    "fn labV2Items",
+    "tests/labdates30b.test.js",
+    "Independent review, 30 Oct 2026: no blocking fault; rework, re-issue and the cover check fixed"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-30"
+       ],
+       [
+        "Ruled by",
+        "Tahir, 30 Oct 2026, after Himayat's message and the live check of batch HG26047."
+       ],
+       [
+        "What happened",
+        "Each Log output already makes its own lot with the date typed for that shift (lots[].date). The lab's jobs on Today (Lab COA, Assign sample, Review COA, Approve COA) carried the batch but no date of their own, so actTiming counted them from batch.closedDate, else batch.openedDate. HG26047 opened 26 Oct: L4 made 28 Oct and L5 made 29 Oct both showed waiting 4 d on 30 Oct and were escalated to the Plant Manager at 4 d. HG26048-L1 made 29 Oct showed 0 d because its batch was opened in O2S on 30 Oct. A closed batch counted every lot from the close date."
+       ],
+       [
+        "Decision",
+        "Lab COA (test and draft) and Assign sample count from the lot's own production date, the one already saved; nothing new is entered (Himayat had suggested a separate production completed date per lot; Tahir chose the date already saved). Review COA counts from the day the analyst finished, Approve COA from the day the reviewer finished, so each person's waiting days are their own time. Each falls back to the step before, then to the batch dates as before. After the independent review, in the same spirit: a lot back from rework reaches the lab on the day Rework done was pressed (also after the Lab Rep saves a draft; caught on re-review), and a re-issued certificate (a draft that supersedes) on its re-issue date."
+       ],
+       [
+        "Effect",
+        "The waiting days, amber and red marks and the escalation (Lab QC, Review, Approve escalate to the Plant Manager after 1 day, unchanged) follow at once; no record is changed. A COA sent back keeps counting from the day it was sent back, as before. The leave cover check for the AQCM and QCM uses the same dates, including the sent-back date. On 30 Oct only 3 lab jobs were open, all Lab COA (HG26047-L4 4 d to 2 d, L5 4 d to 1 d, HG26048-L1 0 d to 1 d), with no Review or Approve job open, so no wave of red jobs is expected."
+       ],
+       [
+        "Options seen",
+        "Which date for the first step: (1) the lot date already saved (chosen), (2) a new production completed date per lot. Later steps: (1) from when it reached the person (chosen), (2) the lot date for all steps, (3) first step only."
+       ],
+       [
+        "Known and left",
+        "The 1 day escalation for lab steps is not changed, so a lot made yesterday and not yet tested still goes to the Plant Manager at 1 day. The Plant Manager's UNFIT lot job still counts from the batch dates. At least 18 first lots since 1 Aug are dated before their batch was opened in O2S, usually by 1 day (for example HG26045-L1 made 18 Oct, batch opened 19 Oct): not changed, reported to Tahir. Deferring one lot's lab job defers every lot of that batch (acKey has no lot id): as before, not changed. A COA signed on a device whose clock is not Pakistan time between midnight and 5 am records the day before."
+       ]
+      ]
+     }
+    }
+   ]
   }
  ]
 }

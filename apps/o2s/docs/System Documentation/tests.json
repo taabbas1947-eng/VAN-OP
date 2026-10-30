@@ -32,8 +32,8 @@
       "rows": [
        [
         "Passed",
-        "118 files with every check passed",
-        "14,655 checks passed (in the 119 files that print a count), 30 Oct 2026, build 2026-10-30a"
+        "119 files with every check passed",
+        "14,693 checks passed (in the 120 files that print a count), 30 Oct 2026, build 2026-10-30b"
        ],
        [
         "Failed",
@@ -42,8 +42,8 @@
        ],
        [
         "All files",
-        "120",
-        "14,657 checks counted"
+        "121",
+        "14,695 checks counted"
        ]
       ]
      }
@@ -359,9 +359,9 @@
        ],
        [
         "labcover.test.js",
-        "Leave cover for the lab: a cover signs 1 line only, the certificate prints for whom, the Plant Manager names the cover.",
+        "Leave cover for the lab: a cover signs 1 line only, the certificate prints for whom, the Plant Manager names the cover. 30b: a certificate's wait for the QCM counts from the reviewer date (reviewed 2 days ago and batch closed today is 1 job).",
         "R-003, R-006",
-        "68 passed, 0 failed"
+        "69 passed, 0 failed (30 Oct 2026)"
        ],
        [
         "latereasons.test.js",
@@ -758,6 +758,12 @@
         "30a: the comments fold on the Morning view of Fahim and Majid: which POs are listed (15 days or more, any PO with a comment today, nothing else), the order (no comment first), each row (reason, note, writer, time, copied from, Ship job or Open PO with days, the open lines of a PO), No comment today with yesterday's comment dated and by whom, Waiting for client and deferred (who and until when) say no comment is needed, markup and the onclick id are escaped, the link has its own class, the fold is closed by default with the count of POs and comments written (no count of missing ones) and stays open once opened, the empty fold, 15 days listed and 14 not, a PO that cannot be worked out is left out and a broken comment list does not blank the page, only Fahim and Majid have it, nothing writes, the changelog and the Guide.",
         "D-350",
         "41 passed, 0 failed (30 Oct 2026)"
+       ],
+       [
+        "labdates30b.test.js",
+        "30b: labStageSince for each step (lot date, analyst date, reviewer date, rework done (also once a draft is saved), re-issue, fallbacks, broken and missing dates); actTiming on the live case HG26047 (L4 2 d, L5 1 d instead of 4), HG26048-L1 1 d instead of 0, a closed batch no longer hides an old lot, a future date counts 0, exact not approximate; every lab job carries its own date, a COA sent back keeps its date, the leave cover check counts the same way, a COA sent back from the day it was sent back; the UNFIT lot job is not changed; nothing writes; Guide and changelog.",
+        "D-351",
+        "37 passed, 0 failed (30 Oct 2026)"
        ]
       ]
      }

@@ -283,8 +283,11 @@ const pm = c => run(c, 'actionItems()').filter(it => it.label === 'Name a cover'
   run(c, 'labNow=function(){ var d=new Date(); d.setHours(14,0,0,0); while(d.getDay()!==0) d.setDate(d.getDate()+1); return d; }');
   eq('not on a Sunday', pm(c).length, 0);
   run(c, 'labNow=function(){ var d=new Date(); d.setHours(14,0,0,0); return d; }');
-  run(c, `state.batches.find(function(b){return b.id==="B-COV";}).closedDate="${today()}";`);
-  eq('a certificate waiting less than a day: no job', pm(c).length, 0);
+  run(c, `(function(b){ b.closedDate="${today()}"; (b.lots&&b.lots.length?b.lots:[b]).forEach(function(u){ if(u.coa){ u.coa.reviewer=Object.assign({},u.coa.reviewer||{},{date:"${today()} 10:00"}); } }); })(state.batches.find(function(b){return b.id==="B-COV";}));`);
+  eq('a certificate waiting less than a day (reviewed today; 30b: Approve counts from the reviewer date): no job', pm(c).length, 0);
+  run(c, `(function(b){ (b.lots&&b.lots.length?b.lots:[b]).forEach(function(u){ if(u.coa){ u.coa.reviewer.date="${old} 10:00"; } }); })(state.batches.find(function(b){return b.id==="B-COV";}));`);
+  eq('30b: reviewed 2 days ago, batch closed today: it has waited 2 days for the QCM, so 1 job', pm(c).length, 1);
+  run(c, `(function(b){ (b.lots&&b.lots.length?b.lots:[b]).forEach(function(u){ if(u.coa){ u.coa.reviewer.date="${today()} 10:00"; } }); })(state.batches.find(function(b){return b.id==="B-COV";}));`);
   run(c, `state.batches.find(function(b){return b.id==="B-COV";}).closedDate="${old}";`);
   run(c, `labSetCover("QCM","awais","${today()}","${today()}")`);
   eq('a cover already in place: no job', pm(c).length, 0);

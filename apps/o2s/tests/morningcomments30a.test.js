@@ -105,6 +105,6 @@ ok('Majid\'s page has the fold', /comments:mvCommentsFold\(M\)/.test(majid));
 const page = grab('mvPage');
 ok('the fold sits after Client POs and before Details', /f\.push\(mvMore\('Client POs'[^\n]*\n\s*if\(o\.comments\) f\.push\(o\.comments\);[^\n]*\n\s*if\(o\.details\)/.test(page));
 ok('nothing in the fold writes', !/save\(|logAction\(|state\.[a-zA-Z]+\s*=[^=]/.test(['mvComments', 'mvCommentRow', 'mvCommentsFold'].map(grab).join('\n')));
-ok('the changelog has the 30a entry and the build matches', /ver:'2026-10-30a'/.test(html) && /var BUILD_ID='2026-10-30a'/.test(html) && /var SYSDOC_VER='2026-10-30a'/.test(html));
+ok('the changelog has the 30a entry and the build matches', /ver:'2026-10-30a'/.test(html) && /var BUILD_ID='2026-10-(30[a-z]|31[a-z])'/.test(html) && /var SYSDOC_VER='2026-10-(30[a-z]|31[a-z])'/.test(html));
 ok('the Guide says it, in the Morning view part and in the daily comment rule', /<b>Truck and PO comments today<\/b>, a fold near the bottom/.test(html) && /read all of the day\\u2019s comments together on their Morning view/.test(html));
 process.exitCode = report('30a: comments fold on the Morning view of Fahim and Majid') ? 1 : 0;

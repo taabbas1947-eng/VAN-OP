@@ -63,7 +63,7 @@ const names = ['lineShortClosed', 'lineShortRequested', 'lineShortRefused', 'scA
   'requestShortClose', 'approveShortClose', 'reopenShortClose',
   'scLeft', 'tinyFmt', 'tinyMade', 'tinyRefusal', 'tinyMay', 'openTinyClose', 'renderTinyClose', 'tinyFresh', 'tinyConfirm', 'tinyShortClose',
   'tinyNoticeDue', 'tinyNoticeCard', 'tinySeen', 'cpOpenLines', 'cpMode', 'closeLineButtonHTML', 'tinyWhyNot', 'tinyWindowOpen', 'winOpenWith', 'tinyRedrawIfIdle', 'tinyPoAgeDays',
-  'reopenLineButtonHTML', 'openReopenClose', 'renderReopenClose', 'reopenConfirm', 'tinyOpensOn', 'packLineOwes', 'nid', 'scReopenNote'];
+  'reopenLineButtonHTML', 'openReopenClose', 'renderReopenClose', 'reopenConfirm', 'tinyOpensOn', 'packLineOwes', 'nid', 'scReopenNote', 'tinyPoStart', 'tinyDay', 'localDateOf', 'scAsker'];
 const src = names.map(n => { try { return grab(n); } catch (e) { return 'throw new Error("missing ' + n + '");'; } }).join('\n\n');
 
 function world(opts) {
@@ -102,7 +102,7 @@ ok('no screen or setting changes the number', !/SHORTCLOSE_SMALL_KG\s*=[^=]/.tes
   ['exactly 50 left', { ordered: 1000, delivered: 950 }, true],
   ['50.01 left', { ordered: 1000, delivered: 949.99 }, false],
   ['51 left', { ordered: 1000, delivered: 949 }, false],
-  ['nothing delivered, 36 ordered', { ordered: 36, delivered: 0, packed: 0 }, true],
+  ['nothing delivered, 36 ordered (30d: the normal route)', { ordered: 36, delivered: 0, packed: 0 }, false],
   ['nothing delivered, 51 ordered', { ordered: 51, delivered: 0, packed: 0 }, false],
   ['2 left of 50 (VL-Boron)', { ordered: 50, delivered: 48, packed: 48 }, true],
   ['37 left, 19 packed beyond delivered (PO 22867): it must ship first', { ordered: 1000, delivered: 963, packed: 982 }, false],
@@ -157,12 +157,18 @@ ok('no screen or setting changes the number', !/SHORTCLOSE_SMALL_KG\s*=[^=]/.tes
   ok('and writes nothing more', b.saves === 1 && b.logged.length === 1 && b.state.audit.length === 1);
 }
 
-/* nothing delivered: Tahir said yes */
+/* nothing delivered: Tahir said yes on 29 Oct; on 30 Oct (30d, point al) he ruled it goes the normal route */
 {
   const b = world({ user: 'Muhammad Shoaib', username: 'shoaib', role: 'Warehouse', line: { brand: 'Grain Set', ordered: 36, delivered: 0, packed: 0 } });
+  const before = JSON.stringify(b.l);
   b.tinyShortClose('O1', 'L1', 'customer_no_uptake', '');
-  ok('36 ordered, 0 delivered closes', b.lineShortClosed(b.l) === true);
-  eq('left at close is 36', b.l.shortClose.leftAtClose, 36);
+  ok('30d: 36 ordered, 0 delivered is refused and writes nothing (normal route)', b.lineShortClosed(b.l) === false && JSON.stringify(b.l) === before && /Nothing has been delivered on Grain Set yet/.test(last(b)));
+}
+{
+  const b = world({ user: 'Muhammad Shoaib', username: 'shoaib', role: 'Warehouse', line: { brand: 'Grain Set', ordered: 36, delivered: 1, packed: 1 } });
+  b.tinyShortClose('O1', 'L1', 'customer_no_uptake', '');
+  ok('36 ordered, 1 delivered closes', b.lineShortClosed(b.l) === true);
+  eq('left at close is 35', b.l.shortClose.leftAtClose, 35);
   eq('the role is Warehouse', b.l.shortClose.requestedRole, 'Warehouse');
 }
 
@@ -578,8 +584,8 @@ function confirmWorld(fresh) { const b = world({ line: tinyLine }); b.tinyFresh 
     vm.runInContext('_rev=5', b);
     ok('an older state from the server is a pass, not a rewind', (await b.tinyFresh()) === true && vm.runInContext('_rev', b) === 5 && b.l.delivered === 990); }
   /* the words */
-  { const x = world({ line: { ordered: 36, delivered: 0, packed: 0 } }); x.openTinyClose('O1', 'L1');
-    ok('nothing delivered is said in the window', /Nothing has been delivered on this line\./.test(x.shown[x.shown.length - 1]));
+  { const x = world({ line: { ordered: 36, delivered: 0, packed: 0 } }); const n0 = x.shown.length; x.openTinyClose('O1', 'L1');
+    ok('30d: with nothing delivered the window does not open, and the reason is said', x.shown.length === n0 && /Nothing has been delivered on Max Potash yet/.test(last(x)));
     const y = world(); y.openTinyClose('O1', 'L1');
     ok('and not said when something was delivered', !/Nothing has been delivered/.test(y.shown[y.shown.length - 1]));
     vm.runInContext("tcForm.reasonCode='customer_reduced'; renderTinyClose();", y);

@@ -163,7 +163,7 @@ ok('it is raised to leadership, not to whoever is looking',
    /role:'Plant Manager'[\s\S]{0,500}?openShortCloseReview/.test(ac));
 ok('a waiting close suppresses every other item on that line',
    /lineShortRequested\(l\)\)\{[\s\S]{0,600}?return;\s*\}/.test(ac));
-ok('a decided close raises nothing at all', /if\(lineShortClosed\(l\)\) return;/.test(ac));
+ok('a decided close raises nothing but Inspect packed for bags already packed (30d)', /if\(lineShortClosed\(l\)\)\{ if\(l\.shortClose\.reasonCode!=='outside_o2s' && lineToInspect\(o,l\)>0\.5\) items\.push\(\{role:'QA Inspector'[\s\S]{0,300}?label:'Pack QC'\}\); return; \}/.test(ac));
 ok('the shortfall and the reason are in the wording someone reads',
    /Approve closing short/.test(ac) && /asked by/.test(ac));
 

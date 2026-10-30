@@ -32,8 +32,8 @@
       "rows": [
        [
         "Passed",
-        "120 files with every check passed",
-        "14,708 checks passed (in the 121 files that print a count), 30 Oct 2026, build 2026-10-30c"
+        "121 files with every check passed",
+        "14,799 checks passed (in the 122 files that print a count), 30 Oct 2026, build 2026-10-30d"
        ],
        [
         "Failed",
@@ -42,8 +42,8 @@
        ],
        [
         "All files",
-        "122",
-        "14,710 checks counted"
+        "123",
+        "14,801 checks counted"
        ]
       ]
      }
@@ -415,19 +415,19 @@
         "packrefuse.test.js",
         "A refused pack adds nothing to the PO line or the batch.",
         "R-009",
-        "7 passed, 0 failed"
+        "7 passed, 0 failed; widened for 30d (30 Oct 2026)"
        ],
        [
         "packs.test.js",
         "Packs shown and confirmed with a tick; a cut over the batch or PO limit is shown; an entry over 10,000 Kg/L (or a shift and in-charge total over it) is flagged to the Production Manager, never stopped.",
         "R-004",
-        "134 passed, 0 failed"
+        "134 passed, 0 failed; widened for 30d (30 Oct 2026)"
        ],
        [
         "packshift.test.js",
         "The 3 live packing entries refuse without a shift and an in-charge, store both, and move nothing when they refuse.",
         "R-004",
-        "34 passed, 0 failed"
+        "34 passed, 0 failed; widened for 30d (30 Oct 2026)"
        ],
        [
         "pallet.test.js",
@@ -619,13 +619,13 @@
         "shortclose.test.js",
         "A short close stops new work on a line but never touches what is packed or rewrites ordered (one guard, every writer).",
         "R-008",
-        "39 passed, 0 failed"
+        "39 passed, 0 failed; widened for 30d (30 Oct 2026)"
        ],
        [
         "shortcloseactions.test.js",
         "Request, approve, reject and reopen a short close; the requester cannot approve; reopen is COO only.",
         "R-003, R-008",
-        "54 passed, 0 failed"
+        "54 passed, 0 failed; widened for 30d (30 Oct 2026)"
        ],
        [
         "shortclosereport.test.js",
@@ -751,7 +751,7 @@
         "tinyclose29c.test.js",
         "The small remainder close (29c): the right po.shortclose_small is held by exactly Supply Chain, Finance and Warehouse and is not delegable; which lines qualify (ordered minus delivered, 50 or less, 50.01 does not, nothing delivered does); stock made and not yet delivered, a raw material request still open, a refusal or a reopen on the line or in its history, a waiting request and an already closed line are each refused with a sentence and write nothing; the close writes who, when, why, the frozen quantities and the three tiny marks, one log line, one audit row, one save; closing twice is refused; the button shows per role and line and never to the COO; the window says what happens and promises nothing false; the one-time card on Today per person; the screen asks the server for the latest figures first (same revision, newer revision merged, offline, a save pending, figures that moved, someone asking meanwhile, a double tap, a cancelled window); a frozen 0 delivered is read as 0 on a tiny close only (the older route keeps its old reading); Cancel while the figures are checked closes nothing; the check gives up after 15 seconds (the abort signal is proved to reach the fetch); the page behind is redrawn after a walk-away; a signed-out person is told so; an older server state never winds the revision back; a line that cannot be closed this way says why where the button would be; the report column and the default view; the 23 Sep route is unchanged; each guard was broken on purpose and the test failed.",
         "R-048, D-348, D-349",
-        "334 passed, 0 failed (29 Oct 2026)"
+        "335 passed, 0 failed (30 Oct 2026; 30d: nothing delivered is now refused)"
        ],
        [
         "morningcomments30a.test.js",
@@ -770,6 +770,12 @@
         "30c: each lot's lab job is its own job: all 7 lab jobs carry the lot id, 2 lots of one batch have 2 names, a batch with no lots keeps its old name, a defer on 1 lot does not reach another, alerts use the same name; Guide and changelog.",
         "D-352",
         "15 passed, 0 failed (30 Oct 2026)"
+       ],
+       [
+        "small30d.test.js",
+        "30d: a line with nothing delivered goes the normal route (Maxim 22868 and BKK 00694 still qualify); 7 days from the later of received and entered, the sentence with both dates, order entry and Data Fix save the day; the reopen card to the closer of a small close, the asker of a normal close (also found by name), nobody for the COO's own close, Seen clears it; the reopen clock from the Pakistan reopen day with Ship kept; late pack on or before the close day allowed, after it refused, Pack sheet list and label, doPack writes latePacks, log and audit after the pack; the COO's Morning view rows; the New for you card once more; Pack QC on a closed line; Guide, rules, changelog, D-353, LG-42, SC-45.",
+        "D-353",
+        "90 passed, 0 failed (30 Oct 2026, after review round 2)"
        ]
       ]
      }

@@ -2694,7 +2694,8 @@
     "fn tinyShortClose",
     "D-348",
     "D-349",
-    "tests/tinyclose29c.test.js"
+    "tests/tinyclose29c.test.js",
+    "D-353"
    ],
    "blocks": [
     {
@@ -2713,7 +2714,7 @@
        },
        {
         "role": "Supply Chain, Finance or Warehouse",
-        "text": "Opens the order, finds the product. 50 Kg/L or less left (ordered minus delivered)? yes: the button Close small remainder shows; no: the normal route, ask and the Plant Manager approves (PF-14).",
+        "text": "Opens the order, finds the product. 50 Kg/L or less left (ordered minus delivered) and something delivered? yes: the button Close small remainder shows; no: the normal route, ask and the Plant Manager approves (PF-14). The PO must be 7 days old, from the later of the day it was received and the day it was entered in O2S (30d).",
         "kind": "decision",
         "rule": "R-048"
        },
@@ -2736,7 +2737,7 @@
        },
        {
         "role": "COO",
-        "text": "Only the COO can reopen the line: Reopen this line on the order sheet, with a reason that is required. The close stays as history (who, when, why).",
+        "text": "Only the COO can reopen the line: Reopen this line on the order sheet, with a reason that is required. The close stays as history (who, when, why). The person who closed it gets a card on Today until Seen, and the line's jobs wait from the reopen day (30d).",
         "kind": "end",
         "rule": "R-008"
        }

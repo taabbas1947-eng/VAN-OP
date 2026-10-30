@@ -3319,6 +3319,74 @@
      "p": "A date is used only if it reads as YYYY-MM-DD; the time is cut off. A future date counts as 0 days. With a date of its own the count is exact, not approximate."
     }
    ]
+  },
+  {
+   "id": "LG-42",
+   "title": "After a line is closed short: late packing, inspection, reopen notice and reopen clock (30d)",
+   "owner": "COO",
+   "rules": [
+    "R-049",
+    "R-048"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn latePackOk",
+    "fn latePackRefusal",
+    "fn poLinesForBrand",
+    "fn doPack",
+    "fn actionItems",
+    "fn reopenShortClose",
+    "fn reopenCardsFor",
+    "fn lineReopenDay",
+    "fn batchReopenDay",
+    "fn actTiming",
+    "fn tinyPoStart",
+    "D-353"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Situation",
+       "What O2S does"
+      ],
+      "rows": [
+       [
+        "Pack date on or before the close day, line not fully packed",
+        "The Pack sheet offers the line, marked closed short on that day; the pack is taken up to ordered minus packed; line.latePacks gets {id, at, packDate, kg, by, user, closedOn, closeAt, pk}; a log line and an audit row; not on a line closed as Supplied from stock outside O2S"
+       ],
+       [
+        "Pack date after the close day",
+        "Refused: the line was closed short on that day; bags packed after it cannot go on it; ask the COO to reopen"
+       ],
+       [
+        "Packed bags on a closed line, not yet inspected",
+        "Pack QC (Inspect packed) on the QA Inspector's Today, as on any line, except a line closed as Supplied from stock outside O2S; Ship as before"
+       ],
+       [
+        "COO reopens a line",
+        "shortClose.reopenNotify = the closer (small close) or the asker (normal close), unless that is the person reopening; a Today card for that person until Seen (state.reopenSeen[order|line|reopenedAt])"
+       ],
+       [
+        "A reopened line's jobs",
+        "Wait from the reopen day if it is later than their own start; Ship, Pack QC, Approve close short and Refused keep their own start"
+       ],
+       [
+        "A small remainder: when the 7 days start",
+        "The later of order.received and order.enteredOn (enteredOn exists only on POs entered from 30d)"
+       ],
+       [
+        "A small remainder: nothing delivered",
+        "Refused; the normal route"
+       ],
+       [
+        "The shortfall of a close",
+        "Ordered minus delivered at the close, minus the Kg/L packed late against that close (live pack rows only: a voided or reversed row is left out); never below 0"
+       ]
+      ]
+     }
+    }
+   ]
   }
  ]
 }

@@ -8,7 +8,7 @@ const { ok, eq, report, grab } = H;
 const MASTERS = { shifts: ['Morning', 'Evening', 'Night'], incharges: ['Faisal Nadeem', 'Adnan Rasheed'] };
 function base(extra) {
   const sb = Object.assign({ console, PACK_FLAG_KG: 10000, seedPackForBrand: () => 0, bpEsc: x => String(x), _uRole: () => ({ by: 'Abdul Majid' }), toasts: [], toast: m => sb.toasts.push(m), may: () => true, batchLabApproved: () => true, batchPackableKg: b => b.producedKg - b.packedKg,
-    evDateGate: () => null, evToday: () => '2026-10-15', evStamp: () => ({}), shortCloseRefusal: () => null, packPriceGate: () => null, packPriceRecord: () => ({}),
+    evDateGate: () => null, evToday: () => '2026-10-15', evStamp: () => ({}), shortCloseRefusal: () => null, latePackRefusal: () => '', lineShortClosed: () => false, packPriceGate: () => null, packPriceRecord: () => ({}),
     packDates: () => ({ mfgDate: '2026-10-15', expDate: '2028-10-15', shelfMonths: 24 }), SHELF_DEFAULT_MONTHS: 24, SHELF_OVERRIDE_ROLES: [], hardRole: () => false, fyKey: () => 'FY27',
     syncPackBatchDates: () => {}, logAction: () => {}, nid: p => p + '1', multiTrueUpIfPlaced: () => {}, save: () => { sb.saved = 1; }, render: () => {}, closeModal: () => {}, fmt: String, denyRight: () => '',
     TODAY: new Date('2026-10-15'), $: () => ({ classList: { add() {} } }),

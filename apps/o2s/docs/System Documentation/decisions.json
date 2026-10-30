@@ -19890,6 +19890,93 @@
      }
     }
    ]
+  },
+  {
+   "id": "D-353",
+   "title": "Small remainder close and reopen: 7 changes (30d)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-048",
+    "R-049"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir's panel answers in chat, 30 Oct 2026 (points af to am of the 29c review); picture page Small Close Leftovers",
+    "Tahir's panel answers on the 4 points to confirm and the QA gap, 30 Oct 2026 15:11 to 15:26",
+    "o2s.html changelog 2026-10-30d",
+    "fn tinyRefusal",
+    "fn tinyPoStart",
+    "fn reopenShortClose",
+    "fn reopenCardHTML",
+    "fn lineReopenDay",
+    "fn actTiming",
+    "fn latePackRefusal",
+    "fn doPack",
+    "fn mvCooCloseRows",
+    "fn actionItems",
+    "tests/small30d.test.js",
+    "Independent review of 30d, 30 Oct 2026: findings 1, 2, 3, 6, 7 fixed; 4 and the Nitro Sulfur check ruled by Tahir in chat"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-30"
+       ],
+       [
+        "Asked",
+        "Tahir went through the 8 points left from the 29c reviews (af to am) as panel questions, saw the picture page first, then rechecked 4 open points for anything that could break the system, data, logic or rules."
+       ],
+       [
+        "(al) Nothing delivered",
+        "A line with nothing delivered can no longer be closed as a small remainder; it goes the normal route (Supply Chain asks, the Plant Manager decides). Replaces the 29 Oct ruling that a line with nothing delivered counts. Live 30 Oct: only VG-VC-2610-7928 VGreen VL-Boron (17 ordered, 0 delivered) changes."
+       ],
+       [
+        "(aj) 7 days",
+        "The 7 days count from the later of the received date and the day the PO was entered in O2S (order.enteredOn, saved by order entry and by Data Fix from 30d). A PO entered before 30d has no enteredOn and keeps its received date."
+       ],
+       [
+        "(af) Reopen notice",
+        "When the COO reopens a line, the person who closed it gets a card on Today until Seen: for a small close its closer, for a normal close whoever asked (scAsker: the login, else the name; 28 of 59 closes on 30 Oct had a name only). Not the Plant Manager. Nobody when the reopener is that same person."
+       ],
+       [
+        "(af) Reopen clock",
+        "A reopened line's jobs wait from the reopen day (lineReopenDay), except Ship, Pack QC, Approve close short and Refused, which a close never stopped or which are about the close. A Pack job of a batch waits from the reopen day when every line it owes was reopened."
+       ],
+       [
+        "Committed date at reopen",
+        "Tahir chose to ask for a new committed date at reopen. It needs its own design (today only order entry and Data Fix set it; it moves late lists, On-time % and the Morning view), so 30d keeps the old date and the new date step is drawn after 30d."
+       ],
+       [
+        "(ah) COO notice of a small close",
+        "A row on the COO's Morning view, under Watching: yesterday's small remainder closes, count, Kg/L, up to 3 named, link to the Closed short report. Read only. Hidden when there were none."
+       ],
+       [
+        "(ai) Late pack",
+        "A pack entry may go on a closed-short line only when its pack date is on or before the close day (Pakistan date of shortClose.approvedAt). The Pack sheet offers such a line only for such a date and says so. The pack writes line.latePacks[], a log line and an audit row; the line shows Packed after the close was recorded; the COO's Morning view shows it the next day. A later pack date is refused with the reason. Not on a line closed as Supplied from stock outside O2S. The line's shortfall (shortCloseGap) and the Closed short report leave out the Kg/L packed late against that close (Tahir, 30 Oct, review finding 4); each late pack carries closeAt, the close it was entered against. Voided or reversed pack rows are left out of the note, the shortfall and the Morning view."
+       ],
+       [
+        "New for you card",
+        "Shown once more to Supply Chain, Finance and Warehouse with the changed rules (state.tinyCloseSeen30d)."
+       ],
+       [
+        "Gap found and fixed",
+        "actionItems returned early for a closed-short line, so Inspect packed (Pack QC) never reached the QA Inspector's Today for packed, uninspected bags on a closed line. Now a closed line still raises Pack QC, except a line closed as Supplied from stock outside O2S (Tahir, 30 Oct, after the live check: those bags left outside O2S). The only live case, VG-VC-2609-5466 Nitro Sulfur (250 packed 26 Sep, closed 29 Sep by Fahim Asghar as Supplied from stock outside O2S), is that kind, so no job appears on day 1. The same lines are left out of linesToInspect, so the QA screen, the QC screen and the quality dashboard no longer show those 250 Kg/L as waiting for inspection (independent review round 2)."
+       ],
+       [
+        "Left as is",
+        "(am) after a reopen the normal route stays; (ak) the Closed short report role list; (ag) audit rows in a save clash is its own build 30e."
+       ]
+      ]
+     }
+    }
+   ]
   }
  ]
 }

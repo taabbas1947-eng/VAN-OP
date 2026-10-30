@@ -51,10 +51,10 @@ eq('created is the lot date', t({ batch: B, label: 'Lab QC', lotAt: '2026-10-28'
 /* ---- every lab job carries its own date ---- */
 const ai = grab('actionItems');
 ok('each lot unit carries its production date', /prov:l\.prov,date:l\.date\|\|''\}\)\):\[\{id:'',no:\(b\.batchNo\|\|''\),coa:b\.coa,rework:b\.rework,date:''\}\]/.test(ai));
-ok('Lab COA job: lotAt from the lot date (or rework done, or re-issue)', /role:'Lab Rep',batch:b,lotAt:labStageSince\(u\.date,u\.coa,'Lab QC',u\.rework\),what:'Lab COA/.test(ai));
-ok('Review COA job: lotAt from the analyst date', /role:'AQCM',batch:b,lotAt:labStageSince\(u\.date,u\.coa,'Review'\),what:'Review COA/.test(ai));
-ok('Approve COA job: lotAt from the reviewer date', /role:'QCM',batch:b,lotAt:labStageSince\(u\.date,u\.coa,'Approve'\),what:'Approve COA/.test(ai));
-ok('a COA sent back keeps its own date (the day it was sent back)', /role:'AQCM',batch:b,labAt:_rt\.at,what:'Review COA again/.test(ai) && /role:'Lab Rep',who:_rtWho,batch:b,labAt:_rt\.at/.test(ai));
+ok('Lab COA job: lotAt from the lot date (or rework done, or re-issue)', /role:'Lab Rep',batch:b,lid:u\.id,lotAt:labStageSince\(u\.date,u\.coa,'Lab QC',u\.rework\),what:'Lab COA/.test(ai));
+ok('Review COA job: lotAt from the analyst date', /role:'AQCM',batch:b,lid:u\.id,lotAt:labStageSince\(u\.date,u\.coa,'Review'\),what:'Review COA/.test(ai));
+ok('Approve COA job: lotAt from the reviewer date', /role:'QCM',batch:b,lid:u\.id,lotAt:labStageSince\(u\.date,u\.coa,'Approve'\),what:'Approve COA/.test(ai));
+ok('a COA sent back keeps its own date (the day it was sent back)', /role:'AQCM',batch:b,lid:u\.id,labAt:_rt\.at,what:'Review COA again/.test(ai) && /role:'Lab Rep',who:_rtWho,batch:b,lid:u\.id,labAt:_rt\.at/.test(ai));
 ok('Assign sample job (new lab flow): lotAt from the lot date', /lotAt:labStageSince\(u\.date,u\.coa,'Assign sample',u\.rework\),what:'Assign sample/.test(grab('labV2Items')));
 ok('the leave cover check counts Review and Approve the same way as Today, a COA sent back from the day it was sent back', /actTiming\(\{batch:b,label:label,labAt:\(coaOpenReturn\(c\)\|\|\{\}\)\.at\|\|undefined,lotAt:labStageSince\(u!==b\?u\.date:'',c,label\)\}\)/.test(html));
 eq('a COA sent back counts from the day it was sent back, before the lot date (the labAt branch wins)', t({ batch: B, label: 'Review', labAt: '2026-10-29', lotAt: '2026-10-26' }).days, 1);
@@ -62,6 +62,6 @@ ok('nothing in labStageSince writes', !/save\(|logAction\(|state\.[A-Za-z_]+\s*=
 
 /* ---- Guide and changelog ---- */
 ok('the Guide says it, under Lab in How the app works', /counts its waiting days from the lot\\u2019s own production date/.test(grab('guideHow')));
-ok('the changelog has the 30b entry and the build matches', /ver:'2026-10-30b'/.test(html) && /var BUILD_ID='2026-10-30b'/.test(html) && /var SYSDOC_VER='2026-10-30b'/.test(html));
-ok('the UNFIT lot job (Plant Manager, label Review) is not changed: no lotAt', /items\.push\(\{role:'Plant Manager',batch:b,what:'UNFIT lot — '/.test(ai));
+ok('the changelog has the 30b entry and the build matches', /ver:'2026-10-30b'/.test(html) && /var BUILD_ID='2026-10-(30[b-z]|31[a-z])'/.test(html) && /var SYSDOC_VER='2026-10-(30[b-z]|31[a-z])'/.test(html));
+ok('the UNFIT lot job (Plant Manager, label Review) is not changed: no lotAt', /items\.push\(\{role:'Plant Manager',batch:b,lid:u\.id,what:'UNFIT lot — '/.test(ai));
 process.exitCode = report('30b: lab waiting days from each lot\'s own date') ? 1 : 0;

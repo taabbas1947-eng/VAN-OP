@@ -32,8 +32,8 @@
       "rows": [
        [
         "Passed",
-        "119 files with every check passed",
-        "14,693 checks passed (in the 120 files that print a count), 30 Oct 2026, build 2026-10-30b"
+        "120 files with every check passed",
+        "14,708 checks passed (in the 121 files that print a count), 30 Oct 2026, build 2026-10-30c"
        ],
        [
         "Failed",
@@ -42,8 +42,8 @@
        ],
        [
         "All files",
-        "121",
-        "14,695 checks counted"
+        "122",
+        "14,710 checks counted"
        ]
       ]
      }
@@ -764,6 +764,12 @@
         "30b: labStageSince for each step (lot date, analyst date, reviewer date, rework done (also once a draft is saved), re-issue, fallbacks, broken and missing dates); actTiming on the live case HG26047 (L4 2 d, L5 1 d instead of 4), HG26048-L1 1 d instead of 0, a closed batch no longer hides an old lot, a future date counts 0, exact not approximate; every lab job carries its own date, a COA sent back keeps its date, the leave cover check counts the same way, a COA sent back from the day it was sent back; the UNFIT lot job is not changed; nothing writes; Guide and changelog.",
         "D-351",
         "37 passed, 0 failed (30 Oct 2026)"
+       ],
+       [
+        "perlot30c.test.js",
+        "30c: each lot's lab job is its own job: all 7 lab jobs carry the lot id, 2 lots of one batch have 2 names, a batch with no lots keeps its old name, a defer on 1 lot does not reach another, alerts use the same name; Guide and changelog.",
+        "D-352",
+        "15 passed, 0 failed (30 Oct 2026)"
        ]
       ]
      }

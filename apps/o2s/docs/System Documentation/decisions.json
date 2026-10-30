@@ -19840,7 +19840,51 @@
        ],
        [
         "Known and left",
-        "The 1 day escalation for lab steps is not changed, so a lot made yesterday and not yet tested still goes to the Plant Manager at 1 day. The Plant Manager's UNFIT lot job still counts from the batch dates. At least 18 first lots since 1 Aug are dated before their batch was opened in O2S, usually by 1 day (for example HG26045-L1 made 18 Oct, batch opened 19 Oct): not changed, reported to Tahir. Deferring one lot's lab job defers every lot of that batch (acKey has no lot id): as before, not changed. A COA signed on a device whose clock is not Pakistan time between midnight and 5 am records the day before."
+        "The 1 day escalation for lab steps is not changed, so a lot made yesterday and not yet tested still goes to the Plant Manager at 1 day. The Plant Manager's UNFIT lot job still counts from the batch dates. At least 18 first lots since 1 Aug are dated before their batch was opened in O2S, usually by 1 day (for example HG26045-L1 made 18 Oct, batch opened 19 Oct): not changed, reported to Tahir. A COA signed on a device whose clock is not Pakistan time between midnight and 5 am records the day before."
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-352",
+   "title": "Each lot's lab job is its own job: Defer, is on it and alerts per lot (30c)",
+   "owner": "COO (Tahir)",
+   "rules": [],
+   "status": "confirmed",
+   "src": [
+    "Found in the independent review of 30b, 30 Oct 2026; Tahir asked how to resolve it cleanly",
+    "Tahir's panel answers in chat, 30 Oct 2026: add to 30b, 1 alert per lot; 30b was pushed at 13:44 before it was added, so it is its own build 30c",
+    "o2s.html changelog 2026-10-30c",
+    "fn acKey",
+    "fn actionItems",
+    "fn pushKeyOf",
+    "tests/perlot30c.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-30"
+       ],
+       [
+        "What happened",
+        "A job on Today is known by its name (acKey). The lab jobs of the old flow carried the batch but not the lot, so every lot of a batch had the same name, for example Lab QC|b:B5570-subk for HG26047-L4 and L5. 3 things are kept against that name: Defer (state.acDefer), is on it (state.taken) and the phone and laptop alerts (pushKeyOf, o2s_push_open). Live, 30 Oct: Mubeen Ahmed took the lab job at 12:01 for L3, so L4 and L5 also showed him on it; an alert went out once per batch, so L5 sent none while L4 waited. No lab job was deferred (2 old defers ended in September). The new lab flow's jobs already carried the lot."
+       ],
+       [
+        "Decision",
+        "Every lab job in the batch loop carries lid:u.id: Rework lot, Correct COA, Lab COA, Review COA again, Review COA, Approve COA, UNFIT lot. acKey already adds u:lid, so each lot has its own name; a batch with no lots has id '' and keeps its old name. Alerts follow: 1 alert per lot, as each lot is logged (Tahir chose this over 1 per batch). Tahir chose to add it to 30b, but 30b had already been pushed (13:44, commit 3b0d05a), so it is its own build, 2026-10-30c."
+       ],
+       [
+        "Effect on the push",
+        "The open lab jobs get new names. On the first save or sweep the server closes the old rows and sends 1 fresh alert per open lab job, and the Plant Manager 1 fresh Escalated to you alert for each one waiting 1 day or more: about 3 and 3 on 30 Oct (HG26047-L4, L5, HG26048-L1), once. An is on it mark taken on another lot of the same batch drops off. No record changes. Independent review: Push."
        ]
       ]
      }

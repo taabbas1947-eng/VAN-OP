@@ -1042,7 +1042,7 @@
           }).join('') + '</div></div>';
         });
         h += '</div>';
-        // What this role signs (O2S sign-offs, D-342): every sign-off listed, ticked for the roles that may sign it. The COO is ticked like any role.
+        // What this role signs (O2S sign-offs, D-353): every sign-off listed, ticked for the roles that may sign it. The COO is ticked like any role.
         if ((d.cat.signoffs || []).length) {
           h += '<div class="pa-sec"><h2>What this role signs</h2><p class="pa-note">A signature is checked when it is saved: only the roles ticked here may sign. Every sign-off keeps at least one role.' + (hs.length && !locked ? ' A change applies to everyone who holds this role.' : '') + '</p><div class="pa-rights">'
             + d.cat.signoffs.map(function (i) {

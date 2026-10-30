@@ -366,7 +366,7 @@
      }
     },
     {
-     "note": "The access matrix is changed only by the System Administrator, on the launcher (29 Oct 2026, D-339); in O2S amxSet and amxCycle refuse (accessMoved). Each cell is No access, View or Edit. Since 29 Oct 2026 (D-340) the COO holds its cells like every role; it started with Edit on every screen."
+     "note": "The access matrix is changed only by the System Administrator, on the launcher (29 Oct 2026, D-350); in O2S amxSet and amxCycle refuse (accessMoved). Each cell is No access, View or Edit. Since 29 Oct 2026 (D-351) the COO holds its cells like every role; it started with Edit on every screen."
     },
     {
      "note": "Not confirmed: the live matrix was not read for this page. The app's own matrix view on Back Office is the live answer."

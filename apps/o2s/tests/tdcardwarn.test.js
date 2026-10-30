@@ -1,4 +1,4 @@
-/* BUILD 2026-10-29a. Today: a job waiting 1 to 6 days (class "tdcard warn") took the look of the unrelated red warning box
+/* BUILD 2026-10-30a. Today: a job waiting 1 to 6 days (class "tdcard warn") took the look of the unrelated red warning box
    (.warn: pink, red border, laid out side by side), so it looked more urgent than a late one. The card's own warn rule now
    sets every property .warn sets, so the box can never leak into the card again (found on the trial, 29 Oct 2026).
    Run: node tdcardwarn.test.js */

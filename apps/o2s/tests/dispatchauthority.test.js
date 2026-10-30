@@ -10,7 +10,7 @@
    refused when he tapped. DC 120 and 121 sat from 23 Sep.
    Run: node dispatchauthority.test.js */
 const H = require('./harness.js'); const vm = require('vm'); const { ok, eq, report, grab, html } = H;
-/* 29a (D-341, D-342): the gates ask maySign; the default lists live in SIGNOFF_RULES (the COO listed where it signs). Same roles pinned as before; the Today jobs take their roles from the lists (soRole, soAlso). */
+/* 29a (D-352, D-353): the gates ask maySign; the default lists live in SIGNOFF_RULES (the COO listed where it signs). Same roles pinned as before; the Today jobs take their roles from the lists (soRole, soAlso). */
 const RULE = a => (new RegExp("'" + a.replace('.', '\\.') + "':\\s*\\{[^}]*\\}").exec(html) || [''])[0];
 ok('approveRelease: Plant Manager (and COO)', /^\s*function approveRelease\([^)]*\)\s*\{\s*if\(!maySign\('truck\.release'\)\)/.test(grab('approveRelease')) && /how:'list', roles:\['Plant Manager','COO'\]/.test(RULE('truck.release')));
 ok('approveDC: Plant Manager (and COO)', /if\(!maySign\('dc\.approve'\)\)/.test(grab('approveDC')) && /how:'list', roles:\['Plant Manager','COO'\]/.test(RULE('dc.approve')));

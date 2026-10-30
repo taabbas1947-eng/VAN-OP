@@ -1,4 +1,4 @@
-/* BUILD 2026-10-29a (trial). Sign-offs, Phase 1 (Tahir, 29 Oct 2026: "do phase 1 exactly as today"; D-341).
+/* BUILD 2026-10-30a (trial). Sign-offs, Phase 1 (Tahir, 29 Oct 2026: "do phase 1 exactly as today"; D-352).
    Every gate that saves a signature asks maySign(action) from one table, SIGNOFF_RULES. This proves each gate answers
    EXACTLY as its old line did: the old conditions are copied here word for word and compared with maySign for every
    role, every leave cover and every way the access matrix can widen a gate.
@@ -56,7 +56,7 @@ for (const [fn, action] of Object.entries(GATES)) ok(fn + ' asks maySign(\'' + a
   ok('sendBackTruck: the loader self-check is unchanged', /step==='review'&&state\.role!=='COO'&&truckMadeByMe\(rows\)/.test(tb)); }
 ok('no write gate still carries an old condition', !Object.keys(GATES).some(fn => /state\.role(!|=)==?'(Lab Rep|AQCM|QCM)'\s*(\||\))|hardRole\(\['Plant Manager'\]\)|hardRole\(TRUCK_REVIEW_ROLES\)|canEdit\(\['QA Inspector'\]\)\|\|state\.role==='COO'/.test(grab(fn).split('\n')[0])));
 ok('the 2-person checks inside the COA gates are unchanged', /coaSamePerson/.test(grab('coaApprove')) && /labRanATest/.test(grab('coaApprove')));
-/* Phase 2 (D-342): the lists are data. A list saved in masters.signoffs replaces the default, for the saves. */
+/* Phase 2 (D-353): the lists are data. A list saved in masters.signoffs replaces the default, for the saves. */
 { const as = (role, signoffs, cv) => { ctx.state = { role, screen: 'qa', masters: { accessMatrix: {}, signoffs } }; ctx.covers = cv || {}; };
   const may = a => vm.runInContext("maySign('" + a + "')", ctx);
   as('Plant Manager', { 'coa.approve': ['Plant Manager'] }); ok('a role given "Approve a COA" may approve', may('coa.approve') === true);

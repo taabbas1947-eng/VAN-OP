@@ -1,5 +1,5 @@
-/* BUILD 2026-10-29a (trial). Sign-offs, Phase 2 (Tahir, 29 Oct 2026: "i want it to be dynamic list all sign off and check
-   it for the roles"; COO "(a) Ticks like every role"; D-342). The roles service lists every sign-off for each role and
+/* BUILD 2026-10-30a (trial). Sign-offs, Phase 2 (Tahir, 29 Oct 2026: "i want it to be dynamic list all sign off and check
+   it for the roles"; COO "(a) Ticks like every role"; D-353). The roles service lists every sign-off for each role and
    writes the lists to masters.signoffs: only the admin's own changes, never an empty list, the 2-person rules checked.
    Runs the service against a store in memory. Run: node rolesvc-signs.test.js */
 const H = require('./harness.js');
@@ -77,5 +77,5 @@ const signsOf = async k => (await call('GET', S + '/roles')).j.roles.find(r => r
   vm.createContext(ctx); vm.runInContext(pick('var SIGNOFF_RULES={', '\n};') + '\n' + pick('var TRUCK_REVIEW_ROLES=', ';') + '\n' + H.grab('signoffRoles') + '\n' + H.grab('maySign') + '\nfunction labCovers(){ return false; }', ctx);
   ok('in O2S the Plant Manager may now approve a COA', vm.runInContext("maySign('coa.approve')", ctx) === true);
   ctx.state.role = 'QCM'; ok('...and the QCM may not', vm.runInContext("maySign('coa.approve')", ctx) === false);
-  report('29a: sign-off lists through the roles service (D-342)');
+  report('29a: sign-off lists through the roles service (D-353)');
 })();

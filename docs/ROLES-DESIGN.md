@@ -176,7 +176,7 @@ Reviewed one by one (artifact "COO Messages Review"); Tahir took the suggestions
 - **O2S's 25 access messages wait for the O2S step** that hands its role and rights screens to the System
   Administrator, so no message says something O2S does not do.
 
-### The O2S step (Tahir, 29 Oct 2026: "go with 1 & 2"; built on the trial, O2S build 2026-10-29a)
+### The O2S step (Tahir, 29 Oct 2026: "go with 1 & 2"; built on the trial, O2S build 2026-10-30a)
 
 1. **Built:** O2S's own role, rights, screen-access and people tools are closed: the 14 writers in `o2s.html` refuse
    with one message (`accessMoved`); Back Office → People is read only (who holds which role) with a link to the
@@ -185,7 +185,7 @@ Reviewed one by one (artifact "COO Messages Review"); Tahir took the suggestions
    16 screens), with the role's **department**, **"Lead of its department"** and **Restore** for an archived role, since
    O2S's own lead and department settings are closed too. A lowered screen on a held role asks first. A new role
    starts locked out of Lists, People and Correct a record, as O2S's own Add a role did.
-3. **Built (Tahir, 29 Oct 2026: "remove lock from COO role"; D-340):** the O2S COO is an ordinary role. O2S's 5
+3. **Built (Tahir, 29 Oct 2026: "remove lock from COO role"; D-351):** the O2S COO is an ordinary role. O2S's 5
    COO shortcuts are gone (mayRole, mayHere, accessLevelOn, canEdit, _canEditOn); a one-time step (cooUnlockV1, and the
    roles service on the server copy) gave the COO every right in force and Edit on every screen as ticks, so nothing
    changed on the day. Checked in O2S: every right, screen and sign-off answered as before; then a right and a screen
@@ -197,8 +197,8 @@ Reviewed one by one (artifact "COO Messages Review"); Tahir took the suggestions
    People and access reaches O2S only at the person's next sign-in. Seen on the trial: Ahmer was given O2S COO again
    and O2S still hid Back Office until he signed out and in.
    **Built** (`roleFromServer`, called by `bootState` before the first paint; no O2S role: O2S does not open).
-5. **Built:** the access messages say "System Administrator"; Guide rule R-045 "Who sets your access"; System
-   documentation D-339 (access, api, dictionary, schema rebuilt with `build_sysdoc.py`); changelog 2026-10-29a.
+5. **Built:** the access messages say "System Administrator"; Guide rule R-049 "Who sets your access"; System
+   documentation D-350 (access, api, dictionary, schema rebuilt with `build_sysdoc.py`); changelog 2026-10-30a.
    Tested: `apps/o2s/tests/accessmoved.test.js` 43/43 (runs the real functions); all O2S suites as before except the
    2 old failures; O2S's own access rule obeys screens set on the platform (checked in the browser).
 6. **Left for the real O2S build:** the old People screen code (ppRender, roleEditorHTML, newRoleHTML and the rest)
@@ -206,7 +206,7 @@ Reviewed one by one (artifact "COO Messages Review"); Tahir took the suggestions
    by its text; delete both together when this goes live.
 7. **Built: who may sign is a list, ticked on the platform** (Tahir, 29 Oct 2026: "i want it to be dynamic list all
    sign off and check it for the roles"; COO "(a) Ticks like every role"; scope "the 7 sign-offs now; the rest
-   later"; O2S D-341 then D-342). The Roles screen has a section, "What this role signs", with 9 ticks: COA draft
+   later"; O2S D-352 then D-353). The Roles screen has a section, "What this role signs", with 9 ticks: COA draft
    (old-flow submit, bench results), COA review, COA approve, inspection, truck review, truck release, DC approve and
    DC reject. It replaces the read-only "Also given by O2S's own rules" line. O2S keeps the lists in
    `masters.signoffs`; with no list saved, today's lists stand, so nothing changes on the day. The COO is ticked

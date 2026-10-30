@@ -50,7 +50,7 @@ module.exports = function mountO2sRolesvc(app, deps) {
   const whyNot = code => { const lg = byCode(code).legacy || {};
     return lg.kind === 'hard' ? 'Not in force yet: O2S decides this by role name in its own code, so it cannot be set here.'
       : lg.kind === 'screen' ? 'Not in force yet: O2S decides this from edit access to the ' + lg.scr + ' screen (O2S access matrix).' : 'Not in force yet.'; };
-  // 29 Oct 2026 (D-340): the COO is an ordinary O2S role; nothing in O2S is locked here any more.
+  // 29 Oct 2026 (D-351): the COO is an ordinary O2S role; nothing in O2S is locked here any more.
   const LOCKED_NOTE = '';
 
   function cooUnlock(st) {   // the same as cooUnlockV1 in o2s.html
@@ -60,10 +60,10 @@ module.exports = function mountO2sRolesvc(app, deps) {
     const row = M.roleRights[r.id] || {}, set = M.roleRightsSet[r.id] || {}; LIVE.forEach(c => { row[c] = true; set[c] = true; }); M.roleRights[r.id] = row; M.roleRightsSet[r.id] = set;
     const cells = Object.prototype.hasOwnProperty.call(M.accessMatrix, 'COO') && M.accessMatrix.COO ? M.accessMatrix.COO : {};
     L.ALLSCREENS.forEach(id => { cells[id] = { v: true, e: true }; }); M.accessMatrix.COO = cells;
-    M._cooUnlockV1 = { at: new Date().toISOString(), by: 'ruling of 29 Oct 2026 (D-340), roles service', rights: LIVE.length, screens: L.ALLSCREENS.length };
+    M._cooUnlockV1 = { at: new Date().toISOString(), by: 'ruling of 29 Oct 2026 (D-351), roles service', rights: LIVE.length, screens: L.ALLSCREENS.length };
     return true;
   }
-  if (!loadError && store) (async () => { try { const st = await store.getState(); if (st && st.data && !st.data.masters._cooUnlockV1) { await change(d => { cooUnlock(d); }); console.log('[o2s rolesvc] the COO now holds its rights and screens as ticks (D-340)'); } } catch (e) { console.error('[o2s rolesvc] COO step not run: ' + e.message); } })();
+  if (!loadError && store) (async () => { try { const st = await store.getState(); if (st && st.data && !st.data.masters._cooUnlockV1) { await change(d => { cooUnlock(d); }); console.log('[o2s rolesvc] the COO now holds its rights and screens as ticks (D-351)'); } } catch (e) { console.error('[o2s rolesvc] COO step not run: ' + e.message); } })();
   const sysAdmin = async (req, res, next) => {
     try {
       if (loadError) return res.status(503).json({ error: loadError });
@@ -76,7 +76,7 @@ module.exports = function mountO2sRolesvc(app, deps) {
   // subject 'role:<name>', so a role's log rows never mix with a person's history (a role and a login can share a name).
   const log = (action, subject, before, after) => { try { if (SV.logAccess) return SV.logAccess({ action, subject: 'role:' + subject, module: 'o2s', before, after, via: 'roles' }); } catch (e) {} };
 
-  /* Sign-offs (Tahir, 29 Oct 2026, D-342): who may sign is a list per sign-off, kept in masters.signoffs; with no entry
+  /* Sign-offs (Tahir, 29 Oct 2026, D-353): who may sign is a list per sign-off, kept in masters.signoffs; with no entry
      O2S's default list (SIGNOFF_RULES) stands. The same reading as signoffRoles in o2s.html. */
   const SO = L ? Object.keys(L.SIGNOFF_RULES) : [];
   const soDefault = a => { const r = L.SIGNOFF_RULES[a]; return (typeof r.roles === 'function' ? r.roles() : r.roles).slice(); };
@@ -143,7 +143,7 @@ module.exports = function mountO2sRolesvc(app, deps) {
   }));
   app.get('/api/o2s/rolesvc/roles', auth, sysAdmin, wrap(async (req, res) => {
     const st = await store.getState(); const M = (st && st.data && st.data.masters) || {};
-    // signoffs: what the role signs, from the lists (D-342); replaces the read-only "fixed" line of D-341.
+    // signoffs: what the role signs, from the lists (D-353); replaces the read-only "fixed" line of D-352.
     res.json({ roles: (M.roles || []).filter(r => r && r.name).map(r => ({ key: r.name, label: r.name, department: r.deptId || null, builtin: !!r.builtin, archived: !!r.archived, locked: false, rights: rightsOf(M, r), today: todayOf(M, r), signoffs: SO.filter(a => soList(M, a).indexOf(r.name) >= 0),
       screens: Object.fromEntries(L.SCREENS.map(x => [x.id, levelOf(M, r.name, x.id)])), lead: (M.departments || []).some(d => d && d.leadRoleId === r.id) })) });
   }));

@@ -19071,11 +19071,11 @@
    ]
   },
   {
-   "id": "D-339",
+   "id": "D-350",
    "title": "People, roles, rights, departments, leads and screen access are set by the System Administrator on the launcher; O2S reads the role from the server when it opens (trial)",
    "owner": "Tahir (ruling)",
    "rules": [
-    "R-045",
+    "R-049",
     "R-019"
    ],
    "status": "confirmed",
@@ -19119,11 +19119,11 @@
    ]
   },
   {
-   "id": "D-340",
+   "id": "D-351",
    "title": "The O2S COO is an ordinary role: its rights and screens are ticks the System Administrator sets (trial)",
    "owner": "Tahir (ruling)",
    "rules": [
-    "R-045",
+    "R-049",
     "R-019"
    ],
    "status": "confirmed",
@@ -19171,12 +19171,12 @@
    ]
   },
   {
-   "id": "D-341",
+   "id": "D-352",
    "title": "The gates that save one of the 7 sign-offs ask one table (SIGNOFF_RULES); who may sign stays exactly as before (trial)",
    "owner": "Tahir (ruling)",
    "rules": [
     "R-003",
-    "R-045"
+    "R-049"
    ],
    "status": "confirmed",
    "src": [
@@ -19227,12 +19227,12 @@
    ]
   },
   {
-   "id": "D-342",
+   "id": "D-353",
    "title": "Who may sign is a list per sign-off, ticked by the System Administrator on the launcher; the COO is ticked like every role (trial)",
    "owner": "Tahir (ruling)",
    "rules": [
     "R-003",
-    "R-045"
+    "R-049"
    ],
    "status": "confirmed",
    "src": [

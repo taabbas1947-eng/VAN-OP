@@ -19727,6 +19727,67 @@
      }
     }
    ]
+  },
+  {
+   "id": "D-350",
+   "title": "Fahim and Majid read all of the day's daily comments on their Morning view (30a)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-045"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Fahim asked to see the daily comments, through Tahir in chat, 30 Oct 2026",
+    "Tahir's panel answers in chat, 30 Oct 2026 (picture: Fahim Comments Block)",
+    "o2s.html changelog 2026-10-30a",
+    "fn mvComments",
+    "fn mvCommentRow",
+    "fn mvCommentsFold",
+    "fn mvPage",
+    "fn mvPageFahim",
+    "fn mvPageMajid",
+    "tests/morningcomments30a.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-30"
+       ],
+       [
+        "Ruled by",
+        "Tahir, 30 Oct 2026, panel answers after Fahim asked to see the comments built on 29 Oct."
+       ],
+       [
+        "Decision",
+        "The Morning view of the Plant Manager (Fahim) and the Production Manager (Majid) has 1 fold, Truck and PO comments today, near the bottom (after Client POs, before Details), closed until opened, with the count in its heading: POs listed and comments written. A missing comment is not counted in it. It lists every PO the daily comment covers that has waited 15 days or more (the same test as Today, dcState0), and any newer PO with a comment on the day shown. Each row: the PO (a tap opens its page), the client, Ship job or Open PO with its days, today's comment with who wrote it and when. Read only: nothing is written."
+       ],
+       [
+        "No comment yet",
+        "The label No comment today, with yesterday's comment under it, dated and with its writer, because the Morning view is read before most comments are written. With none yesterday either it says so. Waiting for client and a deferred Ship job need no comment and say so; a deferred one names who put it off and until when. A missing comment stays a label only: no job, no alert, not counted (Tahir, 29 Oct and 30 Oct 2026)."
+       ],
+       [
+        "Options seen",
+        "Where: (1) a report in How are we doing, (2) a block on Fahim's Morning view (chosen), (3) the Today list read only, (4) no build, the PO page. Placement: a closed fold near the bottom (chosen) or an open section near the top. Morning gap: label with yesterday's comment (chosen) or label only. Newer POs with a comment today: listed (chosen). Who: Fahim and Majid (chosen); not Tahir, Yawar, Saad, Himayat or Finance."
+       ],
+       [
+        "Order of rows",
+        "No comment yet first, oldest first; then written ones, oldest first; then waiting for client and deferred. Not ruled by Tahir: kept so the gaps show first. Independent review (30 Oct) found 7 points (2 faults, 3 risks, 2 wording); a re-review said push. Fixed: the heading counted missing comments (removed), the link took the blue link style (own class mv-polink), a PO whose state cannot be worked out was listed as nothing open now (now left out, and a broken comment list cannot blank the page), the deferred row named no one and no date (now who and until when)."
+       ],
+       [
+        "Known and left",
+        "The days on each row are counted to today, also when the Morning view is drawn for another day in a test. The Plant Manager and the Production Manager still have no write right (shipment.plan), as ruled on 29 Oct. The PO link onclick passes the order id through _av, which does not escape a single quote; order ids are made by O2S, the same as on the Today Ship card. Checked on live data, 30 Oct 12:40: 14 POs, 12 written, worked out in 24 ms."
+       ]
+      ]
+     }
+    }
+   ]
   }
  ]
 }

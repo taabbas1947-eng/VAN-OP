@@ -428,7 +428,7 @@ function heldWorld() { let release; const gate = new Promise(r => { release = r;
   ok('tinyFresh refuses to pull over an unsaved change', grab('tinyFresh').indexOf('_savePending') > -1 && grab('tinyFresh').indexOf('_savePending') < grab('tinyFresh').indexOf('/api/state'));
   ok('My job tells the roles that hold it', /<b>Small remainder\.<\/b>/.test(grab('guideMyJob')));
   ok('the Guide has the rule', /<h3>A PO line with 50 Kg\/L or less left<\/h3>/.test(grab('guideRules')) && /'A PO line with 50 Kg\/L or less left':'R-048'/.test(html));
-  ok('the build and the changelog agree', /var BUILD_ID='2026-10-29c'/.test(html) && /ver:'2026-10-29c'/.test(html));
+  ok('the build and the changelog agree', /var BUILD_ID='2026-10-(29c|3[01][a-z])'/.test(html) && /ver:'2026-10-29c'/.test(html));
   ok('the right is in the sign-off free list of RIGHTS only once', (html.match(/code:'po\.shortclose_small'/g) || []).length === 1);
   /* every place that tests for a closed line still goes through the one function */
   ok('lineStage still answers Closed short for it', /if\(lineShortClosed\(l\)\) return 'Closed short';/.test(grab('lineStage')));

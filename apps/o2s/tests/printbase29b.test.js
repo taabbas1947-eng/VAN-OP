@@ -117,5 +117,5 @@ const mk = () => ({ masters: { products: [
   ok('Guide rule: opening a document does not print it', /<h3>Opening a document does not print it<\/h3>/.test(g) && /Print \/ Save PDF/.test(g));
   ok('Guide rule: a brand that can be packed from more than one base', /<h3>A brand that can be packed from more than one base<\/h3>/.test(g) && /own base written beside it/.test(g));
   ok('both rules have their numbers', /'Opening a document does not print it':'R-046'/.test(html) && /'A brand that can be packed from more than one base':'R-047'/.test(html));
-  ok('the changelog has the 29b entry and the build matches', /ver:'2026-10-29b'/.test(html) && /var BUILD_ID='2026-10-29[bc]'/.test(html) && /var SYSDOC_VER='2026-10-29[bc]'/.test(html)); }
+  ok('the changelog has the 29b entry and the build matches', /ver:'2026-10-29b'/.test(html) && /var BUILD_ID='2026-10-(29[bc]|3[01][a-z])'/.test(html) && /var SYSDOC_VER='2026-10-(29[bc]|3[01][a-z])'/.test(html)); }
 report('printbase29b');

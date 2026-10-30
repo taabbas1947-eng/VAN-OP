@@ -3172,6 +3172,75 @@
      }
     }
    ]
+  },
+  {
+   "id": "LG-40",
+   "title": "Which POs show on the Morning view comments fold, and what each row says (mvComments)",
+   "owner": "COO",
+   "rules": [
+    "R-045"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn mvComments",
+    "fn mvCommentRow",
+    "fn mvCommentsFold",
+    "fn dcState0",
+    "fn dcOn",
+    "D-350",
+    "tests/morningcomments30a.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Case",
+       "Listed?",
+       "Row shows"
+      ],
+      "rows": [
+       [
+        "Comment written on the day shown",
+        "Yes, at any age",
+        "The reason (Ship job), the note, who and when, copied from"
+       ],
+       [
+        "Waiting 15 days or more, no comment yet",
+        "Yes, first",
+        "No comment today, then yesterday's comment, dated, or none yesterday either"
+       ],
+       [
+        "Waiting 15 days or more, marked Waiting for client",
+        "Yes, last",
+        "Waiting for client: no comment needed while the mark stands"
+       ],
+       [
+        "Ship job deferred from Today, 15 days or more",
+        "Yes, last",
+        "Deferred: put off by (name) until (date); no comment needed until it comes back"
+       ],
+       [
+        "Under 15 days, no comment today",
+        "No",
+        "-"
+       ],
+       [
+        "Nothing open on the PO, comment written today",
+        "Yes",
+        "The comment, and nothing open now on the right"
+       ],
+       [
+        "Nothing open, no comment today",
+        "No",
+        "-"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "The heading count is the number of POs listed and the number with a comment on the day; a missing comment is not counted. A deferred Ship job names who put it off and until when (acDeferActive, read only). If working out one PO's state or comments fails, that PO is left out and the page still draws. Nothing in these functions writes."
+    }
+   ]
   }
  ]
 }

@@ -20325,6 +20325,129 @@
      }
     }
    ]
+  },
+  {
+   "id": "D-360",
+   "title": "A KAM sees only his own clients: the customer's Assigned KAM decides, on every screen (2026-11-02b)",
+   "owner": "Tahir (ruling)",
+   "rules": [
+    "R-051",
+    "R-050"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir in chat, 2 Nov 2026 (panel): Muhammad Ali and Muhammad Irfan get O2S; a PO is the KAM's when its customer's Assigned KAM is him ('Customer's KAM'); a KAM sees 'Only his clients' everywhere; Plant 'Only show HIS PO'; a dealer shows 'sale to date FY number'; New order 'Yes, own clients'; Complaints 'Raise too'; Morning view hidden; 'we need to solve this cleanly before we handover' (the shared kam login)",
+    "Picture page KAM Own Clients (2 Nov 2026)",
+    "fn kamOn, fn kamKnown, fn kamOwns, fn kamRun, fn kamInstall, fn dataOnly, fn kamSalesRows, fn kamSalesHtml, fn clientsForChannel, fn submitPO, fn cmpRaise, fn cmpRaiseHTML, fn screenComplaints, fn screenBudget",
+    "tests/kam1102b.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-11-02"
+       ],
+       [
+        "Ruled by",
+        "Tahir"
+       ],
+       [
+        "Decision",
+        "A PO belongs to the KAM named as Assigned KAM on its customer (Back Office, Customers), matched by the customer code before ' | ', else by name (a name held in 2 segments, such as BKK, follows the PO's channel), else, for a COBO record only, by its brand name (brandKey). The COBO POs carry the company name VITAL AGRI NUTRIENTS (PVT) LTD, kept as brandKey on COBO-001 'Vital Agri Centers', whose Assigned KAM is Muhammad Irfan (Tahir, 2 Nov: 'irfan is already selected as KAM for COBO'). The KAM typed on the PO is not used to decide who sees it. A KAM sees only his own clients on every screen: Orders, order details, Today, Plant (only his POs; a shared base batch shows only his share), Shipments, Complaints, FOC samples (his clients, or asked for by him), Sales & Budget and New order."
+       ],
+       [
+        "How",
+        "render() and the windows drawn outside it (order details, New order, a sample) run inside kamRun(): for the KAM role the lists orders, shipments, inspections, packingLog, complaints, samples, batches (bulk batches kept; PO and multi-PO batches only when one of his POs is on them), poMoves and customers are narrowed while the screen is drawn and put back at once. dataOnly() always carries the full lists while a KAM screen is drawn, so no save, merge or export can carry the narrow ones."
+       ],
+       [
+        "Sales & Budget",
+        "For a KAM: one row per client: FY target, sold FY to date, % of target, sold this month, open orders still to leave. A dealer has no target of its own (all dealers share 1), so it shows its sales only."
+       ],
+       [
+        "New order and complaints",
+        "A KAM is offered only his own clients, the KAM field holds only his name, and submitPO refuses a client that is not his. He may raise a complaint for his own client (Raise only, never send); it waits on Tahir's Today to be sent on."
+       ],
+       [
+        "Unknown name",
+        "A KAM whose launcher name is not on the KAM list (Lists, KAM names) sees no client and is told to ask Ahmer."
+       ],
+       [
+        "Launcher (set by Claude on Tahir's instruction when 11-02b goes live)",
+        "KAM role: New order Edit, Complaints Edit, Morning view No access; Reports stays No access."
+       ],
+       [
+        "Also on 2 Nov",
+        "Abdul Majid's O2S role was Production; set back to Production Manager on the launcher (Tahir: 'Claude changes it'; the only access lost is QA inspection Edit to View)."
+       ],
+       [
+        "Live, 2 Nov",
+        "Muhammad Ali: 4 clients (BKK, Kisan Fertiliser, Royal Digital, Naya Sawera Pesticides), 17 POs, 1 open. Muhammad Irfan: 2 clients (COBO, Arain Traders), 10 POs, 2 open."
+       ],
+       [
+        "After the independent review",
+        "Fixed before the push: a complaint where the KAM is asked to call his own client reaches his Today as a 'Customer to call' job, but the complaints page (cmpAll) does not list that other client's complaint; the containment table shows him only his own clients' rows, and the raise message no longer counts other clients' complaints; the FOC sample form offers only his own clients or a new prospect, and smpSubmit refuses any other; a farmer given to a KAM never brings him the Vgreen POs; a KAM whose name is not on the list sees no list at all; custInit runs on the full list before a draw; the welcome page cannot be closed by tapping outside it. A sign-in line in the action log does not make a new person old. Vgreen POs belong to no KAM (no KAM is set on the VGreen records)."
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-361",
+   "title": "Someone new skips the briefs and change notes written before they joined; a new KAM gets a welcome page once (2026-11-02b)",
+   "owner": "Tahir (ruling)",
+   "rules": [
+    "R-036",
+    "R-051"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir in chat, 2 Nov 2026: 'make a one time massage for MUHAMMAD ALI AND IRFAN, HOW TO USE APP AND REMOVE OLD FORCED READING SCREEN'; panel: 'Anyone new from 2 Nov'; 'Welcome page, tick once'; the 143 old change notes: default taken by Claude and told to Tahir",
+    "fn personFirst, fn personNewSince, fn rsPending, fn checkWhatsNew, fn kamWelcomeDue, fn openKamWelcome, fn kamWelcomeDone, fn renderApp",
+    "tests/kam1102b.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-11-02"
+       ],
+       [
+        "Ruled by",
+        "Tahir"
+       ],
+       [
+        "New",
+        "At the first sign-in on this build O2S records, once per login, whether the person is new: no read-and-sign row, no audit row with their name and no action log line by them before (their own sign-in line does not count). state.userFirst[login] = {at, day, isNew, build}."
+       ],
+       [
+        "Briefs",
+        "rsPending skips a read-and-sign brief whose date (the first 10 characters of its id) is before a new person's first day."
+       ],
+       [
+        "Change notes",
+        "A new person with nothing seen on that browser gets only the change notes dated on or after their first day."
+       ],
+       [
+        "Welcome",
+        "A KAM with no welcome row gets the welcome page after any brief: who sets access (Ahmer, launcher, since 2 Nov), his own clients by name, the 7 order steps, Today, New order, Sales & Budget and complaints. Start works only after 'I have read this' is ticked; state.welcomeSigns gets {id, user, name, role, at, build}; never shown again."
+       ]
+      ]
+     }
+    }
+   ]
   }
  ]
 }

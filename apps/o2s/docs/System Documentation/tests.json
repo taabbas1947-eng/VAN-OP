@@ -32,18 +32,18 @@
       "rows": [
        [
         "Passed",
-        "123 files with every check passed",
-        "14,828 checks passed (in the 123 files that print a count), 30 Oct 2026, build 2026-10-30f"
+        "122 files with every check passed",
+        "6,963 checks passed (in the 122 files whose last line is the count), 2 Nov 2026, build 2026-11-02b"
        ],
        [
         "Failed",
-        "2 files: audit17c (2 checks) and truckback17a. Both depend on today's date and failed the same way before this build",
-        "2 checks"
+        "9 files. audit17c (2 checks) and truckback17a depend on today's date, as before. 7 files already failed on build 2026-11-02a (the roles merge, before 11-02b), with the same counts before and after 11-02b: authmodel (245 checks), batchclose (1), certremove, customermaster (4), lotpack, prodcards (4), prodstuck (1). Left for Ahmer",
+        "see the files"
        ],
        [
         "All files",
-        "124",
-        "14,813 checks counted"
+        "131",
+        ""
        ]
       ]
      }
@@ -788,6 +788,12 @@
         "30f: who may change Also packed from (COO, CFO, Plant Manager, Production Manager; not others); the Pack sheet line and link; the window: main base not offered, reason required, saved with 1 audit row and 1 log line, maps rebuilt, back to the Pack sheet; removing the last base; no change writes nothing; a role that may not cannot open it; the Back Office field and reason box; pmSave refuses without a reason, writes the list and audit, keeps an old form's list; the Compost tests copied once, old list kept, never over a Compost list of its own; Guide, changelog. BS26001 shift row: removed, LBS26001 kept, 1 audit row with a fixed id, removed again if brought back, nothing removed if the records no longer match, and a skip note kept even after an earlier removal. After the review: pmSave run for real (no change, remove with and without a reason, main base changed to the second base and back keeps it, old form, a base added twice, the Production Manager refused); the window keeps a hidden main-base entry; the Pack sheet drops a brand whose batch base was taken off; an apostrophe or backslash in a name keeps the links working; the main base select redraws the field.",
         "D-355",
         "59 passed, 0 failed (30 Oct 2026)"
+       ],
+       [
+        "kam1102b.test.js",
+        "11-02b: which client is a KAM's (code, name, both BKK records, a COBO PO by its brand name, parents and dealers' brand key never); the lists narrowed while his screen is drawn and the very same full lists back after, also after an error; nested draws; other roles untouched; an unknown name sees nothing and is told to ask Ahmer; render() wrapped; dataOnly carries the full lists during a draw; Sales & Budget per client with a dealer shown as sales only; someone new recorded once, someone with a sign or an audit row not new; the welcome page refused without the tick, kept once; old briefs and old change notes skipped for a new person; New order, submitPO, complaints, Sales & Budget and sign-in wiring; Guide, changelog, build. After the review: a name in 2 segments follows the channel; a farmer never brings the Vgreen POs; a complaint where he must call his client stays; the sample form and its refusal; the action log counts for someone not new; an unknown name sees no batch or customer; the welcome page cannot be closed outside.",
+        "D-360, D-361, R-051",
+        "62 passed, 0 failed (2 Nov 2026)"
        ]
       ]
      }

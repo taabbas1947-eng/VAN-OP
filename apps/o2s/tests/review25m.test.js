@@ -30,7 +30,7 @@ ok('divert uses its own form', !/divertForm/.test(grab('submitDivert')));
 ok('REG is declared', /\nvar REG=\{\};/.test(html));
 ok('one groupOf (product group); the nav one is navGroupOf', (html.match(/function groupOf\(/g) || []).length === 1 && /function navGroupOf\(/.test(html));
 ok('POs with prices print for money roles only', /The PO carries prices/.test(grab('printPO')));
-ok('Sales & Budget is for money roles only', /function screenBudget\(\)\{ if\(typeof mayMoney==='function'&&!mayMoney\(\)\)/.test(html));
+ok('Sales & Budget is for money roles only', /function screenBudget\(\)\{ (if\(kamOn\(\)[^\n]*\n  )?if\(typeof mayMoney==='function'&&!mayMoney\(\)\)/.test(html));
 ok('dealers not pending or inactive are offered on New order', /st!=='Pending approval'&&!\/inactive\|deactivat\|reject\|blocked\/i\.test\(st\)/.test(grab('clientsForChannel')));
 ok('What to make escapes the typed text', /<div class="wtm-t1">'\+qsEsc\(x\.brand\)/.test(html) && /<b>'\+qsEsc\(x\.po\)\+'<\/b>/.test(html));
 ok('the order sheet no longer sends anyone to All actions', /const BUCKET_SCREEN=\{'PO Created':'today','RM Check':'today'/.test(html));

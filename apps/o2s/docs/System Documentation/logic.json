@@ -3387,6 +3387,74 @@
      }
     }
    ]
+  },
+  {
+   "id": "LG-43",
+   "title": "Which client is a KAM's, and what each screen shows him (11-02b)",
+   "owner": "COO",
+   "rules": [
+    "R-051"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn kamCustOf",
+    "fn kamOwns",
+    "fn kamRun",
+    "fn kamSalesRows",
+    "D-360"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Situation",
+       "What O2S does"
+      ],
+      "rows": [
+       [
+        "Order client 'CODE | Name' (a dealer)",
+        "Matched to the customer whose code is CODE."
+       ],
+       [
+        "Order client is a name",
+        "Matched to every customer with that name; when the name is held in 2 segments (BKK distributor and white label), the PO's channel picks the segment. His if any matched record has him as Assigned KAM."
+       ],
+       [
+        "Order client matches no code or name",
+        "Matched by brand name (brandKey) to a COBO record only: the COBO POs, entered as VITAL AGRI NUTRIENTS (PVT) LTD, belong to COBO-001 Vital Agri Centers. Never for Vgreen or a farmer (a farmer's brandKey is Vgreen)."
+       ],
+       [
+        "Customer with no Assigned KAM, or a parent record",
+        "Belongs to no KAM; the KAM does not see it."
+       ],
+       [
+        "Batches",
+        "Bulk batches stay (only his lines count against them); a PO batch only if its PO is his; a multi-PO batch if any of its POs is his."
+       ],
+       [
+        "FOC samples",
+        "His clients' samples, and any sample he asked for (a prospect)."
+       ],
+       [
+        "Role is not KAM",
+        "Nothing is narrowed."
+       ],
+       [
+        "KAM name not on the KAM list",
+        "Every list is empty; a note says to ask Ahmer."
+       ],
+       [
+        "Complaints",
+        "His clients' complaints. Another client's complaint where he is asked to call his own client about the same batch gives him only the 'Customer to call' job on Today; it is not listed on the complaints page. In the containment table he sees only his own clients' rows."
+       ],
+       [
+        "FOC sample form",
+        "Only his own clients, or a new prospect; a sample for anyone else's client is refused."
+       ]
+      ]
+     }
+    }
+   ]
   }
  ]
 }

@@ -153,7 +153,7 @@ const allDone = (s) => { const ps = s.rsParts(s.state.role).map(p => p.id); cons
 }
 { /* the page shows before the app, wrong answer means read again */
   const ra = H.grab('renderApp');
-  ok('the app opens the page first when not signed', /if\(rsPending\(\)\) openReadSign\(\); else \{ closeReadSign\(\); checkWhatsNew\(\); \}/.test(ra));
+  ok('the app opens the page first when not signed', /if\(rsPending\(\)\) openReadSign\(\); else (if\(kamWelcomeDue\(\)\)\{ closeReadSign\(\); openKamWelcome\(\); \} else )?\{ closeReadSign\(\); checkWhatsNew\(\); \}/.test(ra));
   ok('signed out: the page is closed, never over the sign-in', /if\(!authed\(\)\)\{ try\{ closeReadSign\(\); \}catch\(e\)\{\}/.test(ra));
   const an = H.grab('rsAnswer');
   ok('a wrong answer counts a try, hides the question and opens the part again', /f\.wrong\[pid\]=\(f\.wrong\[pid\]\|\|0\)\+1; f\.seen\[pid\]=false; f\.endSeen\[pid\]=false; f\.reread\[pid\]=true;/.test(an));

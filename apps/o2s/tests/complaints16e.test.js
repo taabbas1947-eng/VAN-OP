@@ -29,7 +29,7 @@ function box(role, user, st, users) {
     usersList: users || [], toast: m => toasts.push(m), save: () => { s.saved = (s.saved || 0) + 1; }, render: () => {}, closeModal: () => {}, setScreen: () => {}, loadUsers: () => Promise.resolve(),
     fmt: n => String(n), unitOf: () => 'Kg', _tdEsc: x => String(x), boBackHTML: () => '', fyKey: () => '2026-27', printDoc: (t, inner) => { s.printed = inner; }, _docHead: (t, m) => '<h1>' + t + '</h1>' + m,
     $: () => ({ innerHTML: '', classList: { add() {}, remove() {} } }), document: { querySelector: () => null, getElementById: () => null }, localStorage: { getItem: () => null, setItem() {}, removeItem() {} },
-    shipClientFor: () => ''
+    shipClientFor: () => '', kamOn: () => s.state.role === 'KAM', kamOwns: () => false   /* 2026-11-02b stubs; the KAM path is tested in kam1102b */
   };
   s.nid = p => p + (s.state.seq++) + '-x';
   vm.createContext(s); vm.runInContext(HELP + '\n' + MOD, s); return s;
@@ -284,7 +284,7 @@ function investigated(s, c) {
   ok('Start loading, the gate pass and Release are refused for held stock', ['startLoading', 'issueGatePass', 'approveRelease'].every(n => /cmpTruckHeld\(/.test(grab(n))));
   ok('a batch correction follows onto complaints', /cmpBfxFollow\(p,old,newNo\)/.test(grab('bfxApply')));
   ok('the screen is a Back Office screen, not in the side menu', /'complaints'\]/.test((/const BACKOFFICE_SCREENS=\[[^\]]*\]/.exec(html) || [''])[0] + ']'));
-  ok('the screen checks the role itself (B3)', /if\(!cmpWatcher\(\)\)/.test(grab('screenComplaints')));
+  ok('the screen checks the role itself (B3)', /if\(!cmpWatcher\(\)(&&!kamOn\(\))?\)/.test(grab('screenComplaints')));
   ok('the Plant Manager\'s view-only list is on Today, not counted', /cmpTodayWatch\(\)/.test(grab('screenToday')));
   ok('Back Office has a Complaints desk', /k:'complaints',t:'Complaints'/.test(grab('boDesks')));
   ok('Guide rule and rule number', /<h3>Customer complaints<\/h3>/.test(grab('guideRules')) && /'Customer complaints':'R-040'/.test(html));
@@ -292,7 +292,7 @@ function investigated(s, c) {
 
 /* ---------- ruling 12: the brief to read and sign ---------- */
 { const SRC = ["var RS_BRIEF='" + /var RS_BRIEF='([^']+)'/.exec(html)[1] + "';", grabTopVar('RS_ALL', '['), grabTopVar('RS_PARTS', '['), /\nvar RS_TITLE=[^\n]*/.exec(html)[0], /\nvar RS_CMP_ROLES=[^\n]*/.exec(html)[0], grabTopVar('RS_PARTS_CMP', '['), grabTopVar('RS_BRIEFS', '['),
-    ...['rsUse', 'rsWith', 'rsParts', 'rsSignsOf', 'rsMySign', 'rsPending', 'rsUserKey', 'rsShared', 'rsDevice', 'rsWhat', 'rsQ'].map(grab), /\nvar RS_SHARED_RE=[^\n]*/.exec(html)[0], 'var _rsSeed=false;'].join('\n');
+    ...['rsUse', 'rsWith', 'rsParts', 'rsSignsOf', 'rsMySign', 'rsPending', 'rsUserKey', 'rsShared', 'rsDevice', 'rsWhat', 'rsQ'].map(grab), /\nvar RS_SHARED_RE=[^\n]*/.exec(html)[0], 'var _rsSeed=false;', 'function personNewSince(){ return ""; }   /* 2026-11-02b: no first-seen record */'].join('\n');
   const mk = (role, user, signs) => { const x = { console, JSON, Object, Array, String, RegExp, Math, Date, localStorage: { getItem: () => null, setItem() {} }, state: { role, currentUser: { name: user, username: user }, orders: [{ po: 'P1' }], readSigns: signs || [] } }; vm.createContext(x); vm.runInContext(SRC, x); return x; };
   const s1 = { id: 'a', brief: '2026-10-13-15', user: 'asif', role: 'QA Inspector' };
   const q = mk('QA Inspector', 'asif', [s1]); ok('QA signed 13-15 Oct: the Complaints brief is next', q.rsPending() && q.RS_BRIEF === '2026-10-16e' && q.rsParts('QA Inspector').map(p => p.id).join() === 'c1,c2,c3');

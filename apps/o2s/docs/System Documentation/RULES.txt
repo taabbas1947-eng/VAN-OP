@@ -48,3 +48,4 @@ R-047	A brand that can be packed from more than one base
 R-048	A PO line with 50 Kg/L or less left
 R-049	After a line is closed short
 R-050	Who sets your access
+R-051	A KAM sees only his own clients

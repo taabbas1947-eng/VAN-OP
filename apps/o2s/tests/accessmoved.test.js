@@ -70,7 +70,7 @@ for (const w of WRITERS) {
     ok('Guide: no department lead hands out rights any more', !/A department lead can hand out the department/.test(grab('guideRules')));
     ok('a refused screen names the System Administrator', /This screen is not open to your role\. Ask your System Administrator\./.test(grab('setScreen')));
     ok('the rights refusals name the System Administrator, never "Ask the COO"', !/Ask the COO|only the COO can|by the COO\./.test(grab('grantRefusal')));
-    ok('changelog 2026-11-02a and BUILD_ID', /ver:'2026-11-02a'/.test(html) && /var BUILD_ID='2026-11-02a'/.test(html));
+    ok('changelog 2026-11-02a and BUILD_ID', /ver:'2026-11-02a'/.test(html) && /var BUILD_ID='2026-11-(0[2-9][a-z]|[1-3]\d[a-z])'/.test(html));
     ok('System documentation: D-356', /"id":"D-356"/.test(html));
     /* 6. the COO is an ordinary role (D-357): no shortcut, and the one-time step gives it, as ticks, what it had */
     ['canEdit', '_canEditOn', 'mayRole', 'mayHere', 'accessLevelOn'].forEach(fn => ok(fn + ': no COO shortcut', !/role==='COO'\)\s*return/.test(grab(fn))));

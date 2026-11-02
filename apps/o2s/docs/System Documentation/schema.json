@@ -6295,6 +6295,53 @@
      }
     }
    ]
+  },
+  {
+   "id": "SC-46",
+   "title": "state.userFirst, state.welcomeSigns (new in 11-02b)",
+   "owner": "COO",
+   "rules": [
+    "R-036",
+    "R-051"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn personFirst",
+    "fn kamWelcomeDone",
+    "D-361"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Type",
+       "Required",
+       "Default",
+       "Meaning",
+       "Written by"
+      ],
+      "rows": [
+       [
+        "state.userFirst",
+        "object keyed by login: {at, day, isNew, build}",
+        "no",
+        "absent until the first sign-in on 11-02b",
+        "Whether a person was new to O2S when first seen on this build, and that day. Read by rsPending and checkWhatsNew.",
+        "personFirst (once per login)"
+       ],
+       [
+        "state.welcomeSigns[]",
+        "list of {id, user, name, role, at, build}",
+        "no",
+        "absent",
+        "A KAM ticked the welcome page; it is never shown to him again.",
+        "kamWelcomeDone"
+       ]
+      ]
+     }
+    }
+   ]
   }
  ]
 }

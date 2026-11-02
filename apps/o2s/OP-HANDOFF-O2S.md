@@ -7233,3 +7233,42 @@ Trial database only: the COO got the 13 extra right ticks and Edit on main's new
 
 Not pushed by Claude. Tahir pushes the branch roles-trial. Open for Tahir: inspection (tick decides, or Edit on the screen as
 today); the DC Reject button for Supply Chain; alerts following the ticks.
+
+## 30 Oct 2026 (later) — Tahir's 3 sign-off answers built (MODULE: O2S, branch roles-trial) — NOT COMMITTED, NOT PUSHED
+
+Tahir answered (30 Oct): inspection, the tick decides; DC Reject button for Supply Chain, keep it; alerts follow the ticks, now.
+- Inspection: SIGNOFF_RULES 'inspection' is a 'list' kind; the 'edit' kind is gone from maySign; the 5 gate messages say
+  "Your role is not ticked to inspect"; the roles service no longer notes "needs Edit on the screen". Effect on the trial copy
+  (= live data): Production (QA inspection screen), Plant Manager (Shipments, All actions), Supply Chain Officer (Shipments,
+  Lab) and Finance Desk Officer (Shipments) could inspect only through Edit on a screen and no longer can; the QA Inspector can
+  now also inspect from Shipments, where its Edit was off. The System Administrator ticks any of them back if wanted.
+- DC Reject: no change (Supply Chain keeps the button).
+- Alerts: notify-routes.js SIGNOFF_JOBS + allowedFor: the 9 sign-off job labels (Pack QC, Inspect, Lab QC, Correct COA, Review,
+  Approve, Review truck, Release, Approve DC) go to the roles ticked for their sign-off (masters.signoffs, default read from
+  o2s.html SIGNOFF_RULES at load), never the COO (as before); 'Review' keeps the Plant Manager for the UNFIT lot job. With
+  nothing saved the alerts go exactly where they did. If o2s.html cannot be read, the fixed JOB_ROLES stand.
+- Docs: D-353 rows updated (the COO, One list everywhere, Guard rails, "Tahir's answers (30 Oct)"); the 30a changelog line
+  (build stays 2026-10-30a: not live yet). build_sysdoc rebuilt, o2s.html back to LF.
+- Tests: new alerts-follow-ticks.test.js (35); signoffs (inspection rule, tick decides both ways, edit kind gone),
+  rolesvc-signs, fixes26c updated. With a temporary data/state.json from the trial database (deleted afterwards), every suite
+  answers as at commit 15590e5: 19,009 passed, the same 650 data-dependent failures, no suite changed. Trial server restarted.
+Next: Tahir tests on port 3003, then asks for the commit.
+
+## 2 Nov 2026 — Independent review of the 3 sign-off answers; 2 fixes; a correction (MODULE: O2S, branch roles-trial) — NOT COMMITTED, NOT PUSHED
+
+Reviewers (code, workflow, data safety; none wrote the change). Fixed:
+- Alerts: if a sweep could not read the sign-off ticks, it closed the open alerts of people outside the default lists and
+  alerted them again next sweep (reproduced in a mock: closed 1, then sent 1 again). Now a failed read closes nothing and logs
+  one line (notify-routes.js, like a failed people lookup). Mock after the fix: closed 0, sent 0.
+- Alerts: a role made on the launcher and ticked for a sign-off got no alert (recipients were filtered by the 15 built-in
+  roles). A sign-off list comes from the saved data, so its roles now count.
+CORRECTION to the entry "30 Oct 2026 (later)" above and to D-353: the Shipments and Lab inspect buttons are in code no screen
+draws (screenShipOLD is never called; qaRows, qaAwaitCard and openLotQA are not displayed). Inspection starts from the Today
+job cards, the QA inspection screen (packs) and the Plant screen (holds). So on the live copy only Production (QA screen) and
+the Plant Manager (All actions) lose inspection; the Supply Chain Officer, the Finance Desk Officer and the QA Inspector
+on Shipments change nothing in practice. Production cannot be ticked back: "nobody inspects their own output" refuses it.
+Open for Tahir: a late Pack QC or Inspect still escalates to the Plant Manager (tick him, or escalate to someone else);
+withdrawing an inspection (Plant Manager may) and lifting a QA hold (Edit on the QA screen) keep their own rules; the Guide,
+"Your day" and some captions still name the QA Inspector rather than whoever is ticked; the server does not check sign-offs
+on save (true of every sign-off before this change); leave covers get no alert (as before).
+Tests: alerts-follow-ticks 38/38; full O2S run as at 15590e5 (19,044 passed, the same 650 data-dependent failures).

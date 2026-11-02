@@ -20,7 +20,8 @@ const OLD = {
   'coa.bench':     "state.role==='Lab Rep'||state.role==='AQCM'||state.role==='QCM'", // benchSave
   'coa.review':    "state.role==='AQCM'||labCovers('AQCM')",                          // coaReview, coaSendBack isAQ
   'coa.approve':   "state.role==='QCM'||labCovers('QCM')",                            // coaApprove, coaSendBack isQM
-  'inspection':    "canEdit(['QA Inspector'])||state.role==='COO'",                   // lotQASubmit, savePackInspect, dispQASubmit, openPackInspect, openDispatchQA
+  'inspection':    "state.role==='QA Inspector'||state.role==='COO'",                 // lotQASubmit, savePackInspect, dispQASubmit, openPackInspect, openDispatchQA
+                   // was canEdit(['QA Inspector'])||state.role==='COO'; Tahir 30 Oct 2026: the tick decides, Edit on the screen no longer adds or takes it
   'truck.review':  "hardRole(TRUCK_REVIEW_ROLES)",                                    // reviewTruck, sendBackTruck (review)
   'truck.release': "hardRole(['Plant Manager'])",                                     // approveRelease, sendBackTruck (release)
   'dc.approve':    "hardRole(['Plant Manager'])",                                     // approveDC
@@ -67,7 +68,10 @@ ok('the 2-person checks inside the COA gates are unchanged', /coaSamePerson/.tes
   as('Warehouse', { 'dc.reject': ['Warehouse'] }); ok('a list role is enough for the list rules', may('dc.reject') === true);
   as('COO', { inspection: ['QA Inspector'] }); ok('the COO taken off "Inspect" may not inspect', may('inspection') === false);
   as('KAM', { inspection: ['QA Inspector', 'KAM'] }); ctx.state.masters.accessMatrix = { KAM: { qa: { v: true, e: false } } };
-  ok('an inspection role still follows the screen rule (Edit taken on the screen: refused)', may('inspection') === false);
+  ok('the tick decides inspection: Edit taken on the screen does not refuse a ticked role (Tahir 30 Oct)', may('inspection') === true);
+  as('KAM', {}); ctx.state.masters.accessMatrix = { KAM: { qa: { v: true, e: true } } };
+  ok('and Edit given on the screen does not let an unticked role inspect', may('inspection') === false);
+  ok('no sign-off asks the screen any more (the edit kind is gone)', !/how:'edit'/.test(html) && !/r.how==='edit'/.test(grab('maySign')));
   as('Production', { 'truck.review': [] }); ok('an empty saved list refuses everyone', may('truck.review') === false);
   vm.runInContext(grab('soRole') + '\n' + grab('soAlso'), ctx);
   as('x', { 'coa.approve': ['COO', 'Plant Manager', 'QCM'] });

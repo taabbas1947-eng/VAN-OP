@@ -19926,19 +19926,19 @@
        ],
        [
         "The COO",
-        "The COO is a role in the lists wherever it signs today: inspection, truck review, release, and DC approve and reject. It never signs a COA. Taking the tick away takes the signature away, because the COO shortcut is gone from maySign and from holdsSignoff, except for inspection (see Known limits). A COO who may release goes straight to Release on the truck card, as before."
+        "The COO is a role in the lists wherever it signs today: inspection, truck review, release, and DC approve and reject. It never signs a COA. Taking the tick away takes the signature away, because the COO shortcut is gone from maySign and from holdsSignoff. A COO who may release goes straight to Release on the truck card, as before."
        ],
        [
         "One list, everywhere",
-        "The saves (maySign), the buttons on screen, the Today jobs (soRole and soAlso) and the 2-person rules (holdsSignoff) all read the same list. Not yet: the phone and laptop alerts, which still go to fixed roles."
+        "The saves (maySign), the buttons on screen, the Today jobs (soRole and soAlso) and the 2-person rules (holdsSignoff) all read the same list. So do the phone and laptop alerts (notify-routes.js, allowedFor; Tahir 30 Oct): a sign-off job alerts the roles ticked for it, never the COO, who sees every job on Today, as before. With nothing saved the alerts go exactly where they went before."
        ],
        [
         "Guard rails",
-        "Every sign-off keeps at least one role. The 5 two-person rules are checked against the lists, and the COO is exempt, as in separationRefusal. Only the admin's own changes are applied (a delta from what their screen showed). If a sign-off is left with nobody active to sign it, the save goes through with a warning. Inspection still needs Edit on the screen, except for the COO. The named leave cover for the AQCM or the QCM still signs."
+        "Every sign-off keeps at least one role. The 5 two-person rules are checked against the lists, and the COO is exempt, as in separationRefusal. Only the admin's own changes are applied (a delta from what their screen showed). If a sign-off is left with nobody active to sign it, the save goes through with a warning. The named leave cover for the AQCM or the QCM still signs."
        ],
        [
-        "Known limits (review of 29-30 Oct)",
-        "Inspection: a role with Edit on the screen where it is done can still inspect without the tick, as before this change; whether the tick alone should decide is Tahir's question. The named leave cover of the AQCM and the QCM still signs for them. Supply Chain now sees the Reject button on a pending DC, which it was always allowed to use."
+        "Tahir's answers (30 Oct)",
+        "Inspection: the tick decides, as for every sign-off; Edit on a screen no longer adds or takes it. Inspection starts from the Today job cards, the QA inspection screen (packs) and the Plant screen (holds); the Shipments and Lab inspect buttons are in code no screen draws (review of 2 Nov). On the live copy this takes inspection away from Production (Edit on the QA inspection screen) and the Plant Manager (Edit on All actions). The Plant Manager can be ticked back; Production cannot, because the 2-person rule \"nobody inspects their own output\" refuses it. Supply Chain keeps the Reject button on a pending DC, which it was always allowed to use. Alerts follow the ticks now, also for a role made on the launcher. Still as before: the named leave cover of the AQCM and the QCM signs for them, and gets no alert. Open for Tahir (review of 2 Nov): a late Pack QC or Inspect still escalates to the Plant Manager; withdrawing an inspection and lifting a QA hold keep their own rules; the Guide, \"Your day\" and some screen captions still name the QA Inspector."
        ],
        [
         "2-person rules",

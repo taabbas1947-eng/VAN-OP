@@ -82,8 +82,7 @@ module.exports = function mountO2sRolesvc(app, deps) {
   const soDefault = a => { const r = L.SIGNOFF_RULES[a]; return (typeof r.roles === 'function' ? r.roles() : r.roles).slice(); };
   const soList = (M, a) => { const d = M.signoffs; return d && Object.prototype.hasOwnProperty.call(d, a) && Array.isArray(d[a]) ? d[a].slice() : soDefault(a); };
   const soNote = a => { const r = L.SIGNOFF_RULES[a];
-    return r.how === 'edit' ? 'Also needs Edit on the screen where it is done (the COO does not).'
-      : r.cover ? 'The named leave cover for the ' + r.cover + ' also signs while covering.' : ''; };
+    return r.cover ? 'The named leave cover for the ' + r.cover + ' also signs while covering.' : ''; };
   const cleanSO = v => { if (v == null) return null; if (!Array.isArray(v)) throw bad(400, 'Tick what this role signs.'); const set = [...new Set(v.map(String))]; const u = set.find(a => !SO.includes(a)); if (u) throw bad(400, 'Unknown sign-off: ' + u + '.'); return SO.filter(a => set.includes(a)); };
   // The sign-offs among these that no switched-on person can sign any more (a warning, never a refusal: the role may be given next).
   async function nobodySigns(M, actions) {

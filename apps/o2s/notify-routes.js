@@ -47,6 +47,17 @@ const JOB_ROLES = {
   'Investigate complaint': ['KAM', 'Supply Chain', 'Supply Chain Officer', 'Production', 'Production Manager', 'Plant Manager', 'Warehouse', 'QA Inspector', 'Lab Rep', 'AQCM', 'QCM', 'CFO', 'Finance', 'Finance Desk Officer'],
   'Do complaint action': ['KAM', 'Supply Chain', 'Supply Chain Officer', 'Production', 'Production Manager', 'Plant Manager', 'Warehouse', 'QA Inspector', 'Lab Rep', 'AQCM', 'QCM', 'CFO', 'Finance', 'Finance Desk Officer'], 'Complaint raised': ['Plant Manager'], 'Complaint closed': ['Plant Manager']
 };
+/* Sign-off jobs (Tahir, 30 Oct 2026): these follow the sign-off ticks the System Administrator sets on the launcher
+   (masters.signoffs, default SIGNOFF_RULES in o2s.html), not the fixed list above, so the alert and the button always match.
+   The COO is left out, as before: the COO sees every job on Today and gets no alert for a sign-off job. extra: roles a job
+   of the same name also goes to that is not a sign-off ('Review' is also the Plant Manager's UNFIT lot job). If o2s.html
+   cannot be read, the fixed list above stands. */
+const SIGNOFF_JOBS = {
+  'Pack QC': { action: 'inspection' }, 'Inspect': { action: 'inspection' },
+  'Lab QC': { action: 'coa.submit' }, 'Correct COA': { action: 'coa.submit' },
+  'Review': { action: 'coa.review', extra: ['Plant Manager'] }, 'Approve': { action: 'coa.approve' },
+  'Review truck': { action: 'truck.review' }, 'Release': { action: 'truck.release' }, 'Approve DC': { action: 'dc.approve' }
+};
 /* Escalations: job name -> the only role it may escalate to (acEscalation in o2s.html). Lab test escalates to the QCM by the clock. */
 const ESC_TO = {
   'Acknowledge': 'Plant Manager', 'RM Check': 'CFO', 'Receive': 'CFO', 'Lab QC': 'Plant Manager', 'Correct COA': 'QCM',
@@ -66,6 +77,23 @@ const MAX_JOBS = 2000, MAX_SAVE_JOBS = 100, MAX_SENDS_PER_MIN = 30;
 /* push services a device address may point to (Chrome, Edge, Firefox, Safari); any other address is refused */
 const PUSH_HOSTS = /^https:\/\/([a-z0-9-]+\.)*(fcm\.googleapis\.com|android\.googleapis\.com|push\.services\.mozilla\.com|notify\.windows\.com|push\.apple\.com)(:\d+)?\//i;
 const SEED_KEY = '__seeded__';
+
+/* The sign-off defaults, read once from o2s.html (the same cut as the roles service, o2s-rolesvc.js). */
+let SO_RULES = null;
+try {
+  const html = require('fs').readFileSync(require('path').join(__dirname, 'o2s.html'), 'utf8');
+  const cut = (start, end) => { const a = html.indexOf(start); if (a < 0) throw new Error(start + ' not found'); const b = html.indexOf(end, a); if (b < 0) throw new Error('end of ' + start + ' not found'); return html.slice(a, b + end.length); };
+  const c = {}; require('vm').runInNewContext(cut('var TRUCK_REVIEW_ROLES=', ';') + '\n' + cut('var SIGNOFF_RULES={', '\n};') + '\nthis.R=SIGNOFF_RULES;', c, { timeout: 1000 });
+  if (Object.keys(SIGNOFF_JOBS).every(l => c.R[SIGNOFF_JOBS[l].action])) SO_RULES = c.R; else throw new Error('a sign-off job has no rule');
+} catch (e) { console.error('O2S alerts: sign-off ticks not read, the fixed roles stand:', e && e.message); }
+/* who a job may go to: the ticked roles for a sign-off job, else the fixed list (null: any O2S role) */
+function allowedFor(label, masters) {
+  const sj = SIGNOFF_JOBS[label];
+  if (!sj || !SO_RULES) return JOB_ROLES[label] || O2S_ROLES;
+  const d = masters && masters.signoffs, r = SO_RULES[sj.action];
+  const list = d && Object.prototype.hasOwnProperty.call(d, sj.action) && Array.isArray(d[sj.action]) ? d[sj.action] : (typeof r.roles === 'function' ? r.roles() : r.roles);
+  return list.filter(x => x !== 'COO').concat(sj.extra || []);
+}
 
 const sha = (s) => crypto.createHash('sha1').update(String(s)).digest('hex');
 let NOW_FIXED = null;   /* tests only (_setNow) */
@@ -258,13 +286,21 @@ module.exports = function mountO2SAlerts(app, ctx) {
     const holders = {}; let lookupFailed = false;
     async function holdersOfRole(r) { if (!holders[r]) holders[r] = await services.holdersOf('o2s', r).catch(() => { lookupFailed = true; return []; }); return holders[r]; }
     const wanted = [], seen = {};   /* {key, hash, username, role, j, self} */
+    let masters = null;   /* the sign-off ticks, read once per call and only when a sign-off job is in the list */
+    if (SO_RULES && jobs.some(j0 => j0 && SIGNOFF_JOBS[String(j0.l || '')])) {
+      const st0 = await store.getState().catch(() => null); masters = (st0 && st0.data && st0.data.masters) || {};
+      /* review of 2 Nov: ticks not read = defaults only, so this list may miss people who still hold an open job;
+         treat it like a failed people lookup (nothing is closed), or they would be alerted again next sweep */
+      if (!(st0 && st0.data && st0.data.masters)) { lookupFailed = true; console.error('O2S alerts: the sign-off ticks could not be read; no alert is closed this time'); }
+    }
     for (const j0 of jobs) {
       const j = { k: clip(j0 && j0.k, 480), l: String((j0 && j0.l) || ''), r: String((j0 && j0.r) || ''), w: String((j0 && j0.w) || '').toLowerCase(),
         a: Array.isArray(j0 && j0.a) ? j0.a.map(String) : [], n: Array.isArray(j0 && j0.n) ? j0.n.map(x => String(x).toLowerCase()) : [], esc: !!(j0 && j0.esc), ref: (j0 && typeof j0.ref === 'object' && j0.ref) || {} };
       if (!j.k || !Object.prototype.hasOwnProperty.call(JOB_ROLES, j.l)) continue;
       let roles;
       if (j.esc) { if (mode !== 'sweep' || ESC_TO[j.l] !== j.r) continue; roles = [j.r]; }
-      else { const allowed = JOB_ROLES[j.l] || O2S_ROLES; roles = [j.r].concat(j.a).filter((r, i, s) => O2S_ROLES.indexOf(r) >= 0 && allowed.indexOf(r) >= 0 && s.indexOf(r) === i); }
+      else { const allowed = allowedFor(j.l, masters), so = !!(SO_RULES && SIGNOFF_JOBS[j.l] && masters);   /* a sign-off list comes from the saved data, so a role the System Administrator made on the launcher counts too (review of 2 Nov) */
+        roles = [j.r].concat(j.a).filter((r, i, s) => (so || O2S_ROLES.indexOf(r) >= 0) && allowed.indexOf(r) >= 0 && s.indexOf(r) === i); }
       roles.sort((x, y) => (NIGHT_ANY_HOUR.indexOf(x) >= 0 ? 0 : 1) - (NIGHT_ANY_HOUR.indexOf(y) >= 0 ? 0 : 1));   /* a person in 2 of its roles: the any-hour role decides the night rule */
       for (const r of roles) {
         let hs = await holdersOfRole(r);
@@ -296,7 +332,7 @@ module.exports = function mountO2SAlerts(app, ctx) {
       if (r && r.affectedRows === 1 && !w.self) fresh.push(w);
     }
     /* a sweep closes the episodes of jobs no longer open, so a job that comes back alerts again.
-       Not when a people lookup failed: that would close jobs that are still open. */
+       Not when a people lookup or the sign-off ticks failed: that would close jobs that are still open. */
     let closed = 0;
     if (mode === 'sweep' && !lookupFailed && startedAt) {
       const live = new Set(wanted.map(w => w.hash + '|' + w.username)); live.add(sha(SEED_KEY) + '|__system__');
@@ -326,6 +362,9 @@ module.exports = function mountO2SAlerts(app, ctx) {
   console.log('O2S alerts mounted' + (keysOk ? '' : ' (keys not set: alerts are off)'));
 };
 module.exports.JOB_ROLES = JOB_ROLES;
+module.exports.SIGNOFF_JOBS = SIGNOFF_JOBS;
+module.exports.allowedFor = allowedFor;
+module.exports.signoffRulesRead = () => !!SO_RULES;
 module.exports.ESC_TO = ESC_TO;
 module.exports.alertText = alertText;
 module.exports.isNight = isNight;

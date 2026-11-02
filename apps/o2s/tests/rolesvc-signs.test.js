@@ -25,7 +25,7 @@ const signsOf = async k => (await call('GET', S + '/roles')).j.roles.find(r => r
 (async () => {
   const cat = (await call('GET', S + '/catalogue')).j;
   eq('the catalogue lists the 9 sign-off gates', (cat.signoffs || []).length, 9);
-  ok('inspection says it also needs Edit on the screen', /needs Edit on the screen/.test(cat.signoffs.find(x => x.key === 'inspection').note));
+  ok('inspection no longer says it needs Edit on the screen (Tahir 30 Oct: the tick decides)', !/Edit on the screen/.test(cat.signoffs.find(x => x.key === 'inspection').note || ''));
   ok("approve says the QCM's leave cover also signs", /leave cover for the QCM/.test(cat.signoffs.find(x => x.key === 'coa.approve').note));
   const all = (await call('GET', S + '/roles')).j.roles;
   ok('the read-only "fixed" line is gone from every role', all.every(r => !('fixed' in r)));

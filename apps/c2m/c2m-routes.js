@@ -192,7 +192,8 @@ module.exports = function mountC2mRoutes(app, deps) {
   /* ---------- Roles service for the platform (Tahir, 28 Oct 2026; platform docs/ROLES-DESIGN.md §4, trial) ----------
      Only a System Administrator designs C2M's roles, on the platform's Roles by app screen. These 5 calls are registered
      before the C2M sign-in check below on purpose: a System Administrator needs no C2M role to design C2M's roles.
-     The administrator role (coo, D-89) keeps its business meaning and always holds every action, so it is shown locked. */
+     The administrator role (coo, D-89) keeps its business meaning (others approve only what an administrator proposed; exempt
+     from ruling 19 and the second-person rate check). Since 2 Nov 2026 (Tahir, D-142) it is not locked: its actions are ticks. */
   const SV = deps.services || {};
   const sysAdmin = async (req, res, next) => {
     try { if (SV.isSystemAdmin && await SV.isSystemAdmin(req.user.u)) return next(); res.status(403).json({ error: 'Only a System Administrator designs roles.' }); }
@@ -200,7 +201,7 @@ module.exports = function mountC2mRoutes(app, deps) {
   };
   // subject 'role:<key>', so a role's log rows never mix with a person's history (a role key and a login can be the same word).
   const svcLog = (action, key, before, after) => { try { if (SV.logAccess) return SV.logAccess({ action, subject: 'role:' + key, module: 'c2m', before, after, via: 'roles' }); } catch (e) {} };
-  const svcRole = r => ({ key: r.key, label: r.label, department: null, builtin: r.builtin, archived: false, locked: !!r.admin, rights: r.actions });
+  const svcRole = r => ({ key: r.key, label: r.label, department: null, builtin: r.builtin, archived: false, locked: false, rights: r.actions });
   app.get('/api/c2m/rolesvc/catalogue', auth, sysAdmin, (req, res) => res.json({
     groups: AC.CATALOGUE.map(g => ({ name: g.group, items: g.items.map(i => ({ key: i[0], label: i[1] })) })),
     count: AC.ALL_KEYS.length, rename: true, departments: [], lockedNote: "C2M's administrator role always holds every action (D-89).",
@@ -219,17 +220,20 @@ module.exports = function mountC2mRoutes(app, deps) {
     res.json({ ok: true, role: { key, label } });
   }));
   app.put('/api/c2m/rolesvc/roles/:key', auth, sysAdmin, wrap(async (req, res) => {
-    await needTable(); const b = req.body || {}; const label = cleanLabel(b.label), actions = cleanActions(b.rights); let before = null, after = null;
-    const seen = Array.isArray(b.base) ? cleanActions(b.base) : null, seenLabel = b.baseLabel != null ? String(b.baseLabel) : null;
+    await needTable(); const b = req.body || {}; const label = cleanLabel(b.label); let before = null, after = null;
+    const seenLabel = b.baseLabel != null ? String(b.baseLabel) : null;
     await tx(async () => {
       const [[r]] = await q('SELECT * FROM c2m_role WHERE role_key=? FOR UPDATE', [req.params.key]); if (!r) throw bad('This role does not exist.');
-      if (Number(r.is_admin)) throw bad("C2M's administrator role always holds every action (D-89), so it cannot be changed here.");
+      const adm = !!Number(r.is_admin);   // D-142: the administrator is ticked like any role; D-89 exempts it from the second-person rate check
+      const actions = cleanActions(b.rights, adm), seen = Array.isArray(b.base) ? cleanActions(b.base, adm) : null;
+      if (adm && !actions.length) throw bad("Keep at least one tick for C2M's administrator role.");
       const [[dup]] = await q('SELECT role_key FROM c2m_role WHERE LOWER(label)=LOWER(?) AND role_key<>?', [label, r.role_key]); if (dup) throw bad('A role with this name already exists.');
-      before = { label: r.label, rights: JSON.parse(r.actions_json) };
+      before = { label: r.label, rights: AC.shape(r.role_key, { label: r.label, admin: adm, actions: JSON.parse(r.actions_json || '[]') }).actions };   // an unticked administrator row holds every action
       // Review 28 Oct 2026: apply only this admin's own changes, measured from what their screen showed, onto the role as it is now.
       const from = seen || before.rights, now0 = before.rights;
       const added = actions.filter(k => !from.includes(k) && !now0.includes(k)), removed = from.filter(k => !actions.includes(k) && now0.includes(k));
-      const merged = cleanActions(now0.filter(k => !removed.includes(k)).concat(added));
+      const merged = cleanActions(now0.filter(k => !removed.includes(k)).concat(added), adm);
+      if (adm && !merged.length) throw bad("Keep at least one tick for C2M's administrator role.");
       const newLabel = (seenLabel != null && label === seenLabel) ? r.label : label;   // unchanged on screen: keep a rename made meanwhile
       after = { label: newLabel, rights: merged };
       await q('UPDATE c2m_role SET label=?, actions_json=?, updated_by=?, updated_at=? WHERE role_key=?', [newLabel, JSON.stringify(merged), req.user.u, now(), r.role_key]);
@@ -2209,14 +2213,14 @@ module.exports = function mountC2mRoutes(app, deps) {
   /* ---------- Roles: created and edited by the administrator role only (D-89, D-90). Logins stay in the platform's People and access. ---------- */
   const roleTable = async () => { try { await q('SELECT 1 FROM c2m_role LIMIT 1'); return true; } catch (e) { if (e && e.code === 'ER_NO_SUCH_TABLE') return false; throw e; } };
   const needTable = async () => { if (!(await roleTable())) throw Object.assign(new Error('Roles cannot be edited yet: migration 002 (c2m_role) has not been run. Ask IT to run it.'), { status: 409 }); };
-  const cleanActions = (a, label) => {
+  const cleanActions = (a, admin) => {   // admin: C2M's administrator role (D-89 exempts it from the second-person rate check)
     if (!Array.isArray(a)) throw bad('Tick what this role may do.');
     const set = [...new Set(a.map(String))]; const unknown = set.filter(k => !AC.LABEL[k]); if (unknown.length) throw bad('Unknown action: ' + unknown[0] + '.');
     if (set.includes('roles.manage')) throw bad('Creating and editing roles stays with the administrator role.');
     const has = k => set.includes(k);
     if (has('see.margin') && !['see.products', 'see.cost', 'see.price', 'see.settings'].every(has)) throw bad('"The Approvals, Products, Prices, Margin and Setup places" needs Recipes, Costs, Prices and margin, and Settings and targets ticked too.');
     if (has('lists.mark') && !has('lists.link')) throw bad('"Mark a list row as not a C2M pack" needs "Link or rename a list row" ticked too.');
-    if (has('rate.save') && has('actuals.ratecheck')) throw bad('The monthly rate check is done by a second person: a role cannot both save rates and do the rate check.');
+    if (!admin && has('rate.save') && has('actuals.ratecheck')) throw bad('The monthly rate check is done by a second person: a role cannot both save rates and do the rate check.');
     return AC.ALL_KEYS.filter(k => set.includes(k));
   };
   const cleanLabel = l => { const t = String(l || '').trim().replace(/\s+/g, ' '); if (t.length < 2 || t.length > 60) throw bad('Give the role a name of 2 to 60 letters.'); return t; };

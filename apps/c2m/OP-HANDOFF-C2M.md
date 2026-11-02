@@ -573,3 +573,17 @@ Manager writes it and the CFO approves its cost"; "Tahir is told" → "The COO i
 filter gjVisible compares 'COO' / 'CFO', like the trial's Guide. The default source of a rate, 'Entered by Yawar', is
 'Entered by the CFO' as in the trial's other line. Names left only in code comments. c2m.html script parses; c2m-routes.js
 loads; platform c2m-mount 25/25. C2M's own suite (C2M App, c2m_test) not run here. Migration 007 is main's, unchanged.
+
+## 2 Nov 2026 — The COO role is no longer locked on the launcher (D-142) (MODULE: C2M, branch roles-trial) — NOT COMMITTED, NOT PUSHED
+
+Tahir: "remove lock from C2M COO". The COO role (the administrator, D-89) is now ticked like any role on the launcher's Roles
+by app. c2m-access.js shape(): an administrator row with no ticks (every COO row today, actions_json []) still holds every
+action; once its ticks are saved, the ticks decide. c2m-routes.js roles service: locked false; PUT takes the administrator's
+ticks (refuses none ticked); D-89's exemption kept, so it may hold both "save rates" and "do the rate check"; the delta is
+measured from its real actions (every action while unticked). Kept: the administrator meaning (others approve only what an
+administrator proposed; exempt from ruling 19), and it cannot be removed. Not changed: C2M's own Roles screen (unreachable
+since roles.manage left the catalogue on 28 Oct). An action added to C2M later is not given to the COO by itself.
+Docs: 06-decisions D-142; 11-access 11.11 Administrator row. Checked on the trial server (roles_trial), the COO row put back
+exactly afterwards: not locked, 48 of 48 ticked, C2M gives Tahir 48; untick 1 = 47 in C2M; both rate rights allowed; no tick
+refused; cannot be removed. Roles-service check for C2M all passed; platform c2m-mount 25/25, notify-mount 15/15,
+pd-removed 17/17. C2M's own suite (C2M App) not run here. Trial server on port 3003 restarted on this code.

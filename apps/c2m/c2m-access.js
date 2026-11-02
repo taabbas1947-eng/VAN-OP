@@ -74,7 +74,8 @@ const CFO = ['price.propose', 'list.revise', 'pricedoc.all', 'recipe.start', 're
   'lists.carry', 'lists.remove', 'o2s.sync', 'import.decide', 'actuals.enter', 'actuals.tiebooks', 'notices.see',
   'see.products', 'see.cost', 'see.price', 'see.margin', 'see.settings', 'see.materials', 'guide.all'];
 
-/* The six roles C2M began with (docs/11). coo is the administrator (D-89): every action, locked on. */
+/* The six roles C2M began with (docs/11). coo is the administrator (D-89): every action to start with; since 2 Nov 2026
+   (D-142) its actions are ticks the System Administrator may change on the launcher, like any role's. */
 const SEED = {
   cfo: { label: 'CFO', admin: false, actions: CFO },
   coo: { label: 'COO', admin: true, actions: ALL_KEYS },
@@ -99,7 +100,9 @@ function slug(label) { let k = String(label || '').toLowerCase().replace(/[^a-z0
 
 /* A role row as the routes use it. */
 function shape(key, row) {
-  const actions = row.admin ? ALL_KEYS.slice() : row.actions.filter(k => LABEL[k]);
+  /* Tahir, 2 Nov 2026: the administrator role is no longer locked; its actions are ticks like any role's. A row still saved
+     with no ticks (as every administrator row was until then) holds every action, until the System Administrator saves its ticks. */
+  const actions = row.admin && !(row.actions || []).length ? ALL_KEYS.slice() : row.actions.filter(k => LABEL[k]);
   const n = navFor(actions);
   return { key, label: row.label, admin: !!row.admin, actions, can: new Set(actions), nav: row.nav || n.nav, more: row.more || n.more, builtin: BUILTIN.includes(key) };
 }

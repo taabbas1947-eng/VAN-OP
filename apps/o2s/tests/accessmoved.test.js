@@ -1,4 +1,4 @@
-/* BUILD 2026-10-30a (trial). Tahir, 28-29 Oct 2026 (platform docs/ROLES-DESIGN.md, the O2S step; D-350, R-049):
+/* BUILD 2026-11-02a (trial). Tahir, 28-29 Oct 2026 (platform docs/ROLES-DESIGN.md, the O2S step; D-356, R-050):
    people, logins, roles, rights, departments, leads and screen access are set by the System Administrator on the
    launcher, in People and access, and O2S reads the person's role from the server each time it opens.
    This runs the real functions from o2s.html in a sandbox: every writer must refuse BEFORE it changes anything, the
@@ -66,13 +66,13 @@ for (const w of WRITERS) {
     const c = await run('KAM', 'KAM');
     ok('the same role: nothing moves', c.r === true && c.s3.state.screen === 'admin');
     /* 5. the words */
-    ok('Guide rule: Who sets your access (R-049)', /<h3>Who sets your access<\/h3>/.test(grab('guideRules')) && /'Who sets your access':'R-049'/.test(html));
+    ok('Guide rule: Who sets your access (R-050)', /<h3>Who sets your access<\/h3>/.test(grab('guideRules')) && /'Who sets your access':'R-050'/.test(html));
     ok('Guide: no department lead hands out rights any more', !/A department lead can hand out the department/.test(grab('guideRules')));
     ok('a refused screen names the System Administrator', /This screen is not open to your role\. Ask your System Administrator\./.test(grab('setScreen')));
     ok('the rights refusals name the System Administrator, never "Ask the COO"', !/Ask the COO|only the COO can|by the COO\./.test(grab('grantRefusal')));
-    ok('changelog 2026-10-30a and BUILD_ID', /ver:'2026-10-30a'/.test(html) && /var BUILD_ID='2026-10-30a'/.test(html));
-    ok('System documentation: D-350', /"id":"D-350"/.test(html));
-    /* 6. the COO is an ordinary role (D-351): no shortcut, and the one-time step gives it, as ticks, what it had */
+    ok('changelog 2026-11-02a and BUILD_ID', /ver:'2026-11-02a'/.test(html) && /var BUILD_ID='2026-11-02a'/.test(html));
+    ok('System documentation: D-356', /"id":"D-356"/.test(html));
+    /* 6. the COO is an ordinary role (D-357): no shortcut, and the one-time step gives it, as ticks, what it had */
     ['canEdit', '_canEditOn', 'mayRole', 'mayHere', 'accessLevelOn'].forEach(fn => ok(fn + ': no COO shortcut', !/role==='COO'\)\s*return/.test(grab(fn))));
     { const ctx = {}; vm.createContext(ctx);
       const pick = (start, end) => { const a = html.indexOf(start); return html.slice(a, html.indexOf(end, a) + end.length); };

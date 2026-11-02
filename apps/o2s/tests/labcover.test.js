@@ -208,7 +208,7 @@ ok('the cover functions exist', ['labCovers', 'labSetCover', 'labEndCover', 'ope
   const d = app('COO', 'tahir', 'Tahir Abbas'); withCert(d, 'draft', { analyst: { name: '' }, tests: [{ test: 'K2O', spec: '>=44', result: '45', remark: 'FIT' }], qcNo: 'Q', sampledBy: 'x', sampleQty: 'x', analysisTime: 'x', temp: '1', humidity: '1' });
   run(d, 'coaForm=JSON.parse(JSON.stringify(state.batches.find(function(b){return b.id==="B-COV";}).coa)); coaForm.bid="B-COV"; coaForm.lid=""; coaForm.analyst={name:"Tahir Abbas"}; coaSubmitAnalyst();');
   eq('the COO cannot sign the analyst line either', B(d).coa.status, 'draft');
-  ok('the benchSave refuses the COO', /if\(!maySign\('coa\.bench'\)\)\{ toast\('Lab only'\)/.test(grab('benchSave'))   // 29 Oct (D-352/D-353): the list decides; by default it has no COO
+  ok('the benchSave refuses the COO', /if\(!maySign\('coa\.bench'\)\)\{ toast\('Lab only'\)/.test(grab('benchSave'))   // 29 Oct (D-358/D-359): the list decides; by default it has no COO
     && /'coa\.bench':\s*\{[^}]*roles:\['Lab Rep','AQCM','QCM'\]/.test(html));
   as(c, 'QCM', 'himayat', 'Himayat Hussain');
   run(c, 'coaForm={bid:"B-COV",lid:""}; coaApprove()');

@@ -16,7 +16,7 @@
 const H = require('./harness.js');
 const SO_OF = { coaReview: ['coa.review', 'AQCM'], coaApprove: ['coa.approve', 'QCM'], approveDC: ['dc.approve', 'Plant Manager'], approveRelease: ['truck.release', 'Plant Manager'], rejectDC: ['dc.reject', 'Supply Chain'] };
 const soGate = (fn, body) => !!SO_OF[fn] && new RegExp("^\\s*function " + fn + "\\([^)]*\\)\\s*\\{\\s*if\\(!maySign\\('" + SO_OF[fn][0].replace('.', '\\.') + "'\\)\\)").test(body)
-  && new RegExp("'" + SO_OF[fn][0].replace('.', '\\.') + "':\\s*\\{[^}]*roles:\\[[^\\]]*'" + SO_OF[fn][1] + "'").test(H.html);   // 29 Oct 2026 (D-352, D-353)
+  && new RegExp("'" + SO_OF[fn][0].replace('.', '\\.') + "':\\s*\\{[^}]*roles:\\[[^\\]]*'" + SO_OF[fn][1] + "'").test(H.html);   // 29 Oct 2026 (D-358, D-359)
 const fs = require('fs');
 const vm = require('vm');
 const STATE = JSON.parse(fs.readFileSync(H.STATE, 'utf8')).data;
@@ -900,7 +900,7 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
     ok('it names the department lead', /KAM/.test(html));
     ok('it shows the head count per role', /2 people/.test(html), html.slice(0, 300));
     ok('it marks rights that are not live yet', /not live yet/.test(html));
-    ok('it marks the COO-only rights', /COO only|System Administrator only/.test(html));   // D-350: the System Administrator holds them
+    ok('it marks the COO-only rights', /COO only|System Administrator only/.test(html));   // D-356: the System Administrator holds them
     ok('it wires the ticks to the writer', /rightTickById\(/.test(html));
     ok('and it uses ONE card key for every tab, so clicking a tab does not close it',
        (html.match(/<CARD authpanel>/g) || []).length === 1, html.slice(0, 120));

@@ -1536,3 +1536,7 @@ close before the rule holds in O2S); then decide what goes live, piece by piece.
   conflicts. Platform suites: c2m-mount 25/25, notify-mount 15/15, pd-removed 17/17 (people-access needs a throwaway
   database, not run).
 - Next: Tahir tests the trial; his 3 sign-off questions; then the collaborator's review; then what goes live, piece by piece.
+
+## 2 Nov 2026 — Roles trial renumbered to follow main, then merged into main (MODULE: PLATFORM, branch roles-trial)
+
+Renumbered on 2 Nov 2026, before merging into main (main took D-350 to D-355, R-049 and builds 2026-10-30a to 30f on 30 Oct): the roles trial's D-350, D-351, D-352, D-353 are now D-356, D-357, D-358, D-359; Guide rule R-049 "Who sets your access" is now R-050; build 2026-10-30a is now 2026-11-02a. Entries above keep the old numbers (append-only). The C2M decision D-142 (C2M's own numbers) is unchanged.

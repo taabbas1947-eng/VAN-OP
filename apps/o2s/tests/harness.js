@@ -157,7 +157,7 @@ function authModelSrc() {
        + grabTopVar('ACCESS_RULED_V2', '{') + '\n'
        + grabTopVar('SIGNOFF_ROLES', '{') + grabTopVar('SIGNOFF_NAMES', '{') + '\n'
        + AUTH_MODEL_FNS.map(grab).join('\n\n')
-       /* 30 Oct 2026 (roles trial, D-353): holdsSignoff reads the sign-off lists, so the table and signoffRoles come too */
+       /* 30 Oct 2026 (roles trial, D-359): holdsSignoff reads the sign-off lists, so the table and signoffRoles come too */
        + '\n' + signoffSrc();
 }
 
@@ -168,7 +168,7 @@ const BAG_FNS = ['bagMonthOf', 'bagAddMonths', 'bagMonthLabel', 'bagShelfMonths'
 function bagSrc() {
   return "if(typeof SHELF_DEFAULT_MONTHS==='undefined'){ var SHELF_DEFAULT_MONTHS=24, SHELF_MAX_MONTHS=36; }\n"
     + grabTopVar('BAG_MON', '[') + '\n' + BAG_FNS.map(grab).join('\n'); }
-/* 29a (D-352): the sign-off table and maySign, for any suite that runs a gate that saves a signature (coaReview,
+/* 29a (D-358): the sign-off table and maySign, for any suite that runs a gate that saves a signature (coaReview,
    approveRelease, reviewTruck, lotQASubmit, ...). Those gates now ask maySign. TRUCK_REVIEW_ROLES is given only when
    the suite has not set its own; the gates' other helpers (hardRole, canEdit, labCovers) stay the suite's to load. */
 function signoffSrc() {

@@ -7272,3 +7272,7 @@ withdrawing an inspection (Plant Manager may) and lifting a QA hold (Edit on the
 "Your day" and some captions still name the QA Inspector rather than whoever is ticked; the server does not check sign-offs
 on save (true of every sign-off before this change); leave covers get no alert (as before).
 Tests: alerts-follow-ticks 38/38; full O2S run as at 15590e5 (19,044 passed, the same 650 data-dependent failures).
+
+## 2 Nov 2026 — Roles trial renumbered to follow main (MODULE: O2S, branch roles-trial)
+
+Renumbered on 2 Nov 2026, before merging into main (main took D-350 to D-355, R-049 and builds 2026-10-30a to 30f on 30 Oct): the roles trial's D-350, D-351, D-352, D-353 are now D-356, D-357, D-358, D-359; Guide rule R-049 "Who sets your access" is now R-050; build 2026-10-30a is now 2026-11-02a. Entries above keep the old numbers (append-only).

@@ -1,4 +1,4 @@
-/* BUILD 2026-10-30a (trial). Alerts follow the sign-off ticks (Tahir, 30 Oct 2026: "now").
+/* BUILD 2026-11-02a (trial). Alerts follow the sign-off ticks (Tahir, 30 Oct 2026: "now").
    The phone and laptop alert for a sign-off job goes to the roles ticked for that sign-off on the launcher
    (masters.signoffs), not to a fixed list; with nothing saved it goes exactly where it went before.
    Run: node alerts-follow-ticks.test.js */

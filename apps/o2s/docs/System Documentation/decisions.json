@@ -19729,6 +19729,375 @@
    ]
   },
   {
+   "id": "D-350",
+   "title": "Fahim and Majid read all of the day's daily comments on their Morning view (30a)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-045"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Fahim asked to see the daily comments, through Tahir in chat, 30 Oct 2026",
+    "Tahir's panel answers in chat, 30 Oct 2026 (picture: Fahim Comments Block)",
+    "o2s.html changelog 2026-10-30a",
+    "fn mvComments",
+    "fn mvCommentRow",
+    "fn mvCommentsFold",
+    "fn mvPage",
+    "fn mvPageFahim",
+    "fn mvPageMajid",
+    "tests/morningcomments30a.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-30"
+       ],
+       [
+        "Ruled by",
+        "Tahir, 30 Oct 2026, panel answers after Fahim asked to see the comments built on 29 Oct."
+       ],
+       [
+        "Decision",
+        "The Morning view of the Plant Manager (Fahim) and the Production Manager (Majid) has 1 fold, Truck and PO comments today, near the bottom (after Client POs, before Details), closed until opened, with the count in its heading: POs listed and comments written. A missing comment is not counted in it. It lists every PO the daily comment covers that has waited 15 days or more (the same test as Today, dcState0), and any newer PO with a comment on the day shown. Each row: the PO (a tap opens its page), the client, Ship job or Open PO with its days, today's comment with who wrote it and when. Read only: nothing is written."
+       ],
+       [
+        "No comment yet",
+        "The label No comment today, with yesterday's comment under it, dated and with its writer, because the Morning view is read before most comments are written. With none yesterday either it says so. Waiting for client and a deferred Ship job need no comment and say so; a deferred one names who put it off and until when. A missing comment stays a label only: no job, no alert, not counted (Tahir, 29 Oct and 30 Oct 2026)."
+       ],
+       [
+        "Options seen",
+        "Where: (1) a report in How are we doing, (2) a block on Fahim's Morning view (chosen), (3) the Today list read only, (4) no build, the PO page. Placement: a closed fold near the bottom (chosen) or an open section near the top. Morning gap: label with yesterday's comment (chosen) or label only. Newer POs with a comment today: listed (chosen). Who: Fahim and Majid (chosen); not Tahir, Yawar, Saad, Himayat or Finance."
+       ],
+       [
+        "Order of rows",
+        "No comment yet first, oldest first; then written ones, oldest first; then waiting for client and deferred. Not ruled by Tahir: kept so the gaps show first. Independent review (30 Oct) found 7 points (2 faults, 3 risks, 2 wording); a re-review said push. Fixed: the heading counted missing comments (removed), the link took the blue link style (own class mv-polink), a PO whose state cannot be worked out was listed as nothing open now (now left out, and a broken comment list cannot blank the page), the deferred row named no one and no date (now who and until when)."
+       ],
+       [
+        "Known and left",
+        "The days on each row are counted to today, also when the Morning view is drawn for another day in a test. The Plant Manager and the Production Manager still have no write right (shipment.plan), as ruled on 29 Oct. The PO link onclick passes the order id through _av, which does not escape a single quote; order ids are made by O2S, the same as on the Today Ship card. Checked on live data, 30 Oct 12:40: 14 POs, 12 written, worked out in 24 ms."
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-351",
+   "title": "The lab's waiting days count from each lot's own production date, and each later step from when it reached the person (30b)",
+   "owner": "COO (Tahir)",
+   "rules": [],
+   "status": "confirmed",
+   "src": [
+    "Himayat (QCM) in the O2S group, 30 Oct 2026: Humi Grow lot wise production date management",
+    "Tahir's panel answers in chat, 30 Oct 2026 (picture: Lot Date Lab Waiting)",
+    "o2s.html changelog 2026-10-30b",
+    "fn labStageSince",
+    "fn actTiming",
+    "fn actionItems",
+    "fn labV2Items",
+    "tests/labdates30b.test.js",
+    "Independent review, 30 Oct 2026: no blocking fault; rework, re-issue and the cover check fixed"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-30"
+       ],
+       [
+        "Ruled by",
+        "Tahir, 30 Oct 2026, after Himayat's message and the live check of batch HG26047."
+       ],
+       [
+        "What happened",
+        "Each Log output already makes its own lot with the date typed for that shift (lots[].date). The lab's jobs on Today (Lab COA, Assign sample, Review COA, Approve COA) carried the batch but no date of their own, so actTiming counted them from batch.closedDate, else batch.openedDate. HG26047 opened 26 Oct: L4 made 28 Oct and L5 made 29 Oct both showed waiting 4 d on 30 Oct and were escalated to the Plant Manager at 4 d. HG26048-L1 made 29 Oct showed 0 d because its batch was opened in O2S on 30 Oct. A closed batch counted every lot from the close date."
+       ],
+       [
+        "Decision",
+        "Lab COA (test and draft) and Assign sample count from the lot's own production date, the one already saved; nothing new is entered (Himayat had suggested a separate production completed date per lot; Tahir chose the date already saved). Review COA counts from the day the analyst finished, Approve COA from the day the reviewer finished, so each person's waiting days are their own time. Each falls back to the step before, then to the batch dates as before. After the independent review, in the same spirit: a lot back from rework reaches the lab on the day Rework done was pressed (also after the Lab Rep saves a draft; caught on re-review), and a re-issued certificate (a draft that supersedes) on its re-issue date."
+       ],
+       [
+        "Effect",
+        "The waiting days, amber and red marks and the escalation (Lab QC, Review, Approve escalate to the Plant Manager after 1 day, unchanged) follow at once; no record is changed. A COA sent back keeps counting from the day it was sent back, as before. The leave cover check for the AQCM and QCM uses the same dates, including the sent-back date. On 30 Oct only 3 lab jobs were open, all Lab COA (HG26047-L4 4 d to 2 d, L5 4 d to 1 d, HG26048-L1 0 d to 1 d), with no Review or Approve job open, so no wave of red jobs is expected."
+       ],
+       [
+        "Options seen",
+        "Which date for the first step: (1) the lot date already saved (chosen), (2) a new production completed date per lot. Later steps: (1) from when it reached the person (chosen), (2) the lot date for all steps, (3) first step only."
+       ],
+       [
+        "Known and left",
+        "The 1 day escalation for lab steps is not changed, so a lot made yesterday and not yet tested still goes to the Plant Manager at 1 day. The Plant Manager's UNFIT lot job still counts from the batch dates. At least 18 first lots since 1 Aug are dated before their batch was opened in O2S, usually by 1 day (for example HG26045-L1 made 18 Oct, batch opened 19 Oct): not changed, reported to Tahir. A COA signed on a device whose clock is not Pakistan time between midnight and 5 am records the day before."
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-352",
+   "title": "Each lot's lab job is its own job: Defer, is on it and alerts per lot (30c)",
+   "owner": "COO (Tahir)",
+   "rules": [],
+   "status": "confirmed",
+   "src": [
+    "Found in the independent review of 30b, 30 Oct 2026; Tahir asked how to resolve it cleanly",
+    "Tahir's panel answers in chat, 30 Oct 2026: add to 30b, 1 alert per lot; 30b was pushed at 13:44 before it was added, so it is its own build 30c",
+    "o2s.html changelog 2026-10-30c",
+    "fn acKey",
+    "fn actionItems",
+    "fn pushKeyOf",
+    "tests/perlot30c.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-30"
+       ],
+       [
+        "What happened",
+        "A job on Today is known by its name (acKey). The lab jobs of the old flow carried the batch but not the lot, so every lot of a batch had the same name, for example Lab QC|b:B5570-subk for HG26047-L4 and L5. 3 things are kept against that name: Defer (state.acDefer), is on it (state.taken) and the phone and laptop alerts (pushKeyOf, o2s_push_open). Live, 30 Oct: Mubeen Ahmed took the lab job at 12:01 for L3, so L4 and L5 also showed him on it; an alert went out once per batch, so L5 sent none while L4 waited. No lab job was deferred (2 old defers ended in September). The new lab flow's jobs already carried the lot."
+       ],
+       [
+        "Decision",
+        "Every lab job in the batch loop carries lid:u.id: Rework lot, Correct COA, Lab COA, Review COA again, Review COA, Approve COA, UNFIT lot. acKey already adds u:lid, so each lot has its own name; a batch with no lots has id '' and keeps its old name. Alerts follow: 1 alert per lot, as each lot is logged (Tahir chose this over 1 per batch). Tahir chose to add it to 30b, but 30b had already been pushed (13:44, commit 3b0d05a), so it is its own build, 2026-10-30c."
+       ],
+       [
+        "Effect on the push",
+        "The open lab jobs get new names. On the first save or sweep the server closes the old rows and sends 1 fresh alert per open lab job, and the Plant Manager 1 fresh Escalated to you alert for each one waiting 1 day or more: about 3 and 3 on 30 Oct (HG26047-L4, L5, HG26048-L1), once. An is on it mark taken on another lot of the same batch drops off. No record changes. Independent review: Push."
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-353",
+   "title": "Small remainder close and reopen: 7 changes (30d)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-048",
+    "R-049"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir's panel answers in chat, 30 Oct 2026 (points af to am of the 29c review); picture page Small Close Leftovers",
+    "Tahir's panel answers on the 4 points to confirm and the QA gap, 30 Oct 2026 15:11 to 15:26",
+    "o2s.html changelog 2026-10-30d",
+    "fn tinyRefusal",
+    "fn tinyPoStart",
+    "fn reopenShortClose",
+    "fn reopenCardHTML",
+    "fn lineReopenDay",
+    "fn actTiming",
+    "fn latePackRefusal",
+    "fn doPack",
+    "fn mvCooCloseRows",
+    "fn actionItems",
+    "tests/small30d.test.js",
+    "Independent review of 30d, 30 Oct 2026: findings 1, 2, 3, 6, 7 fixed; 4 and the Nitro Sulfur check ruled by Tahir in chat"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-30"
+       ],
+       [
+        "Asked",
+        "Tahir went through the 8 points left from the 29c reviews (af to am) as panel questions, saw the picture page first, then rechecked 4 open points for anything that could break the system, data, logic or rules."
+       ],
+       [
+        "(al) Nothing delivered",
+        "A line with nothing delivered can no longer be closed as a small remainder; it goes the normal route (Supply Chain asks, the Plant Manager decides). Replaces the 29 Oct ruling that a line with nothing delivered counts. Live 30 Oct: only VG-VC-2610-7928 VGreen VL-Boron (17 ordered, 0 delivered) changes."
+       ],
+       [
+        "(aj) 7 days",
+        "The 7 days count from the later of the received date and the day the PO was entered in O2S (order.enteredOn, saved by order entry and by Data Fix from 30d). A PO entered before 30d has no enteredOn and keeps its received date."
+       ],
+       [
+        "(af) Reopen notice",
+        "When the COO reopens a line, the person who closed it gets a card on Today until Seen: for a small close its closer, for a normal close whoever asked (scAsker: the login, else the name; 28 of 59 closes on 30 Oct had a name only). Not the Plant Manager. Nobody when the reopener is that same person."
+       ],
+       [
+        "(af) Reopen clock",
+        "A reopened line's jobs wait from the reopen day (lineReopenDay), except Ship, Pack QC, Approve close short and Refused, which a close never stopped or which are about the close. A Pack job of a batch waits from the reopen day when every line it owes was reopened."
+       ],
+       [
+        "Committed date at reopen",
+        "Tahir chose to ask for a new committed date at reopen. It needs its own design (today only order entry and Data Fix set it; it moves late lists, On-time % and the Morning view), so 30d keeps the old date and the new date step is drawn after 30d."
+       ],
+       [
+        "(ah) COO notice of a small close",
+        "A row on the COO's Morning view, under Watching: yesterday's small remainder closes, count, Kg/L, up to 3 named, link to the Closed short report. Read only. Hidden when there were none."
+       ],
+       [
+        "(ai) Late pack",
+        "A pack entry may go on a closed-short line only when its pack date is on or before the close day (Pakistan date of shortClose.approvedAt). The Pack sheet offers such a line only for such a date and says so. The pack writes line.latePacks[], a log line and an audit row; the line shows Packed after the close was recorded; the COO's Morning view shows it the next day. A later pack date is refused with the reason. Not on a line closed as Supplied from stock outside O2S. The line's shortfall (shortCloseGap) and the Closed short report leave out the Kg/L packed late against that close (Tahir, 30 Oct, review finding 4); each late pack carries closeAt, the close it was entered against. Voided or reversed pack rows are left out of the note, the shortfall and the Morning view."
+       ],
+       [
+        "New for you card",
+        "Shown once more to Supply Chain, Finance and Warehouse with the changed rules (state.tinyCloseSeen30d)."
+       ],
+       [
+        "Gap found and fixed",
+        "actionItems returned early for a closed-short line, so Inspect packed (Pack QC) never reached the QA Inspector's Today for packed, uninspected bags on a closed line. Now a closed line still raises Pack QC, except a line closed as Supplied from stock outside O2S (Tahir, 30 Oct, after the live check: those bags left outside O2S). The only live case, VG-VC-2609-5466 Nitro Sulfur (250 packed 26 Sep, closed 29 Sep by Fahim Asghar as Supplied from stock outside O2S), is that kind, so no job appears on day 1. The same lines are left out of linesToInspect, so the QA screen, the QC screen and the quality dashboard no longer show those 250 Kg/L as waiting for inspection (independent review round 2)."
+       ],
+       [
+        "Left as is",
+        "(am) after a reopen the normal route stays; (ak) the Closed short report role list; (ag) audit rows in a save clash is its own build 30e."
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-354",
+   "title": "A pool is held, not stuck (30e)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-022"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Live check 30 Oct 2026 of the open data findings (handoff entry 33)",
+    "Tahir's panel answers in chat, 30 Oct 2026: show as held; trust the 11,025 Kg",
+    "o2s.html changelog 2026-10-30e",
+    "fn isBatchStuck",
+    "fn heldPools",
+    "fn heldPoolRowsHTML",
+    "tests/held30e.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-30"
+       ],
+       [
+        "What happened",
+        "The Nitro Sulfur by-product pool B3879-eyyp (Sulfur Coated Urea leftovers, no batch number, 11,025 Kg/L, open since 26 Sep, never called back) was on the Stuck batches list of How are we doing (isBatchStuck: open 7 days or more, idle 3 days or more) and counted in 'N batches stuck'. Plant's own stuck list (plBatchClass) already left pools out."
+       ],
+       [
+        "Decision",
+        "Tahir: keep it on the list, marked as a held pool, not stuck. isBatchStuck returns false for a pool, so no pool is counted as stuck; heldPools lists the open pools, and both Stuck batches tables (the leadership and operations views of How are we doing) add a Held pool row after the stuck rows: product, days open, 'held, not stuck', Kg/L kept and its kind (by-product, diverted material, for rework)."
+       ],
+       [
+        "Also ruled",
+        "The pool's 11,025 Kg/L is trusted (the 26 Sep leftovers of 28 SCU batches went in); the figure stays although only 2 source batches are named (VU26187 475, VU26188 25)."
+       ],
+       [
+        "Effect on the push",
+        "The Nitro Sulfur pool moves from a red idle row to a Held pool row; the stuck count on How are we doing drops by 1. No record changes."
+       ],
+       [
+        "Review",
+        "Push. Fixed after: an emptied pool (0.5 Kg/L or less, called back in full) is not listed; the operations table title adds 'and held pools'. Left: the red Needs reconcile card on the Production tab still counts pools (it answers a different question)."
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-355",
+   "title": "Change which bases a brand is packed from; Compost lab tests; BS26001 shift row (30f)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-047"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir tried to add a second base for Tornado in Back Office and could not, 30 Oct 2026",
+    "Tahir's panel answers in chat, 30 Oct 2026; picture page Also Packed From (v2)",
+    "Himayat (QCM), via Tahir, 30 Oct 2026: the 5 tests are for V-Compost and every brand made from the Compost base",
+    "o2s.html changelog 2026-10-30f",
+    "fn alsoPackLine",
+    "fn openAlsoWin",
+    "fn alsoSaveWin",
+    "fn alsoAudit",
+    "fn pmAlsoField",
+    "fn pmSave",
+    "fn compostTests30fV1",
+    "tests/also30f.test.js",
+    "Abdul Majid's answers via Tahir, 30 Oct 2026 (with screenshots: order sheet COBO-2608-4613, Batch trace BS26001, packing report Zinc 21%)",
+    "fn bs26001Shift30fV1"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-10-30"
+       ],
+       [
+        "What happened",
+        "Also packed from (products[].alsoBases, 29b) had no screen: it was set once by alsoBasesV1 for Tornado 500 ML and Max Amino. Tahir could not add Liquid Bio Stimulant to plain Tornado."
+       ],
+       [
+        "Records check (Tahir asked first)",
+        "Tornado 500 ML: 1 order, United Distributor Pakistan Ltd 250700003, 500 packed 28 Oct from Liquid Bio Stimulant BS26002. Tornado: VAN (COBO) 60, VGreen 12, a farmer 1.5 (and a VGreen 7 closed short), all from Amino Acid AM26002. BKK never ordered it. Tahir: same product and brand, either base, 2 labels (VAN's and UDL's); keep the 2 records."
+       ],
+       [
+        "Decision",
+        "Who changes it: the COO, CFO, Plant Manager and Production Manager (alsoMay). Where: on the Pack sheet, under the brand once picked, the line Packed from with the link Change which bases this brand is packed from (window: main base read only, Also packed from chips, + Add a base, x, reason); and in the Back Office product form under the base for the COO, CFO and Plant Manager. Back Office stays closed to the Production Manager. A reason of 4 characters or more is required; each add or remove writes 1 audit row (field Also packed from, who, base, reason) and 1 log line; the product maps are rebuilt (applyCustomProducts). After the independent review: the list is stored as it is, so a second base that becomes the main base in Back Office stays in the list (hidden while it is the main base) and is a second base again if the main base changes back (the 29b promise); changing the main base asks no reason and writes no Also packed from row (the Edited product log line records it). The main base select redraws the field. If the window takes off the base of the batch being packed, the Pack sheet drops the brand and its PO. Brand and base names are escaped with bfxJs inside the links, so an apostrophe does not break them."
+       ],
+       [
+        "Compost tests",
+        "compostTests30fV1 (once, flag masters._compost30f): when the Compost base has no tests of its own, it gets a copy of the 5 tests of the old V Compost list (Physical Status, Color, Moisture, OM, CEC), with 1 audit row (fixed id AU-compost30f). The old V Compost list stays (Tahir: leave the old lists). coaTemplate then gives them to V-Compost and any brand of base Compost."
+       ],
+       [
+        "BS26001 shift row",
+        "Abdul Majid (via Tahir, 30 Oct): BS26001 was opened by mistake under Amino Acid and closed with no production; the 500 L was LBS26001 (its own shift row of 28 Sep). 27d (D-336) removed the production log row PLmui1quhjd2tqj6 but not the shift log row SE3828-gcy6 (26 Sep, Morning, Muhammad Imran, 500), which the Morning view shift figures (M.shifts) and batchLastActivity read. bs26001Shift30fV1 removes it on every load while the batch is exactly as read on 30 Oct (closed, 0 produced, 0 packed, no lots, no production log row), so a save from an old screen cannot bring it back; 1 audit row (fixed id AU-bs26001se30f); flag masters._bs26001se30f (again = when it was removed a second time; skipped and skippedAt = it came back with other figures and was left as it is). V-Transfarm COBO-2608-4613: Majid confirmed only 300 was packed; already settled by 27d (the 26 Aug pack void)."
+       ],
+       [
+        "Not in this build",
+        "Production still counts only the main base (the 2 bases problem, waiting for Tahir's solution). Plain Tornado gets Liquid Bio Stimulant when Tahir or Majid adds it through the new window. The Brand owner fix for Tornado 500 ML and showing the owner beside names come with the 2 bases build."
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
    "id": "D-356",
    "title": "People, roles, rights, departments, leads and screen access are set by the System Administrator on the launcher; O2S reads the role from the server when it opens (trial)",
    "owner": "Tahir (ruling)",

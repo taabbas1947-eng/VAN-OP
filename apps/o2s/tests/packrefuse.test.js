@@ -8,7 +8,7 @@ const vm = require('vm');
 const { ok, eq, report, grab } = H;
 function box(brandBatch) {
   const sb = { console, PACK_FLAG_KG: 10000, seedPackForBrand: () => 0, toasts: [], toast: m => sb.toasts.push(m), may: () => true, batchLabApproved: () => true, batchPackableKg: b => b.producedKg - b.packedKg,
-    evDateGate: () => null, evToday: () => '2026-09-26', evStamp: () => ({}), shortCloseRefusal: () => null, packPriceGate: () => null, packPriceRecord: () => ({}),
+    evDateGate: () => null, evToday: () => '2026-09-26', evStamp: () => ({}), shortCloseRefusal: () => null, latePackRefusal: () => '', lineShortClosed: () => false, packPriceGate: () => null, packPriceRecord: () => ({}),
     packDates: () => ({ mfgDate: '2026-09-26', expDate: '2028-09-26', shelfMonths: 24 }), SHELF_DEFAULT_MONTHS: 24, SHELF_OVERRIDE_ROLES: [], hardRole: () => false, fyKey: () => 'FY27',
     syncPackBatchDates: () => {}, logAction: () => {}, nid: p => p + '1', multiTrueUpIfPlaced: () => {}, save: () => { sb.saved = 1; }, render: () => {}, closeModal: () => {}, fmt: String, denyRight: () => '',
     state: { currentUser: { name: 'J' }, packingLog: [],

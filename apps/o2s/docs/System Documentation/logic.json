@@ -1706,7 +1706,7 @@
        ],
        [
         "Batch jobs",
-        "closed date, else opened date",
+        "closed date, else opened date (lab steps: see LG-41)",
         "yes except Lab QC"
        ],
        [
@@ -3167,6 +3167,221 @@
        [
         "After",
         "lineShortClosed is true, so the line reads Closed short and production, packing and raw material refuse it as for any closed line. Reopening is by the COO's Reopen this line button on the order sheet (reopenConfirm, then reopenShortClose, right po.reopen); a reason is required, and the close stays as history. A reopened line cannot be closed this way again. A new order must be 7 days old."
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "LG-40",
+   "title": "Which POs show on the Morning view comments fold, and what each row says (mvComments)",
+   "owner": "COO",
+   "rules": [
+    "R-045"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn mvComments",
+    "fn mvCommentRow",
+    "fn mvCommentsFold",
+    "fn dcState0",
+    "fn dcOn",
+    "D-350",
+    "tests/morningcomments30a.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Case",
+       "Listed?",
+       "Row shows"
+      ],
+      "rows": [
+       [
+        "Comment written on the day shown",
+        "Yes, at any age",
+        "The reason (Ship job), the note, who and when, copied from"
+       ],
+       [
+        "Waiting 15 days or more, no comment yet",
+        "Yes, first",
+        "No comment today, then yesterday's comment, dated, or none yesterday either"
+       ],
+       [
+        "Waiting 15 days or more, marked Waiting for client",
+        "Yes, last",
+        "Waiting for client: no comment needed while the mark stands"
+       ],
+       [
+        "Ship job deferred from Today, 15 days or more",
+        "Yes, last",
+        "Deferred: put off by (name) until (date); no comment needed until it comes back"
+       ],
+       [
+        "Under 15 days, no comment today",
+        "No",
+        "-"
+       ],
+       [
+        "Nothing open on the PO, comment written today",
+        "Yes",
+        "The comment, and nothing open now on the right"
+       ],
+       [
+        "Nothing open, no comment today",
+        "No",
+        "-"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "The heading count is the number of POs listed and the number with a comment on the day; a missing comment is not counted. A deferred Ship job names who put it off and until when (acDeferActive, read only). If working out one PO's state or comments fails, that PO is left out and the page still draws. Nothing in these functions writes."
+    }
+   ]
+  },
+  {
+   "id": "LG-41",
+   "title": "From which day each lab step on Today waits (labStageSince)",
+   "owner": "COO",
+   "rules": [],
+   "status": "confirmed",
+   "src": [
+    "fn labStageSince",
+    "fn actTiming",
+    "D-351",
+    "tests/labdates30b.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Step",
+       "Who",
+       "Waits from",
+       "If that date is missing"
+      ],
+      "rows": [
+       [
+        "Lab COA (test and draft)",
+        "Lab Rep",
+        "the lot's production date (lots[].date, typed in Log output)",
+        "the batch close date, else the open date"
+       ],
+       [
+        "Lab COA after rework",
+        "Lab Rep",
+        "the day Rework done was pressed",
+        "the lot date"
+       ],
+       [
+        "Lab COA of a re-issued certificate",
+        "Lab Rep",
+        "the re-issue date (coa.issueDate on a draft that supersedes)",
+        "the lot date"
+       ],
+       [
+        "Assign sample (new lab flow)",
+        "QCM",
+        "the lot's production date",
+        "the batch close date, else the open date"
+       ],
+       [
+        "Review COA",
+        "AQCM",
+        "the day the analyst finished (coa.analyst.date)",
+        "the lot date, then the batch dates"
+       ],
+       [
+        "Approve COA",
+        "QCM",
+        "the day the reviewer finished (coa.reviewer.date)",
+        "the analyst date, then the lot date, then the batch dates"
+       ],
+       [
+        "Correct COA, Review COA again",
+        "Lab Rep, AQCM",
+        "the day it was sent back (unchanged)",
+        "-"
+       ],
+       [
+        "Lab test, Lab late",
+        "Lab Rep, Plant Manager",
+        "the assignment and its due time (unchanged)",
+        "-"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "A date is used only if it reads as YYYY-MM-DD; the time is cut off. A future date counts as 0 days. With a date of its own the count is exact, not approximate."
+    }
+   ]
+  },
+  {
+   "id": "LG-42",
+   "title": "After a line is closed short: late packing, inspection, reopen notice and reopen clock (30d)",
+   "owner": "COO",
+   "rules": [
+    "R-049",
+    "R-048"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn latePackOk",
+    "fn latePackRefusal",
+    "fn poLinesForBrand",
+    "fn doPack",
+    "fn actionItems",
+    "fn reopenShortClose",
+    "fn reopenCardsFor",
+    "fn lineReopenDay",
+    "fn batchReopenDay",
+    "fn actTiming",
+    "fn tinyPoStart",
+    "D-353"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Situation",
+       "What O2S does"
+      ],
+      "rows": [
+       [
+        "Pack date on or before the close day, line not fully packed",
+        "The Pack sheet offers the line, marked closed short on that day; the pack is taken up to ordered minus packed; line.latePacks gets {id, at, packDate, kg, by, user, closedOn, closeAt, pk}; a log line and an audit row; not on a line closed as Supplied from stock outside O2S"
+       ],
+       [
+        "Pack date after the close day",
+        "Refused: the line was closed short on that day; bags packed after it cannot go on it; ask the COO to reopen"
+       ],
+       [
+        "Packed bags on a closed line, not yet inspected",
+        "Pack QC (Inspect packed) on the QA Inspector's Today, as on any line, except a line closed as Supplied from stock outside O2S; Ship as before"
+       ],
+       [
+        "COO reopens a line",
+        "shortClose.reopenNotify = the closer (small close) or the asker (normal close), unless that is the person reopening; a Today card for that person until Seen (state.reopenSeen[order|line|reopenedAt])"
+       ],
+       [
+        "A reopened line's jobs",
+        "Wait from the reopen day if it is later than their own start; Ship, Pack QC, Approve close short and Refused keep their own start"
+       ],
+       [
+        "A small remainder: when the 7 days start",
+        "The later of order.received and order.enteredOn (enteredOn exists only on POs entered from 30d)"
+       ],
+       [
+        "A small remainder: nothing delivered",
+        "Refused; the normal route"
+       ],
+       [
+        "The shortfall of a close",
+        "Ordered minus delivered at the close, minus the Kg/L packed late against that close (live pack rows only: a voided or reversed row is left out); never below 0"
        ]
       ]
      }

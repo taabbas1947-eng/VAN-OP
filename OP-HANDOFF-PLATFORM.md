@@ -1540,3 +1540,9 @@ close before the rule holds in O2S); then decide what goes live, piece by piece.
 ## 2 Nov 2026 — Roles trial renumbered to follow main, then merged into main (MODULE: PLATFORM, branch roles-trial)
 
 Renumbered on 2 Nov 2026, before merging into main (main took D-350 to D-355, R-049 and builds 2026-10-30a to 30f on 30 Oct): the roles trial's D-350, D-351, D-352, D-353 are now D-356, D-357, D-358, D-359; Guide rule R-049 "Who sets your access" is now R-050; build 2026-10-30a is now 2026-11-02a. Entries above keep the old numbers (append-only). The C2M decision D-142 (C2M's own numbers) is unchanged.
+
+## 2 Nov 2026 — Roles trial merged into main (MODULE: PLATFORM) — NOT PUSHED
+
+The roles trial (System Administrator designs every app's roles on the launcher; O2S sign-off ticks; C2M COO unlocked, C2M
+D-142) is merged into main locally, after main's 30a..30f were merged into the trial (O2S handoff, same date). No migration
+is needed. Tahir pushes main from GitHub Desktop when ready; Render deploys main.

@@ -9,7 +9,7 @@ const FNS = ['packShiftIncBlock', 'packFmt', 'acKey', 'packShiftIncGate', 'packE
 function mk(over) {
   const sb = Object.assign({ console, PACK_FLAG_KG: 10000, seedPackForBrand: () => 0, bpEsc: x => String(x), fmt: n => Math.round(n).toLocaleString('en-US'), /* the real fmt rounds to a whole number */ toasts: [], logged: [], $: () => ({ innerHTML: '', classList: { add() {} } }),
     toast: m => sb.toasts.push(m), may: () => true, batchLabApproved: () => true, batchPackableKg: b => b.producedKg - b.packedKg, evDateGate: () => null, evToday: () => '2026-10-15', evStamp: () => ({}),
-    shortCloseRefusal: () => null, packPriceGate: () => null, packPriceRecord: () => ({}), packDates: () => ({ mfgDate: '2026-10-15', expDate: '2028-10-15', shelfMonths: 24 }), SHELF_DEFAULT_MONTHS: 24,
+    shortCloseRefusal: () => null, latePackRefusal: () => '', lineShortClosed: () => false, packPriceGate: () => null, packPriceRecord: () => ({}), packDates: () => ({ mfgDate: '2026-10-15', expDate: '2028-10-15', shelfMonths: 24 }), SHELF_DEFAULT_MONTHS: 24,
     SHELF_OVERRIDE_ROLES: [], hardRole: () => false, fyKey: () => 'FY27', syncPackBatchDates: () => {}, logAction: m => sb.logged.push(m), nid: p => p + (sb.n = (sb.n || 0) + 1), multiTrueUpIfPlaced: () => {},
     save: () => {}, render: () => {}, closeModal: () => {}, denyRight: () => '', _uRole: () => ({ by: 'Abdul Majid' }),
     state: { role: 'Production Manager', currentUser: { name: 'Jawad Naseer' }, masters: {}, packingLog: [], batches: [{ id: 'B', batchNo: 'HG26038', base: 'Potassium Humate', producedKg: 30000, packedKg: 0 }],

@@ -38,7 +38,8 @@ const screen = grab('screenMorning');
 ok('the screen gates itself with mvMine and shows nothing of another person', /mvMine\(\)/.test(screen) && /not set up for your role/.test(screen));
 ok('there is no person picker on the screen (own page only, COO included)', !/<select/.test(screen) && !/onchange=/.test(screen));
 ok('the module writes nothing: no assignment into state, no save, no fetch, no storage', !/\bstate\.[A-Za-z_$][\w$.\[\]'"]*\s*(=|\+=|-=)[^=]/.test(mod) && !/\b(save|saveState|persist|pushState|fetch|XMLHttpRequest|localStorage|sessionStorage)\s*\(/.test(mod) && !/\blocalStorage\b|\bsessionStorage\b/.test(mod));
-ok('the only thing a button on the page does is switch the open / all POs view', (mod.match(/onclick="([^"]*)"/g) || []).every(x => /mvSetScope|setScreen/.test(x)));
+ok('the only thing a button on the page does is switch the open / all POs view, or open a PO page to read (30a)', (mod.match(/onclick="([^"]*)"/g) || []).every(x => /mvSetScope|setScreen|openOrder/.test(x)));
+{ const oo = H.grab('openOrder'); ok('30a: openOrder, the one new link on the page, writes nothing (no save, no log, no assignment into state)', !/\bsave\(|logAction\(|\bstate\.[A-Za-z_$][\w$.]*\s*(=|\+=|-=)[^=]/.test(oo)); }
 ok('the footer says it is read only', /Read only\. Nothing on this page changes any record/.test(screen));
 ok('yesterday is always the day before', /yesterday is always the day before today/.test(screen) && /DAY=mvAdd\(V,-1\)/.test(mod));
 

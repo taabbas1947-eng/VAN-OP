@@ -77,7 +77,7 @@ eq('a requested-but-unapproved close is not refused yet',
 
 /* ---- REACH: every writer of new forward work asks the guard ---- */
 ['submitProdQty','doPack','submitDivert','allocateStock','openRMCheck'].forEach(fn => {
-  ok(fn + '() asks shortCloseRefusal()', /shortCloseRefusal\(/.test(grab(fn)));
+  ok(fn + '() asks shortCloseRefusal()', fn === 'doPack' ? (/latePackRefusal\(o,l,d\)/.test(grab(fn)) && /shortCloseRefusal\(/.test(grab('latePackRefusal'))) : /shortCloseRefusal\(/.test(grab(fn)));   /* 30d: doPack asks latePackRefusal, which asks shortCloseRefusal and lets bags packed on or before the close day through */
 });
 
 /* ---- REACH, the other way: what must NOT be blocked ----

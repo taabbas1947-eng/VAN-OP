@@ -86,7 +86,7 @@ for (const w of WRITERS) {
       ok('another role is not touched', JSON.stringify(st.masters.roleRights.kam) === '{"order.create":true}' && JSON.stringify(st.masters.accessMatrix.KAM) === '{"entry":{"v":true,"e":false}}');
       const once = JSON.stringify(st); vm.runInContext('cooUnlockV1(st)', ctx);
       ok('it runs once (masters._cooUnlockV1)', JSON.stringify(st) === once && !!st.masters._cooUnlockV1);
-      ok('it runs at load, after the 27d step', /dataFix27dV1\(s\); (alsoBasesV1\(s\); )?cooUnlockV1\(s\);/.test(html)); }   // 30a: main's 29b step sits between
+      ok('it runs at load, after the 27d step', /dataFix27dV1\(s\); (alsoBasesV1\(s\); )?(compostTests30fV1\(s\); )?(bs26001Shift30fV1\(s\); )?cooUnlockV1\(s\);/.test(html)); }   // 30a: main's 29b step sits between
     report('29a: access set on the launcher, role from the server');
   })();
 }

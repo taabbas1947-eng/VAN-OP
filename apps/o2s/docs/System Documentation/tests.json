@@ -33,7 +33,7 @@
        [
         "Passed",
         "131 files with every check passed",
-        "15,738 checks passed (summed from each file's last count line), 3 Nov 2026, build 2026-11-03b"
+        "15,745 checks passed (summed from each file's last count line), 3 Nov 2026, build 2026-11-03c"
        ],
        [
         "Failed",
@@ -373,7 +373,7 @@
         "linefix.test.js",
         "Fix it where it happened: packed, dispatched and delivered cannot be typed; packing cannot pass ordered; a reversed lot does not count.",
         "R-009, R-004",
-        "48 passed, 0 failed"
+        "53 passed, 0 failed (3 Nov 2026, 11-03c)"
        ],
        [
         "lotpack.test.js",
@@ -607,7 +607,7 @@
         "shell.test.js",
         "The 3-place shell (Today, Plant, Back Office, Guide): navigation, People, jobs and lists render for every role.",
         "-",
-        "333 passed, 0 failed"
+        "333 passed, 0 failed (3 Nov 2026)"
        ],
        [
         "shipshell.test.js",
@@ -797,9 +797,9 @@
        ],
        [
         "area1103a.test.js",
-        "11-03a: Correct a record by area for every role, with and without the launcher tick; each save button (production, packing, void, shipment, PO) refuses outside its area; Correct values changes only the CFO's fields for the CFO and only Produced for the Plant Manager and Production Manager; the form disables what is not yours and the cards show who does a part; the order line Fix sheet and Reconcile's fix by area (packing fixes: COO, Plant Manager, Production Manager; delivery date: COO, Plant Manager, Supply Chain), and all of it stops while the corrections switch is OFF; the switch, snapshot, import, restore and new-year reset are COO only; Sales & Budget opens for Finance, Supply Chain and the Production Manager with mayMoney still false elsewhere, Set the budget and Set invoice prices COO and CFO only; a late RM Check and Receive go up to the Plant Manager, on Today and in the alert server (notify-routes.js ESC_TO); BUILD_ID, changelog and Guide rule R-052.",
+        "11-03a: Correct a record by area for every role, with and without the launcher tick; each save button (production, packing, void, shipment, PO) refuses outside its area; Correct values changes only the CFO's fields for the CFO and only Produced for the Plant Manager and Production Manager; the form disables what is not yours and the cards show who does a part; the order line Fix sheet and Reconcile's fix by area (packing fixes: COO, Plant Manager, Production Manager; delivery date: COO, Plant Manager, Supply Chain), and (11-03c) the line Fix sheet keeps working while the corrections switch is OFF; the bulk page writers stop; the switch, snapshot, import, restore and new-year reset are COO only; Sales & Budget opens for Finance, Supply Chain and the Production Manager with mayMoney still false elsewhere, Set the budget and Set invoice prices COO and CFO only; a late RM Check and Receive go up to the Plant Manager, on Today and in the alert server (notify-routes.js ESC_TO); BUILD_ID, changelog and Guide rule R-052.",
         "D-362, D-363, D-364, R-052",
-        "251 passed, 0 failed (3 Nov 2026)"
+        "253 passed, 0 failed (3 Nov 2026, 11-03c: the line Fix sheet keeps working when OFF)"
        ],
        [
         "correct1103b.test.js",

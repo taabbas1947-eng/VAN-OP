@@ -497,7 +497,7 @@ ok('a browser that remembered All actions or the Dashboard lands on Today', /if\
   const rc = grab('screenRecon');
   ok('Reconcile is a sentence and a list, without the 4 tiles', !/Orders scanned/.test(rc) && !/const tiles=/.test(rc) && /compared with its packing record/.test(rc));
   ok('each flagged line carries its fix, one tap away (R20): the line\'s own sheet (25b; the old packing-form route removed in 11-03a)', /reconFixBtn\(r\)/.test(rc) && /lineFixOpen\(po,lid\)/.test(grab('reconFix')) && /lid:l\.id/.test(grab('reconCompute')));
-  ok('the fix is offered only to whoever may correct a record', /if\(!dfOn\(\)\|\|!dfLineFixMay\('rec'\)\)/.test(grab('reconFixBtn')) && /dfMay\('packing'\)/.test(grab('dfLineFixMay')) && /screenEditOK\('datafix'\)/.test(grab('dfMay')));   /* 11-03a: through dfLineFixMay */
+  ok('the fix is offered only to whoever may correct a record', /if\(!dfLineFixMay\('rec'\)\) return ''/.test(grab('reconFixBtn')) && /dfMay\('packing'\)/.test(grab('dfLineFixMay')) && /screenEditOK\('datafix'\)/.test(grab('dfMay')));   /* 11-03a: through dfLineFixMay */
   const pp3 = grab('screenPeople');
   ok('a person carries one name for their role: the title; the role code only when it differs', /\(u\.role!==t\?'role <b>'\+qsEsc\(u\.role\)\+'<\/b> · ':''\)/.test(pp3));
   ok('Recipes and Lab templates are 2 tabs of one page', /boFocus==='recipe'\|\|boFocus==='labtpl'/.test(grab('boFocusApply')) && /Lab templates/.test(grab('boFocusApply')));

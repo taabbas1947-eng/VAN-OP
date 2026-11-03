@@ -62,7 +62,7 @@ ok('a PO sent back says correcting a PO is the COO\'s or the CFO\'s', /correctin
 ok('the shift and in-charge rule no longer names Production on the Correct button', !/its <b>Correct<\/b> button: Production, the Plant Manager or the COO/.test(html));
 ok('the month on the bag: Correct the month names the packing area', /<b>Correct the month<\/b> \(the COO, the Plant Manager or the Production Manager; the month only\)/.test(html));
 ok('Guide R-052 explains the Correct button by area and the switch', /The <b>Correct<\/b> button on a single record follows the same areas, and the switch does not stop it/.test(html));
-ok('BUILD_ID and SYSDOC_VER are 2026-11-03b', /var BUILD_ID='2026-11-03b'/.test(html) && /var SYSDOC_VER='2026-11-03b'/.test(html));
+ok('BUILD_ID and SYSDOC_VER are 2026-11-03b or later', /var BUILD_ID='2026-(11-(03[b-z]|0[4-9][a-z]|[1-3]\d[a-z])|12-\d\d[a-z])'/.test(html) && /var SYSDOC_VER='2026-(11-(03[b-z]|0[4-9][a-z]|[1-3]\d[a-z])|12-\d\d[a-z])'/.test(html));
 ok('changelog 2026-11-03b is there', /\{ver:'2026-11-03b', date:'2026-11-03', title:"The Correct button follows the areas"/.test(html));
 /* 7. Batch trace's Correct the month follows the fields */
 { const b = mk('Production'); vm.runInContext("var BT_MONTH_FIELDS=['bagMfg','printedMfg'];\n" + grab('btMonthMay'), b);

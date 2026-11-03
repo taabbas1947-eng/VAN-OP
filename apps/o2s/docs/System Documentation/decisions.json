@@ -20508,7 +20508,7 @@
        ],
        [
         "Switch",
-        "Tahir, 3 Nov ('Yes, follow the switch'): when the COO turns corrections OFF (state.dataFixEnabled), every dfSubmit* and the order line Fix sheet stop for everyone, the COO included (dfOn, DF_OFF_MSG); History and fix, Reconcile's fix and the list subtitle offer no fix while OFF."
+        "Tahir, 3 Nov ('Yes, follow the switch'): when the COO turns corrections OFF (state.dataFixEnabled), every dfSubmit* and the order line Fix sheet stop for everyone, the COO included (dfOn, DF_OFF_MSG); History and fix, Reconcile's fix and the list subtitle offer no fix while OFF. Changed by D-366 (11-03c): the order line Fix sheet, Reconcile's fix and their Needs you rows keep working when OFF; the switch stops Correct a record and Import opening POs only."
        ]
       ]
      }
@@ -20637,7 +20637,7 @@
        ],
        [
         "Switch",
-        "The corrections switch does not stop the Correct button: routine corrections stay with each user. The switch still stops Correct a record, the order line Fix sheet, Reconcile's fix and Import opening POs (D-362)."
+        "The corrections switch does not stop the Correct button: routine corrections stay with each user. The switch stops Correct a record and Import opening POs; since 11-03c (D-366) the order line Fix sheet keeps working too."
        ],
        [
         "Unchanged",
@@ -20654,6 +20654,56 @@
        [
         "Reverse a run",
         "After reviews 4 to 7: a packing run's reverse (now on a screen) refuses a run already reversed or voided, a run QA has cleared (withdraw the inspection first, as Void an entry asks), Kg of the run on a truck (shipKg), a QA hold, a reverse that would leave the line's packed below what has left the gate (as lineFixCut refuses), and a truck that took this run (its lot link, or for an older truck line with no lot link, this run's batch number on the PO). Before, ANY truck of the same PO and product blocked every run of it; Tahir, 3 Nov: 'Only its own Kg on a truck'. A complaint hold does not block: the complaint's written-off lift (cmpLift) asks for the run to be reversed first. Its printed price must be more than 0, is locked once cleared, on a truck, or on a run packed with no price, and a corrected price updates printPrice and priceMismatch (onAmend). A batch number fix waiting on a reversed run cannot be approved (bfxDecide). The Today card for a PO sent back says Open it."
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-366",
+   "title": "The order line Fix sheet keeps working when corrections are switched OFF; the signed read-and-sign brief stays as it is (2026-11-03c)",
+   "owner": "Tahir (ruling)",
+   "rules": [
+    "R-052"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir, 3 Nov 2026 18:19, on 'Should the order line Fix sheet stop when corrections are OFF (as built now), or keep working': 'kEEEP WORKING'; on 'Should I update the read-and-sign brief people have already signed, or leave it': 'LEAVE IT'",
+    "fn lineFixOpen, fn _lfGuard, fn reconFixBtn, fn lineFixList, fn openOrderSheet (History and fix), Back Office Needs you rows, fn screenDataFix (OFF messages), fn toggleDataFix (log line), fn guideRules (R-052)",
+    "tests/area1103a.test.js, tests/linefix.test.js, tests/shell.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-11-03"
+       ],
+       [
+        "Ruled by",
+        "Tahir"
+       ],
+       [
+        "Decision",
+        "The Fix part of an order line's History sheet is routine work: it keeps working when the COO switches corrections OFF, by the same areas (packing fixes: COO, Plant Manager, Production Manager; delivery date: COO, Plant Manager, Supply Chain; each also needs Edit on Correct a record on the launcher). Reconcile packing's fix (it opens the same sheet), History and fix on the order sheet and the Back Office Needs you rows that lead there follow."
+       ],
+       [
+        "Switch",
+        "The switch now stops only the bulk work: Correct a record (every dfSubmit*) and Import opening POs (under Backups and resets). Note: Record the packing against a batch on the Fix sheet writes a back-dated packing record, so with the switch OFF such entries can still be made there, by area. The Correct button on a record already kept working (D-365)."
+       ],
+       [
+        "Brief",
+        "The 13-15 Oct read-and-sign brief (RS_PARTS, RS_BRIEF 2026-10-13-15) is a signed record and stays as written, though its Production Manager and CFO lines name the routes of that time."
+       ],
+       [
+        "Changes",
+        "D-362 Switch row and D-365 Switch row, in part."
        ]
       ]
      }

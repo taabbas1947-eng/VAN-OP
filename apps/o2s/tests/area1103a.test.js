@@ -33,13 +33,13 @@ Object.keys(WANT).forEach(role => { const b = mk(role, true);
   ok('dfLineFixCan: Majid can fix an untraced line, not an undated one', pm.dfLineFixCan([{ k: 'untraced' }]) && !pm.dfLineFixCan([{ k: 'undated' }]));
   ok('dfLineFixCan: Saad can fix an undated line, not an untraced one', sc.dfLineFixCan([{ k: 'undated' }]) && !sc.dfLineFixCan([{ k: 'untraced' }]));
   ok('dfLineFixCan: an overused line is nobody\'s fix here', !mk('COO', true).dfLineFixCan([{ k: 'overused' }]));
-  ok('_lfGuard asks the area of the fix', /function _lfGuard\(mode\)\{ if\(!dfOn\(\)\)\{ toast\(DF_OFF_MSG\); return null; \} if\(!dfLineFixMay\(mode\)\)/.test(grab('_lfGuard')));
+  ok('_lfGuard asks the area of the fix (11-03c: not the switch)', /function _lfGuard\(mode\)\{ \/\* 2026-11-03c: not stopped by the switch \*\/ if\(!dfLineFixMay\(mode\)\)/.test(grab('_lfGuard')) && !/dfOn\(\)/.test(grab('_lfGuard')));
   ok('the 3 writers name their area', /_lfGuard\('rec'\)/.test(grab('lineFixRecord')) && /_lfGuard\('cut'\)/.test(grab('lineFixCut')) && /_lfGuard\('date'\)/.test(grab('lineFixDate')));
   const lo = grab('lineFixOpen');
-  ok('the sheet: ed from dfLineFixCan, packing buttons need edP, the date button edD', /ed=_on&&dfLineFixCan\(I\)/.test(lo) && /edP&&canRec>0\.5\?btn\('rec'/.test(lo) && /edP&&canCut\?btn\('cut'/.test(lo) && /edD&&I\.some/.test(lo));
-  ok('the sheet: a mode outside your area does not open', /if\(lfForm\.mode&&\(!dfOn\(\)\|\|!dfLineFixMay\(lfForm\.mode\)\)\) lfForm\.mode='';/.test(lo));
-  ok('Reconcile\'s fix (a packing difference) asks the packing area', /if\(!dfOn\(\)\|\|!dfLineFixMay\('rec'\)\) return ''/.test(grab('reconFixBtn')));
-  ok('History and fix: only when you can fix one of the issues', /_I\.length&&dfOn\(\)&&dfLineFixCan\(_I\)\?' and fix'/.test(html));
+  ok('the sheet: ed from dfLineFixCan, packing buttons need edP, the date button edD', /ed=dfLineFixCan\(I\)/.test(lo) && /edP&&canRec>0\.5\?btn\('rec'/.test(lo) && /edP&&canCut\?btn\('cut'/.test(lo) && /edD&&I\.some/.test(lo));
+  ok('the sheet: a mode outside your area does not open', /if\(lfForm\.mode&&!dfLineFixMay\(lfForm\.mode\)\) lfForm\.mode='';/.test(lo));
+  ok('Reconcile\'s fix (a packing difference) asks the packing area', /function reconFixBtn\(r\)\{ if\(!dfLineFixMay\('rec'\)\) return '';/.test(grab('reconFixBtn')));
+  ok('History and fix: only when you can fix one of the issues', /_I\.length&&dfLineFixCan\(_I\)\?' and fix'/.test(html));
   /* the writers refuse outside the area */
   [['lineFixRecord', 'Supply Chain'], ['lineFixCut', 'CFO'], ['lineFixDate', 'Production Manager']].forEach(([fn, role]) => {
     const b = mk(role, true, { lfForm: { reason: 'checked on paper' }, _lfCtx: () => ({ o: {}, l: {} }) }); vm.runInContext(grab('_lfGuard') + '\nvar DF_LINEFIX_WHO="W";', b);
@@ -131,31 +131,35 @@ function correctRun(role) {
   ok('the Sales and invoicing group lists sales first, then invoicing (why the card needs _first)', /ids:\['sales','invoicing'\]/.test(grp));
   ok('the Guide counts Back Office for anyone who holds a part of Correct a record', /if\(id==='backoffice'\) return \['COO','CFO','Plant Manager'\]\.indexOf\(r\)>-1\|\|\(canView\(r,id\)&&_asRole\(r,dfAnyArea\)\);/.test(grab('gdScreenOpen'))); }
 /* 15. review 3: the Needs you rows, the list subtitle, the old 'COO only' lines, Produced raised by Bring packed back */
-{ ok('Needs you: undated lines only for whoever stamps the date', /if\(ud\.length&&has\('Correct a record'\)&&dfOn\(\)&&dfMay\('shipment'\)\)/.test(html));
-  ok('Needs you: packing mismatches only for whoever fixes packing', /if\(reconN&&has\('Reconcile packing'\)&&dfOn\(\)&&dfMay\('packing'\)\)/.test(html));
-  ok('the list promises a fix only to whoever may fix it', /tap one to see its history'\+\(dfOn\(\)&&dfLineFixMay\(kind==='undated'\?'date':'rec'\)\?' and fix it there':''\)/.test(grab('lineFixList')));
+{ ok('Needs you: undated lines only for whoever stamps the date', /if\(ud\.length&&has\('Correct a record'\)&&dfMay\('shipment'\)\)/.test(html));
+  ok('Needs you: packing mismatches only for whoever fixes packing', /if\(reconN&&has\('Reconcile packing'\)&&dfMay\('packing'\)\)/.test(html));
+  ok('the list promises a fix only to whoever may fix it', /tap one to see its history'\+\(dfLineFixMay\(kind==='undated'\?'date':'rec'\)\?' and fix it there':''\)/.test(grab('lineFixList')));
   ok('no live text says only the COO reverses a packing record', !/the COO reverses the record|Ask the COO to reverse it under Correct a record|ask the COO to reverse the packing record under Correct a record/.test(html.replace(/\/\*SYSDOC_DATA_START\*\/[\s\S]*?\/\*SYSDOC_DATA_END\*\//, '')));
   ok('the Guide: the missing date is listed for those who stamp it', /the missing date is listed for the COO, the Plant Manager and Supply Chain, who stamp it\./.test(html));
   const cut = grab('lineFixCut');
   ok('Bring packed back: raising Produced needs dfMay(\'produced\')', /to>was&&to>_prodWas\+0\.5&&!dfMay\('produced'\)\) return toast/.test(cut));
   ok('Bring packed back: a Produced change goes on the register', /_prodChg=\(\+l\.produced\|\|0\)!==_prodWas\?\[\{field:'produced'/.test(cut) && /concat\(_prodChg,_bfix\)/.test(cut)); }
-/* 16. the corrections switch decides the line Fix sheet too (Tahir, 3 Nov: "Yes, follow the switch") */
+/* 16. the corrections switch: 11-03a stopped the line Fix sheet too ("Yes, follow the switch"); 11-03c (Tahir, 3 Nov 18:19:
+   "kEEEP WORKING") — the line Fix sheet keeps working when OFF, by area; the bulk page and Import still stop */
 { const off = mk('COO', true); off.state.dataFixEnabled = false; vm.runInContext(grab('_lfGuard') + '\nvar DF_LINEFIX_WHO="W";', off);
   Object.assign(off, { lfForm: { reason: 'checked on paper' }, _lfCtx: () => ({ o: {}, l: {} }) });
-  eq('switch OFF: even the COO cannot fix a line', off._lfGuard('rec'), null); ok('...and is told the switch is off', off.toasts.some(t => /OFF/.test(t)));
+  ok('switch OFF: the COO can still fix a line (11-03c)', off._lfGuard('rec') !== null); ok('...and is not told the switch is off', !off.toasts.some(t => /OFF/.test(t)));
+  { const pm = mk('Production Manager', true); pm.state.dataFixEnabled = false; vm.runInContext(grab('_lfGuard') + '\nvar DF_LINEFIX_WHO="W";', pm); Object.assign(pm, { lfForm: { reason: 'checked on paper' }, _lfCtx: () => ({ o: {}, l: {} }) });
+    ok('switch OFF: the area still decides (Majid: packing yes, date no)', pm._lfGuard('rec') !== null && pm._lfGuard('date') === null); }
   const on = mk('COO', true, { lfForm: { reason: 'checked on paper' }, _lfCtx: () => ({ o: {}, l: {} }) }); vm.runInContext(grab('_lfGuard') + '\nvar DF_LINEFIX_WHO="W";', on);
   ok('switch ON: the COO can', on._lfGuard('rec') !== null);
   ['dfSubmitProduction', 'dfSubmitPacking', 'dfSubmitVoid', 'dfSubmitShipment', 'dfSubmitPO', 'dfSubmitCorrect'].forEach(fn => ok(fn + ' stops when the switch is OFF', /if\(!dfOn\(\)\)\{ toast\(DF_OFF_MSG\); return; \}/.test(grab(fn).slice(0, 2000))));
   const lo = grab('lineFixOpen');
-  ok('the sheet: Fix only with the switch ON', /_on=dfOn\(\), ed=_on&&dfLineFixCan\(I\)/.test(lo) && /edP=_on&&dfLineFixMay\('rec'\), edD=_on&&dfLineFixMay\('date'\)/.test(lo));
-  ok('History and fix, Reconcile\'s fix and the list subtitle follow the switch', /_I\.length&&dfOn\(\)&&dfLineFixCan\(_I\)/.test(html) && /if\(!dfOn\(\)\|\|!dfLineFixMay\('rec'\)\) return ''/.test(grab('reconFixBtn')) && /dfOn\(\)&&dfLineFixMay\(kind==='undated'/.test(grab('lineFixList'))); }
+  ok('the sheet: Fix by area, not by the switch (11-03c)', /ed=dfLineFixCan\(I\)/.test(lo) && /edP=dfLineFixMay\('rec'\), edD=dfLineFixMay\('date'\)/.test(lo) && !/dfOn\(\)|dataFixEnabled/.test(lo));
+  ok('History and fix, Reconcile\'s fix and the list subtitle do not read the switch (11-03c)', !/_I\.length&&(dfOn\(\)|state\.dataFixEnabled)/.test(html) && !/dfOn\(\)|dataFixEnabled/.test(grab('reconFixBtn') + grab('lineFixList') + grab('_lfGuard'))); }
+  ok('11-03c texts: the Guide, the toggle log line and the changelog', /When the COO switches corrections off, Correct a record stops; an order line\\u2019s Fix keeps working, by the same areas\./.test(html) && !/the order line\\u2019s Fix included/.test(html) && /Corrections switched \$\{state\.dataFixEnabled\?'ON':'OFF'\} by the COO \(the Correct a record page\)/.test(grab('toggleDataFix')) && /\{ver:'2026-11-03c', date:'2026-11-03', title:"An order line's Fix keeps working when corrections are off"/.test(html));
 /* 17. review 5: Needs you, Reconcile, the page messages, Import, the switch on the audit trail; a real OFF run of a writer */
-{ ok('Needs you lists no fix jobs while OFF', /has\('Correct a record'\)&&dfOn\(\)&&dfMay\('shipment'\)/.test(html) && /has\('Reconcile packing'\)&&dfOn\(\)&&dfMay\('packing'\)/.test(html));
-  ok('Reconcile packing says when corrections are off', /\$\{dfOn\(\)\?'':' <b>'\+DF_OFF_MSG\+'<\/b>'\}/.test(html));
+{ ok('Needs you keeps its fix jobs while OFF (11-03c: the line sheet works)', /has\('Correct a record'\)&&dfMay\('shipment'\)\) N\.push/.test(html) && /has\('Reconcile packing'\)&&dfMay\('packing'\)\) N\.push/.test(html));
+  ok('Reconcile packing no longer says it is stopped when corrections are off (11-03c)', /what it finds is fixed from each line\\u2019s sheet\.<\/div>`;/.test(html) && !/\$\{dfOn\(\)\?'':' <b>'\+DF_OFF_MSG\+'<\/b>'\}/.test(html));
   ok('reconFix: the dead old route is gone', /function reconFix\(po,lid\)\{ lfForm=\{\}; lineFixOpen\(po,lid\); \}/.test(html) && !/Turn corrections on first \(Correct a record/.test(html));
   ok('Import opening POs follows the switch', /if\(!dfOn\(\)\)\{ toast\(DF_OFF_MSG\); return; \}/.test(grab('importGoLivePOs')));
   ok('the switch goes on the audit trail', /field:'Corrections switch'/.test(grab('toggleDataFix')));
-  ok('the page OFF messages name the Fix sheet too', /\$\{DF_OFF_MSG\} Nothing can be corrected while it is off/.test(grab('screenDataFix')) && /Corrections are <b>OFF<\/b>: nothing can be corrected/.test(grab('screenDataFix')));
+  ok('the page OFF messages say the line Fix sheet and the Correct button keep working (11-03c)', /\$\{DF_OFF_MSG\} Nothing can be corrected on this page while it is off\. An order line\\u2019s Fix sheet and the Correct button on a record keep working\./.test(grab('screenDataFix')) && /Corrections are <b>OFF<\/b>: nothing can be corrected on this page\. An order line\\u2019s Fix sheet and the Correct button on a record keep working\./.test(grab('screenDataFix')));
   ['dfSubmitPacking', 'dfSubmitPO', 'dfSubmitShipment'].forEach(fn => { const b = mk('COO', true, { dfForm: { reason: 'x' }, dfReasonOk: () => true, state: { role: 'COO', dataFixEnabled: false, orders: [], batches: [], packingLog: [] }, save() { b.saved = 1; } });
     vm.runInContext(grab(fn), b); try { b[fn](); } catch (e) {}
     ok(fn + ' run with the switch OFF: refused with the OFF message, nothing saved', b.toasts[0] === 'OFF' && !b.saved, JSON.stringify(b.toasts)); }); }

@@ -123,4 +123,19 @@ ok('the history lists the packing, the truck and the corrections', (() => { cons
   sb.state.orders.push({ po: 'P-MG2', client: 'X', lines: [{ id: 'LM', brand: 'V-Mg', base: 'Mg', ordered: 10, packed: 10, dispatched: 0, delivered: 0 }] });
   sb.lfForm = {}; sb.lineFixOpen('P-MG2', 'LM', 'rec'); sb.lfForm.shift = 'Morning'; sb.lfForm.incharge = 'Faisal Nadeem'; sb.lfForm.bid = 'BVL'; sb.lfForm.kg = 1; sb.lfForm.take = false; sb.lfForm.reason = 'wrong product'; sb.lineFixRecord();
   ok('a batch of another product is still refused', /this line is Mg/.test(sb.toasts.pop())); }
+/* 11-03c (Tahir, 3 Nov 18:19: "kEEEP WORKING"): with corrections switched OFF the line's Fix still works, by area */
+{ sb.canFix = true; sb.state.dataFixEnabled = false; sb.state.role = 'COO';
+  sb.state.orders.push({ po: 'P-OFF', client: 'Y', lines: [{ id: 'LO', brand: 'V-T', base: 'Mg', ordered: 400, packed: 400, dispatched: 0, delivered: 0 }] });
+  sb.lfForm = {}; sb.lineFixOpen('P-OFF', 'LO', 'cut'); sb.lfForm.reason = 'never packed, typed by mistake'; const n0 = sb.toasts.length; sb.lineFixCut();
+  eq('switch OFF: Bring packed back still works for the COO', L('P-OFF').packed, 0);
+  ok('...and no OFF message', !sb.toasts.slice(n0).some(t => /switched off/.test(t)));
+  sb.state.role = 'Supply Chain'; L('P-OFF').packed = 400; sb.lfForm = {}; sb.lineFixOpen('P-OFF', 'LO', 'cut'); sb.lfForm.reason = 'never packed, typed by mistake'; sb.lineFixCut();
+  eq('switch OFF: the area still decides (Supply Chain cannot bring packed back)', L('P-OFF').packed, 400);
+  { const keep$ = sb.$; sb.$ = () => ({ set innerHTML(v) { sb._h = v; }, get innerHTML() { return sb._h || ''; }, classList: { add() {}, remove() {} } });
+    sb.state.role = 'COO'; L('P-OFF').packed = 400; sb.lfForm = {}; sb.lineFixOpen('P-OFF', 'LO');
+    ok('switch OFF: the sheet still draws Fix it for the COO', /Fix it/.test(sb._h || '') && !/switched off/.test(sb._h || ''));
+    sb.state.role = 'Supply Chain'; sb.lfForm = {}; sb.lineFixOpen('P-OFF', 'LO');
+    ok('...and not for Supply Chain (packing is not its area)', !/Bring packed back|Record the packing/.test(sb._h || ''));
+    sb.$ = keep$; }
+  sb.state.role = 'COO'; sb.state.dataFixEnabled = true; }
 process.exitCode = report('Fix it where it happened (25b)') ? 1 : 0;

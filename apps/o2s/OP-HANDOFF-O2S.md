@@ -7639,3 +7639,53 @@ Still open with Tahir: (1) does the order line Fix sheet count as bulk (stops wh
 - Tests: area1103a widened to the new rule with behaviour checks (COO fixes a line with the switch OFF, no OFF message; Majid packing yes, date no while OFF; the bulk page writers still stop; Needs you keeps its rows; the new OFF messages) 252/0; linefix + 3 (OFF: Bring packed back works for the COO, refused for Supply Chain) 51/0; shell pin 333/0; correct1103b build pin 'or later'. Full suite 131 of 133 files, 15,742 checks; only audit17c and truckback17a (date).
 Review (11-03c): Push. No blocker; the switch is read only by the 6 dfSubmit*, importGoLivePOs and the Back Office tile text; areas unchanged; 26 of 33 deliberate breaks caught. Fixed after it: Guide R-052 'Correct a record stops' (was 'this page'); tests.json area1103a text; the quote spelt as Tahir wrote it ('kEEEP WORKING'); reconFix comment; 'bulk work' (Import sits under Backups and resets); changelog comma; tests widened: area1103a checks dataFixEnabled too and pins the 11-03c texts (253/0), linefix draws the sheet with the switch OFF (Fix it for the COO, not for Supply Chain) (53/0) - both checked to fail when the sheet is hidden by state.dataFixEnabled. D-366 notes that Record the packing against a batch (a back-dated packing record) can still be written from the Fix sheet when OFF, by area. Full suite 131 of 133, 15,745 checks; only audit17c and truckback17a (date). SYSDOC rebuilt.
 Build 2026-11-03c is complete. Not pushed by Claude. Tahir pushes everything git status lists under apps/o2s (o2s.html, tests area1103a, linefix, shell, correct1103b, docs/System Documentation, this file). After the push: live check, read only.
+
+## 3 Nov 2026 (55) - 11-03c pushed by Tahir (commit 01da8a0 'O2S'); live check, read only (MODULE: O2S)
+- Live /o2s serves the pushed file exactly (sha256 3130d5c0ce1a92d4); page reloaded: BUILD_ID and SYSDOC_VER 2026-11-03c; changelog top 2026-11-03c; Guide R-052 new sentence present. Live switch is ON (not touched).
+- Live has no line with a Fix issue today, so on a copy of live state (switch set OFF on the copy; saves stubbed) one line made to differ (23215, packed +500) and one delivered line made undated:
+  - Fix buttons with the switch OFF: COO and Plant Manager packing fixes + Stamp the delivery date; Production Manager packing fixes only; Supply Chain the date only; CFO, KAM, Production, Finance none. Reconcile's fix button: COO, Plant Manager, Production Manager. No 'switched off' message anywhere on the sheet.
+  - Writes with the switch OFF: the Production Manager's Bring packed back took 23215 back to what the records hold (0); Supply Chain stamped the undated line's date (2026-11-02, from its truck); Supply Chain refused on Bring packed back with the area message.
+  - The bulk page with the switch OFF: every role's dfSubmitVoid and dfSubmitShipment refused with the OFF message; the page shows the new OFF text (COO banner and others).
+  - Real state untouched after (33 corrections; 23215 packed as before).
+
+## 3 Nov 2026 (56) - Session close: what is live, and the pending list to solve and correct before any new feature (MODULE: O2S)
+Tahir, 3 Nov 19:31: "write handoff and we will resume the chat with pending list to solve and correct before we built any new features".
+
+Live now: build 2026-11-03c (commit 01da8a0), checked live read only (entries 53 and 55). Builds today: 11-03a (Correct a record by area; Sales & Budget to look at for Finance, Supply Chain, Production Manager; late RM Check and Receive to the Plant Manager), 11-03b (the Correct button by area; Correct on each order sheet product card and Correct the PO; Batch trace run picker; reverse refusals), 11-03c (the order line Fix sheet keeps working when corrections are OFF). Launcher: Supply Chain Correct a record = Edit; Lab Rep, AQCM, QCM sign 'Inspect'; KAM screens done 2 Nov. This file needs pushing (entries 53 to 56).
+
+PENDING - solve and correct before any new feature
+
+A. Ruled by Tahir, not built yet
+1. Base change (ruled 2 Nov, 'All in next build'; due before 20 Nov, COBO-2611-9374): Liquid Bio Stimulant becomes the main base, Amino Acid the 2nd base, for Max Amino, Tornado- and Tornado 500 ML; the 4 open lines move (Max Amino 300 Maxim Old POs, 500 on 22867, 500 on 22868; Tornado- 80 on COBO-2611-9374). This also clears the Tornado- 80 L case (no message to Saad or Majid; 'the build fixes it'). Before the picture, re-read the 2 Nov 'Max Amino Two Bases' page: Rule 1 or Rule 2 for sharing 2 bases, and Himayat on the base name on the COA, may still be open.
+2. The agreed group (2 Nov order: after the 2 bases rule): Production counting both bases; 'Open ...' button names; 'Printed' only on a real print; Brand owner beside the name, Option 2 (only where 2 active products share a name: Tornado- VAN, Tornado 500 ML owner UDPL).
+3. 30g (ruled 2 Nov): products get ids and are merged row by row in a save clash, and the audit rows are fixed the same way (entry of 30 Oct, review finding 3).
+
+B. Data corrections, open
+4. AM26002 (about 627 L packable in O2S, 0 on the floor per Majid): parked by Tahir 2 Nov ('leave it and park this issue for later').
+5. The duplicate 'Vital Agri Centers' customer row with 0.
+
+C. Needs a picture and a ruling
+6. Reopen a closed line: ask for a new committed date at reopen (Tahir's choice in 30d; 30d keeps the old date; its own picture still to draw).
+
+D. Found in the 11-03 reviews, before these builds, not changed (each needs a ruling or a small fix)
+7. Correcting an invoice price does not work out the per-pack invoice price again (invoicePack); the PO confirmation print and 1 report read it.
+8. The CFO (and the COO) can rewrite a PO's Customer as free text on Correct the PO; the customer decides which KAM sees the PO (R-051).
+9. Correct the PO and the line Correct stay open on delivered and closed-short orders (as everywhere). Locking promised and committed dates after delivery would be a new rule.
+10. A PO header is corrected only from Correct the PO (order sheet) or the PO sent back sheet; the PO sent back card goes to whoever entered the PO.
+11. No screen has a Correct button for a shipment (ruled: the Guide says so; add one only if Tahir wants).
+12. With corrections OFF, 'Record the packing against a batch' on a line's Fix sheet still writes a back-dated packing record (follows the 3 Nov ruling; D-366 notes it).
+13. A form already open when corrections are switched OFF can still be saved until the page refreshes (known limit, accepted).
+14. The old 'Every pack run' table (rpTrace) is dead code with a Correct button inside; harmless; remove when convenient.
+15. Finance Desk Officer has no Today jobs; some sign-offs have a single signer (noted 3 Nov).
+16. Open from 2 Nov (entry 39), for Tahir: Vgreen POs belong to no KAM; 2 KAMs sharing the name BKK would both see BKK complaints and samples; the hidden Ctrl+K search would list every PO if ever shown; white-label brand names show in the FOC product list.
+
+E. Tests and records
+17. audit17c and truckback17a fail by today's date (test data dates), not by code.
+18. accessmoved.test.js does not set an exit code.
+19. A guard test for rights or screens added after D-357 (COO tick unlock) is still to write.
+20. System Documentation: TS-01 per-file table lists 125 of 133 files; TS-06 review reports table has no rows after 2026-10-17b (the 11-03 reviews are only in this file); docs/FAULT-REGISTER.md and docs/OPEN-ITEMS.md are stale (this file is the live source).
+
+F. Security (docs/SECURITY-REGISTER.md only; not Tahir's job; never blocks a release)
+21. S-01: /api/state checks sign-in only, not role (KAM 'own clients only' is on screen only). S-06: backup hashes still in git history. S-07: the repo is public.
+
+Decided today, nothing to do: the 13-15 Oct read-and-sign brief stays as signed (D-366).

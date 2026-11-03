@@ -23,14 +23,14 @@ ok('the duplicate-truck cleaner looks only at trucks already counted', /x\.dispC
 ok('Plan the truck starts a staged truck', /stage:\(_ctrlOn\?'truck_planned':''\)/.test(grab('saveDispatch')));
 ok('approveDC refuses a staged truck and one with no passed inspection', /rows\.some\(function\(s\)\{ return s\.stage; \}\)/.test(grab('approveDC')) && /no passed pre-shipment inspection/.test(grab('approveDC')));
 ok('a truck is edited only after it left, never its quantity, and it is recorded', /has not left the gate/.test(grab('saveShipEdit')) && /quantity on a truck is not typed here/.test(grab('saveShipEdit')) && /recordCorrection\('AMEND','shipment'/.test(grab('saveShipEdit')));
-ok('the shipment backfill is the COO’s and capped', /Back-filling a truck is the COO/.test(grab('dfSubmitShipment')) && /_room/.test(grab('dfSubmitShipment')));
+ok('the shipment backfill is by area (11-03a: COO, Plant Manager, Supply Chain) and capped', /if\(!dfMay\('shipment'\)\)/.test(grab('dfSubmitShipment')) && !/Back-filling a truck is the COO/.test(grab('dfSubmitShipment')) && /_room/.test(grab('dfSubmitShipment')));
 ok('a failed inspection subtracts only what was counted and gives the lots back', /if\(l&&s\.dispCounted\)/.test(grab('dispQASubmit')) && /_releaseShip\(o,l,s\.batches/.test(grab('dispQASubmit')));
 ok('approve only when reviewed; review only when analysed', /h\.coa\.status!=='reviewed'/.test(grab('coaApprove')) && /h\.coa\.status!=='analysed'/.test(grab('coaReview')));
 ok('divert uses its own form', !/divertForm/.test(grab('submitDivert')));
 ok('REG is declared', /\nvar REG=\{\};/.test(html));
 ok('one groupOf (product group); the nav one is navGroupOf', (html.match(/function groupOf\(/g) || []).length === 1 && /function navGroupOf\(/.test(html));
 ok('POs with prices print for money roles only', /The PO carries prices/.test(grab('printPO')));
-ok('Sales & Budget is for money roles only', /function screenBudget\(\)\{ (if\(kamOn\(\)[^\n]*\n  )?if\(typeof mayMoney==='function'&&!mayMoney\(\)\)/.test(html));
+ok('Sales & Budget is for money roles only', /function screenBudget\(\)\{ (if\(kamOn\(\)[^\n]*\n  )?if\(typeof mayMoney==='function'&&!mayMoney\(\)(&&BUDGET_VIEW_ROLES\.indexOf\(state\.role\)<0)?\)/.test(html));   /* 11-03a: 3 roles may look (D-363) */
 ok('dealers not pending or inactive are offered on New order', /st!=='Pending approval'&&!\/inactive\|deactivat\|reject\|blocked\/i\.test\(st\)/.test(grab('clientsForChannel')));
 ok('What to make escapes the typed text', /<div class="wtm-t1">'\+qsEsc\(x\.brand\)/.test(html) && /<b>'\+qsEsc\(x\.po\)\+'<\/b>/.test(html));
 ok('the order sheet no longer sends anyone to All actions', /const BUCKET_SCREEN=\{'PO Created':'today','RM Check':'today'/.test(html));

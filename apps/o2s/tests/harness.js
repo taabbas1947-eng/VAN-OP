@@ -6,7 +6,8 @@ const path = require('path');
 
 /* Resolved from this file, so the suite runs from anywhere. Layout: apps/o2s/tests/ */
 const APP   = path.join(__dirname, '..', 'o2s.html');
-const STATE = path.join(__dirname, '..', '..', '..', 'data', 'state.json');
+const STATE_RAW = path.join(__dirname, '..', '..', '..', 'data', 'state.json');
+let STATE = STATE_RAW;   /* 3 Nov 2026: replaced below by a copy that has the COO's ticks, as live has them (D-357) */
 
 const html = fs.readFileSync(APP, 'utf8');
 
@@ -171,12 +172,36 @@ function bagSrc() {
 /* 29a (D-358): the sign-off table and maySign, for any suite that runs a gate that saves a signature (coaReview,
    approveRelease, reviewTruck, lotQASubmit, ...). Those gates now ask maySign. TRUCK_REVIEW_ROLES is given only when
    the suite has not set its own; the gates' other helpers (hardRole, canEdit, labCovers) stay the suite's to load. */
+/* 2026-11-03a: Correct a record by area (DF_AREAS and its helpers), for any suite that runs a Correct a record writer */
+/* 11-03b: CORRECT_ENTITY's role lists are the DF_AREAS arrays, so a sandbox that runs the registry needs DF_AREAS first. */
+function correctEntitySrc() { return grabTopVar('DF_AREAS', '{') + '\n' + grabObj('CORRECT_ENTITY'); }
+function dfSrc() { return grabTopVar('DF_AREAS', '{') + '\n' + ['dfMay', 'dfMayOp', 'dfAnyArea', 'dfWho', 'dfLineFixMay', 'dfLineFixCan', 'dfOn'].map(grab).join('\n') + "\nvar DF_OFF_MSG='Corrections are switched off. The COO turns them on under Correct a record, Corrections switch.';\nvar DF_LINEFIX_WHO='The COO, the Plant Manager or the Production Manager fixes the packing on a line; the COO, the Plant Manager or Supply Chain stamps its delivery date.';\n"; }
 function signoffSrc() {
   const pickBlock = (start, end) => { const a = html.indexOf(start); if (a < 0) throw new Error('not found: ' + start); return html.slice(a, html.indexOf(end, a) + end.length); };
   return "if(typeof TRUCK_REVIEW_ROLES==='undefined'){ " + pickBlock('var TRUCK_REVIEW_ROLES=', ';') + " }\n"
     + pickBlock('var SIGNOFF_RULES={', '\n};') + '\n' + grab('signoffRoles') + '\n' + grab('maySign'); }
+/* 3 Nov 2026 (D-357): the test data, data/state.json, is a copy of live from 16 Jul. Since 29 Oct the COO holds
+   his rights and screens as ticks like every other role, and live O2S wrote those ticks once, on its first start
+   (cooUnlockV1 in o2s.html, and the same step in o2s-rolesvc.js). The old copy never had that start, so every suite
+   that acts as the COO on it was refused (7 files failed after 11-02a). Here the app's own cooUnlockV1 is run on a
+   copy of the test data, written to a temporary file for this run only; data/state.json itself is not changed. */
+STATE = (function liveLikeState() {
+  if (!fs.existsSync(STATE_RAW)) return STATE_RAW;   /* review 3 Nov: a fresh clone has no data/state.json; leave it to the suites that need it */
+  const raw = JSON.parse(fs.readFileSync(STATE_RAW, 'utf8'));
+  if (!raw || !raw.data || !raw.data.masters || raw.data.masters._cooUnlockV1) return STATE_RAW;
+  const a = html.search(/const SCREENS\s*=\s*\[/);
+  if (a < 0) throw new Error('harness: SCREENS not found in o2s.html');
+  const ctx = vm.createContext({ Date, JSON });
+  vm.runInContext(grabTopVar('RIGHTS', '[') + '\nvar SCREENS=' + matchBlock(html.indexOf('[', a), 'SCREENS', '[') + ';\n' + grab('cooUnlockV1'), ctx);
+  ctx.__s = raw.data; vm.runInContext('cooUnlockV1(__s);', ctx);
+  if (!raw.data.masters._cooUnlockV1) throw new Error('harness: cooUnlockV1 did not run on the test data');
+  const out = path.join(require('os').tmpdir(), 'o2s-test-state-' + process.pid + '-' + Math.random().toString(36).slice(2, 8) + '.json');
+  fs.writeFileSync(out + '.part', JSON.stringify(raw)); fs.renameSync(out + '.part', out);   /* written whole, then named */
+  process.on('exit', () => { try { fs.unlinkSync(out); } catch (e) {} });
+  return out;
+})();
 module.exports = { bagSrc, BAG_FNS, sandbox, ok, eq, report, grab, grabObj, grabTopVar, matchBlock,
-                   authModelSrc, AUTH_MODEL_FNS, APP, STATE, html, signoffSrc };
+                   authModelSrc, AUTH_MODEL_FNS, APP, STATE, STATE_RAW, html, signoffSrc, dfSrc, correctEntitySrc };
 function report(label) {
   console.log('\n' + label + ': ' + pass + ' passed, ' + fail + ' failed');
   fails.forEach(f => console.log('  FAIL  ' + f));

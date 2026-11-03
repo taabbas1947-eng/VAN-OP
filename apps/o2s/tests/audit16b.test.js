@@ -222,8 +222,8 @@ ok('13j My job note for 16b', /New on 16 Oct \(16b\)/.test(html));
 
 
 /* ---------- 14. review fixes (16 Oct): Correct the month from Batch trace, papers, made-on, picker ---------- */
-{ const SRCC = H.bagSrc() + '\n' + [H.grabObj('CORRECT_REASONS'), H.grabObj('CORRECT_ENTITY')].join('\n') + '\n'
-    + ['correctTarget', 'openCorrect', 'renderCorrect', 'correctSetOp', 'applyCorrect', 'correctAllowed', 'correctFieldOK', 'correctAnyField', 'correctCanAmend', 'lotBaseNo', 'lotBrandNo', '_pe', 'bpEsc', 'btMonthMay', 'btMonthPicker'].map(H.grab).join('\n') + '\nvar correctForm=null; var BT_MONTH_FIELDS=[\'bagMfg\',\'printedMfg\'];';
+{ const SRCC = H.bagSrc() + '\n' + [H.grabObj('CORRECT_REASONS'), H.correctEntitySrc()].join('\n') + '\n'
+    + ['correctTarget', 'correctLabelLc', 'openCorrect', 'renderCorrect', 'correctSetOp', 'applyCorrect', 'correctAllowed', 'correctFieldOK', 'correctAnyField', 'correctCanAmend', 'lotBaseNo', 'lotBrandNo', '_pe', 'bpEsc', 'btMonthMay', 'btMonthPicker'].map(H.grab).join('\n') + '\nvar correctForm=null; var BT_MONTH_FIELDS=[\'bagMfg\',\'printedMfg\'];';
   const mk = (role) => { const log = { toasts: [], reg: [], html: '' };
     const modal = { className: '', classList: { add() {}, remove() {} }, set innerHTML(v) { log.html = v; }, get innerHTML() { return log.html; } };
     const st = { role, currentUser: { name: 'Ali', username: 'ali' }, packingLog: [
@@ -234,7 +234,8 @@ ok('13j My job note for 16b', /New on 16 Oct \(16b\)/.test(html));
       _av: x => String(x), _tx: x => String(x), qsEsc: x => String(x), evToday: () => '2026-10-16', hardRole: r => r.indexOf(st.role) >= 0 || st.role === 'COO',
       recordCorrection: (...a) => log.reg.push(a), document: { getElementById: () => null }, $: id => id === 'modal' ? modal : { classList: { add() {}, remove() {} } } };
     b.globalThis = b; vm.createContext(b); vm.runInContext(SRCC, b); return b; };
-  let b = mk('Production');
+  /* 11-03b (Tahir, 3 Nov): Correct the month follows the packing area (COO, Plant Manager, Production Manager); Production no longer */
+  let b = mk('Production Manager');
   const G = { lots: [{ id: 'PK1' }, { id: 'PK3' }] };
   const pk = b.btMonthPicker(G);
   ok('14a Batch trace: 1 picker under the table, Correct the month', /Correct the month/.test(pk) && (pk.match(/<button/g) || []).length === 1 && /BT_MONTH_FIELDS/.test(pk));
@@ -258,7 +259,9 @@ ok('13j My job note for 16b', /New on 16 Oct \(16b\)/.test(html));
   ok('14j QA cannot correct the month', !b.correctForm && b.log.toasts.length === 1);
   eq('14k no picker for QA', b.btMonthPicker(G), '');
   b = mk('Plant Manager'); b.openCorrect('packingLot', 'PK1', ['bagMfg', 'printedMfg']);
-  ok('14u the Plant Manager gets no empty sheet and no picker', !b.correctForm && b.btMonthPicker(G) === '');
+  ok('14u the Plant Manager (packing area, 11-03b) gets the month sheet and the picker', !!b.correctForm && /Correct the month/.test(b.btMonthPicker(G)));
+  b = mk('Production'); b.openCorrect('packingLot', 'PK1', ['bagMfg', 'printedMfg']);
+  ok('14v Production (11-03b) gets no sheet and no picker', !b.correctForm && b.btMonthPicker(G) === '' && b.log.toasts.length === 1);
 }
 { /* the pre-shipment report: 1 line per batch number AND bag month; older runs print as before */
   const s = ['psiLinesFor', 'lotBaseNo', 'lotBrandNo'].map(H.grab).join('\n') + '\n' + H.bagSrc();

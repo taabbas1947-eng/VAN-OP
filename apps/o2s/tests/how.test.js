@@ -30,7 +30,7 @@ const Q = sb.howQuality();
 eq('first-time pass: copies of a tested lot are not counted; a rejected one is not first-time', Q.f.first + '/' + Q.f.n, '1/2');
 eq('unfit now', Q.failedNow, 1); eq('trucks failed inspection this month', Q.ins.m.fail + '/' + Q.ins.m.n, '1/1');
 ok('the old Dashboard is How are we doing', /function screenDash\(\)\{ screenHow\(\); \}/.test(html));
-ok('Sales & Budget is its own page now, for money roles only (25k, 25m)', /function screenBudget\(\)\{ (if\(kamOn\(\)[^\n]*\n  )?if\(typeof mayMoney==='function'&&!mayMoney\(\)\)/.test(html) && /\$\('view'\)\.innerHTML=budgetHtml\(\); \}/.test(html));
+ok('Sales & Budget is its own page now, for money roles only (25k, 25m)', /function screenBudget\(\)\{ (if\(kamOn\(\)[^\n]*\n  )?if\(typeof mayMoney==='function'&&!mayMoney\(\)(&&BUDGET_VIEW_ROLES\.indexOf\(state\.role\)<0)?\)/.test(html) && /\$\('view'\)\.innerHTML=budgetHtml\(\); \}/.test(html));
 ok('the screen owners are the 3 leaders', /\{id:'dash', name:'How are we doing'[^}]*owners:\['Plant Manager','CFO','COO','Production Manager','Supply Chain'\]/.test(html));
 ok('anyone else is told where their work is', /This page is for the COO, the CFO, the Plant Manager, the Production Manager and Supply Chain/.test(grab('screenHow')));
 ok('each block opens the detail behind it', ["setScreen('budget')", "rpOpen('late')", "setScreen('plant')", "rpOpen('coa')"].every(x => grab('screenHow').indexOf(x) > -1));

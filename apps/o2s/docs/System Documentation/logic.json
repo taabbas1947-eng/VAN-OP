@@ -2630,7 +2630,7 @@
      }
     },
     {
-     "p": "Counted across all POs: same product, same batch number on the bag, runs not reversed or voided and above 0 Kg/L. A run packed from 16b counts with its bag month; an older run counts with the month of its printed mfg date, but only when the number also has a 16b run (D-291). Numbers with older runs only stay in the Anomalies report. A note covers the months it names: a run cancelled later leaves it covered, a new month asks again. Only the Production Manager may confirm; Production corrects a wrong month from Batch trace (D-292). The Anomalies report shows such a number once, as Packed in 2 months, not also as the older mixed-date fault."
+     "p": "Counted across all POs: same product, same batch number on the bag, runs not reversed or voided and above 0 Kg/L. A run packed from 16b counts with its bag month; an older run counts with the month of its printed mfg date, but only when the number also has a 16b run (D-291). Numbers with older runs only stay in the Anomalies report. A note covers the months it names: a run cancelled later leaves it covered, a new month asks again. Only the Production Manager may confirm; the COO, the Plant Manager or the Production Manager corrects a wrong month from Batch trace (D-292; Production until 11-03b). The Anomalies report shows such a number once, as Packed in 2 months, not also as the older mixed-date fault."
     }
    ]
   },

@@ -14,7 +14,7 @@ const ok = (n, c, x) => c ? pass++ : (fail++, fails.push(n + (x ? '  [' + x + ']
 const eq = (n, g, w) => ok(n, g === w, 'got ' + JSON.stringify(g) + ' want ' + JSON.stringify(w));
 
 const SRC = [
-  H.grabObj('CORRECT_REASONS'), H.grabObj('CORRECT_ENTITY'),
+  H.grabObj('CORRECT_REASONS'), H.correctEntitySrc(),
   H.grab('settledBatches'), H.grab('batchRemainderKg'),
   H.grab('openSettledClose'), H.grab('settledPick'), H.grab('settledPickAll'),
   H.grab('renderSettledClose'), H.grab('closeSettledBatches'),
@@ -26,7 +26,7 @@ const SRC = [
   H.grab('logAction'), H.grab('accessLevelOn'), H.grab('accessLevel'), H.grab('scr'),
   /* the closed-batches row carries a Correct button since 25 Aug */
   H.grab('_pcCorrectBtn'), H.grab('correctAllowed'), H.grab('correctFieldOK'),
-  H.grab('correctAnyField'), H.grab('correctCanAmend'), H.grabObj('CORRECT_ENTITY'),
+  H.grab('correctAnyField'), H.grab('correctCanAmend'), H.correctEntitySrc(),
 ].join('\n')
   /* The bulk-close gates ask may('batch.close_bulk') since 25 Aug. The whole
      rights model comes in so the gate is the REAL one — stubbing may() to true
@@ -452,8 +452,8 @@ ok('...on the empty branch too', (html.match(/\+closedBatchesCard\(\)/g) || []).
      /hardRole\(\['Plant Manager'\]\)/.test(H.grab('doReopenBatch')));
   ok('and the registry grants the generic REVERSE to nobody, because it would do nothing',
      /reverse:\[\]/.test(seg), seg.slice(0, 200));
-  ok('...while AMEND on a batch is still somebody\'s',
-     /amend:\['Production','COO'\]/.test(seg));
+  ok('...while AMEND on a batch is still somebody\'s (11-03b: the production area)',
+     /amend:DF_AREAS\.production/.test(seg));
 }
 
 /* ---- the stale variance notice is cleared ---- */

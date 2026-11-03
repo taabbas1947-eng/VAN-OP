@@ -60,7 +60,8 @@ const SIGNOFF_JOBS = {
 };
 /* Escalations: job name -> the only role it may escalate to (acEscalation in o2s.html). Lab test escalates to the QCM by the clock. */
 const ESC_TO = {
-  'Acknowledge': 'Plant Manager', 'RM Check': 'CFO', 'Receive': 'CFO', 'Lab QC': 'Plant Manager', 'Correct COA': 'QCM',
+  'Acknowledge': 'Plant Manager', 'RM Check': 'Plant Manager', 'Receive': 'Plant Manager',   /* 2026-11-03a (D-364): as acEscalation in o2s.html */
+  'Lab QC': 'Plant Manager', 'Correct COA': 'QCM',
   'Assign sample': 'Plant Manager', 'Review': 'Plant Manager', 'Approve': 'Plant Manager', 'Pack QC': 'Plant Manager',
   'Inspect': 'Plant Manager', 'Ship': 'Supply Chain', 'Open Production': 'Plant Manager', 'Approve PR': 'COO',
   'Print price': 'COO', 'Load': 'Supply Chain', 'Gate Pass': 'Supply Chain', 'Review truck': 'Plant Manager', 'Release': 'COO',

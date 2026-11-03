@@ -15,7 +15,7 @@
     "R-011",
     "R-008"
    ],
-   "status": "not confirmed",
+   "status": "confirmed",
    "src": [
     "fn submitPO",
     "fn clientsForChannel",
@@ -34,8 +34,9 @@
     "tests/neworder.test.js",
     "tests/poentry.test.js",
     "OP-HANDOFF-O2S.md 26 Sep (26a, Acknowledge opens the PO)",
-    "o2s.html CORRECT_ENTITY.orderLine (fields ordered, committed, printPrice, invoicePrice; amend KAM, COO)",
-    "fn openPoReturn (correctCanAmend('order'); \"What did you fix? (optional)\")"
+    "o2s.html CORRECT_ENTITY.orderLine (fields ordered (locked since 11-03b), committed, printPrice, invoicePrice; amend COO, CFO since 11-03b; reverse nobody: the COO closes a line short)",
+    "fn openPoReturn (correctCanAmend('order'); \"What did you fix? (optional)\")",
+    "Tahir, 3 Nov 2026, picture page 'Correct Button by Area': lock Ordered on the Correct button, 'yes' (D-365)"
    ],
    "blocks": [
     {
@@ -96,7 +97,7 @@
        },
        {
         "role": "Finance",
-        "text": "Open PO sent back, correct the order, then press Fixed, send to Supply Chain (a note of what was fixed is optional). Changing the order itself needs Correct, which is the KAM's or the COO's (the invoice price the CFO's or the COO's); Finance asks them. The Acknowledge job comes back to Supply Chain saying who fixed it.",
+        "text": "Open PO sent back, correct the order, then press Fixed, send to Supply Chain (a note of what was fixed is optional). Changing the order itself needs Correct, which is the COO's or the CFO's since 11-03b; Finance asks them. A wrong quantity is not corrected: less is a close short, more a new order (the sheet says so). The Acknowledge job comes back to Supply Chain saying who fixed it.",
         "kind": "task"
        },
        {
@@ -135,10 +136,9 @@
      }
     },
     {
-     "note": "Who may enter a PO is the right order.create; the New order screen belongs to Finance, the CFO and the COO. The Guide (R-008) says the ordered quantity can never be typed later: less is a close short, more is a new order. Correct a record locks it (Ordered · locked), but the Correct button on an order line on Orders (CORRECT_ENTITY orderLine, amend KAM or COO) still offers Ordered (Kg/L) as a field, with a reason, logged in the corrections register."
+     "note": "Who may enter a PO is the right order.create; the New order screen belongs to Finance, the CFO and the COO. The Guide (R-008) says the ordered quantity can never be typed later: less is a close short, more is a new order. Correct a record locks it (Ordered · locked), and since 11-03b the Correct button on an order line locks it too (CORRECT_ENTITY orderLine, Ordered lockedIf; amend COO, CFO; reverse nobody; Correct on each product card of the order sheet since 11-03b). Settled (Tahir, 3 Nov: lock it, D-365)."
     }
-   ],
-   "ask": "The Guide says the ordered quantity can never be typed, but the Correct button on an order line still lets the KAM or the COO change Ordered (with a reason, in the corrections register). Which is right? a) the Guide: lock Ordered on that button too b) the code: the KAM and the COO may correct it with a reason c) not sure, show me the screen"
+   ]
   },
   {
    "id": "PF-02",
@@ -364,7 +364,7 @@
        },
        {
         "role": "COO",
-        "text": "Approve PR waiting 1 day reaches the COO. RM Check or Receive waiting 1 day reaches the CFO.",
+        "text": "Approve PR waiting 1 day reaches the COO. RM Check or Receive waiting 1 day reaches the Plant Manager (since 3 Nov 2026, D-364; before, the CFO).",
         "kind": "task"
        },
        {
@@ -955,7 +955,7 @@
      "note": "A Pack job not done in 1 day reaches the Production Manager. Shelf life above 24 months is allowed only for the Production role."
     },
     {
-     "note": "The Guide says the COO reverses a wrong packing record; the code (CORRECT_ENTITY packingLot) lets Production and the Plant Manager reverse too. See PF-18."
+     "note": "A wrong packing record is reversed by its Correct button (Reports, Batch trace: pick the run, Correct; CORRECT_ENTITY packingLot: COO, Plant Manager, Production Manager since 11-03b, the packing area; works with the switch OFF; not once QA has cleared it, while a truck has it or it is on QA hold: withdraw the inspection or settle the hold first; only a truck that took this run blocks it, Tahir 3 Nov; nor when it would leave the line's packed below what has left the gate) or voided under Correct a record (COO, Plant Manager, Production Manager, since 3 Nov 2026); the Guide names both. See PF-18."
     }
    ]
   },
@@ -1052,7 +1052,7 @@
      "note": "An older lot QA result (packingLog qa.fail) still raises a Correct job for Supply Chain (lotQACorrect). From 16b the packed lot and truck QA sheets refuse a person who keyed a packing run on the sheet (inspectorGate)."
     },
     {
-     "note": "A wrong month on a run QA already cleared: QA withdraws the inspection with a reason (Correct a record), Production corrects the month, QA inspects again (D-289)."
+     "note": "A wrong month on a run QA already cleared: QA withdraws the inspection with a reason (Correct a record), the packing area corrects the month (the COO, the Plant Manager or the Production Manager since 11-03b), QA inspects again (D-289)."
     }
    ]
   },
@@ -1919,7 +1919,7 @@
     "R-001",
     "R-004"
    ],
-   "status": "not confirmed",
+   "status": "confirmed",
    "src": [
     "fn recordCorrection",
     "CORRECT_ENTITY (amend, reverse, supersede roles)",
@@ -1945,9 +1945,9 @@
     "tests/linefix.test.js",
     "tests/recon.test.js",
     "tests/certremove.test.js",
-    "OP-HANDOFF-O2S.md 10 Oct batch number correction"
+    "OP-HANDOFF-O2S.md 10 Oct batch number correction",
+    "Tahir, 3 Nov 2026, picture page 'Correct Button by Area': all 5 points ruled; the reversal question here is answered: the packing area (D-365)"
    ],
-   "ask": "Who may reverse a wrong packing record (wrong shift, in-charge or Kg)? a) the COO only, as the Guide says b) Production, the Plant Manager or the COO, as the code allows c) not sure",
    "blocks": [
     {
      "lanes": {
@@ -1972,8 +1972,8 @@
         "rule": "R-009"
        },
        {
-        "role": "Production",
-        "text": "Amend or reverse with a reason code and a sentence (10 characters or more), in your name. Who may: packing run amend Production or COO, reverse Production, Plant Manager or COO; order and order line amend KAM or COO (priced fields CFO or COO); shipment Supply Chain or COO; batch amend Production or COO; COA supersede QCM or COO; inspection supersede QA Inspector, Plant Manager or COO.",
+        "role": "Production Manager",
+        "text": "Amend or reverse with a reason code and a sentence (10 characters or more), in your name. Who may (since 11-03b, by area): packing run amend and reverse COO, Plant Manager or Production Manager; order and order line amend COO or CFO, reverse nobody: the COO ends one by closing it short (Ordered locked; invoice price CFO or COO); shipment amend and reverse COO, Plant Manager or Supply Chain; batch amend COO, Plant Manager or Production Manager, reverse nobody; batch #, mfg and expiry, planned and produced Plant Manager or COO only; COA supersede QCM or COO; inspection supersede QA Inspector, Plant Manager or COO. The corrections switch does not stop this button. Where it is: a PO line on Orders, the order sheet (Correct on each product card); a PO from Correct the PO at the foot of the order sheet, or the PO sent back sheet; a packing run in Reports, Batch trace (pick the run under the table, Correct); a batch on Production (Correct on the batch, and the Closed batches card); a shipment has none yet.",
         "kind": "task",
         "rule": "R-008"
        },
@@ -2012,10 +2012,10 @@
      "note": "A packing run already inspected cannot be voided until the inspection is withdrawn; a run that was moved to another PO cannot be corrected on its own. Packed, dispatched and delivered can never be typed (R-009)."
     },
     {
-     "note": "The Guide (Why packing asks for the shift, the in-charge and the packs) says the COO reverses a wrong packing record; CORRECT_ENTITY.packingLot.reverse is Production, Plant Manager and COO. One of the two is wrong."
+     "note": "The Guide (Why packing asks for the shift, the in-charge and the packs) names both routes since 11-03a: the record's Correct button and Void an entry under Correct a record; since 11-03b both are the packing area (COO, Plant Manager, Production Manager). Settled."
     },
     {
-     "note": "16b: a wrong month on the bag is corrected from Batch trace (the picker under the packing runs, Correct the month): the 2 month fields only, by Production or the COO; once QA has cleared the run, QA withdraws the inspection first; a run already on a truck cannot be corrected (D-289, D-292)."
+     "note": "16b: a wrong month on the bag is corrected from Batch trace (the picker under the packing runs, Correct the month): the 2 month fields only, by the COO, the Plant Manager or the Production Manager (Production until 11-03b); once QA has cleared the run, QA withdraws the inspection first; a run already on a truck cannot be corrected (D-289, D-292)."
     }
    ]
   },

@@ -5,10 +5,10 @@ const vm = require('vm');
 const { ok, eq, report, grab, html } = H;
 
 const modal = { innerHTML: '', classList: { add() {}, remove() {} } };
-const sb = { console, hardRole: r => sb.state.role === 'COO' || r.includes(sb.state.role), $: id => id === 'modal' ? modal : { classList: { add() {}, remove() {} } }, fmt: x => String(Math.round(x)).replace(/\B(?=(\d{3})+(?!\d))/g, ','), qsEsc: x => String(x == null ? '' : x), correctCanAmend: () => false, CORRECT_ENTITY: {}, correctFieldOK: () => false, BT_MONTH_FIELDS: ['bagMfg', 'printedMfg'],
+const sb = { console, hardRole: r => sb.state.role === 'COO' || r.includes(sb.state.role), $: id => id === 'modal' ? modal : { classList: { add() {}, remove() {} } }, fmt: x => String(Math.round(x)).replace(/\B(?=(\d{3})+(?!\d))/g, ','), qsEsc: x => String(x == null ? '' : x), correctCanAmend: () => false, correctAllowed: () => false, CORRECT_ENTITY: {}, correctFieldOK: () => false, BT_MONTH_FIELDS: ['bagMfg', 'printedMfg'],
   state: {} };
 vm.createContext(sb);
-vm.runInContext(['lotBaseNo', 'lotBrandNo', 'btBatches', 'batchTrace', 'btShow', 'btSheet', 'btOpenPack', 'btMonthMay', 'btMonthPicker', 'bfxCell', 'bfxPicker', 'bfxMayRequest', 'bfxPending', 'bfxFor', 'bpEsc', '_av', 'btOpenTruck', 'batchTraceHTML', 'rpBatchTraceHTML'].map(grab).join('\n') + '\nvar rpBt="";\n' + H.bagSrc(), sb);
+vm.runInContext(['lotBaseNo', 'lotBrandNo', 'btBatches', 'batchTrace', 'btShow', 'btSheet', 'btOpenPack', 'btMonthMay', 'btMonthPicker', 'btRunMay', 'btRunPicker', 'bfxCell', 'bfxPicker', 'bfxMayRequest', 'bfxPending', 'bfxFor', 'bpEsc', '_av', 'btOpenTruck', 'batchTraceHTML', 'rpBatchTraceHTML'].map(grab).join('\n') + '\nvar rpBt="";\n' + H.bagSrc(), sb);
 
 /* HG26036: 40,000 planned, produced, packed into 3 brand batches on 2 POs, 1,000 reconciled as loss, 500 as by-product, closed */
 sb.state = {
@@ -128,4 +128,4 @@ ok('opens without the report builder, and renders its own view', /c\.kind==='cus
   t = mk({ producedKg: 60, packedKg: 60 }, [lot('A', 60, 0)]);
   o = sb.batchTraceHTML(t); ok('open and fully packed: the green produced = packed line, no "still open" note', /Produced 60 = packed 60/.test(o) && !/still open/.test(o) && !/Still to be packed/.test(o));
 }
-report();
+if (report("batchtrace: Batch trace, packing runs and trucks")) process.exitCode = 1;

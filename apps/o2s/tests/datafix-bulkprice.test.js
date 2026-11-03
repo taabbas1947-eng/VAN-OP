@@ -42,8 +42,8 @@ const SCREENS_SRC = (function () {
   GATED.forEach(fn => {
     let body = '';
     try { body = H.grab(fn); } catch (e) { /* reported by the check */ }
-    ok('GUARD: ' + fn + ' asks screenEditOK(\'datafix\')',
-       !!body && /screenEditOK\('datafix'\)/.test(body),
+    ok('GUARD: ' + fn + ' asks screenEditOK(\'datafix\') (since 11-03a through dfMay / dfMayOp, which ask it)',
+       !!body && /screenEditOK\('datafix'\)|if\(!dfMay\('|if\(!dfMayOp\('/.test(body),
        body ? 'gate not found in ' + fn : fn + ' not found at all');
   });
   /* And the console controls keep theirs. */
@@ -54,11 +54,11 @@ const SCREENS_SRC = (function () {
   });
 
   const src = ['accessOv', '_ownerEdit', 'accessLevelOn', 'accessLevel', 'screenEditOK', 'dfSubmitCorrect']
-                .map(H.grab).join('\n\n') + '\n' + SCREENS_SRC;
+                .map(H.grab).join('\n\n') + '\n' + SCREENS_SRC + '\n' + H.dfSrc();
   function box(role, tweak) {
     const b = {
       console, Date, JSON,
-      state: { role, masters: JSON.parse(JSON.stringify(STATE.masters)),
+      state: { role, dataFixEnabled: true, masters: JSON.parse(JSON.stringify(STATE.masters)),
                orders: [{ id: 'O1', po: 'P1', lines: [{ id: 'L1', brand: 'X' }] }] },
       dfForm: { oid: 'O1', reason: 'R' },
       scr: id => b.SCREENS.find(s => s.id === id),
@@ -98,11 +98,16 @@ const SCREENS_SRC = (function () {
     const grant = ((STATE.masters.accessMatrix || {})['Production'] || {}).datafix;
     ok('the live matrix really does grant Production Data Fix edit',
        !!(grant && grant.e === true), JSON.stringify(grant));
+    /* 3 Nov 2026 (11-03a, D-362): Correct values is the COO's and CFO's (Produced also the Plant Manager's and the
+       Production Manager's). Production holds the grant in this test data but is in no area, so it is refused by area. */
     const b = box('Production');
-    b.dfSubmitCorrect();
-    eq('Production HAS the grant, so the write lands', wrote(b), 'no');
-
-    const b2 = box('Production', m => { m['Production'].datafix = { v: true, e: false }; });
+    try { b.dfSubmitCorrect(); } catch (e) {}
+    eq('Production holds the grant but is in no area: refused (11-03a)', wrote(b), undefined);
+    ok('...and is told whose part it is', b.toasts.some(t => /Correct values is for the COO and CFO/.test(t)), JSON.stringify(b.toasts));
+    /* the matrix is still read: the COO with his grant writes; take it away and the same role is refused */
+    const c1 = box('COO'); c1.dfSubmitCorrect();
+    eq('the COO holds the grant, so the write lands', wrote(c1), 'no');
+    const b2 = box('COO', m => { m['COO'].datafix = { v: true, e: false }; });
     try { b2.dfSubmitCorrect(); } catch (e) {}
     eq('take the grant away and the SAME role is refused', wrote(b2), undefined);
   }
@@ -121,7 +126,7 @@ const SCREENS_SRC = (function () {
     const b = {
       console, Date, JSON,
       /* D-357: the COO holds its screens as ticks (cooUnlockV1 gives Edit on every screen), so the fixture carries them */
-      state: { role: 'COO', currentUser: { name: 'tahir' }, orders: opts.orders,
+      state: { role: 'COO', dataFixEnabled: true, currentUser: { name: 'tahir' }, orders: opts.orders,
                masters: { accessMatrix: { COO: { entry: { v: true, e: true } } }, roles: [{ name: 'KAM' }, { name: 'COO' }] } },
       bulkPD: opts.pick, asked: [], toasts: [],
       confirm: m => { b.asked.push(m); return opts.answer; },

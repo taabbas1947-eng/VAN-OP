@@ -713,10 +713,11 @@
     "R-024",
     "R-025"
    ],
-   "status": "not confirmed",
+   "status": "confirmed",
    "src": [
     "o2s.html fn submitPO (lines map), rmSubmit, rmReceiveSubmit, healPRFlags, submitDelayReason, requestShortClose, approveShortClose, rejectShortClose, submitClosePO, reopenShortClose, scArchive, scFreeze, rmPRArchive, _wcMark, savePackInspect, lotQASubmit, approveRelease, confirmDelivery, saveReconcile, lineStage",
-    "data/state.json orders[].lines[]"
+    "data/state.json orders[].lines[]",
+    "Tahir, 3 Nov 2026, picture page 'Correct Button by Area': lock Ordered, 'yes' (D-365)"
    ],
    "id": "SC-04",
    "title": "orders[].lines[]: 1 product on 1 PO",
@@ -944,13 +945,12 @@
      }
     },
     {
-     "note": "The ordered quantity: the Guide (R-008) and the line fix screen say it is never rewritten, but CORRECT_ENTITY.orderLine still lists ordered as a field that KAM and COO may amend. Not confirmed which one stands."
+     "note": "The ordered quantity is never rewritten: Correct a record locks it (25 Sep) and, since 11-03b, so does the PO line's Correct button (CORRECT_ENTITY.orderLine ordered lockedIf). Tahir, 3 Nov: lock it (D-365). Settled."
     },
     {
      "note": "Corrected 16 Oct 2026 (independent check against the code): the hyphen was taken out of the phrase raw material check. This tab is copied into o2s.html, and poentry.test.js fails when the hyphenated phrase (the old card name) appears anywhere in the file."
     }
-   ],
-   "ask": "Can the ordered quantity of a line be changed under Correct a record? A) No, never (remove it from the correction fields) B) Yes, by the KAM or COO with a reason C) Only by the COO"
+   ]
   },
   {
    "owner": "Supply Chain asks; Plant Manager or COO approves",

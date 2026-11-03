@@ -332,7 +332,7 @@
         "datafix",
         "COO, Production, Production Manager",
         "CFO and Plant Manager edit; others none",
-        "The screen itself opens for the COO only (screenDataFix)"
+        "By area since 3 Nov 2026 (D-362, R-052): CFO orders and values; Plant Manager and Production Manager production, packing, void and Produced; Plant Manager and Supply Chain shipments; each also needs Edit here. The order line Fix sheet and Reconcile's fix follow the same areas (packing; delivery date = shipment). The switch and Backups stay COO."
        ],
        [
         "Reconcile packing",
@@ -360,7 +360,7 @@
         "budget",
         "COO, CFO, Plant Manager, KAM",
         "CFO, Plant Manager, KAM view; others none",
-        "Money figures: COO, CFO, Plant Manager, KAM only (MONEY_ROLES)"
+        "Money figures: COO, CFO, Plant Manager, KAM only (MONEY_ROLES). Since 3 Nov 2026 (D-363) Finance, Supply Chain and the Production Manager may look at this page (BUDGET_VIEW_ROLES), with no Set the budget or Set invoice prices; money stays hidden for them everywhere else."
        ]
       ]
      }
@@ -856,7 +856,7 @@
        ],
        [
         "Every role but the COO",
-        "Change the access matrix, add, rename or archive a role, set a department lead, change a list value, open Correct a record, approve a batch number correction, reopen a short-closed line, close a whole PO, approve a free sample."
+        "Change the access matrix, add, rename or archive a role, set a department lead, change a list value, turn corrections on or off, approve a batch number correction, reopen a short-closed line, close a whole PO, approve a free sample."
        ],
        [
         "Every role but the COO and the CFO",

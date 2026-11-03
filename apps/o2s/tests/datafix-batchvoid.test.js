@@ -50,7 +50,7 @@ const FNS = ['lotMoveLock', 'dfSubmitPacking', 'dfSubmitVoid', 'dfBatchSelect', 
              'packDates', 'packMfgFor', 'batchProdDate', 'addMonthsISO',
              'recordBackfill', 'recordCorrection', 'correctTypeLabel', 'correctReasonText',
              'packShiftIncGate', 'packConfirmGate', 'packEntryCalc', 'packFmt', 'packShiftTotal', 'packRowExtras'];
-const src = FNS.map(H.grab).join('\n\n') + '\n'
+const src = FNS.map(H.grab).join('\n\n') + '\n' + H.dfSrc()
   + H.grabObj('CORRECT_ENTITY') + '\n'
   + H.grabObj('CORRECT_TYPE_LABEL') + '\n'
   + H.grabObj('CORRECT_REASONS') + '\n'
@@ -76,7 +76,7 @@ function box(state, dfForm) {
 
 function baseState() {
   return {
-    role: 'COO', currentUser: { name: 'tahir' }, masters: { shifts: ['Morning', 'Evening'], incharges: ['Faisal Nadeem'] },
+    role: 'COO', dataFixEnabled: true, currentUser: { name: 'tahir' }, masters: { shifts: ['Morning', 'Evening'], incharges: ['Faisal Nadeem'] },
     orders: [{ id: 'O43', po: 'COBO-2608-4613', client: 'COBO',
                lines: [{ id: 'O43L0', brand: 'Vital Urea', base: 'Sulfur Coated Urea',
                          ordered: 2500, produced: 0, packed: 0 }] }],
@@ -162,7 +162,7 @@ function baseState() {
 /* ============ 3. dfSubmitVoid: RUD26824-shaped case ============ */
 function voidState() {
   return {
-    role: 'COO', currentUser: { name: 'tahir' },
+    role: 'COO', dataFixEnabled: true, currentUser: { name: 'tahir' },
     orders: [{ id: 'O45', po: 'RUD26824', client: 'RUDOLF',
                lines: [{ id: 'O45L0', brand: 'Tervalis Plus', base: 'Potassium Humate Liquid',
                          ordered: 10000, produced: 10000, packed: 10000 }] }],

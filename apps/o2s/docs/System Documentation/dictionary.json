@@ -978,35 +978,35 @@
        [
         "order",
         "Purchase order",
-        "KAM, COO",
-        "COO",
+        "COO, CFO (since 11-03b)",
+        "none (since 11-03b: end it with Close products)",
         "client, priority, received, promised"
        ],
        [
         "orderLine",
         "PO product line",
-        "KAM, COO (priced fields CFO, COO)",
-        "COO",
-        "ordered, committed, printPrice, invoicePrice (CFO, COO)"
+        "COO, CFO (since 11-03b)",
+        "none (since 11-03b: end it with Close this line)",
+        "ordered (locked since 11-03b), committed, printPrice, invoicePrice (CFO, COO)"
        ],
        [
         "packingLot",
         "Packing run",
-        "Production, COO",
-        "Production, Plant Manager, COO",
-        "brandBatchNo, mfgDate, expDate (Plant Manager, COO), printedPrice, actualDate"
+        "COO, Plant Manager, Production Manager (since 11-03b)",
+        "COO, Plant Manager, Production Manager (since 11-03b)",
+        "brandBatchNo, mfgDate, expDate (Plant Manager, COO), bagMfg, printedMfg, printedPrice, actualDate"
        ],
        [
         "shipment",
         "Shipment",
-        "Supply Chain, COO",
-        "Supply Chain, Plant Manager, COO",
+        "COO, Plant Manager, Supply Chain (since 11-03b)",
+        "COO, Plant Manager, Supply Chain (since 11-03b)",
         "dispatch, destination, vehicle, carrier, bilty, so"
        ],
        [
         "batch",
         "Production batch",
-        "Production, COO",
+        "COO, Plant Manager, Production Manager (since 11-03b)",
         "none",
         "batchNo, plannedKg and producedKg (each Plant Manager or COO only), openedDate"
        ],
@@ -2892,8 +2892,13 @@
        ],
        [
         "Correct the month",
-        "Picker under the packing run table in Batch trace: pick a 16b run and correct the Mfg month on the bag and the month printed on the bags, nothing else (Production, COO).",
+        "Picker under the packing run table in Batch trace: pick a 16b run and correct the Mfg month on the bag and the month printed on the bags, nothing else (the COO, the Plant Manager, the Production Manager since 11-03b; Production before).",
         "btMonthPicker"
+       ],
+       [
+        "Correct… (a packing run)",
+        "Picker under the packing run table in Batch trace, beside Correct the month (11-03b): pick a live run and open its full Correct sheet: correct a value or reverse it, with a reason (the COO, the Plant Manager, the Production Manager). Not stopped by the corrections switch. A run QA has cleared, a run a truck took, or a run on QA hold cannot be reversed.",
+        "btRunPicker, btRunMay"
        ]
       ]
      }

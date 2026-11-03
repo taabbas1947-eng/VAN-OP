@@ -56,7 +56,7 @@ const HG = () => ({
                'correctReasonText', 'correctTarget', 'correctFieldOK', 'correctCanAmend',
                'correctAllowed', 'correctAnyField', 'applyCorrect', 'nid', 'logAction', 'hardRole', 'canEdit']
               .map(H.grab).join('\n\n')
-            + '\n' + H.grabObj('CORRECT_REASONS') + '\n' + H.grabObj('CORRECT_ENTITY');
+            + '\n' + H.grabObj('CORRECT_REASONS') + '\n' + H.correctEntitySrc();
   function box(role, batch) {
     const b = { console, Math, JSON, Date,
       state: { role, currentUser: { name: 'A Person', username: 'ap' }, seq: 1,
@@ -183,8 +183,9 @@ const HG = () => ({
        JSON.stringify(b.toasts));
   }
   /* The other batch fields still behave. Note the batch record's own rule:
-     amend is ['Production','COO'], so a field with no explicit roles list is
-     Production's — the Plant Manager only reaches the two fields that name him
+     amend was ['Production','COO'] (since 11-03b it is the production area,
+     DF_AREAS.production: COO, Plant Manager, Production Manager), so a field with
+     no explicit roles list was Production's — the Plant Manager only reaches the two fields that name him
      (the batch number, and now the produced total). That asymmetry is deliberate
      and this pins it. */
   {
@@ -203,11 +204,15 @@ const HG = () => ({
     ok('and that does not report a packable change',
        !(c.state.corrections[0].cascade || []).some(x => /Ready to pack/.test(x)),
        JSON.stringify(c.state.corrections[0].cascade));
-    /* Production keeps the one field that is genuinely its own record-keeping */
-    const d = box('Production', HG());
+    /* 11-03b (Tahir, 3 Nov: "agreed"): the opened date follows the production area; Production loses it */
+    const d = box('Production Manager', HG());
     d.correctForm = form({ openedDate: '2026-08-02' });
     d.applyCorrect();
-    eq('Production keeps the opened date', d.state.batches[0].openedDate, '2026-08-02');
+    eq('the Production Manager corrects the opened date', d.state.batches[0].openedDate, '2026-08-02');
+    const e = box('Production', HG());
+    e.correctForm = form({ openedDate: '2026-08-02' });
+    e.applyCorrect();
+    ok('Production no longer corrects the opened date (11-03b)', e.state.batches[0].openedDate !== '2026-08-02');
   }
   ok('GUARD: the produced field is Plant Manager / COO, not Production',
      /k:'producedKg'[\s\S]{0,120}roles:\['Plant Manager','COO'\]/.test(H.html));
@@ -279,7 +284,7 @@ const HG = () => ({
                'correctReasonText', 'correctTarget', 'correctFieldOK', 'correctCanAmend',
                'correctAllowed', 'correctAnyField', 'applyCorrect', 'nid', 'logAction',
                'hardRole', 'canEdit'].map(H.grab).join('\n\n')
-            + '\n' + H.grabObj('CORRECT_REASONS') + '\n' + H.grabObj('CORRECT_ENTITY');
+            + '\n' + H.grabObj('CORRECT_REASONS') + '\n' + H.correctEntitySrc();
   function box(role, batch) {
     const b = { console, Math, JSON, Date,
       state: { role, currentUser: { name: 'A Person', username: 'ap' }, seq: 1, screen: 'prod',
@@ -323,7 +328,7 @@ const HG = () => ({
                'correctReasonText', 'correctTarget', 'correctFieldOK', 'correctCanAmend',
                'correctAllowed', 'correctAnyField', 'applyCorrect', 'nid', 'logAction',
                'hardRole', 'canEdit'].map(H.grab).join('\n\n')
-            + '\n' + H.grabObj('CORRECT_REASONS') + '\n' + H.grabObj('CORRECT_ENTITY');
+            + '\n' + H.grabObj('CORRECT_REASONS') + '\n' + H.correctEntitySrc();
   function box(batch, order) {
     const b = { console, Math, JSON, Date,
       state: { role: 'COO', currentUser: { name: 'A Person' }, seq: 1, screen: 'prod',
@@ -423,14 +428,14 @@ const HG = () => ({
   b.globalThis = b; vm.createContext(b);
   vm.runInContext(['correctAllowed', 'correctFieldOK', 'correctAnyField', 'correctCanAmend',
                    'hardRole', 'canEdit', '_pcCorrectBtn'].map(H.grab).join('\n\n')
-                  + '\n' + H.grabObj('CORRECT_ENTITY'), b);
+                  + '\n' + H.correctEntitySrc(), b);
   const batch = { id: 'B-HG26025', batchNo: 'HG26025' };
-  ['Plant Manager', 'Production', 'COO'].forEach(r => {
+  ['Plant Manager', 'Production Manager', 'COO'].forEach(r => {   /* 11-03b: the production area, not Production */
     b.state.role = r;
     const html = b._pcCorrectBtn(batch);
     ok(r + ' gets a way into the batch correction', /openCorrect\('batch','B-HG26025'\)/.test(html), html);
   });
-  ['KAM', 'Lab Rep', 'Supply Chain', 'CFO', 'QA Inspector'].forEach(r => {
+  ['KAM', 'Lab Rep', 'Supply Chain', 'CFO', 'QA Inspector', 'Production'].forEach(r => {
     b.state.role = r;
     eq('...and ' + r + ' does not', b._pcCorrectBtn(batch), '');
   });
@@ -464,7 +469,7 @@ const HG = () => ({
   const src = ['batchClearedKg', 'batchPackableKg', 'batchRemainderKg', 'activeFloorBatches',
                'correctAllowed', 'correctFieldOK', 'correctAnyField', 'correctCanAmend',
                'hardRole', 'canEdit', '_pcCorrectBtn'].map(H.grab).join('\n\n')
-            + '\n' + H.grabObj('CORRECT_ENTITY');
+            + '\n' + H.correctEntitySrc();
   const b = { console, Math, JSON, state: { role: 'Plant Manager', masters: {}, batches: [] },
               _pe: v => String(v == null ? '' : v) };
   b.globalThis = b; vm.createContext(b); vm.runInContext(src, b);
@@ -499,7 +504,7 @@ const HG = () => ({
                'correctReasonText', 'correctTarget', 'correctFieldOK', 'correctCanAmend',
                'correctAllowed', 'correctAnyField', 'applyCorrect', 'nid', 'logAction',
                'hardRole', 'canEdit'].map(H.grab).join('\n\n')
-            + '\n' + H.grabObj('CORRECT_REASONS') + '\n' + H.grabObj('CORRECT_ENTITY');
+            + '\n' + H.grabObj('CORRECT_REASONS') + '\n' + H.correctEntitySrc();
   function box(role) {
     const b = { console, Math, JSON, Date,
       state: { role, currentUser: { name: 'P' }, seq: 1, screen: 'prod', corrections: [],
@@ -519,7 +524,7 @@ const HG = () => ({
     eq('...and no false record is written — ' + r, b.state.corrections.length, 0);
   });
   ok('GUARD: the batch entity grants REVERSE to nobody',
-     /amend:\['Production','COO'\], reverse:\[\]/.test(H.grabObj('CORRECT_ENTITY')));
+     /amend:DF_AREAS\.production, reverse:\[\]/.test(H.grabObj('CORRECT_ENTITY')));
   /* amending it still works — the two are separate authorities */
   const c = box('Plant Manager');
   c.correctForm = { type: 'batch', id: 'B-HG26025', op: 'AMEND', reasonCode: 'keying',
@@ -534,7 +539,7 @@ const HG = () => ({
                'correctReasonText', 'correctTarget', 'correctFieldOK', 'correctCanAmend',
                'correctAllowed', 'correctAnyField', 'applyCorrect', 'nid', 'logAction',
                'hardRole', 'canEdit'].map(H.grab).join('\n\n')
-            + '\n' + H.grabObj('CORRECT_REASONS') + '\n' + H.grabObj('CORRECT_ENTITY');
+            + '\n' + H.grabObj('CORRECT_REASONS') + '\n' + H.correctEntitySrc();
   function box(batch, order) {
     const b = { console, Math, JSON, Date, TODAY: new Date('2026-08-25T00:00:00Z'),
       state: { role: 'Plant Manager', currentUser: { name: 'P' }, seq: 1, screen: 'prod',

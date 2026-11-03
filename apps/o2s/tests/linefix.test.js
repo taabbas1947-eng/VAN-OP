@@ -18,7 +18,7 @@ ok('Correct a record: packing refused above what the line still needs', /if\(q>_
   ok('Correct values no longer writes packed, dispatched or delivered', !/\['packed',/.test(src) && !/\['dispatched',/.test(src) && !/\['delivered',/.test(src) && !/\['ordered',/.test(src) && /\['produced','Produced/.test(src)); }
 ok('ordered is locked too (25c)', /id="cl_ordered_\$\{l\.id\}"[^>]*readonly disabled/.test(html));
 ok('...and shows them read-only', /id="cl_packed_\$\{l\.id\}"[^>]*readonly disabled/.test(html) && /id="cl_delivered_\$\{l\.id\}"[^>]*readonly disabled/.test(html));
-ok('the old reconcile route now opens the line sheet (it used to double the gap)', /function reconFix\(po,lid\)\{ lfForm=\{\}; lineFixOpen\(po,lid\); return;/.test(html));
+ok('the old reconcile route now opens the line sheet (it used to double the gap)', /function reconFix\(po,lid\)\{ lfForm=\{\}; lineFixOpen\(po,lid\); (return;|\})/.test(html) && !/dfStart\('packing'\); dfForm\.oid=o\.id/.test(html));
 ok('lotsFor skips reversed and voided lots', /if\(!p\|\|p\.reversed\|\|p\.void\) return false;/.test(grab('lotsFor')));
 ok('Needs you opens the list of lines, not a screen to search', /go:"lineFixList\('undated'\)"/.test(html) && /go:"lineFixList\('packing'\)"/.test(html));
 ok('every order line in the order sheet has History', /lineFixOpen\(\\''\+qsEsc\(o\.po\)/.test(grab('openOrderSheet')));
@@ -37,7 +37,7 @@ const sb = { console, toasts: [], saved: 0, corr: [],
   packDates: () => ({ mfgDate: '2026-08-01', expDate: '2028-08-01', shelfMonths: 24 }), syncPackBatchDates: () => {},
   lotBaseNo: p => p.baseBatchNo || '', recordCorrection: (op, t, id, label, ch, code, reason) => sb.corr.push({ op, t, id, ch, reason }),
   $: () => ({ innerHTML: '', classList: { add() {}, remove() {} } }),
-  state: { role: 'COO', currentUser: { name: 'Tahir' }, masters: { shifts: ['Morning', 'Evening', 'Night'], incharges: ['Faisal Nadeem'] }, corrections: [], actionLog: [], audit: [],
+  state: { role: 'COO', dataFixEnabled: true, currentUser: { name: 'Tahir' }, masters: { shifts: ['Morning', 'Evening', 'Night'], incharges: ['Faisal Nadeem'] }, corrections: [], actionLog: [], audit: [],
     batches: [{ id: 'B1', batchNo: 'VMG26001', base: 'Mg', ok: true, producedKg: 1000, packedKg: 500 }, { id: 'B2', batchNo: 'X1', base: 'Other', ok: true, producedKg: 99, packedKg: 0 }],
     orders: [
       { po: 'P-VMG', client: 'VGreen', lines: [{ id: 'L1', brand: 'V-Mg', base: 'Mg', ordered: 150, packed: 150, dispatched: 150, delivered: 150, deliveredDate: '2026-08-02' }] },
@@ -50,7 +50,7 @@ const sb = { console, toasts: [], saved: 0, corr: [],
     shipments: [{ po: 'P-VMG', lid: 'L1', brand: 'V-Mg', kg: 150, dispCounted: true, stage: 'delivered', delivered: '2026-08-02' },
                 { po: 'P-UND', lid: 'L4', brand: 'NPK', kg: 50, dispCounted: true, stage: 'delivered', delivered: '2026-07-20' }] } };
 vm.createContext(sb);
-vm.runInContext(['lineFixBases', 'lotsFor', 'saleLeft', 'lineFacts', 'lineLostKg', '_movedInMapBuild', '_movedInMap', 'lineOverUsed', 'lineIssues', 'lineFixRows', 'lineHistory', 'lineCause', 'lineFixOpen', '_lfCtx', '_lfGuard', 'lineFixRecord', 'lineFixCut', 'lineFixDate', 'lineFixList', 'packShiftIncGate', 'packConfirmGate', 'packEntryCalc', 'packFmt', 'packShiftTotal', 'packRowExtras', 'packShiftIncBlock', 'packConfirmBlock', 'packConfirmInner', 'packFormOf'].map(grab).join('\n') + '\n' + H.bagSrc() + '\nvar PACK_FLAG_KG=10000; var lfForm={};', sb);
+vm.runInContext(['lineFixBases', 'lotsFor', 'saleLeft', 'lineFacts', 'lineLostKg', '_movedInMapBuild', '_movedInMap', 'lineOverUsed', 'lineIssues', 'lineFixRows', 'lineHistory', 'lineCause', 'lineFixOpen', '_lfCtx', '_lfGuard', 'lineFixRecord', 'lineFixCut', 'lineFixDate', 'lineFixList', 'packShiftIncGate', 'packConfirmGate', 'packEntryCalc', 'packFmt', 'packShiftTotal', 'packRowExtras', 'packShiftIncBlock', 'packConfirmBlock', 'packConfirmInner', 'packFormOf'].map(grab).join('\n') + '\n' + H.bagSrc() + '\n' + H.dfSrc() + '\nvar PACK_FLAG_KG=10000; var lfForm={};', sb);
 const O = po => sb.state.orders.find(o => o.po === po), L = po => O(po).lines[0];
 eq('a reversed lot is not counted as packing', sb.lineFacts(O('P-OVER'), L('P-OVER')).logged, 300);
 eq('the list finds the 3 packing lines', sb.lineFixRows('packing').map(r => r.o.po).join(','), 'P-VMG,P-OVER,P-MAX');

@@ -1,8 +1,8 @@
 {
  "tab": "decisions",
  "title": "Decisions",
- "ver": "2026-10-16a",
- "date": "2026-10-16",
+ "ver": "2026-11-03a",
+ "date": "2026-11-03",
  "owner": "COO (Tahir)",
  "intro": "Every ruling and decision on O2S from June to 15 Oct 2026, one per item. D-001 to D-272 are in date order (D-001 is the oldest); D-273 onward were added after an independent review and sit at the end. Each item says who ruled, what was decided, why, what it changed and whether it still holds; an older decision that a newer one overturned is marked Replaced by the newer number. Items marked Not confirmed carry a question for Tahir.",
  "items": [
@@ -2026,6 +2026,9 @@
        ]
       ]
      }
+    },
+    {
+     "note": "Since 11-03b (D-365): a price already on a PO line is changed by the COO or the CFO (the line's Correct button); the KAM no longer corrects a PO."
     }
    ]
   },
@@ -2843,14 +2846,15 @@
   },
   {
    "id": "D-051",
-   "title": "Production corrects what it recorded, not what is printed on a bag",
-   "owner": "not confirmed",
+   "title": "Production corrects what it recorded, not what is printed on a bag (superseded in part by D-365)",
+   "owner": "Tahir (ruling)",
    "rules": [
     "R-012"
    ],
-   "status": "not confirmed",
+   "status": "confirmed",
    "src": [
-    "OP-HANDOFF-O2S.md 2026-08-21 (evening, cont.) \"The rule that emerged\""
+    "OP-HANDOFF-O2S.md 2026-08-21 (evening, cont.) \"The rule that emerged\"",
+    "Tahir, panel 3 Nov 2026: 'Keep Fahim, COO only' (D-365)"
    ],
    "blocks": [
     {
@@ -2866,7 +2870,7 @@
        ],
        [
         "Ruled by",
-        "not confirmed"
+        "Tahir, 3 Nov 2026 (kept, D-365)"
        ],
        [
         "Decision",
@@ -2886,7 +2890,7 @@
        ],
        [
         "Status",
-        "Current"
+        "Current in part: the bag fields stay with the Plant Manager and the COO; Production corrects no packing run since 11-03b (D-365)"
        ],
        [
         "Source",
@@ -2894,9 +2898,11 @@
        ]
       ]
      }
+    },
+    {
+     "note": "3 Nov 2026: Tahir kept the batch number, mfg and expiry with the Plant Manager and the COO on the Correct button ('Keep Fahim, COO only'), so Production may not change what is printed on a bag. Since 11-03b (D-365) Production corrects no packing run at all; the packing area (COO, Plant Manager, Production Manager) does."
     }
-   ],
-   "ask": "Is \"Production may not change what is printed on a bag\" your rule: (a) yes, (b) a build rule you accept?"
+   ]
   },
   {
    "id": "D-052",
@@ -16281,7 +16287,7 @@
   },
   {
    "id": "D-289",
-   "title": "A wrong month on a cleared run: QA withdraws, then the month is fixed",
+   "title": "A wrong month on a cleared run: QA withdraws, then the month is fixed (superseded in part by D-365)",
    "owner": "COO (Tahir)",
    "rules": [
     "R-038",
@@ -16335,6 +16341,9 @@
        ]
       ]
      }
+    },
+    {
+     "note": "Since 11-03b (D-365) the month is corrected by the packing area: the COO, the Plant Manager or the Production Manager. Production no longer."
     }
    ]
   },
@@ -16457,7 +16466,7 @@
   },
   {
    "id": "D-292",
-   "title": "Production corrects the month from Batch trace, the month fields only",
+   "title": "Production corrects the month from Batch trace, the month fields only (superseded in part by D-365)",
    "owner": "COO (Tahir)",
    "rules": [
     "R-038",
@@ -16511,6 +16520,9 @@
        ]
       ]
      }
+    },
+    {
+     "note": "Since 11-03b (D-365) Correct the month is for the packing area: the COO, the Plant Manager or the Production Manager. Production no longer."
     }
    ]
   },
@@ -20443,6 +20455,205 @@
        [
         "Welcome",
         "A KAM with no welcome row gets the welcome page after any brief: who sets access (Ahmer, launcher, since 2 Nov), his own clients by name, the 7 order steps, Today, New order, Sales & Budget and complaints. Start works only after 'I have read this' is ticked; state.welcomeSigns gets {id, user, name, role, at, build}; never shown again."
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-362",
+   "title": "Correct a record by area: CFO orders and values; Plant Manager and Production Manager production, packing, void and Produced; Plant Manager and Supply Chain shipments (2026-11-03a)",
+   "owner": "Tahir (ruling)",
+   "rules": [
+    "R-052"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir, panel 3 Nov 2026: 'Open it to the 3'; 'Own area only'; comments on the picture page 'Access Fixes 3 Nov': void packing 'fahim and majid can do this'; Produced 'move it majid to fahim'; shipment 'saad to be given this right'; 3 Nov 12:00 on the line Fix sheet: 'yes, please correct and complete'; 'Yes, follow the switch'",
+    "var DF_AREAS, fn dfMay, fn dfMayOp, fn dfAnyArea, fn dfWho, fn dfLineFixMay, fn screenDataFix, fn dfCardsHtml, fn dfStart, fn dfSubmitProduction, fn dfSubmitPacking, fn dfSubmitVoid, fn dfSubmitShipment, fn dfSubmitPO, fn dfSubmitCorrect, fn toggleDataFix, fn importGoLivePOs, fn exportStateJSON, fn dfLineFixCan, fn lineFixOpen, fn _lfGuard, fn lineFixRecord, fn lineFixCut, fn lineFixDate, fn reconFixBtn, fn reconFix, fn dfOn",
+    "tests/area1103a.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-11-03"
+       ],
+       [
+        "Ruled by",
+        "Tahir"
+       ],
+       [
+        "Areas",
+        "po and correct: COO, CFO. produced, production, packing, void: COO, Plant Manager, Production Manager. shipment: COO, Plant Manager, Supply Chain. Every part also needs Edit on the Correct a record screen (launcher)."
+       ],
+       [
+        "COO only",
+        "The corrections switch (toggleDataFix), Download a snapshot (exportStateJSON), Import opening POs (importGoLivePOs), restores and the new-year reset."
+       ],
+       [
+        "Correct values",
+        "The CFO changes customer, channel, priority, dates, print decision and prices; the Plant Manager and the Production Manager change Produced only. The form disables the other fields and the save ignores them."
+       ],
+       [
+        "Line Fix sheet",
+        "Tahir, 3 Nov 12:00 ('split by area too'): the order line Fix sheet (lineFixOpen, _lfGuard by mode) and Reconcile's fix follow the areas: Record the packing against a batch and Bring packed back to its records = packing (COO, Plant Manager, Production Manager); Stamp the delivery date = shipment (COO, Plant Manager, Supply Chain). History and fix shows only when the person can fix one of the line's issues (dfLineFixCan). The CFO no longer fixes lines here."
+       ],
+       [
+        "Switch",
+        "Tahir, 3 Nov ('Yes, follow the switch'): when the COO turns corrections OFF (state.dataFixEnabled), every dfSubmit* and the order line Fix sheet stop for everyone, the COO included (dfOn, DF_OFF_MSG); History and fix, Reconcile's fix and the list subtitle offer no fix while OFF."
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-363",
+   "title": "Sales & Budget to look at for Finance, Supply Chain and the Production Manager; no other money (2026-11-03a)",
+   "owner": "Tahir (ruling)",
+   "rules": [
+    "R-052"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir, panel 3 Nov 2026: 'Let the 3 in'; 'The page only'; comment: 'no, only view to ismail, no edit'",
+    "var BUDGET_VIEW_ROLES, fn screenBudget, fn budgetHtml (ed: COO and CFO only)",
+    "tests/area1103a.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-11-03"
+       ],
+       [
+        "Ruled by",
+        "Tahir"
+       ],
+       [
+        "New",
+        "screenBudget lets BUDGET_VIEW_ROLES (Finance, Supply Chain, Production Manager) see the page. MONEY_ROLES and mayMoney are unchanged, so PO prices, Print PO, the Finance dataset and loss values stay hidden (R6 of 23 Sep stands). Set the budget and Set invoice prices stay COO and CFO only."
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-364",
+   "title": "A late Receive or RM Check goes up to the Plant Manager, not the CFO (2026-11-03a)",
+   "owner": "Tahir (ruling)",
+   "rules": [],
+   "status": "confirmed",
+   "src": [
+    "Tahir, panel 3 Nov 2026: 'Send to Fahim'",
+    "fn acEscalation (TH)",
+    "tests/area1103a.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-11-03"
+       ],
+       [
+        "Ruled by",
+        "Tahir"
+       ],
+       [
+        "New",
+        "acEscalation TH: 'RM Check' and 'Receive' escalate after 1 day to the Plant Manager (they went to the CFO, who holds neither right)."
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-365",
+   "title": "The Correct button on a record follows the areas: PO and line COO, CFO (no reverse); packing run COO, Plant Manager, Production Manager; shipment COO, Plant Manager, Supply Chain; batch COO, Plant Manager, Production Manager (2026-11-03b)",
+   "owner": "Tahir (ruling)",
+   "rules": [
+    "R-052",
+    "R-011"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir, panel 3 Nov 2026: 'Follow the areas'; comments on the picture page 'Correct Button by Area': 'agreed' (Production loses), 'yes' (the KAM loses), 'cfo and do so' (the CFO reverses too; replaced after review 1: nobody reverses a PO or a line), 'yes' (lock Ordered), 'No, the off swiecth shuld only restrict the bulk actions only, routine correction should stay with each user'; panel 3 Nov on the 6 tighter fields: 'Keep Fahim, COO only'; after review 1, panel 3 Nov: PO and line reverse 'Take it off; use Close'; buttons 'Say only what exists'; PO sent back 'Yes, add the line'; after review 2, panel 3 Nov: the PO line Correct button 'Add Correct to the card'; after review 3: the packing run 'Add Correct to each run', then '1 picker under the table'; after review 5: the truck rule 'Only its own Kg on a truck'; after review 6: 'Add Correct the PO'",
+    "var CORRECT_ENTITY (order, orderLine, packingLot, shipment, batch), var DF_AREAS, fn correctAllowed, fn correctFieldOK, fn btMonthMay, fn openPoReturn, fn renderCorrect (noReverse note), fn correctLabelLc, fn openOrderSheet (Correct on each product card, Correct the PO), fn btRunMay, fn btRunPicker, CORRECT_ENTITY.packingLot blocks and onAmend, fn cmpLift (its message), fn bfxDecide, fn lineFixOpen (the cut note), fn guideRules (R-011, R-052)",
+    "tests/correct1103b.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-11-03"
+       ],
+       [
+        "Ruled by",
+        "Tahir"
+       ],
+       [
+        "Lists",
+        "order and orderLine: amend = DF_AREAS.correct (COO, CFO); reverse [] (nobody, the COO included: an order has no doReverse, so a reverse only set a mark nothing reads; Tahir, 3 Nov: 'Take it off; use Close'). The sheet says: the COO ends a PO with Close products, a line with Close this line; the CFO asks the COO (noReverse; po.close is the COO's). packingLot: amend and reverse = DF_AREAS.packing (COO, Plant Manager, Production Manager). shipment: amend and reverse = DF_AREAS.shipment (COO, Plant Manager, Supply Chain). batch: amend = DF_AREAS.production (COO, Plant Manager, Production Manager), reverse none. One source: the lists are the DF_AREAS arrays, so a later change to an area changes the button too."
+       ],
+       [
+        "Lost",
+        "The KAM no longer corrects a PO or a line; Production no longer corrects or reverses its own packing runs or corrects a batch. A PO sent back says to ask the COO or the CFO."
+       ],
+       [
+        "Fields",
+        "Unchanged: brandBatchNo, mfgDate, expDate (packing run) and batchNo, plannedKg, producedKg (batch) stay Plant Manager and COO (21 Aug rule kept, Tahir 3 Nov). invoicePrice stays CFO and COO. bagMfg and printedMfg (Correct the month, Batch trace) move from Production to the packing area."
+       ],
+       [
+        "Ordered",
+        "The ordered quantity on a PO line is locked on the Correct button (lockedIf), as on Correct a record (25 Sep rule): less is a close short, more is a new order. The PO sent back sheet says the same (Tahir, 3 Nov: 'Yes, add the line')."
+       ],
+       [
+        "Switch",
+        "The corrections switch does not stop the Correct button: routine corrections stay with each user. The switch still stops Correct a record, the order line Fix sheet, Reconcile's fix and Import opening POs (D-362)."
+       ],
+       [
+        "Unchanged",
+        "coa (supersede QCM, COO) and inspection (supersede QA Inspector, Plant Manager, COO)."
+       ],
+       [
+        "Where",
+        "Tahir, 3 Nov: 'Say only what exists'. A PO line: Orders, the order sheet, Correct on each product card (added in 11-03b, Tahir 3 Nov: 'Add Correct to the card'; before, only in the older order drawer reached from the COO's Today and Morning view, or by changing an invoice price). A PO: Correct the PO at the foot of the order sheet (added after review 6, Tahir 3 Nov: 'Add Correct the PO'), or the PO sent back sheet. A packing run: Reports, Batch trace, the packing runs of a brand batch: 1 picker under the table, Correct (btRunPicker, added in 11-03b: the old 'Every pack run' table, rpTrace, is drawn nowhere, so no screen opened it; Tahir 3 Nov: 'Add Correct to each run', then '1 picker under the table', keeping the 10 Oct rule), and Correct the month. A batch: Production, Correct on the batch (_pcCorrectBtn) and the Closed batches card. A shipment: no screen has its Correct button yet. The Guide (R-052) says this."
+       ],
+       [
+        "Changes",
+        "Superseded in part: D-051 (Production corrects what it recorded: since 11-03b Production corrects no packing run), D-289 and D-292 (Production corrects the month: since 11-03b the packing area does)."
+       ],
+       [
+        "Reverse a run",
+        "After reviews 4 to 7: a packing run's reverse (now on a screen) refuses a run already reversed or voided, a run QA has cleared (withdraw the inspection first, as Void an entry asks), Kg of the run on a truck (shipKg), a QA hold, a reverse that would leave the line's packed below what has left the gate (as lineFixCut refuses), and a truck that took this run (its lot link, or for an older truck line with no lot link, this run's batch number on the PO). Before, ANY truck of the same PO and product blocked every run of it; Tahir, 3 Nov: 'Only its own Kg on a truck'. A complaint hold does not block: the complaint's written-off lift (cmpLift) asks for the run to be reversed first. Its printed price must be more than 0, is locked once cleared, on a truck, or on a run packed with no price, and a corrected price updates printPrice and priceMismatch (onAmend). A batch number fix waiting on a reversed run cannot be approved (bfxDecide). The Today card for a PO sent back says Open it."
        ]
       ]
      }

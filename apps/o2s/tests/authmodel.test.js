@@ -1159,12 +1159,26 @@ B.RIGHTS.forEach(rt => ok('the COO always has ' + rt.code, B.mayRole('COO', rt.c
        JSON.stringify(c.state.masters.roleRights), before);
     ok('...and says so', c.toasts.some(t => /Unknown role/.test(t)), JSON.stringify(c.toasts));
   }
-  /* the seed never writes a row for the COO — he is not grantable */
+  /* the seed never writes a row for the COO. Since D-357 (29 Oct) the COO's row is the one cooUnlockV1 wrote once,
+     every right ticked (the harness runs it on the test data, as live ran it); the seed leaves that row as it was. */
   {
     const b = mk('COO');
-    ok('no grant row is created for the COO', !b.state.masters.roleRights['coo'],
-       JSON.stringify(Object.keys(b.state.masters.roleRights)));
+    ok('the seed writes no grant row for the COO: his row is exactly the one cooUnlockV1 wrote',
+       JSON.stringify(b.state.masters.roleRights['coo']) === JSON.stringify(STATE.masters.roleRights['coo']),
+       JSON.stringify(b.state.masters.roleRights['coo']));
+    ok('...and that row ticks every right (D-357)', B.RIGHTS.map(r => r.code).every(c => STATE.masters.roleRights['coo'][c] === true));
   }
+  /* review 3 Nov: the first check above cannot see a seed that GRANTS to the COO (true over true changes nothing), so the
+     original check is kept as well, on the raw test data where the COO step has not run: there the seed must create no row */
+  if (fs.existsSync(H.STATE_RAW)) {
+    const RAWM = JSON.parse(fs.readFileSync(H.STATE_RAW, 'utf8')).data.masters;
+    /* re-review 3 Nov: taken off the copy, so this check still runs after the test data is refreshed from live (flag set) */
+    delete RAWM._cooUnlockV1; if (RAWM.roleRights) delete RAWM.roleRights['coo']; if (RAWM.roleRightsSet) delete RAWM.roleRightsSet['coo'];
+    const keep = STATE.masters; STATE.masters = RAWM; let b;
+    try { b = mk('COO'); } finally { STATE.masters = keep; }
+    ok('on data where the COO step has not run, the seed creates no grant row for the COO', !b.state.masters.roleRights['coo'],
+       JSON.stringify(Object.keys(b.state.masters.roleRights)));
+  } else ok('authmodel: data/state.json is missing, so the seed check on raw data could not run', false);
   /* a right that belongs to another department is refused even to a lead */
   {
     const b = mk('COO');

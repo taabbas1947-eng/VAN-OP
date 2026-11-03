@@ -7,7 +7,7 @@ const sb = { console, toasts: [], toast: m => sb.toasts.push(m), fmt: n => Strin
   screenEditOK: () => true, dfReasonOk: () => true, packDates: () => ({}), batchLabApproved: () => true, TODAY: new Date('2026-10-07T06:00:00Z') };
 vm.createContext(sb);
 vm.runInContext(['_uid', 'nid', '_arrId', '_eq', 'merge3', 'lotBaseNo', 'lotBrandNo', 'lotsFor', '_releaseShip', 'batchPackableKg', 'lineOnTruckKg', 'dfSubmitShipment', 'dfSubmitPacking', 'dfSubmitProduction', 'mergeDupNumbers'].map(f => { try { return grab(f); } catch (e) { return ''; } }).join('\n')
-  + '\nvar dfForm={};', sb);
+  + '\nvar dfForm={};\n' + H.dfSrc(), sb);
 
 /* A1 - after 2 audits: no adding in the merge (it double-counted); a lost pack is caught */
 ok('A1: the merge is back to "mine wins" (no counter adding, no save queue)', !/MERGE_COUNTERS|_mergeCounter|_saveInFlight/.test(H.html.replace(/\/\*[\s\S]*?\*\//g, '')));
@@ -31,7 +31,7 @@ ok('A2: an old row with no lotId frees one lot only, once', sb.state.packingLog.
 ok('A3: editing a truck no longer re-spreads shipped Kg over the lots', !/resyncLineShipKg/.test(grab('saveShipEdit')));
 
 /* A4 */
-sb.state = { role: 'COO', orders: [{ id: 'O1', po: 'X', lines: [{ id: 'a', brand: 'B', ordered: 300, packed: 300, dispatched: 0, delivered: 0 }] }], shipments: [], warehouses: ['W'],
+sb.state = { role: 'COO', dataFixEnabled: true, orders: [{ id: 'O1', po: 'X', lines: [{ id: 'a', brand: 'B', ordered: 300, packed: 300, dispatched: 0, delivered: 0 }] }], shipments: [], warehouses: ['W'],
   packingLog: [{ id: 'P1', po: 'X', lid: 'a', brand: 'B', kg: 300, insKg: 300, shipKg: 0, baseBatchNo: 'B1' }] };
 vm.runInContext('state=this.state; dfForm={oid:"O1",lid:"a",qty:300,date:"2026-10-01"}', sb);
 sb.dfSubmitShipment();
@@ -40,7 +40,7 @@ ok('A4 (audit): no guessed lot links are stored on the back-filled truck', !sb.s
 
 /* A5 */
 const B = { id: 'B1', batchNo: 'VB1', producedKg: 500, packedKg: 450, coa: { status: 'approved' } };
-sb.state = { role: 'COO', batches: [B], packingLog: [], productionLog: [], orders: [{ id: 'O1', po: 'X', lines: [{ id: 'a', brand: 'B', base: 'b', ordered: 1000, packed: 0, produced: 0 }] }] };
+sb.state = { role: 'COO', dataFixEnabled: true, batches: [B], packingLog: [], productionLog: [], orders: [{ id: 'O1', po: 'X', lines: [{ id: 'a', brand: 'B', base: 'b', ordered: 1000, packed: 0, produced: 0 }] }] };
 vm.runInContext('state=this.state; dfForm={oid:"O1",lid:"a",bid:"B1",qty:300}', sb);
 sb.dfSubmitPacking();
 ok('A5: back-fill packing refuses more than the batch has left (50 of 500)', /has only 50 Kg/.test(sb.toasts[sb.toasts.length - 1]) && B.packedKg === 450 && sb.state.orders[0].lines[0].packed === 0);

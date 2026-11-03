@@ -1,8 +1,8 @@
 {
  "tab": "tests",
  "title": "Tests, issues and assumptions",
- "ver": "2026-10-16a",
- "date": "2026-10-16",
+ "ver": "2026-11-03a",
+ "date": "2026-11-03",
  "owner": "COO (Tahir)",
  "intro": "Every O2S test file with what it proves and its last result, then the open issues, older registers, assumptions nobody has confirmed, known limits, review reports and the security register. Read the totals first; each item names its source.",
  "items": [
@@ -20,7 +20,7 @@
    ],
    "blocks": [
     {
-     "p": "Each test pulls the real functions out of o2s.html (harness.js) and runs them; some also run against the July snapshot data/state.json. Run one with: node tests/<file> from apps/o2s. Exit code 0 means every check passed."
+     "p": "Each test pulls the real functions out of o2s.html (harness.js) and runs them; some also run against the July snapshot data/state.json (since 3 Nov a temporary copy of it with the COO's ticks added by the app's own cooUnlockV1, as on live). Run one with: node tests/<file> from apps/o2s. Exit code 0 means every check passed."
     },
     {
      "table": {
@@ -32,17 +32,17 @@
       "rows": [
        [
         "Passed",
-        "122 files with every check passed",
-        "6,963 checks passed (in the 122 files whose last line is the count), 2 Nov 2026, build 2026-11-02b"
+        "131 files with every check passed",
+        "15,738 checks passed (summed from each file's last count line), 3 Nov 2026, build 2026-11-03b"
        ],
        [
         "Failed",
-        "9 files. audit17c (2 checks) and truckback17a depend on today's date, as before. 7 files already failed on build 2026-11-02a (the roles merge, before 11-02b), with the same counts before and after 11-02b: authmodel (245 checks), batchclose (1), certremove, customermaster (4), lotpack, prodcards (4), prodstuck (1). Left for Ahmer",
+        "2 files. audit17c (2 checks) and truckback17a depend on today's date, as before. The 7 files that failed after 11-02a (authmodel 245, batchclose 1, certremove, customermaster 4, lotpack, prodcards 4, prodstuck 1) pass since 3 Nov: the test data (data/state.json, 16 Jul) had no COO ticks; harness.js now runs the app's own cooUnlockV1 on a temporary copy of it, as live ran it (D-357). No app fault.",
         "see the files"
        ],
        [
         "All files",
-        "131",
+        "133",
         ""
        ]
       ]
@@ -91,7 +91,7 @@
         "audit16b.test.js",
         "The month on the bag (month of packing, expiry 24 to 36, the printed month and its flag, the 3 correction sheets), Night shift dated tomorrow, Packed in 2 months across POs with the note, the inspector from the login and refused on own run, the remark on a flagged Dates match, the 3 old rules, Correct a record, Guide R-038 and the changelog. Review fixes: Correct the month from Batch trace (month fields only, register lines), the pre-shipment report line per bag month, the inspection paper, made-on for pools, and + Log a shift always showing the list.",
         "R-038",
-        "126 passed, 0 failed"
+        "127 passed, 0 failed (3 Nov 2026, 11-03b)"
        ],
        [
         "audit16d.test.js",
@@ -145,7 +145,7 @@
         "batchqty.test.js",
         "HG26025: correcting a batch's produced quantity is a proper correction (reason, register, Plant Manager or COO); a certified lot's entry cannot be voided.",
         "R-008, R-009",
-        "113 passed, 0 failed"
+        "115 passed, 0 failed (3 Nov 2026, 11-03b)"
        ],
        [
         "batchtrace.test.js",
@@ -794,6 +794,18 @@
         "11-02b: which client is a KAM's (code, name, both BKK records, a COBO PO by its brand name, parents and dealers' brand key never); the lists narrowed while his screen is drawn and the very same full lists back after, also after an error; nested draws; other roles untouched; an unknown name sees nothing and is told to ask Ahmer; render() wrapped; dataOnly carries the full lists during a draw; Sales & Budget per client with a dealer shown as sales only; someone new recorded once, someone with a sign or an audit row not new; the welcome page refused without the tick, kept once; old briefs and old change notes skipped for a new person; New order, submitPO, complaints, Sales & Budget and sign-in wiring; Guide, changelog, build. After the review: a name in 2 segments follows the channel; a farmer never brings the Vgreen POs; a complaint where he must call his client stays; the sample form and its refusal; the action log counts for someone not new; an unknown name sees no batch or customer; the welcome page cannot be closed outside.",
         "D-360, D-361, R-051",
         "62 passed, 0 failed (2 Nov 2026)"
+       ],
+       [
+        "area1103a.test.js",
+        "11-03a: Correct a record by area for every role, with and without the launcher tick; each save button (production, packing, void, shipment, PO) refuses outside its area; Correct values changes only the CFO's fields for the CFO and only Produced for the Plant Manager and Production Manager; the form disables what is not yours and the cards show who does a part; the order line Fix sheet and Reconcile's fix by area (packing fixes: COO, Plant Manager, Production Manager; delivery date: COO, Plant Manager, Supply Chain), and all of it stops while the corrections switch is OFF; the switch, snapshot, import, restore and new-year reset are COO only; Sales & Budget opens for Finance, Supply Chain and the Production Manager with mayMoney still false elsewhere, Set the budget and Set invoice prices COO and CFO only; a late RM Check and Receive go up to the Plant Manager, on Today and in the alert server (notify-routes.js ESC_TO); BUILD_ID, changelog and Guide rule R-052.",
+        "D-362, D-363, D-364, R-052",
+        "251 passed, 0 failed (3 Nov 2026)"
+       ],
+       [
+        "correct1103b.test.js",
+        "11-03b: the Correct button on a record by area, for 12 roles: who corrects and who reverses a PO, a PO line, a packing run, a shipment and a batch; the lists are the DF_AREAS arrays; each field's own list (batch #, mfg, expiry, planned and produced stay Plant Manager and COO; the bag month moves to the packing area; the invoice price stays CFO and COO); Ordered locked on a PO line, run through the real sheet and save; nobody reverses a PO or a line (a forced reverse is refused) and the sheet says Close products or Close this line; the PO sent back sheet's quantity line; the order sheet's product card has Correct for the COO and the CFO only; a Production person changing a batch number gets 1 message; Batch trace's run picker (1 picker, live runs only, the full sheet, for the packing area, not stopped by the switch); a run's reverse run for real: refused when cleared, on a truck, taken by a truck (lot link or batch number), on QA hold, or already reversed, allowed under a complaint hold and with another truck of the product delivered, and a clean run reversed with the batch and line following; the printed price follows to printPrice and priceMismatch, and is locked once cleared or on a no-price run, and an emptied box is refused; the PO sent back Today card says Open it; a reverse that would leave packed below what left the gate is refused; Correct the PO on the order sheet for the COO and the CFO; the complaint lift names who reverses; 2 lines of one brand read the run's own line; a truck batch line's lotId blocks; the Correct button and its registry never read the corrections switch; COA and inspection unchanged; Batch trace's Correct the month; wording, Guide, changelog and build",
+        "D-365, R-052",
+        "483 passed, 0 failed (3 Nov 2026)"
        ]
       ]
      }
@@ -1002,7 +1014,7 @@
        [
         "Decisions listed 22 Aug: sequence validation, the entry-lag lock, mfg and exp after shipping, Data Fix authority, Fault 9c banners, adopting packed prices",
         "OPEN-ITEMS.md section 3",
-        "not confirmed; Correct a record is now COO only in code; mfg and exp is step 3a above"
+        "not confirmed; Correct a record is by area since 3 Nov 2026 (D-362); mfg and exp is step 3a above"
        ],
        [
         "Build queue 22 Aug: SPEC-02 dossier, SPEC-04 later steps, a batch column on the Gate Pass, a truck loaded before a COA supersede",
@@ -1065,7 +1077,8 @@
       "A role change reaches a person at the next sign in; the token carries the role for 30 days.",
       "The page checks for changes every 7 seconds and for a newer build at most every 10 minutes.",
       "Sign-in failures and public lookups are counted in the server's memory; a restart clears them.",
-      "A wrong shift or in-charge cannot be edited after saving: the COO reverses the record and it is entered again.",
+      "The corrections switch is read by each person's page: a correction form or Fix sheet that was already open when the COO switched corrections off can still be saved, until that page next refreshes (since 11-03a).",
+      "A wrong shift or in-charge cannot be edited after saving: the record is reversed (its Correct button, or Void an entry under Correct a record: the COO, the Plant Manager or the Production Manager; since 11-03b) and it is entered again.",
       "A PO line with no pack size saves packing without packs and without the tick.",
       "Reports show the first 500 rows; older rows need the period buttons or export.",
       "If Saad loads and Shoaib issues the gate pass (or the reverse), only the COO can review, or the 2 hour lapse lets the Plant Manager release.",

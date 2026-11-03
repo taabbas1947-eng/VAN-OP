@@ -89,7 +89,7 @@ ok('Back Office renders from boJobs, not tiles (the list itself became desks in 
 ok('a job carries its count', /pend\+' waiting'/.test(bj) && /chSet\+' of '\+BUDGET_CHANNELS\.length/.test(bj) && /unsettled\+' base to settle'/.test(bj));
 ok('Reconcile reads reconCompute() (reconRows never existed)', /reconCompute\(\)/.test(bj) && !/reconRows/.test(bj));
 ok('Approve a customer and the budget are CFO/COO jobs (R7, R8, R9)', /isFin=\(state\.role==='COO'\|\|state\.role==='CFO'\)/.test(bj));
-ok('Correct a record stays COO-only', /ok:state\.role==='COO'&&canView\(state\.role,'datafix'\)/.test(bj));
+ok('Correct a record shows for whoever holds a part of it (11-03a, D-362)', /ok:dfAnyArea\(\)&&canView\(state\.role,'datafix'\)/.test(bj));
 ok('Add a customer opens the form itself', /custStartAdd\(\)/.test(bj));
 ok("boOpen sets the admin tab and opens the card", /admTab=tab/.test(grab('boOpen')) && /acOpen\[card\]=true/.test(grab('boOpen')));
 ok('a Back Office job opens its one card ALONE: tabs and other cards are not shown (23x)', /boFocus=card\|\|''/.test(grab('boOpen')) && /\.ac2gbar/.test(grab('boFocusApply')) && /details\.acard/.test(grab('boFocusApply')) && /else d\.style\.display='none'/.test(grab('boFocusApply')) && /boFocusApply\(\);\n\}/.test(html));
@@ -443,7 +443,7 @@ ok('a browser that remembered All actions or the Dashboard lands on Today', /if\
   ['prodshift', 'batches', 'late', 'trucks', 'coa', 'rm', 'shortclose', 'lateentries', 'corrections', 'sales', 'invoicing', 'docs', 'custom'].forEach(id => ok('report: ' + id, new RegExp("\\{id:'" + id + "'").test(cat)));
   ok('every report names the roles that may open it; money reports need mayMoney() (R6)', /roles:\[/.test(cat) && /money:true/.test(cat) && /if\(c\.money&&!\(mayMoney\(\)\|\|\(INVOICE_ROLES\.indexOf\(state\.role\)>-1&&c\.id==='invoicing'\)\)\) return false/.test(grab('rpMay')) && /c\.roles==='all'\|\|\(c\.roles\|\|\[\]\)\.indexOf\(state\.role\)>-1/.test(grab('rpMay')));
   {
-    const f = new Function('state', 'mayMoney', "var INVOICE_ROLES=['Finance'];\n" + cat + ';\n' + grab('rpTeamMay') + '\n' + grab('rpMay') + '\n' + grab('rpVisible') + '\nreturn rpVisible;');
+    const f = new Function('state', 'mayMoney', "var INVOICE_ROLES=['Finance'], BUDGET_VIEW_ROLES=['Finance','Supply Chain','Production Manager'];\n" + cat + ';\n' + grab('rpTeamMay') + '\n' + grab('rpMay') + '\n' + grab('rpVisible') + '\nreturn rpVisible;');
     const S = { role: 'Production' }; const v = f(S, () => false)().map(c => c.id);
     ok('a Production Officer sees production, batches, documents, custom — no money, no corrections', v.indexOf('prodshift') > -1 && v.indexOf('batches') > -1 && v.indexOf('docs') > -1 && v.indexOf('custom') > -1 && v.indexOf('invoicing') < 0 && v.indexOf('sales') < 0 && v.indexOf('corrections') < 0);
     const w = f({ role: 'Warehouse' }, () => false)().map(c => c.id);
@@ -453,7 +453,7 @@ ok('a browser that remembered All actions or the Dashboard lands on Today', /if\
     const k = f({ role: 'KAM' }, () => true)().map(x => x.id);
     ok('a KAM with money sees sales and invoicing, not the corrections register', k.indexOf('sales') > -1 && k.indexOf('invoicing') > -1 && k.indexOf('corrections') < 0);
     const fi = f({ role: 'Finance' }, () => false)().map(x => x.id);
-    ok('Finance sees the Invoicing sheet and not Sales against budget (24l)', fi.indexOf('invoicing') > -1 && fi.indexOf('sales') < 0);
+    ok('Finance sees the Invoicing sheet, and since 11-03a Sales against budget to look at (D-363)', fi.indexOf('invoicing') > -1 && fi.indexOf('sales') > -1);
   }
   ok('opening a report sets the builder: dataset, columns, mode, group, period, and a where-filter', /rbDS=c\.ds; rbCols=c\.cols\.slice\(\); rbMode=c\.mode\|\|'raw'; rbGroup=\(c\.group\|\|\[\]\)\.slice\(\); rbFilters=\{\}; rbWhere=c\.where\|\|null; rpApplyPeriod\(c\.now\?'All':\(c\.period\|\|'All'\)\)/.test(grab('rpOpen')));
   ok('rows come newest first, filtered by the report’s where', /if\(rbWhere\) rows=rows\.filter\(rbWhere\);/.test(grab('rbRows')) && /rows\.sort\(function\(a,b\)\{ return String\(b\[dk\]\|\|''\)\.localeCompare\(String\(a\[dk\]\|\|''\)\); \}\);/.test(grab('rbRows')));
@@ -496,8 +496,8 @@ ok('a browser that remembered All actions or the Dashboard lands on Today', /if\
   }
   const rc = grab('screenRecon');
   ok('Reconcile is a sentence and a list, without the 4 tiles', !/Orders scanned/.test(rc) && !/const tiles=/.test(rc) && /compared with its packing record/.test(rc));
-  ok('each flagged line carries its fix, one tap away (R20): add the missing packing record for that PO line', /reconFixBtn\(r\)/.test(rc) && /dfStart\('packing'\)/.test(grab('reconFix')) && /dfForm\.oid=o\.id; dfForm\.lid=l\.id;/.test(grab('reconFix')) && /lid:l\.id/.test(grab('reconCompute')));
-  ok('the fix is offered only to whoever may correct a record', /screenEditOK\('datafix'\)/.test(grab('reconFixBtn')));
+  ok('each flagged line carries its fix, one tap away (R20): the line\'s own sheet (25b; the old packing-form route removed in 11-03a)', /reconFixBtn\(r\)/.test(rc) && /lineFixOpen\(po,lid\)/.test(grab('reconFix')) && /lid:l\.id/.test(grab('reconCompute')));
+  ok('the fix is offered only to whoever may correct a record', /if\(!dfOn\(\)\|\|!dfLineFixMay\('rec'\)\)/.test(grab('reconFixBtn')) && /dfMay\('packing'\)/.test(grab('dfLineFixMay')) && /screenEditOK\('datafix'\)/.test(grab('dfMay')));   /* 11-03a: through dfLineFixMay */
   const pp3 = grab('screenPeople');
   ok('a person carries one name for their role: the title; the role code only when it differs', /\(u\.role!==t\?'role <b>'\+qsEsc\(u\.role\)\+'<\/b> · ':''\)/.test(pp3));
   ok('Recipes and Lab templates are 2 tabs of one page', /boFocus==='recipe'\|\|boFocus==='labtpl'/.test(grab('boFocusApply')) && /Lab templates/.test(grab('boFocusApply')));

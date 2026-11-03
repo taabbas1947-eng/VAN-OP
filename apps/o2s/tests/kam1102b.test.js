@@ -130,5 +130,5 @@ ok('the Complaints page opens for a KAM with a Raise tab and no Send to', /if\(!
 ok('Sales & Budget for a KAM is his own table', /if\(kamOn\(\)&&!\(typeof mayMoney==='function'&&!mayMoney\(\)\)\)\{ \$\('view'\)\.innerHTML=kamSalesHtml\(\); return; \}/.test(grab('screenBudget')));
 ok('sign-in: first-seen kept, then read-and-sign, else the welcome page, else the change notes', /render\(\); try\{ personFirst\(\); \}catch\(e\)\{\} if\(rsPending\(\)\) openReadSign\(\); else if\(kamWelcomeDue\(\)\)\{ closeReadSign\(\); openKamWelcome\(\); \} else \{ closeReadSign\(\); checkWhatsNew\(\); \}/.test(html));
 ok('the wrapper is installed before the app starts', /\nkamInstall\(\);[^\n]*\nbootState\(\);\n<\/script>/.test(html));
-ok('Guide rule, changelog and build', /<h3>A KAM sees only his own clients<\/h3>/.test(html) && /'A KAM sees only his own clients':'R-051'/.test(html) && /ver:'2026-11-02b'/.test(html) && /var BUILD_ID='2026-11-(0[2-9][b-z]|[1-3]\d[a-z])'/.test(html));
+ok('Guide rule, changelog and build', /<h3>A KAM sees only his own clients<\/h3>/.test(html) && /'A KAM sees only his own clients':'R-051'/.test(html) && /ver:'2026-11-02b'/.test(html) && /var BUILD_ID='2026-11-(02[b-z]|0[3-9][a-z]|[1-3]\d[a-z])'/.test(html));
 process.exitCode = report('11-02b: a KAM sees only his own clients') ? 1 : 0;

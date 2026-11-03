@@ -28,7 +28,7 @@ vm.runInContext(['nid', 'evToday', 'lotBaseNo', 'lotBrandNo', 'lotsFor', 'lotAva
   'pmvWho', 'pmvSame', 'pmvLine', 'pmvLotFree', 'pmvLotCleared', 'pmvOpenOn', 'pmvRoom', 'pmvWhyNot', 'pmvTargets', 'pmvCanStart', 'moveStockButtonHTML',
   'openMoveStock', 'renderMoveStock', 'submitMoveStock', 'pmvById', 'pmvProblems', 'openMoveApprove', 'renderMoveApprove', 'approveMove', 'pmvApply', 'refuseMove', 'cancelMove', 'noteMoveRefusal', 'pmvActionItems', 'lotMoveLock', 'lotFamily', 'qcFull', 'srvUpToDate', 'pmvSig', 'pmvMovedInNote', '_pmvSheetOpen'].map(grab).join('\n')
   + '\nvar pmvForm=null, pmvRefuseWhy="", _pmvBusy={};\nfunction may(c){ return c==="stock.move_request"?this.state.role==="Supply Chain"||this.state.role==="COO":c==="stock.move_approve"?this.state.role==="Plant Manager"||this.state.role==="COO":false; }'
-  + '\nvar CORRECT_ENTITY=' + grabTopVar('CORRECT_ENTITY', '{').replace(/^\s*var\s+CORRECT_ENTITY\s*=\s*/, '') + ';', sb);
+  + '\n' + grabTopVar('DF_AREAS', '{') + '\nvar CORRECT_ENTITY=' + grabTopVar('CORRECT_ENTITY', '{').replace(/^\s*var\s+CORRECT_ENTITY\s*=\s*/, '') + ';', sb);
 const S = () => sb.state, L = (po) => S().orders.find(o => o.po === po).lines[0], O = (po) => S().orders.find(o => o.po === po);
 const as = (role, name, user) => { S().role = role; S().currentUser = { name, username: user }; };
 sb.state = mk(); as('Supply Chain', 'Saad Jamal', 'saad');

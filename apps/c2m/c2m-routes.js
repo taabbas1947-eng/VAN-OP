@@ -1373,6 +1373,23 @@ module.exports = function mountC2mRoutes(app, deps) {
     });
     res.json({ gradeId: id });
   }));
+  /* Add a material class (Tahir, 4 Nov 2026, D-144: "Build an Add class form", "CFO only"): a name and the % fields it asks,
+   * or a class that adds no nutrients. Existing classes and materials are not touched; the new class shows in every class list. */
+  app.post('/api/c2m/material-types', can('material.save'), wrap(async (req, res) => {
+    const b = req.body || {}; let c;
+    const [kt] = await q('SELECT nutrient_fields FROM c2m_material_type');
+    const known = [...new Set(kt.flatMap(t => String(t.nutrient_fields || '').split('|').filter(Boolean)))];
+    try { c = lib.newMaterialClass(b.name, b.role, b.fields, known); } catch (e) { throw bad(e.message); }
+    const id = await tx(async () => {
+      const [[ex]] = await q('SELECT id, name FROM c2m_material_type WHERE LOWER(name)=LOWER(?)', [c.name]);
+      if (ex) throw bad(`There is already a class called ${ex.name}.`);
+      let r; try { [r] = await q('INSERT INTO c2m_material_type (name, nutrient_fields, nutrient_role) VALUES (?,?,?)', [c.name, c.fields.join('|'), c.role]); }
+      catch (e) { if (dupName(e)) throw bad(`There is already a class called ${c.name}.`); throw e; } // added at the same moment by someone else
+      await audit(req.c2m.user, 'material_type', r.insertId, 'create', null, { name: c.name, role: c.role, fields: c.fields }, b.why ? String(b.why).slice(0, 300) : null);
+      return r.insertId;
+    });
+    res.json({ id, name: c.name, fields: c.fields });
+  }));
   /* Nutrient % per grade: the fields come from the material type (ruled 15 Oct). */
   app.post('/api/c2m/grades/:id/nutrients', can('nutrient.edit'), wrap(async (req, res) => {
     const [[g]] = await q('SELECT g.id, g.nutrients_json, t.nutrient_fields FROM c2m_material_grade g JOIN c2m_raw_material m ON m.id=g.material_id LEFT JOIN c2m_material_type t ON t.id=m.type_id WHERE g.id=?', [req.params.id]);

@@ -61,6 +61,7 @@ Only cfo and coo open Setup. "edit" = forms and buttons; "view" = read only. Wor
 | Add or retire a labour or FOH rate | cfo | D-25 |
 | Set product type, reprocessed flag | cfo | D-25 |
 | Add material or grade with rate | cfo | D-23 |
+| Add a material class (its name and the % it asks) | cfo, through the action material.save (the QC Head has nutrient.edit, not material.save, so she cannot) | D-144 |
 | Set material class, nutrient % | qc, cfo | D-23 |
 | Approve or close a re-approval | cfo, and the administrator (coo), who holds every action (D-96 replaces D-54 for the administrator) | R-2 Cost |
 | Propose price | cfo | D-06 |

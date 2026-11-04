@@ -58,6 +58,7 @@ Roles: cfo = Yawar, coo = Tahir, production = Majid, qc = Himayat, plant = Fahim
 | POST | /api/c2m/products/:id/type | cfo | {typeId} or {newType: name} | {ok, reapproval} | D-25, A-16 | |
 | POST | /api/c2m/products/:id/reprocessed | cfo | {on: true or false} | {ok, reapproval} | D-04, D-25 | |
 | POST | /api/c2m/materials | cfo | {name, typeId, unit: kg or L, grade, rate, source} | {gradeId} | D-10, D-23 | |
+| POST | /api/c2m/material-types | cfo (action material.save; the administrator holds every action) | {name, role: nutrient or none, fields: "N%, Amino acid%"} | {id, name, fields}; a field typed in other letters takes the spelling in use (n% → N%); a class name already in use (any letters) is refused; role none prefixes "Non-nutrient: " and asks no field | D-144 | |
 | POST | /api/c2m/materials/:id/type | cfo, qc | {typeId} (the class) | {ok}; a non-nutrient class clears the grade's nutrient values (old values in the change record) | D-23 | |
 | POST | /api/c2m/grades/:id/nutrients | cfo, qc | {values: {"K%": 56}} (0 to 100) | {ok}; 400 for a class with no nutrient fields | D-23 | |
 | POST | /api/c2m/customers/:id | cfo | {priceRule: time, po or list, cycle, region, o2sNames: "a\|b"} | {ok} | R-5 client price rule | |

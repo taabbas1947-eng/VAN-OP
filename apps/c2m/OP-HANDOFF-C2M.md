@@ -599,3 +599,15 @@ error, script parses. C2M's own suite (C2M App, c2m_test) not run here: it is on
 class names. After the push: open C2M live at full width and at a narrower window, press the launcher link, and see no /favicon.ico request.
 Same day, on Tahir's ruling (3 Nov panel), O2S role Supply Chain Officer: Lab screen Edit to View, through the platform roles service
 (PUT /api/o2s/rolesvc/roles/Supply Chain Officer, logged); nothing else on the role changed.
+
+## 4 Nov 2026 (2) — Add a material class (D-144) (MODULE: C2M) — NOT PUSHED
+
+Tahir asked how to add a class so Amino Acid can carry an amino acid %; ruled by panel: build an Add class form, CFO only.
+Files: c2m-lib.js (newMaterialClass), c2m-routes.js (POST /api/c2m/material-types, can material.save), c2m.html (classForm under
+"Add a material or a new grade", its handlers, Guide row, CHANGELOG 2026-11-04b), docs 05, 06 (D-144), 07, 08, 11. No migration.
+Tested: the rule alone (10 cases: spaces, missing %, n% → N%, duplicates, 1N%, |, no field, 11 fields, unknown role, non-nutrient);
+the route mounted on express with a stand-in database (CFO adds 200, same name in other letters 400, non-nutrient 200, short name
+400, Production Manager 403, QC Head 403, COO 200); the page in Playwright as the CFO (form shows, non-nutrient hides the fields,
+Add class posts, toast, the new class appears in the Class list, form clears, no page error). Not run: C2M's own suite on Tahir's PC.
+After the push: as the CFO add "Amino acid source" (N%, Amino acid%, OM%); the QC Head moves Amino Acid to it and enters its %.
+Seen live 4 Nov, not changed: 2 class names say "sulphur" (Calcium and sulphur source, Sulphur source), against the "Sulfur" ruling (D-118).

@@ -281,7 +281,35 @@ const looseKey = s => lnorm(String(s == null ? '' : s).replace(new RegExp(LSIZE.
 const rowSize = (list, d) => listRowSize(list === 'farmer' ? d.p : (d.pack || d.p));
 /** Master order (D-87): products A to Z by official name, then packs small to large. */
 const masterCmp = (a, b) => String(a.brand).toLowerCase().localeCompare(String(b.brand).toLowerCase()) || Number(a.size) - Number(b.size);
+/** A new material class (Tahir, 4 Nov 2026, D-144). role 'nutrient' asks % fields; 'none' adds no nutrients and asks none.
+ *  Fields are typed separated by commas; each ends with % (added if left out). The same field name in 2 classes adds up in a
+ *  recipe's nutrient analysis, so a field typed in other letters (n%) takes the spelling already in use (known). Returns { name, role, fields } or throws a message the person can act on. */
+function newMaterialClass(name, role, fieldsText, known) {
+  const kn = new Map((known || []).map(k => [String(k).toLowerCase(), String(k)]));
+  let nm = String(name || '').replace(/\s+/g, ' ').trim();
+  if (!['nutrient', 'none'].includes(role)) throw new Error('Pick whether the class carries nutrients.');
+  const bare = nm.replace(/^non-nutrient:\s*/i, '');
+  if (bare.length < 3 || bare.length > 66) throw new Error('Give the class a name of 3 to 66 letters.');
+  if (role === 'nutrient' && bare !== nm) throw new Error('A class that carries nutrients cannot be named Non-nutrient.');
+  if (role === 'none') nm = 'Non-nutrient: ' + bare;
+  if (/\|/.test(nm)) throw new Error('A class name cannot hold the sign |.');
+  if (role === 'none') return { name: nm, role, fields: [] };
+  const seen = new Set(), fields = [];
+  for (let f of String(fieldsText || '').split(',')) {
+    f = f.replace(/\s+/g, ' ').trim(); if (!f) continue;
+    if (!f.endsWith('%')) f += '%';
+    f = f.replace(/\s+%$/, '%');
+    if (!/^[A-Za-z][A-Za-z0-9 ()+\/.-]{0,23}%$/.test(f)) throw new Error(`"${f}" is not a field name: start with a letter, up to 24 letters or digits, ending in %. For example: N%, Amino acid%.`);
+    if (kn.has(f.toLowerCase())) f = kn.get(f.toLowerCase()); // n% is the N% already in use, so it adds up
+    const k = f.toLowerCase(); if (seen.has(k)) throw new Error(`${f} is typed twice.`); seen.add(k); fields.push(f);
+  }
+  if (!fields.length) throw new Error('A nutrient class asks at least 1 field, for example N%.');
+  if (fields.length > 10) throw new Error('A class asks at most 10 fields.');
+  if (fields.join('|').length > 200) throw new Error('The fields are too long together: shorten their names.');
+  return { name: nm, role, fields };
+}
 module.exports = {
+  newMaterialClass,
   rowNameKey, looseKey, rowSize, masterCmp,
   listRowIs, listRowSize, officialRow, officialPack, restoreRow,
   round, rateWarning, materialCost, recipeTotal, packingPerUnit, buyOf, buyNote, sourceText, piecePrice, printMrp, mrpIssues, mrpMissing, pickConversionRule, conversionFor, costBreakdown,

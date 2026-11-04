@@ -314,7 +314,7 @@ const union = new Set([...scrNames, ...rgtNames, ...fldNames]);
   eq('Production Manager is pre-wired for these screens', screensFor('Production Manager').join(','),
      'today,plant,dash,approvals,tracker,prod,qc,qa,ship,reports,instructions,datafix,recon'); /* 25i: How are we doing includes the Production Manager */
   eq('Finance Desk Officer is pre-wired for these screens', screensFor('Finance Desk Officer').join(','),
-     'today,plant,approvals,tracker,ship,reports,instructions');
+     'today,plant,approvals,entry,dealers,tracker,ship,reports,instructions,samples');   /* 4 Nov 2026, D-367: New order, Customers and FOC samples, as Finance */
 
   /* The only right naming any of the four is the short-close request, added
      23 September. It is legacy:{kind:'hard'} — an unknown name in that list is

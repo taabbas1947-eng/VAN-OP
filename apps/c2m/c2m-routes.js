@@ -71,9 +71,9 @@ module.exports = function mountC2mRoutes(app, deps) {
   async function c2mAuth(req, res, next) {
     try {
       const [[r]] = await q("SELECT role FROM user_module_roles WHERE username=? AND module='c2m'", [req.user.u]);
-      const R = r ? (await loadRoles()).get(r.role) : null;
+      const RM = await loadRoles(); const R = r ? RM.get(r.role) : null;
       if (!R) return res.status(403).json({ error: 'You do not have a C2M role. Ask your System Administrator to give you one in People and access.' });
-      req.c2m = { role: R.key, user: req.user.u, name: req.user.n || req.user.name || req.user.u, label: R.label, admin: R.admin, actions: R.actions, can: R.can, nav: R.nav, more: R.more };
+      req.c2m = { role: R.key, user: req.user.u, name: req.user.n || req.user.name || req.user.u, label: R.label, admin: R.admin, actions: R.actions, can: R.can, nav: R.nav, more: R.more, roles: RM }; // RM: the roles read once for this request (speed, D-145)
       next();
     } catch (e) { next(e); }
   }
@@ -81,8 +81,8 @@ module.exports = function mountC2mRoutes(app, deps) {
   const can = (...actions) => (req, res, next) => actions.some(a => req.c2m.can.has(a)) ? next() : res.status(403).json({ error: 'Your role cannot do this in C2M.' });
   const mayDo = (req, a) => req.c2m.can.has(a);
   /** The people who hold an administrator role now (lower case), so the page shows Approve only on what an administrator proposed (D-89). */
-  async function adminUsers() {
-    const R = await loadRoles(); const [h] = await q("SELECT username, role FROM user_module_roles WHERE module='c2m'");
+  async function adminUsers(roles) {
+    const R = roles || await loadRoles(); const [h] = await q("SELECT username, role FROM user_module_roles WHERE module='c2m'");
     return new Set(h.filter(x => R.get(x.role) && R.get(x.role).admin).map(x => String(x.username).toLowerCase()));
   }
   const wrap = fn => (req, res) => fn(req, res).catch(e => {
@@ -116,7 +116,7 @@ module.exports = function mountC2mRoutes(app, deps) {
     const waiting = new Set(); open.forEach(r => JSON.parse(r.items_json).forEach(i => waiting.add(i.packId)));
     const items = [];
     for (const p of D.packs) {
-      if (waiting.has(p.id) || (filter && !filter(p))) continue;
+      if (waiting.has(p.id) || (filter && !filter(p, D))) continue; // the filter gets this loadAll too
       const av = engine.latestApproved(D, p.id);
       const c = engine.packCost(D, p); if (!c || !c.costed) continue;
       if (av && !lib.needsReapproval(Number(av.total), c.total, S.reapprove_pct)) continue;
@@ -182,12 +182,12 @@ module.exports = function mountC2mRoutes(app, deps) {
     if (proposer && String(proposer).toLowerCase() === String(req.c2m.user).toLowerCase()) throw Object.assign(new Error('You proposed this, so another person approves it (ruling 19).'), { status: 403 });
     /* Anyone below the administrator who is given an approve right approves only what an administrator proposed, never a colleague's or their own (D-89). */
     const [[pr]] = await q("SELECT role FROM user_module_roles WHERE username=? AND module='c2m'", [proposer]);
-    const R = pr ? (await loadRoles()).get(pr.role) : null;
+    const R = pr ? (req.c2m.roles || await loadRoles()).get(pr.role) : null;
     if (!R || !R.admin) throw Object.assign(new Error('You approve only what an administrator proposed (D-89).'), { status: 403 });
   };
 
   /* ---------- Page ---------- */
-  app.get(['/c2m', '/c2m/'], (req, res) => { res.set('Cache-Control', 'no-store'); res.sendFile(path.join(__dirname, 'c2m.html')); });
+  app.get(['/c2m', '/c2m/'], (req, res) => { res.set('Cache-Control', 'no-cache'); /* the browser keeps its copy and checks it is current (ETag) instead of downloading 560 KB on every open (D-145) */ res.sendFile(path.join(__dirname, 'c2m.html')); });
   app.get('/c2m/assets/van-logo.png', (req, res) => res.sendFile(path.join(__dirname, 'assets', 'van-logo.png')));
   /* ---------- Roles service for the platform (Tahir, 28 Oct 2026; platform docs/ROLES-DESIGN.md §4, trial) ----------
      Only a System Administrator designs C2M's roles, on the platform's Roles by app screen. These 5 calls are registered
@@ -204,7 +204,7 @@ module.exports = function mountC2mRoutes(app, deps) {
   const svcRole = r => ({ key: r.key, label: r.label, department: null, builtin: r.builtin, archived: false, locked: false, rights: r.actions });
   app.get('/api/c2m/rolesvc/catalogue', auth, sysAdmin, (req, res) => res.json({
     groups: AC.CATALOGUE.map(g => ({ name: g.group, items: g.items.map(i => ({ key: i[0], label: i[1] })) })),
-    count: AC.ALL_KEYS.length, rename: true, departments: [], lockedNote: "C2M's administrator role always holds every action (D-89).",
+    count: AC.ALL_KEYS.length, rename: true, departments: [], lockedNote: "C2M's administrator role is ticked like any role (D-142); it keeps its business meaning: others approve only what an administrator proposed (D-89).",
     archiveWord: 'Remove', archiveNote: 'C2M has no archive: a role nobody holds is removed for good, and C2M\'s change record keeps what it was. Built-in roles cannot be removed.'
   }));
   app.get('/api/c2m/rolesvc/roles', auth, sysAdmin, wrap(async (req, res) => { res.json({ roles: [...(await loadRoles()).values()].map(svcRole) }); }));
@@ -262,6 +262,8 @@ module.exports = function mountC2mRoutes(app, deps) {
   app.use('/api/c2m', (req, res, next) => checkDates().then(f => f ? res.status(503).json({ error: f }) : next(), () => res.status(503).json({ error: 'C2M cannot reach the database. Try again in a minute.' })), auth, c2mAuth);
 
   /** A viewer type role (a KAM): sees only the lists and clients granted to him. The same test build() uses. */
+  /** The settings the Margin and Approvals maths need, sent to every role that sees margin even without Settings (audit 3 Nov 2026, D-145). */
+  const MARGIN_SETTINGS = ['budget_gp', 'ambition_gp', 'wl_budget_gp', 'red_gap_pts', 'red_share_pct', 'reapprove_pct', 'rate_warn_pct', 'forward_months', 'conv_budget_month', 'fed_pct'];
   const isViewerRole = R => !!(R && R.can.has('see.granted_lists') && !R.can.has('see.products'));
   const meOf = (acc, user) => ({ user, role: acc.role, label: acc.label, admin: acc.admin, actions: acc.actions, nav: acc.nav, more: acc.more || [] });
   app.get('/api/c2m/me', (req, res) => res.json({ ...meOf(req.c2m, req.c2m.user), name: req.c2m.name }));
@@ -270,7 +272,7 @@ module.exports = function mountC2mRoutes(app, deps) {
   async function build(acc, user) {
     const role = acc.role, has = a => acc.can.has(a);
     const D = await engine.loadAll(q);
-    const S = D.settings.values; const AD = await adminUsers(); const byAd = u => AD.has(String(u).toLowerCase());
+    const S = D.settings.values; const AD = await adminUsers(acc.roles); const byAd = u => AD.has(String(u).toLowerCase());
     const seeCost = has('see.cost'), seePrice = has('see.price');
     const match = engine.matcher(D);
     await applyDueRevisions();
@@ -303,6 +305,7 @@ module.exports = function mountC2mRoutes(app, deps) {
     const approvedPrice = inForce(prices, today()); const nextPrice = new Map();
     prices.filter(p => p.status === 'approved' && String(p.valid_from).slice(0, 10) > today()).sort((a, b) => String(b.valid_from).localeCompare(String(a.valid_from))).forEach(p => nextPrice.set(p.client_pack_id, p)); // earliest wins
     const [poLines] = await pq('SELECT * FROM c2m_o2s_po_line ORDER BY received, po');
+    const enteredAt = new Map(poLines.filter(l => l.entered_at).map(l => [l.line_id, String(l.entered_at).slice(0, 19)])); // when each PO came in (migration 008; empty before it)
     const lastPo = new Map(); poLines.forEach(l => { const p = match(l.customer_name, l.brand, l.channel, l.pack); if (p && l.net_price > 0 && !engine.isVanBrand(D.cpById.get(p.client_product_id))) lastPo.set(p.id, Number(l.net_price)); }); // a VAN brand pack is priced per channel by its lists (D-44)
 
     const products = D.cps.map(cp => {
@@ -340,7 +343,7 @@ module.exports = function mountC2mRoutes(app, deps) {
     });
 
     // Settings (budget and ambition GP, thresholds) go to Yawar and Tahir only (review S9)
-    const out = { m007: D.m007, outOfUseKeys: [...D.outOfUse], variantsReady: D.variantsReady, families: D.families.map(f => ({ id: f.id, name: f.name, variants: D.pvariants.filter(v => v.family_id === f.id).map(v => ({ id: v.id, name: v.name })) })), me: meOf(acc, user), settings: has('see.settings') ? D.settings.rows : [], fedPct: lib.fedPct(D.settings.values.fed_pct), products, recipes, today: today() };
+    const out = { m007: D.m007, outOfUseKeys: [...D.outOfUse], variantsReady: D.variantsReady, families: D.families.map(f => ({ id: f.id, name: f.name, variants: D.pvariants.filter(v => v.family_id === f.id).map(v => ({ id: v.id, name: v.name })) })), me: meOf(acc, user), settings: has('see.settings') ? D.settings.rows : has('see.margin') ? D.settings.rows.filter(r => MARGIN_SETTINGS.includes(r.k)).map(r => ({ k: r.k, v: r.v })) : [], fedPct: lib.fedPct(D.settings.values.fed_pct), products, recipes, today: today() };
     if (has('see.materials')) {
       // Material master without rates: Himayat's screen (ruled 16 Oct)
       out.materials = [...D.rates.values()].map(g => ({ gradeId: g.gradeId, materialId: g.materialId, name: g.name, grade: g.grade, unit: g.unit, typeId: g.typeId, type: g.type, role: g.role, fields: g.fields, nutrients: g.nutrients }));
@@ -369,7 +372,7 @@ module.exports = function mountC2mRoutes(app, deps) {
       if (!out.materialTypes) { const [mt] = await pq('SELECT id, name, nutrient_fields, nutrient_role FROM c2m_material_type ORDER BY nutrient_role, name'); out.materialTypes = mt; }
     }
     if (has('see.margin')) {
-      const [sales] = await q(`SELECT t.id, t.truck_date, t.kg, t.po, t.dc, p.received, p.customer_name, p.channel, p.brand, p.pack, p.net_price FROM c2m_o2s_truck t JOIN c2m_o2s_po_line p ON p.line_id=t.line_id ORDER BY t.truck_date`);
+      const [sales] = await q(`SELECT t.id, t.truck_date, t.kg, t.po, t.dc, p.line_id, p.received, p.customer_name, p.channel, p.brand, p.pack, p.net_price FROM c2m_o2s_truck t JOIN c2m_o2s_po_line p ON p.line_id=t.line_id ORDER BY t.truck_date`);
       const custOf = name => { const k = String(name == null ? '' : name).trim().toLowerCase(); return k ? D.customers.find(c => String(c.o2s_names).split('|').some(n => n.trim() && n.trim().toLowerCase() === k)) : null; }; // an empty name never matches (the VAN brand owner row has none)
       /* FOC (free) lines are not sales: they carry cost against Rs 0 and would pull GP down. They are kept out of sales,
          GP and exposure and shown on their own (ruling 14b; cost review 18 Oct 2026, D-62). */
@@ -388,7 +391,7 @@ module.exports = function mountC2mRoutes(app, deps) {
         const grp = s.channel === 'White Label' ? 'White label' : 'VAN brand', ch = cp && !van ? cp.channel : (engine.CHANNEL_NAME[s.channel] || s.channel);
         const bl = lib.buyerLine(grp, ch, cust ? cust.name : s.customer_name); // D-74: farmers and others pooled, never named in C2M
         return { date: s.truck_date, cust: bl.line, cat: bl.cat, grp, ch, region: cust && bl.cat !== 'farm' ? cust.region || null : null, brand: s.brand, pack: Number(s.pack),
-          packId: p ? p.id : null, po: s.po, dc: s.dc, kg: Number(s.kg), price: Number(s.net_price), cost, costBands, parts: v ? [v.materials, v.packing, v.conversion, v.freight].map(Number) : null, rcv: s.received ? String(s.received).slice(0, 10) : null, // parts: the approved cost on the truck date, for the Margin drill-down (D-124)
+          packId: p ? p.id : null, po: s.po, dc: s.dc, kg: Number(s.kg), price: Number(s.net_price), cost, costBands, parts: v ? [v.materials, v.packing, v.conversion, v.freight].map(Number) : null, rcv: s.received ? String(s.received).slice(0, 10) : null, rcvAt: enteredAt.get(s.line_id) || null, // parts: the approved cost on the truck date, for the Margin drill-down (D-124)
            target: cp && cp.target_gp != null ? Number(cp.target_gp) : null, budget: cp && cp.budget_gp != null ? Number(cp.budget_gp) : null };
       });
       const um = new Map();
@@ -412,7 +415,7 @@ module.exports = function mountC2mRoutes(app, deps) {
       // this financial year only (review 18 Oct, finding 10)
       out.poLines = poLines.filter(l => l.received && String(l.received).slice(0, 10) >= fy0).map(l => { const p = match(l.customer_name, l.brand, l.channel, l.pack); const cp = p ? D.cpById.get(p.client_product_id) : null; const cust = cp && !engine.isVanBrand(cp) ? D.custById.get(cp.customer_id) : custOf(l.customer_name);
         const pgrp = l.channel === 'White Label' ? 'White label' : 'VAN brand', pbl = lib.buyerLine(pgrp, cp && !engine.isVanBrand(cp) ? cp.channel : (engine.CHANNEL_NAME[l.channel] || l.channel), cust ? cust.name : l.customer_name);
-        return { po: l.po, received: l.received ? String(l.received).slice(0, 10) : null, cust: pbl.line, cat: pbl.cat, grp: pgrp, brand: l.brand, pack: Number(l.pack), packId: p ? p.id : null, kg: Number(l.ordered_kg), price: Number(l.net_price), foc: !(Number(l.net_price) > 0) }; });
+        return { po: l.po, received: l.received ? String(l.received).slice(0, 10) : null, enteredAt: l.entered_at ? String(l.entered_at).slice(0, 19) : null, cust: pbl.line, cat: pbl.cat, grp: pgrp, brand: l.brand, pack: Number(l.pack), packId: p ? p.id : null, kg: Number(l.ordered_kg), price: Number(l.net_price), foc: !(Number(l.net_price) > 0) }; });
       const [[ia]] = await pq("SELECT MIN(at) at FROM c2m_recipe_step WHERE action='imported'"); out.importedAt = ia && ia.at ? String(ia.at) : null; // the day Yawar's sheets were loaded: age of the sheet items
       const [[nd]] = await q('SELECT COUNT(*) n FROM c2m_price_doc WHERE ref LIKE ?', [`VAN/PL/${today().slice(0, 4)}/%`]); out.nextDocRef = `VAN/PL/${today().slice(0, 4)}/${String(Number(nd.n) + 1).padStart(3, '0')}`;
       const [imp] = await pq('SELECT * FROM c2m_import_item ORDER BY status, id'); out.imports = imp;
@@ -420,7 +423,7 @@ module.exports = function mountC2mRoutes(app, deps) {
       const [treq] = await pq('SELECT r.*, c.brand, cu.name customer FROM c2m_target_request r JOIN c2m_client_product c ON c.id=r.client_product_id JOIN c2m_customer cu ON cu.id=c.customer_id ORDER BY r.id DESC LIMIT 30'); out.targetRequests = treq.map(r => ({ ...r, byAdmin: byAd(r.by_user) }));
       const [nt] = await q("SELECT * FROM c2m_notice WHERE for_role=? ORDER BY id DESC LIMIT 20", [role]); out.notices = nt;
       const [gr] = await pq('SELECT * FROM c2m_list_grant ORDER BY username'); out.grants = gr;
-      const [people] = await pq("SELECT a.username, a.name, r.role FROM user_module_roles r JOIN auth_users a ON a.username=r.username WHERE r.module='c2m'"); const RR = await loadRoles(); out.people = people.map(p => { const r = RR.get(p.role); return { ...p, roleLabel: r ? r.label : p.role, grantee: isViewerRole(r) }; });
+      const [people] = await pq("SELECT a.username, a.name, r.role FROM user_module_roles r JOIN auth_users a ON a.username=r.username WHERE r.module='c2m'"); const RR = acc.roles || await loadRoles(); out.people = people.map(p => { const r = RR.get(p.role); return { ...p, roleLabel: r ? r.label : p.role, grantee: isViewerRole(r) }; });
       const [lp] = await pq('SELECT list_name, data_json, issued, valid_till FROM c2m_list_price ORDER BY id'); const LM = await listMaster(); out.lists = groupLists(lp, null, LM);
       { const LP = groupLists(lp, null, LM, true); out.mrpIssues = lib.mrpIssues(LP); out.mrpMissing = LM ? lib.mrpMissing(LP) : []; } /* every farmer row is checked against its own MRP; the dealer and distributor checks, and the packs with no MRP, need rows linked to packs */ // list prices above the printed MRP, and packs with none (D-122)
       out.wlLists = await wlListData(D, approvedPrice, D.customers.filter(c => c.grp !== 'VAN brand').map(c => c.name));
@@ -488,28 +491,87 @@ module.exports = function mountC2mRoutes(app, deps) {
     if (as) {
       if (!mayDo(req, 'grants.give')) throw Object.assign(new Error('Your role cannot do this in C2M.'), { status: 403 });
       const [[p]] = await q("SELECT a.name, r.role FROM user_module_roles r LEFT JOIN auth_users a ON a.username=r.username WHERE r.username=? AND r.module='c2m'", [as]);
-      const R = p ? (await loadRoles()).get(p.role) : null;
+      const R = p ? (req.c2m.roles || await loadRoles()).get(p.role) : null;
       if (!isViewerRole(R)) throw bad('You can see only the screen of a manager who is given price lists and clients.');
       if (!req.c2m.admin && ['see.settings','see.materials','see.cost','see.price'].some(a => R.can.has(a) && !req.c2m.can.has(a))) throw bad('That role can see settings, materials or costs that your role cannot, so its screen cannot be shown to you.');
-      acc = { role: R.key, user: as, name: p.name || as, label: R.label, admin: false, actions: R.actions, can: R.can, nav: R.nav, more: R.more }; user = as;
+      acc = { role: R.key, user: as, name: p.name || as, label: R.label, admin: false, actions: R.actions, can: R.can, nav: R.nav, more: R.more, roles: req.c2m.roles }; user = as;
     }
     if (!as && (mayDo(req, 'reapproval.decide') || req.c2m.admin)) await sweepOnce(user).catch(e => console.error('[c2m] first-cost sweep', e.message));
     const out = await build(acc, user); out.me.name = acc.name; if (as) out.preview = { user: as, name: acc.name }; res.json(out);
   }));
 
   /* ---------- O2S pull (read only) ---------- */
-  app.post('/api/c2m/sync', can('o2s.sync'), wrap(async (req, res) => {
+  /** 1 pull of O2S, by a person (Pull now) or by C2M itself (the daily pull). The claim on c2m_source lets only 1 pull run at a time,
+   *  across every instance of the server: a second one gets 409 (manual) or is skipped (daily). */
+  async function pullOnce(by, why) {
     const stale = lib.pkNow(new Date(Date.now() - 10 * 60 * 1000));
     const [claim] = await q("UPDATE c2m_source SET status='Pulling', last_pull_note=? WHERE system_name='O2S' AND what LIKE 'Customers%' AND (status<>'Pulling' OR last_pull_note IS NULL OR last_pull_note < ?)", ['Pulling since ' + now(), 'Pulling since ' + stale]);
     if (!claim.affectedRows) throw Object.assign(new Error('A pull is already running. Wait a minute, then look again.'), { status: 409 });
     try {
-      const r = await tx(async () => { const x = await pullO2S(q, req.c2m.user); await audit(req.c2m.user, 'sync', x.syncId, 'pull', null, { poLines: x.poLines, trucks: x.trucks }, 'Pull now'); return x; });
-      res.json(r);
+      return await tx(async () => { const x = await pullO2S(q, by); await audit(by, 'sync', x.syncId, 'pull', null, { poLines: x.poLines, trucks: x.trucks }, why); return x; });
     } catch (e) {
       await q("UPDATE c2m_source SET status='Failed', last_pull_note=? WHERE system_name='O2S' AND what LIKE 'Customers%'", [String(e.message).slice(0, 250)]);
       throw e;
     }
-  }));
+  }
+  app.post('/api/c2m/sync', can('o2s.sync'), wrap(async (req, res) => { res.json(await pullOnce(req.c2m.user, 'Pull now')); }));
+
+  /* ---------- Daily pull (Tahir, 4 Nov 2026, D-145: "Pull by itself daily") ----------
+     Every day at about 06:00 Pakistan time, and once a few minutes after the server starts when the last finished pull is more than
+     20 hours old. Same pull and claim as Pull now; by 'c2m-auto'. A failure is logged and tried again at the next check; it never stops the server. */
+  const AUTO = { hour: 6, staleHours: 20, everyMs: 15 * 60 * 1000, firstMs: 3 * 60 * 1000 };
+  /** Due now? lastFinished: 'YYYY-MM-DD HH:MM:SS' Pakistan time or null; nowPk the same; atStart: the first check after the server starts.
+   *  Pure, so it is tested alone. The 20 hour rule is for the start only, so the daily pull stays at about 06:00. */
+  function autoPullDue(lastFinished, nowPk, atStart) {
+    if (!lastFinished) return true;
+    const t = s => Date.parse(String(s).replace(' ', 'T') + 'Z'); // both are Pakistan wall-clock times: compared as if UTC, the gap is right
+    if (atStart && (t(nowPk) - t(lastFinished)) / 36e5 >= AUTO.staleHours) return true;
+    const today6 = nowPk.slice(0, 10) + ' ' + String(AUTO.hour).padStart(2, '0') + ':00:00';
+    return nowPk >= today6 && String(lastFinished) < today6; // past 06:00 today and nothing finished since
+  }
+  /** Packs of 1 freight segment and region (reapprovalFor passes its own loadAll to the filter). */
+  const freightPacks = (segment, reg) => (p, D0) => { const cp = D0.cpById.get(p.client_product_id); const cu = cp && D0.custById.get(cp.customer_id); return !!cp && cp.channel === segment && !!cu && cu.region === reg; };
+  /** A freight rate dated ahead reaches its date (review 4 Nov): the packs it moves are checked for re-approval once, that day or the next pass.
+   *  A rate saved on or after its own date was checked at the save. Looks back 7 days, so a server that was down still catches up. */
+  let freightBusy = false;
+  async function freightDueSweep() {
+    if (freightBusy || mountFault) return 0; freightBusy = true; let n = 0;
+    try {
+      const t = today();
+      const [rows] = await q('SELECT segment, region, valid_from FROM c2m_freight_rate WHERE valid_from<=? AND valid_from>DATE_SUB(?, INTERVAL 7 DAY)', [t, t]);
+      for (const r of rows) {
+        const vf = String(r.valid_from).slice(0, 10), key = `${r.segment}|${r.region}|${vf}`.slice(0, 60);
+        await tx(async () => {
+          const [[done]] = await q("SELECT id FROM c2m_audit WHERE entity='freight_due' AND entity_id=? LIMIT 1 FOR UPDATE", [key]); if (done) return;
+          const [[atSave]] = await q("SELECT id FROM c2m_audit WHERE entity='freight' AND entity_id=? AND action='save' AND at>=? AND new_value LIKE ? LIMIT 1", [`${r.segment}|${r.region}`, vf + ' 00:00:00', `%"validFrom":"${vf}"%`]);
+          const re = atSave ? 0 : await reapprovalFor(`Freight ${r.segment} ${r.region} from ${vf} reached its date`, freightPacks(r.segment, r.region));
+          if (re) await costNotice('c2m', `Freight ${r.segment} ${r.region} dated ${vf} is in force from today`, re);
+          await audit('c2m', 'freight_due', key, 'checked', null, { reapproval: re }, 'Freight rate reached its date'); n++;
+        });
+      }
+    } catch (e) { console.error('[c2m] freight date check failed: ' + (e && e.message)); } finally { freightBusy = false; }
+    return n;
+  }
+  let autoBusy = false;
+  async function autoPull(nowPk, atStart) {
+    if (autoBusy || mountFault) return 'skip';
+    autoBusy = true;
+    try {
+      const [[last]] = await q('SELECT MAX(finished_at) f FROM c2m_sync_run');
+      if (!autoPullDue(last && last.f ? String(last.f).slice(0, 19) : null, nowPk || now(), atStart)) return 'not due';
+      const r = await pullOnce('c2m-auto', 'Daily pull');
+      console.log(`[c2m] daily pull: ${r.poLines} PO lines, ${r.trucks} trucks, ${r.issues.length} issues`);
+      return 'pulled';
+    } catch (e) {
+      if (e && e.status === 409) return 'busy';
+      console.error('[c2m] daily pull failed: ' + (e && e.message)); return 'failed';
+    } finally { autoBusy = false; }
+  }
+  if (!deps.noAutoPull) {
+    const t1 = setTimeout(() => { autoPull(null, true).catch(() => {}); }, AUTO.firstMs); if (t1.unref) t1.unref();
+    const t2 = setInterval(() => { autoPull().catch(() => {}).then(() => freightDueSweep()).catch(() => {}); }, AUTO.everyMs); if (t2.unref) t2.unref();
+  }
+  module.exports._test = Object.assign(module.exports._test || {}, { autoPullDue, autoPull, freightDueSweep });
 
   /* ---------- Recipes: write, review, endorse, approve cost, send back (ruling 13 to 14 Oct) ---------- */
   async function getVersion(id) { const [[v]] = await q('SELECT * FROM c2m_recipe_version WHERE id=?', [id]); if (!v) throw bad('Recipe version not found.'); return v; }
@@ -748,10 +810,13 @@ module.exports = function mountC2mRoutes(app, deps) {
   /* The rate was wrong: close the batch without new costs; Yawar then saves the right rate. */
   app.post('/api/c2m/reapprovals/:id/dismiss', can('reapproval.decide'), wrap(async (req, res) => {
     const why = String((req.body || {}).why || '').trim(); if (!why) throw bad('Write why, e.g. "rate typed wrong".');
-    const [u] = await q("UPDATE c2m_reapproval SET status='dismissed', decided_by=?, decided_at=? WHERE id=? AND status='open'", [req.c2m.user, now(), req.params.id]); if (!u.affectedRows) throw moved();
-    await audit(req.c2m.user, 'reapproval', req.params.id, 'dismiss', null, null, why);
-    // Packs whose cost still differs from the approved cost for another reason (a rule or packing change) are batched again (review S6)
-    const again = await reapprovalFor(`Costs still moved after closing item ${req.params.id}, ${today()}`);
+    // 1 transaction (audit 3 Nov 2026, D-145): if the re-batch fails, the dismiss is undone, so no moved cost is left without an item
+    const again = await tx(async () => {
+      const [u] = await q("UPDATE c2m_reapproval SET status='dismissed', decided_by=?, decided_at=? WHERE id=? AND status='open'", [req.c2m.user, now(), req.params.id]); if (!u.affectedRows) throw moved();
+      await audit(req.c2m.user, 'reapproval', req.params.id, 'dismiss', null, null, why);
+      // Packs whose cost still differs from the approved cost for another reason (a rule or packing change) are batched again (review S6)
+      return reapprovalFor(`Costs still moved after closing item ${req.params.id}, ${today()}`);
+    });
     res.json({ ok: true, reapproval: again });
   }));
 
@@ -1451,12 +1516,17 @@ module.exports = function mountC2mRoutes(app, deps) {
     if (!['Dealer', 'Farmer'].includes(segment)) throw bad('Freight applies to Dealer or Farmer prices.');
     if (!String(region || '').trim() || !(strictNum(rsPerKg) >= 0)) throw bad('Give the region and Rs per kg (digits).');
     const vf = validFrom || today(); if (!isDate(vf)) throw bad('Valid from must be a date.');
-    const [[oldF]] = await q('SELECT rs_per_kg FROM c2m_freight_rate WHERE segment=? AND region=? AND valid_from=?', [segment, String(region).trim().slice(0, 40), vf]);
+    const [[oldF]] = await q('SELECT rs_per_kg FROM c2m_freight_rate WHERE segment=? AND region=? AND valid_from=?', [segment, String(region).trim().slice(0, 40), vf]); let re = 0;
     await tx(async () => {
       await q('INSERT INTO c2m_freight_rate (segment, region, rs_per_kg, valid_from) VALUES (?,?,?,?) ON DUPLICATE KEY UPDATE rs_per_kg=VALUES(rs_per_kg)', [segment, String(region).trim().slice(0, 40), strictNum(rsPerKg), vf]);
       await audit(req.c2m.user, 'freight', `${segment}|${region}`, 'save', oldF ? { rsPerKg: oldF.rs_per_kg, validFrom: vf } : null, { rsPerKg, validFrom: vf }, null);
+      // Like every other cost input (D-145): packs of this segment and region whose cost moved past the re-approval % wait for the CFO.
+      // A rate dated ahead moves nothing today; freightDueSweep checks it on the day it starts (review 4 Nov).
+      const reg = String(region).trim().slice(0, 40);
+      re = vf > today() ? 0 : await reapprovalFor(`Freight ${segment} ${reg} saved, ${today()}`, freightPacks(segment, reg));
+      await costNotice(req.c2m.user, `Freight ${segment} ${reg} saved at Rs ${strictNum(rsPerKg)} per kg from ${vf} by the ${req.c2m.label}`, re);
     });
-    res.json({ ok: true });
+    res.json({ ok: true, reapproval: re });
   }));
 
   /* ---------- Access grants (Yawar grants lists and clients) ---------- */
@@ -2227,13 +2297,13 @@ module.exports = function mountC2mRoutes(app, deps) {
     PL.pdf(res, d.audience, data, meta.fields, meta.reasons || {});
   }));
 
-  /* ---------- Roles: created and edited by the administrator role only (D-89, D-90). Logins stay in the platform's People and access. ---------- */
+  /* ---------- Roles: checks shared with the roles service (the System Administrator designs roles on the launcher, 28 Oct 2026). Logins stay in the platform's People and access. ---------- */
   const roleTable = async () => { try { await q('SELECT 1 FROM c2m_role LIMIT 1'); return true; } catch (e) { if (e && e.code === 'ER_NO_SUCH_TABLE') return false; throw e; } };
   const needTable = async () => { if (!(await roleTable())) throw Object.assign(new Error('Roles cannot be edited yet: migration 002 (c2m_role) has not been run. Ask IT to run it.'), { status: 409 }); };
   const cleanActions = (a, admin) => {   // admin: C2M's administrator role (D-89 exempts it from the second-person rate check)
     if (!Array.isArray(a)) throw bad('Tick what this role may do.');
     const set = [...new Set(a.map(String))]; const unknown = set.filter(k => !AC.LABEL[k]); if (unknown.length) throw bad('Unknown action: ' + unknown[0] + '.');
-    if (set.includes('roles.manage')) throw bad('Creating and editing roles stays with the administrator role.');
+    if (set.includes('roles.manage')) throw bad('Roles are designed by the System Administrator on the launcher.');
     const has = k => set.includes(k);
     if (has('see.margin') && !['see.products', 'see.cost', 'see.price', 'see.settings'].every(has)) throw bad('"The Approvals, Products, Prices, Margin and Setup places" needs Recipes, Costs, Prices and margin, and Settings and targets ticked too.');
     if (has('lists.mark') && !has('lists.link')) throw bad('"Mark a list row as not a C2M pack" needs "Link or rename a list row" ticked too.');
@@ -2241,46 +2311,8 @@ module.exports = function mountC2mRoutes(app, deps) {
     return AC.ALL_KEYS.filter(k => set.includes(k));
   };
   const cleanLabel = l => { const t = String(l || '').trim().replace(/\s+/g, ' '); if (t.length < 2 || t.length > 60) throw bad('Give the role a name of 2 to 60 letters.'); return t; };
-  app.get('/api/c2m/roles', can('roles.manage'), wrap(async (req, res) => {
-    const ready = await roleTable(); const R = await loadRoles();
-    const [h] = await q("SELECT username, role FROM user_module_roles WHERE module='c2m' ORDER BY username");
-    res.json({ ready, catalogue: AC.CATALOGUE, roles: [...R.values()].map(r => ({ key: r.key, label: r.label, admin: r.admin, builtin: r.builtin, actions: r.admin ? [] : r.actions, holders: h.filter(x => x.role === r.key).map(x => x.username) })) });
-  }));
-  app.post('/api/c2m/roles', can('roles.manage'), wrap(async (req, res) => {
-    await needTable(); const b = req.body || {}; const label = cleanLabel(b.label), actions = cleanActions(b.actions);
-    const key = AC.slug(label); if (!key) throw bad('Give the role a name of 2 to 60 letters.');
-    await tx(async () => {
-      const [[dup]] = await q('SELECT role_key FROM c2m_role WHERE role_key=? OR LOWER(label)=LOWER(?) FOR UPDATE', [key, label]); if (dup) throw bad('A role with this name already exists.');
-      await q('INSERT INTO c2m_role (role_key, label, is_admin, actions_json, builtin, updated_by, updated_at) VALUES (?,?,0,?,0,?,?)', [key, label, JSON.stringify(actions), req.c2m.user, now()]);
-      await audit(req.c2m.user, 'role', key, 'create', null, { label, actions }, null);
-    });
-    res.json({ ok: true, key });
-  }));
-  app.post('/api/c2m/roles/:key', can('roles.manage'), wrap(async (req, res) => {
-    await needTable(); const b = req.body || {}; const label = cleanLabel(b.label), actions = cleanActions(b.actions);
-    await tx(async () => {
-      const [[r]] = await q('SELECT * FROM c2m_role WHERE role_key=? FOR UPDATE', [req.params.key]); if (!r) throw bad('This role does not exist.');
-      if (Number(r.is_admin)) throw bad('The administrator role is locked: it always holds every action.');
-      const [[dup]] = await q('SELECT role_key FROM c2m_role WHERE LOWER(label)=LOWER(?) AND role_key<>?', [label, r.role_key]); if (dup) throw bad('A role with this name already exists.');
-      await q('UPDATE c2m_role SET label=?, actions_json=?, updated_by=?, updated_at=? WHERE role_key=?', [label, JSON.stringify(actions), req.c2m.user, now(), r.role_key]);
-      await audit(req.c2m.user, 'role', r.role_key, 'edit', { label: r.label, actions: JSON.parse(r.actions_json) }, { label, actions }, null);
-    });
-    res.json({ ok: true });
-  }));
-  const deleteRole = wrap(async (req, res) => {
-    await needTable();
-    await tx(async () => {
-      const [[r]] = await q('SELECT * FROM c2m_role WHERE role_key=? FOR UPDATE', [req.params.key]); if (!r) throw bad('This role does not exist.');
-      if (Number(r.is_admin)) throw bad('The administrator role cannot be deleted.');
-      const [[n]] = await q("SELECT COUNT(*) n FROM user_module_roles WHERE module='c2m' AND role=?", [r.role_key]);
-      if (n.n) throw bad(`${n.n} ${n.n === 1 ? 'person holds' : 'people hold'} this role. Move them to another role in People and access first.`);
-      await q('DELETE FROM c2m_role WHERE role_key=?', [r.role_key]);
-      await audit(req.c2m.user, 'role', r.role_key, 'delete', { label: r.label, actions: JSON.parse(r.actions_json) }, null, null);
-    });
-    res.json({ ok: true });
-  });
-  app.delete('/api/c2m/roles/:key', can('roles.manage'), deleteRole);
-  app.post('/api/c2m/roles/:key/delete', can('roles.manage'), deleteRole); // the page sends POST
+  /* The old C2M Roles screen routes (GET/POST /api/c2m/roles, edit, delete) were removed on 4 Nov 2026 (D-145): they needed roles.manage,
+     which no role can hold since 28 Oct 2026. Roles are designed by the System Administrator on the launcher, through the roles service above. */
 
   /* ---------- Change record, in plain words, with filters (D-125) ----------
      Read only. Each entry gets the name of what changed (product, pack, client, material, packing item, setting) in place of its number. */

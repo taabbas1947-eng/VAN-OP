@@ -31,7 +31,6 @@ The app shows each of them the rows marked with their name and the rows marked B
 | Change a client's name or what its lists print | Both | Setup, Clients, Edit | A rename moves the client's KAM access with it; lists already issued keep the name they were printed with. |
 | Give a KAM his lists | Both | Setup, Settings, KAM lists | Tick the lists and white label clients he may see; each tick saves at once. Copy from another manager, or See what this person sees, read only. |
 | Change a setting | Both | Setup, Settings | A threshold or the company GP target from Yawar waits for Tahir on Approvals. |
-| Make or change a role | Tahir | Setup, Settings, Roles | Tick what the role may do. Logins stay in the platform's People and access. |
 | Close the month | Both | Setup, Record and checks, Monthly checks | Enter actual labour and FOH; type ERP sales and COGS to tie the month to the books. Tahir checks the 15 biggest material rates against the purchase register. |
 | Find who changed something | Both | Setup, Record and checks, Change record | Filter by person, kind, dates, or search a product, client or reason. It searches the newest 5,000 changes for the person, kind and dates picked; pick dates for older ones. |
 | Read a report | Both | More, Reports | GP bridge, PO price against approved, VAN brand list margin. |
@@ -58,12 +57,12 @@ Tahir:
 2. Open **Client prices**. A price from Yawar shows "Open to approve" in its row.
 3. Open **Margin**. It opens on the whole company for this month; open a line, then a pack, down to each truck.
 4. Open **Products**. Each client is a row: open it for its products, then a product for its recipe, cost by pack and history.
-5. Open **Setup, Settings** for KAM lists and Roles.
+5. Open **Setup, Settings** for KAM lists.
 
 "Who does what in the recipe chain" is folded under the table; "Your look" (the colour scheme, kept per browser) is under it.
 
 ## Everyone else: your job in C2M
-A role made in Setup, Settings, Roles reads: "This role was set up by the administrator in Setup, Settings, Roles. What you may do is what is ticked on it: the places you see are the places you may use." (and the lines after it in GUIDE_CUSTOM, c2m.html).
+A role made by the System Administrator on the launcher reads: "This role was set up by the System Administrator on the launcher (People and access, Roles by app). What you may do is what is ticked on it: the places you see are the places you may use." (and the lines after it in GUIDE_CUSTOM, c2m.html).
 
 ### Majid, Production Manager (role production)
 1. Today shows recipes to check or revise; each opens in a panel.
@@ -102,7 +101,7 @@ A role made in Setup, Settings, Roles reads: "This role was set up by the admini
 | Himayat, QC Head | Gives each material its class and nutrient %. Reviews the recipe and its nutrient analysis. | Fahim endorses it next. |
 | Fahim, Plant Manager | Checks the recipe, nutrients and cost. Endorses it, or sends it back with a reason. | Yawar approves the cost next. |
 | Yawar, CFO | Approves the cost of every recipe. Keeps rates, packing and labour current. Adds clients and products, and a rate for 1 variant. Proposes prices and VAN brand list revisions. Gives KAMs their lists. | Tahir approves his prices, list revisions and setting changes. |
-| Tahir, COO | Approves prices, list revisions, targets and thresholds. Adds clients, products and variants. Makes the roles and decides who sees what. Does the monthly rate check. | As the administrator he may approve what he proposed himself; everyone else may not. |
+| Tahir, COO | Approves prices, list revisions, targets and thresholds. Adds clients, products and variants. Decides who sees which price lists. Does the monthly rate check. | As the administrator he may approve what he proposed himself; everyone else may not. |
 | KAMs and managers | See only the price lists and clients they are given, and download the PDF. They never see cost or margin. | If no list shows, ask Yawar or Tahir. |
 
 ## The 4 product words

@@ -97,7 +97,7 @@ function correctRun(role) {
   ok(fn + ' is the COO\'s only', /if\(state\.role!=='COO'\)\{ toast\(/.test(grab(fn).slice(0, 200))));
 /* 10. Sales & Budget */
 { ok('MONEY_ROLES unchanged (R6)', /var MONEY_ROLES=\['COO','CFO','Plant Manager','KAM'\];/.test(html));
-  ok('BUDGET_VIEW_ROLES are the 3', /var BUDGET_VIEW_ROLES=\['Finance','Supply Chain','Production Manager'\];/.test(html));
+  ok('BUDGET_VIEW_ROLES are the 3, and the Finance Desk Officer since 11-04a (D-367)', /var BUDGET_VIEW_ROLES=\['Finance','Finance Desk Officer','Supply Chain','Production Manager'\];/.test(html));
   ok('Set the budget / Set invoice prices stay COO and CFO (ed)', /ed=\(state\.role==='COO'\|\|state\.role==='CFO'\)/.test(grab('budgetHtml')));
   const SB = grabTopVar('BUDGET_VIEW_ROLES', '[') + "\nvar MONEY_ROLES=['COO','CFO','Plant Manager','KAM'], INVOICE_ROLES=['Finance'], rpCur='';\n" + grab('mayMoney') + '\n' + grab('screenBudget');
   ['Finance', 'Supply Chain', 'Production Manager', 'CFO', 'Plant Manager', 'Production', 'Warehouse', 'Lab Rep'].forEach(role => {

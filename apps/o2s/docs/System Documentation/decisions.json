@@ -1,8 +1,8 @@
 {
  "tab": "decisions",
  "title": "Decisions",
- "ver": "2026-11-03a",
- "date": "2026-11-03",
+ "ver": "2026-11-04a",
+ "date": "2026-11-04",
  "owner": "COO (Tahir)",
  "intro": "Every ruling and decision on O2S from June to 15 Oct 2026, one per item. D-001 to D-272 are in date order (D-001 is the oldest); D-273 onward were added after an independent review and sit at the end. Each item says who ruled, what was decided, why, what it changed and whether it still holds; an older decision that a newer one overturned is marked Replaced by the newer number. Items marked Not confirmed carry a question for Tahir.",
  "items": [
@@ -20704,6 +20704,58 @@
        [
         "Changes",
         "D-362 Switch row and D-365 Switch row, in part."
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-367",
+   "title": "The Finance Desk Officer does every job O2S gives Finance by name; Ismaeel and Basit swap roles (2026-11-04a)",
+   "owner": "Tahir (ruling)",
+   "rules": [],
+   "status": "confirmed",
+   "src": [
+    "Tahir, panel 3 Nov 2026: Ismaeel is Finance and Basit Finance Desk Officer, 'Swap them but remember ismail should not lose any if existing role'; panel 4 Nov 2026: 'Widen the FDO role'; 'Yes, change O2S then swap'",
+    "o2s.html SCREENS owners (entry, dealers, samples), RIGHTS po.shortclose_small legacy roles, INVOICE_ROLES, BUDGET_VIEW_ROLES, CUSTOMER_GRANT, USER_TITLE, MV_PAGE_ROLE, fn actionItems (alsoRoles), CMP_TYPES print rolesPo, RP report roles (late, trucks, shortclose, invoicing), fn migrateAccountsV1 (retired); notify-routes.js ROUTES 'Print price'",
+    "tests/fdo1104a.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-11-04"
+       ],
+       [
+        "Ruled by",
+        "Tahir"
+       ],
+       [
+        "Decision",
+        "Every place where O2S gives a job to the role name Finance now gives it to the Finance Desk Officer too, so Ismaeel loses nothing when he moves to Finance Desk Officer and Basit to Finance (the swap is made on the launcher by the System Administrator). Nothing is taken from Finance."
+       ],
+       [
+        "Code",
+        "New order, Customers and FOC samples default owners; closing a small remainder short (po.shortclose_small, still decided by role name); the Invoicing sheet (INVOICE_ROLES); looking at Sales & Budget (BUDGET_VIEW_ROLES); the customer rights default (CUSTOMER_GRANT); Today jobs routed to Finance (print-on-pack answers, a PO or a customer sent back) carry alsoRoles Finance Desk Officer, while a job with a named person stays that person's; complaints, wrong print on a PO; the reports Orders behind promise, Shipments and trucks, Closed short and Invoicing sheet; the 'Print price' alert."
+       ],
+       [
+        "Titles",
+        "USER_TITLE keeps each person's own title across the swap: ismaeel Invoicing Officer, basit Procurement Accountant."
+       ],
+       [
+        "Retired",
+        "migrateAccountsV1, the one-time move of 23 Sep 2026 (R22) that put Ismaeel's login on Finance, returns at once so it can never undo the swap."
+       ],
+       [
+        "Launcher",
+        "Screens and rights in force are ticks on the launcher (D-356): Finance Desk Officer needs Edit on New order, Customers, Reports and FOC samples, View on Lab and Sales & Budget, and customer.create and customer.amend, to match Finance."
        ]
       ]
      }

@@ -145,7 +145,8 @@ function nutrients(priced) {
 function freightFor(D, cp) {
   if (!['Dealer', 'Farmer'].includes(cp.channel)) return 0;
   const cust = D.custById.get(cp.customer_id) || {};
-  const f = D.freight.find(x => x.segment === cp.channel && x.region === cust.region);
+  // The latest rate already in force today (Pakistan date): a rate dated ahead waits for its date (audit 3 Nov 2026, D-145). Rows come newest first.
+  const t = today(); const f = D.freight.find(x => x.segment === cp.channel && x.region === cust.region && String(x.valid_from).slice(0, 10) <= t);
   return f ? Number(f.rs_per_kg) : 0;
 }
 

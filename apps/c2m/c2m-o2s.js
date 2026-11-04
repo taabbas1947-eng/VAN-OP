@@ -13,6 +13,9 @@ function o2sCustomerName(client) {
   return s.includes('|') ? s.split('|').slice(1).join('|').trim() : s.trim();
 }
 
+/** O2S's entry time (ISO, UTC) as Pakistan time 'YYYY-MM-DD HH:MM:SS', or null when O2S has none (older orders). */
+function enteredPk(iso) { if (!iso) return null; const d = new Date(iso); return isNaN(d.getTime()) ? null : lib.pkNow(d); }
+
 /** Pull O2S now. Returns {syncId, poLines, trucks, issues}. */
 async function pullO2S(q, byUser) {
   const [[row]] = await q('SELECT data FROM app_state WHERE id=1');
@@ -24,6 +27,11 @@ async function pullO2S(q, byUser) {
   const [[fr]] = await q("SELECT v FROM c2m_setting WHERE k='fed_pct'"); const fed = lib.fedPct(fr && fr.v); // D-72
   const issues = [];
   const lineById = new Map();
+  // When each PO came in (migration 008, D-145): the time of O2S's "Created PO <po>" line in its action log, the earliest one
+  // (printDecisionAt moves when a print decision is corrected, so it is only the fallback; review 4 Nov). Until 008 is run the column is not written.
+  let hasEntered = false; try { const [cols] = await q("SHOW COLUMNS FROM c2m_o2s_po_line LIKE 'entered_at'"); hasEntered = cols.length > 0; } catch (e) { hasEntered = false; console.error('[c2m] entered_at check failed, PO entry times not written: ' + (e.code || e.message)); }
+  const createdAt = new Map();
+  for (const e of d.actionLog || []) { const m = e && /^Created PO (\S+) /.exec(String(e.what || '')); if (m && e.t && (!createdAt.has(m[1]) || String(e.t) < createdAt.get(m[1]))) createdAt.set(m[1], String(e.t)); }
   let nl = 0, nt = 0;
   // No delete-first: rows are upserted with this sync's id, then rows from older pulls are removed.
   // A failure part-way leaves the previous pull's data in place (audit finding 16).
@@ -36,13 +44,13 @@ async function pullO2S(q, byUser) {
       const closed = !!sc.approvedAt && !sc.reopenedAt;   // O2S keeps the approval on a close the COO has reopened; that line is open again (29 Oct 2026)
       const ordered = Number(l.ordered) || 0, disp = Number(l.dispatched) || 0;
       const openKg = closed || /old pos/i.test(String(o.po)) ? 0 : Math.max(ordered - disp, 0);
-      await q(`INSERT INTO c2m_o2s_po_line (line_id, po, received, customer_name, channel, brand, pack, ordered_kg, dispatched_kg, open_kg, net_price, fed_mode, payment_terms, short_closed, sync_id)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+      await q(`INSERT INTO c2m_o2s_po_line (line_id, po, received, customer_name, channel, brand, pack, ordered_kg, dispatched_kg, open_kg, net_price, fed_mode, payment_terms, short_closed, sync_id${hasEntered ? ', entered_at' : ''})
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?${hasEntered ? ',?' : ''})
                ON DUPLICATE KEY UPDATE po=VALUES(po), received=VALUES(received), customer_name=VALUES(customer_name), channel=VALUES(channel), brand=VALUES(brand), pack=VALUES(pack),
                ordered_kg=VALUES(ordered_kg), dispatched_kg=VALUES(dispatched_kg), open_kg=VALUES(open_kg), net_price=VALUES(net_price), fed_mode=VALUES(fed_mode),
-               payment_terms=VALUES(payment_terms), short_closed=VALUES(short_closed), sync_id=VALUES(sync_id)`,
+               payment_terms=VALUES(payment_terms), short_closed=VALUES(short_closed), sync_id=VALUES(sync_id)${hasEntered ? ', entered_at=VALUES(entered_at)' : ''}`,
         [l.id, o.po, (o.received || '').slice(0, 10) || null, o2sCustomerName(o.client), o.channel || '', l.brand || '', Number(l.pack) || 0,
-         ordered, disp, openKg, lib.round(price, 4), o.fedMode || null, o.paymentTerms || null, closed ? 1 : 0, syncId]);
+         ordered, disp, openKg, lib.round(price, 4), o.fedMode || null, o.paymentTerms || null, closed ? 1 : 0, syncId].concat(hasEntered ? [enteredPk(createdAt.get(String(o.po)) || o.printDecisionAt)] : []));
       lineById.set(l.id, true); nl++;
     }
   }
@@ -70,4 +78,4 @@ async function pullO2S(q, byUser) {
   return { syncId, poLines: nl, trucks: nt, issues };
 }
 
-module.exports = { pullO2S, o2sCustomerName };
+module.exports = { pullO2S, o2sCustomerName, enteredPk };

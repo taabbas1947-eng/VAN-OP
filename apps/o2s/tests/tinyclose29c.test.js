@@ -41,11 +41,11 @@ function makeBox() {
   const r = box.RIGHTS.find(x => x.code === 'po.shortclose_small');
   ok('the right po.shortclose_small exists', !!r);
   ok('it is not delegable: a department lead cannot widen it', r && r.delegable === false);
-  eq('it is a hard list of exactly Supply Chain, Finance and Warehouse',
-     r && JSON.stringify(r.legacy), JSON.stringify({ kind: 'hard', roles: ['Supply Chain', 'Finance', 'Warehouse'] }));
-  ['Supply Chain', 'Finance', 'Warehouse', 'COO'].forEach(role =>
+  eq('it is a hard list of exactly Supply Chain, Finance, the Finance Desk Officer (11-04a, D-367) and Warehouse',
+     r && JSON.stringify(r.legacy), JSON.stringify({ kind: 'hard', roles: ['Supply Chain', 'Finance', 'Finance Desk Officer', 'Warehouse'] }));
+  ['Supply Chain', 'Finance', 'Finance Desk Officer', 'Warehouse', 'COO'].forEach(role =>
     ok(role + ' may close a small remainder', box.mayRole(role, 'po.shortclose_small') === true));
-  ['Supply Chain Officer', 'CFO', 'Finance Desk Officer', 'Plant Manager', 'Production Manager', 'Production',
+  ['Supply Chain Officer', 'CFO', 'Plant Manager', 'Production Manager', 'Production',
    'KAM', 'QA Inspector', 'Lab Rep', 'AQCM', 'QCM'].forEach(role =>
     ok(role + ' may NOT close a small remainder', box.mayRole(role, 'po.shortclose_small') === false));
   /* the normal route is untouched */
@@ -599,7 +599,7 @@ function confirmWorld(fresh) { const b = world({ line: tinyLine }); b.tinyFresh 
     ok('Supply Chain (has Ask) still reads the original sentence', /A new request goes to the Plant Manager\./.test(sc.closeLineButtonHTML(sc.o, sc.l)));
     const wait = world({ rights: ['po.shortclose_small', 'po.shortclose_request'], role: 'Supply Chain', line: { ordered: 1000, delivered: 960, packed: 960, shortClose: { requestedBy: 'X', requestedAt: 't' } } });
     ok('Supply Chain with a request waiting: no "waiting" line above a live Ask button', !/Small remainder:/.test(wait.closeLineButtonHTML(wait.o, wait.l))); }
-  ok('the Guide says who can open the Closed short report', /Supply Chain, Finance, Warehouse, Plant Manager, Production Manager, KAM, CFO and COO can open the Closed short report and see it there\./.test(html));
+  ok('the Guide says who can open the Closed short report', /Supply Chain, Finance, the Finance Desk Officer, Warehouse, Plant Manager, Production Manager, KAM, CFO and COO can open the Closed short report and see it there\./.test(html));
   ok('the raw material refusal says what to do, in plain words', /Close or receive that request first/.test(html) && !/Settle it first/.test(html));
   ok('the reason line is its own row (full width, left aligned) so it does not float under History', /flex:1 1 100%;width:100%;text-align:left;font-size:11\.5px/.test(html));
 

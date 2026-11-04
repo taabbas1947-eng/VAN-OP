@@ -156,6 +156,7 @@ Keys: IX ix_fm_source (source_id).
 | line_id | VARCHAR(40) | no | | PK, O2S line id |
 | po | VARCHAR(60) | no | | PO number |
 | received | DATE | yes | | PO received date |
+| entered_at | DATETIME | yes | | When the PO was entered in O2S, Pakistan time (the earliest "Created PO" line in O2S's action log; O2S printDecisionAt only when there is none). Migration 008, 4 Nov 2026, D-145; null for older orders and before 008 |
 | customer_name | VARCHAR(160) | no | | O2S customer name (dealer code removed) |
 | channel | VARCHAR(40) | no | | O2S channel, e.g. White Label, Dealer |
 | brand | VARCHAR(120) | no | | O2S brand |

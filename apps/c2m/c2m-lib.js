@@ -171,9 +171,12 @@ function netPoPrice(invoicePrice, fedMode, foc, fed = 5) {
 }
 
 /** Cost re-approval needed when cost moves more than pct from the last approved cost (ruling 10 Oct, 3%). */
+/** The re-approval % when the setting is missing or not a number (docs 09: reapprove_pct 3). A missing setting must never switch re-approval off (audit 3 Nov 2026, D-145). */
+const REAPPROVE_DEFAULT = 3;
 function needsReapproval(approvedCost, newCost, pct) {
   if (!(approvedCost > 0) || newCost == null) return false;
-  return Math.abs(newCost - approvedCost) / approvedCost * 100 > pct;
+  const p = pct == null || pct === '' || !isFinite(Number(pct)) ? REAPPROVE_DEFAULT : Number(pct);
+  return Math.abs(newCost - approvedCost) / approvedCost * 100 > p;
 }
 
 /**
@@ -239,7 +242,16 @@ function buyerLine(grp, ch, name) {
   return { cat, line: ['wl', 'dist', 'dealer'].includes(cat) ? String(name || '') : CATS[cat] };
 }
 /** A product's GP target (Tahir, 19 Oct 2026, D-75): its own target if one is set, else the company GP target (budget_gp). */
-function targetOr(t, budget) { return t != null && t !== '' && isFinite(Number(t)) ? Number(t) : (budget != null && isFinite(Number(budget)) ? Number(budget) : null); }
+/* A target of 0 or less is no target, as on the page (audit 3 Nov 2026, D-145): it takes the company GP target. */
+function targetOr(t, budget) { return t != null && t !== '' && isFinite(Number(t)) && Number(t) > 0 ? Number(t) : (budget != null && isFinite(Number(budget)) ? Number(budget) : null); }
+/** A PO line is checked against the price in force when it came in (Tahir, 4 Nov 2026, D-145): a price approved on the PO's own date counts only
+ *  when it was approved at or before the PO was entered (enteredAt, Pakistan time); with no entry time, a price approved that day does not count. */
+function priceCountsForPo(p, received, enteredAt) {
+  const day = String(received || '').slice(0, 10), at = p.decidedAt || p.decided_at ? String(p.decidedAt || p.decided_at).slice(0, 19) : null;
+  if (!at || at.slice(0, 10) < day) return true; // approved on an earlier day (or no approval time kept): counts as before
+  if (at.slice(0, 10) > day) return true; // approved later but dated back: its valid_from decides, as before
+  return !!enteredAt && at <= String(enteredAt).slice(0, 19);
+}
 
 /** Pakistani number format with digits, e.g. 1,234,567. */
 function fmtInt(x) { return x == null ? '' : Math.round(x).toLocaleString('en-US'); }
@@ -314,5 +326,5 @@ module.exports = {
   listRowIs, listRowSize, officialRow, officialPack, restoreRow,
   round, rateWarning, materialCost, recipeTotal, packingPerUnit, buyOf, buyNote, sourceText, piecePrice, printMrp, mrpIssues, mrpMissing, pickConversionRule, conversionFor, costBreakdown,
   marginPct, targetPrice, contributionFloor, fedPct, netPoPrice, needsReapproval, exposure, flag,
-  RECIPE_FLOW, RECIPE_WHO, fmtInt, pkToday, pkNow, FAMILY_COLOURS, familyColour, CATS, buyerLine, targetOr,
+  RECIPE_FLOW, RECIPE_WHO, fmtInt, pkToday, pkNow, FAMILY_COLOURS, familyColour, CATS, buyerLine, targetOr, priceCountsForPo, REAPPROVE_DEFAULT,
 };

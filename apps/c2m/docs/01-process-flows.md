@@ -625,3 +625,15 @@ stateDiagram-v2
 ```
 - A new version of the Default recipe goes Majid, Himayat, Fahim, Yawar, as in 1.1, and replaces the Default once approved.
 - Only the Default sets cost, price for target and margin. The other approved recipes show their cost beside it, for reading only.
+
+## 1.25 Daily O2S pull and POs checked by their time (owner: Tahir rules; C2M runs it; D-145, 4 Nov 2026)
+
+```mermaid
+flowchart LR
+  T[About 06:00 Pakistan time, or 3 minutes after a restart when the last pull is 20 h old] --> C{Is a pull already running?}
+  C -- yes --> S[Skip; checked again in 15 minutes]
+  C -- no --> P[Pull O2S: PO lines with their entry time, trucks with a gate pass] --> M[Margin and the PO price report use them]
+  N[Pull now, Setup, From O2S] --> C
+```
+- A PO is checked against the price in force when it was entered (F-20, F-30 changed). A price approved later the same day does not mark that PO.
+- Freight: a rate dated ahead waits for its date; a freight save waits for re-approval like any cost (F-31).

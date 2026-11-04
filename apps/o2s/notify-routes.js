@@ -24,7 +24,7 @@ const JOB_ROLES = {
   'Customer sent back': null, 'Approve move': ['Plant Manager'], 'Move refused': null, 'Check after move': ['Supply Chain'],
   'Duplicate number': ['Supply Chain'], 'Pack': ['Production'], 'Name a cover': ['Plant Manager'], 'Rework lot': ['Production'],
   'Assign sample': ['QCM'], 'Lab test': null, 'Lab late': ['Plant Manager'], 'Lab QC': ['Lab Rep'], 'Correct COA': ['Lab Rep'],
-  'Review': ['AQCM', 'Plant Manager'], 'Approve': ['QCM'], 'Print price': ['Finance'], 'Load': ['Warehouse'],
+  'Review': ['AQCM', 'Plant Manager'], 'Approve': ['QCM'], 'Print price': ['Finance', 'Finance Desk Officer'],   /* 2026-11-04a (D-367) */ 'Load': ['Warehouse'],
   'Gate Pass': ['Warehouse'], 'Sent back': null, 'Review truck': ['Supply Chain', 'Warehouse'], 'Release': ['Plant Manager'],
   'Approve DC': ['Plant Manager'], 'Confirm delivery': null, 'Truck released': null, 'Inspect': ['QA Inspector'],
   'Truck came back': ['Plant Manager'],   /* 17a: Saad or Shoaib asks, the Plant Manager approves */

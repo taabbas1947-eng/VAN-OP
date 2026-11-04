@@ -16,5 +16,5 @@ ok('changelog 2026-10-13c exists', /ver:'2026-10-13c'/.test(html));
 const roleOf = id => by(id).roles;
 ok('13d: the KAM may open Lab certificates', roleOf('coa').indexOf('KAM') > -1);
 ok('13d: Lab Rep and QA Inspector may open Batch trace, the KAM may not', roleOf('batchtrace').indexOf('Lab Rep') > -1 && roleOf('batchtrace').indexOf('QA Inspector') > -1 && roleOf('batchtrace').indexOf('KAM') < 0);
-ok('13d: INVOICE_ROLES unchanged (Ismaeel is Finance and already has Invoicing and Shipments)', /var INVOICE_ROLES=\['Finance'\];/.test(html));
+ok('13d: INVOICE_ROLES is Finance, and the Finance Desk Officer since 11-04a (D-367: Ismaeel moves to that role)', /var INVOICE_ROLES=\['Finance','Finance Desk Officer'\];/.test(html));
 report();

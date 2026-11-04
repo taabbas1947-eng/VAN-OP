@@ -428,8 +428,12 @@ async function savePdf(id) {
 async function load() { ST = await api('/api/c2m/state' + (PV ? '?as=' + encodeURIComponent(PV) : '')); const B = SET('budget_gp'); if (B != null) { (ST.products || []).forEach(p => { if (p.target == null || Number(p.target) <= 0) { p.target = B > 0 ? B : null; p.targetDefault = B > 0; } }); (ST.sales || []).forEach(r => { if (r.target == null || Number(r.target) <= 0) r.target = B > 0 ? B : 0; }); (ST.open || []).forEach(r => { if (r.target == null || Number(r.target) <= 0) r.target = B > 0 ? B : 0; }); } // D-75: no target set = the company GP target
   if (!ST.me.nav.concat(ST.me.more || []).includes(scr)) scr = ST.me.nav[0]; render(); checkWhatsNew(); if (lm.open && !lmDone()) lmLoad(); } // the carry-over plan follows every change made meanwhile (a rename in Product names; review 1.0.3 re-check, finding 5)
 let actBusy = false;
-async function act(path, body, okMsg) { if (actBusy) { toast('Wait: the last save is still running.'); return false; } actBusy = true; try { return await act0(path, body, okMsg); } finally { actBusy = false; } } // a double click sends 1 save (review 1.0.2 re-check, finding 5)
-async function act0(path, body, okMsg) { { const pn = document.querySelector('aside.panel'); panAt = pn && pn.contains(document.activeElement) ? panItems(pn).indexOf(document.activeElement) : null; if (panAt < 0) panAt = null; } try { const j = await api(path, body); if (okMsg) toast(typeof okMsg === 'function' ? okMsg(j) : okMsg); if (pan) panFocus = true; aud.data = null; await load(); return j; } catch (e) { toast(e.message, true); return null; } }
+async function once(fn) { if (actBusy) { toast('Wait: the last save is still running.'); return false; } actBusy = true; try { return await fn(); } finally { actBusy = false; } }
+async function act(path, body, okMsg) { return once(() => act0(path, body, okMsg)); } // a double click sends 1 save (review 1.0.2 re-check, finding 5)
+async function act0(path, body, okMsg) { { const pn = document.querySelector('aside.panel'); panAt = pn && pn.contains(document.activeElement) ? panItems(pn).indexOf(document.activeElement) : null; if (panAt < 0) panAt = null; } let j; try { j = await api(path, body); } catch (e) { toast(e.message, true); return null; }
+  if (okMsg) toast(typeof okMsg === 'function' ? okMsg(j) : okMsg); if (pan) panFocus = true; aud.data = null;
+  try { await load(); } catch (e) { toast('Saved. The screen could not refresh: press Refresh or open C2M again.', true); } // the save went through: never say "Nothing was saved" here (audit 3 Nov 2026, D-145)
+  return j; }
 
 /* ---------- Lookups ---------- */
 let _pi = null, _piST = null; /** Every pack with its product, built once per state load (review 18 Oct, finding 2). */
@@ -733,7 +737,7 @@ function nmDrill(costed) {
   /* The approved price a PO is checked against: the price in force when the PO came in, as the PO price report (review r4, finding 2).
      VAN brand packs are priced on the price lists by channel, not per pack: they have no approved pack price to show (review r4, finding 1). */
   const vanP = !!k && k.product.channel === 'VAN brand';
-  const ap = rows.map(r => vanP ? null : priceOn(pid, r.rcv || r.date)); const off = rows.filter((r, i) => ap[i] && Math.abs(r.price - ap[i].price) > 0.005).length, noAp = ap.filter(x => !x).length;
+  const ap = rows.map(r => vanP ? null : priceOn(pid, r.rcv || r.date, r.rcv ? (r.rcvAt || null) : undefined)); const off = rows.filter((r, i) => ap[i] && Math.abs(r.price - ap[i].price) > 0.005).length, noAp = ap.filter(x => !x).length;
   const pv = []; rows.forEach(r => { const P = nmParts(r); if (!P) return; const key = P.map(x => x.toFixed(4)).join('|'); const g = pv[pv.length - 1]; if (g && g.key === key) { g.to = r.date; g.n++; } else pv.push({ key, P, from: r.date, to: r.date, n: 1 }); }); // consecutive trucks with the same parts (review r4, A6)
   const canOpen = k && ST.me.nav.concat(ST.me.more || []).includes('products');
   const priceSay = !rows.length ? '' : vanP ? 'A VAN brand pack is priced on the price lists for each channel, so there is no single approved price to set beside each PO; see More, Reports, VAN brand list margin.' : off ? `${pl(off, 'truck was', 'trucks were')} sold at a PO price different from the price approved when the PO came in.` : noAp === rows.length ? 'No approved price in C2M for the dates these POs came in.' : noAp ? `The other trucks were sold at the price approved when their PO came in; ${pl(noAp, 'PO came', 'POs came')} in before any approved price.` : 'Every truck was sold at the price approved when its PO came in.';
@@ -796,7 +800,7 @@ function vPrices2() {
   if (!ncp.cl || !cs.some(x => x.c === ncp.cl)) ncp.cl = cs[0].c; const coo = CAN('price.approve'), yw = CAN('price.propose');
   const rows = ncpRows(ncp.cl); const ORD = { red: 0, above: 1, green: 2, none: 3 }; rows.sort((a, b) => ORD[a.st] - ORD[b.st] || (b.x ? b.x.kg3 * (b.pr || 0) : 0) - (a.x ? a.x.kg3 * (a.pr || 0) : 0));
   const costed = rows.filter(r => r.gp != null); const wq = costed.reduce((s, r) => s + (r.x ? r.x.kg3 : 0) * r.pr, 0);
-  const wgp = wq ? costed.reduce((s, r) => s + (r.x ? r.x.kg3 : 0) * (r.pr - r.c), 0) / wq * 100 : costed.length ? costed.reduce((s, r) => s + r.gp, 0) / costed.length : null;
+  const wgp = wq ? costed.reduce((s, r) => s + (r.x ? r.x.kg3 : 0) * (r.pr - r.c), 0) / wq * 100 : (() => { const sp = costed.reduce((s, r) => s + r.pr, 0); return sp > 0 ? costed.reduce((s, r) => s + (r.pr - r.c), 0) / sp * 100 : null; })(); /* no expected kg: GP on 1 kg or L of each pack, weighted by price, never an average of % (F-23; audit 3 Nov 2026, D-145) */
   const below = rows.filter(r => r.st === 'red' && r.pr > 0).length, above = rows.filter(r => r.st === 'above').length, nopr = rows.filter(r => !(r.pr > 0)).length;
   const ch = rows.filter(r => r.np != null && r.np !== r.pr && r.c != null && !r.wait); const add = ch.reduce((s, r) => s + r.add, 0); const chBelow = ch.filter(r => r.ngp != null && r.t != null && r.ngp < r.t);
   const waiting = rows.filter(r => r.wait);
@@ -945,7 +949,9 @@ function closedBox() { const C = ST.closedAtCarry || []; if (!C.length || !CAN('
 function offBox() { const O = ST.listOld || []; if (!O.length || !CAN('see.margin')) return '';
   return `<details class="box"><summary><b>Off the lists: ${pl(O.length, 'row', 'rows')}</b>, read only</summary><div class="wrapx"><table class="wt cards" id="offt"><thead><tr><th>List</th><th>Row</th><th>Prices when it left</th><th>Left</th></tr></thead><tbody>${O.map(x => { const back = x.packId != null && !(x.left && x.left.dup) && (ST.listItems || []).some(y => y.list === x.list && Number(y.data.packId) === Number(x.packId)); return `<tr><td data-l="List">${esc(LISTNAME[x.list] || x.list)}</td><td data-l="Row">${esc(x.name)}${back ? ' <span class="pill p-green">back on the list</span>' : ''}</td><td data-l="Prices when it left">${lmPrices(x.list, x.prices)}</td><td data-l="Left">${x.left ? `${esc(fmtShort(x.left.at))} by ${esc(personName(x.left.by))}: ${esc(x.left.why)}` : ''}</td></tr>`; }).join('')}</tbody></table></div><p class="ans">To bring one back, type its price for the pack in the grid above: it goes to the COO as a list revision that adds the row, with the other prices it left with (discount, FRP, Recommended MRP, terms) shown to him.</p></details>`; }
 /** Send typed VAN brand prices as list revisions, 1 per list (existing revision flow; new rows for packs not on a list, D-77). */
-async function ncpMxSend() {
+/* A double click sends once (audit 3 Nov 2026, D-145): the list send, the client price send and Create PDF share act()'s busy guard. */
+const ncpMxSend = () => once(ncpMxSend0);
+async function ncpMxSend0() {
   const G = ncpGrid(); const by = {};
   Object.entries(ncp.mx).forEach(([key, v]) => { if (v === '' || v == null) return; const [pid, list, f] = key.split('|'); const c = G.cells.get(key); if (!(Number(v) > 0) || (c && c.v === Number(v))) return; /* unchanged or empty: not sent */ const L = (by[list] = by[list] || {});
     if (c) { const it = (L['r' + c.row.id] = L['r' + c.row.id] || { id: c.row.id, wasPack: c.row.data.packId != null ? Number(c.row.data.packId) : null, values: {} }); it.values[f] = Number(v); } // the pack seen: a row moved meanwhile is refused (review 1.0.3 re-check)
@@ -956,10 +962,11 @@ async function ncpMxSend() {
   for (const list of lists) { const back = (ST.listRevisions || []).filter(r => r.list_name === list && r.status === 'sent_back').sort((a, b) => b.id - a.id)[0]; /* replaces the sent-back revision of this list (finding 4) */
     try { const j = await api('/api/c2m/lists/revise', { list, items: Object.values(by[list]), reason: ncp.mxReason, validFrom: ncp.mxFrom || ST.today, validTill: ncp.mxTill || null, replaceId: back ? back.id : undefined }); done.push(`${LISTNAME[list]} (${pl(j.rows, 'price', 'prices')})`); Object.keys(ncp.mx).filter(k => k.split('|')[1] === list).forEach(k => delete ncp.mx[k]); } catch (e) { fail.push(`${LISTNAME[list]}: ${e.message}`); } }
   if (done.length) toast(`Sent to the COO: ${done.join(', ')}.${fail.length ? ' Not sent: ' + fail.join(' ') : ''}`, !!fail.length); else toast('Not sent: ' + fail.join(' '), true);
-  await load();
+  try { await load(); } catch (e) { toast('Sent. The screen could not refresh: press Refresh or open C2M again.', true); } // the send went through (review 4 Nov)
 }
 /** Send typed white label prices, 1 proposal per pack (existing proposal rules: reason, date, why below target). */
-async function ncpSend() {
+const ncpSend = () => once(ncpSend0);
+async function ncpSend0() {
   const all = ncpRows(ncp.cl); const rows = all.filter(r => r.np != null && r.np !== r.pr && r.c != null && !r.wait);
   const tch = [...new Map(all.filter(r => r.nt != null && !r.tw && !(r.nt === 'company' && r.p.targetDefault) && !(r.nt !== 'company' && Number(r.nt) === Number(r.p.target))).map(r => [r.p.id, r])).values()];
   if (!rows.length && !tch.length) return toast('No new price or target typed.');
@@ -983,7 +990,7 @@ async function ncpSend() {
     try { await api('/api/c2m/prices/propose', { packId: r.k.id, price: r.np, reason: ncp.reason, belowReason: r.ngp < r.t ? ncp.below : null, validFrom: ncp.from || ST.today, validTo: till, replaceId: back ? back.id : undefined }); ok.push(r.k.id); delete ncp.np[r.k.id]; } catch (e) { bad.push(`${r.p.brand} ${szTxt(r.k)}: ${e.message}`); } }
   ncp.cx = false; if (tBad.length) bad.push(...tBad);
   toast(ok.length || tOk.length ? `Sent to the COO: ${[ok.length ? pl(ok.length, 'price', 'prices') : '', tOk.length ? pl(tOk.length, 'target', 'targets') : ''].filter(Boolean).join(' and ')}.${dropped.length ? ` No valid till on ${dropped.join(', ')}: the sent-back date was before the new From.` : ''}${bad.length ? ' Not sent: ' + bad.join(' ') : ''}` : 'Not sent: ' + bad.join(' '), !!bad.length);
-  await load();
+  try { await load(); } catch (e) { toast('Sent. The screen could not refresh: press Refresh or open C2M again.', true); } // the send went through (review 4 Nov)
 }
 
 /* ---------- Setup: the inputs behind every cost, in 1 place ---------- */
@@ -1089,17 +1096,17 @@ function vNames() {
 }
 /* Setup in 5 tabs, each with its parts (review 26 Oct 2026, F9): 1 place per kind of input. Old keys still open their part. */
 let nsuPart = {}, nsuMatInit = false; // Costs, Materials opens on every material, with its rate
-const NSU_OLD = { settings: ['set', 'settings'], rates: ['costs', 'rates'], packing: ['costs', 'packing'], conv: ['costs', 'conv'], freight: ['costs', 'freight'], cust: ['clients', 'lines'], lines: ['clients', 'lines'], variants: ['van', 'variants'], names: ['van', 'variants'], people: ['set', 'people'], roles: ['set', 'roles'], o2s: ['record', 'o2s'], sheet: ['record', 'sheet'], checks: ['record', 'checks'], audit: ['record', 'audit'], docs: ['record', 'docs'] };
+const NSU_OLD = { settings: ['set', 'settings'], rates: ['costs', 'rates'], packing: ['costs', 'packing'], conv: ['costs', 'conv'], freight: ['costs', 'freight'], cust: ['clients', 'lines'], lines: ['clients', 'lines'], variants: ['van', 'variants'], names: ['van', 'variants'], people: ['set', 'people'], roles: ['set', 'settings'], o2s: ['record', 'o2s'], sheet: ['record', 'sheet'], checks: ['record', 'checks'], audit: ['record', 'audit'], docs: ['record', 'docs'] };
 function vSetup2() {
   const G = [['costs', 'Costs', [['rates', 'Materials'], ['packing', 'Packing'], ['conv', 'Labour and FOH'], ['freight', 'Freight']]],
     ['clients', 'Clients', [['lines', 'Clients']]],
     ['van', 'Products and variants', [['variants', 'Products and variants']]],
-    ['set', 'Settings', [['settings', 'Company settings'], ['people', 'KAM lists']].concat(CAN('roles.manage') ? [['roles', 'Roles']] : [])],
+    ['set', 'Settings', [['settings', 'Company settings'], ['people', 'KAM lists']]],
     ['record', 'Record and checks', [['audit', 'Change record'], ['checks', 'Monthly checks'], ['o2s', 'From O2S'], ['sheet', 'Sheet items'], ['docs', 'System documentation']]]];
   if (NSU_OLD[nsu]) { const [tab, part] = NSU_OLD[nsu]; nsuPart[tab] = part; nsu = tab; }
   if (!G.some(g => g[0] === nsu)) nsu = 'costs';
   const g = G.find(x => x[0] === nsu); const part = g[2].some(x => x[0] === nsuPart[nsu]) ? nsuPart[nsu] : g[2][0][0];
-  const B = { settings: () => boSettings(true), rates: () => { if (!nsuMatInit) { nsuMatInit = true; matFilter = 'all'; } return vInputs('materials'); }, packing: () => vInputs('packing') + '<h2>Packing bills</h2><p class="ans">A packing bill is the packing recipe of a pack: its items and how many of each. Primary items are per pack; a carton is per outer: cost per carton ÷ (packs in the carton × pack size).</p>' + vInputs('bills'), conv: () => boRules(), freight: () => boRules('freight'), lines: nsuLines, variants: p3Variants, people: boAccess, docs: boDocs, roles: vRoles, o2s: nsuO2s, sheet: () => boImport(true), checks: () => (CAN('actuals.enter') || CAN('actuals.tiebooks') || CAN('actuals.ratecheck') ? `<div class="next"><span>${CAN('actuals.enter') ? 'Enter or correct actual labour and FOH, or tie a month to the books' : 'Mark the rate check'} in its panel.</span><button class="btn ghost" data-panact>Enter or correct a month</button></div>` : '') + boActuals(false), audit: boAudit };
+  const B = { settings: () => boSettings(true), rates: () => { if (!nsuMatInit) { nsuMatInit = true; matFilter = 'all'; } return vInputs('materials'); }, packing: () => vInputs('packing') + '<h2>Packing bills</h2><p class="ans">A packing bill is the packing recipe of a pack: its items and how many of each. Primary items are per pack; a carton is per outer: cost per carton ÷ (packs in the carton × pack size).</p>' + vInputs('bills'), conv: () => boRules(), freight: () => boRules('freight'), lines: nsuLines, variants: p3Variants, people: boAccess, docs: boDocs, o2s: nsuO2s, sheet: () => boImport(true), checks: () => (CAN('actuals.enter') || CAN('actuals.tiebooks') || CAN('actuals.ratecheck') ? `<div class="next"><span>${CAN('actuals.enter') ? 'Enter or correct actual labour and FOH, or tie a month to the books' : 'Mark the rate check'} in its panel.</span><button class="btn ghost" data-panact>Enter or correct a month</button></div>` : '') + boActuals(false), audit: boAudit };
   return `${head('Setup', 'The inputs behind every cost and price, and the record of every change.', 'Material, packing, labour and FOH rates save at once and are logged; a cost that moves more than ' + SET('reapprove_pct') + '% waits for re-approval on Approvals. The company GP target and thresholds wait for the COO; the ambition GP is a notice only.')}
   <nav class="subnav" aria-label="Setup">${G.map(([k, l]) => `<button data-nsu="${k}" aria-current="${k === nsu}">${l}</button>`).join('')}</nav>
   ${g[2].length > 1 ? `<div class="chips" role="group" aria-label="${esc(g[1])}" style="margin:8px 0 4px">${g[2].map(([k, l]) => `<button data-nsupart="${k}" aria-pressed="${k === part}">${l}</button>`).join('')}</div>` : ''}<div>${B[part]()}</div>`;
@@ -1273,49 +1280,7 @@ document.addEventListener('click', async e => {
   render();
 });
 
-/* ---------- Roles: created and edited by the administrator role; logins stay in the platform's People and access ---------- */
-const RL = { data: null, loading: false, sel: null, draft: null, err: '' };
-function rlLoad() { if (RL.loading) return; RL.loading = true; api('/api/c2m/roles').then(j => { RL.data = j; RL.err = ''; }).catch(e => { RL.err = e.message; }).finally(() => { RL.loading = false; render(); }); }
-function rlPick(key) {
-  RL.sel = key;
-  if (key === 'new') RL.draft = { key: null, label: '', admin: false, actions: [], holders: [] };
-  else { const r = (RL.data.roles || []).find(x => x.key === key); RL.draft = r ? { ...r, actions: r.admin ? [] : r.actions.slice(), holders: r.holders.slice() } : null; }
-}
-function vRoles() {
-  if (!CAN('roles.manage')) return '<p class="ans">Only the administrator role creates and edits roles.</p>';
-  if (!RL.data) { if (!RL.loading) rlLoad(); return RL.err ? `<div class="warnbox" style="display:block">${esc(RL.err)}</div>` : '<p class="ans">Loading the roles.</p>'; }
-  const D = RL.data, d = RL.draft;
-  const list = D.roles.map(r => `<tr class="go" data-rl-open="${esc(r.key)}"${RL.sel === r.key ? ' aria-current="true"' : ''}><td><b>${esc(r.label)}</b>${r.admin ? ' <span class="pill p-blue">administrator</span>' : ''}</td><td class="r num">${r.holders.length}</td><td>${r.holders.length ? esc(r.holders.join(', ')) : 'nobody'}</td></tr>`).join('');
-  let ed = '<p class="ans">Pick a role to see what it may do, or make a new one.</p>';
-  if (d) {
-    const lock = d.admin, set = new Set(d.actions);
-    ed = `<div class="box form"><b>${d.key ? esc(d.label) : 'New role'}</b>
-    ${lock ? '<p class="ans">This is the administrator role. It always holds every action and cannot be edited or deleted. Creating and editing roles stays with it.</p>' : ''}
-    <div class="row"><label for="rl-name">Role name<input id="rl-name" data-rl-name value="${esc(d.label)}" maxlength="60" ${lock ? 'disabled' : ''}></label></div>
-    ${D.catalogue.filter(g => !(g.group === 'Administration')).map(g => `<fieldset style="border:0;padding:0;margin:10px 0 0"><legend><b>${esc(g.group)}</b></legend>${g.items.map(([k, l]) => `<label style="display:flex;gap:8px;align-items:flex-start;margin:4px 0"><input type="checkbox" data-rl-act="${esc(k)}" ${lock || set.has(k) ? 'checked' : ''} ${lock ? 'disabled' : ''}> <span>${esc(l)}</span></label>`).join('')}</fieldset>`).join('')}
-    <p class="ans">A person below the administrator who is given an approve right approves only what an administrator proposed, never a colleague's or their own. The places a person sees follow from the ticks. Logins are given in People and access on the platform.</p>
-    ${lock ? '' : `<div style="margin-top:8px"><button class="btn" data-rl-save>${d.key ? 'Save role' : 'Create role'}</button>${d.key ? ` <button class="btn ghost" data-rl-del data-confirm="Confirm: delete this role"${d.holders.length ? ' disabled' : ''}>Delete role</button>${d.holders.length ? ` <span class="sub2">${pl(d.holders.length, 'person holds', 'people hold')} it: move them to another role first.</span>` : ''}` : ''}</div>`}
-    </div>`;
-  }
-  return `${D.ready ? '' : '<div class="warnbox" style="display:block"><b>Roles cannot be saved yet.</b> Migration 002 has not been run, so C2M is using the 6 built-in roles. Ask IT to run it.</div>'}
-  <p class="ans">${pl(D.roles.length, 'role', 'roles')}. Each role is a set of ticks: what its people may do and see.</p>
-  <div class="two"><div><div class="box wrapx"><table class="wt"><thead><tr><th>Role</th><th class="r">People</th><th>Who</th></tr></thead><tbody>${list}</tbody></table></div>
-  <div style="margin-top:8px"><button class="btn ghost" data-rl-open="new">New role</button></div></div>${ed}</div>`;
-}
-document.addEventListener('click', async e => {
-  const t = e.target.closest('[data-rl-open],[data-rl-save],[data-rl-del]'); if (!t || !ST) return; const d = t.dataset;
-  if (d.rlOpen) { rlPick(d.rlOpen); render(); return; }
-  if (d.confirm && !d.armed) return; // the 2-step confirm is handled by the main handler
-  const D = RL.draft; if (!D) return;
-  if ('rlSave' in d) {
-    if (!String(D.label || '').trim()) { toast('Give the role a name.', true); return; }
-    const j = await act(D.key ? '/api/c2m/roles/' + encodeURIComponent(D.key) : '/api/c2m/roles', { label: D.label, actions: D.actions }, D.key ? 'Role saved.' : 'Role created.');
-    if (j) { RL.data = null; RL.sel = j.key || D.key; RL.draft = null; const k = RL.sel; api('/api/c2m/roles').then(x => { RL.data = x; rlPick(k); render(); }).catch(() => {}); }
-  } else if ('rlDel' in d) {
-    const j = await act('/api/c2m/roles/' + encodeURIComponent(D.key) + '/delete', {}, 'Role deleted.');
-    if (j) { RL.data = null; RL.sel = null; RL.draft = null; render(); }
-  }
-});
+/* The old C2M Roles screen was removed on 4 Nov 2026 (D-145): roles are designed by the System Administrator on the launcher (28 Oct 2026). */
 /* KAM lists: pick a manager, tick clients, copy, and look at his screen. The list ticks use data-grant (the change handler below). */
 document.addEventListener('click', async e => {
   const t = e.target.closest('[data-kam-pick],[data-kam-client],[data-kam-all],[data-kam-copy],[data-kam-copygo],[data-kam-copyno],[data-kam-preview],[data-kam-exit]'); if (!t || !ST) return; const d = t.dataset;
@@ -1329,8 +1294,6 @@ document.addEventListener('click', async e => {
   if ('kamPreview' in d) { if (PV) return; PVBACK = { scr, setup, nsu }; PV = d.kamPreview; scr = 'lists'; try { await load(); } catch (err) { PV = null; const b = PVBACK; PVBACK = null; scr = b.scr; toast(err.message, true); } return; }
   if ('kamExit' in d) { const b = PVBACK; PV = null; PVBACK = null; if (b) { scr = b.scr; setup = b.setup; nsu = b.nsu; } try { await load(); } catch (err) { toast(err.message, true); location.reload(); } return; }
 });
-document.addEventListener('change', e => { const t = e.target; if (!t || !t.dataset || t.dataset.rlAct === undefined || !RL.draft) return; const k = t.dataset.rlAct, a = RL.draft.actions; const i = a.indexOf(k); if (t.checked && i < 0) a.push(k); if (!t.checked && i >= 0) a.splice(i, 1); });
-document.addEventListener('input', e => { const t = e.target; if (t && t.dataset && t.dataset.rlName !== undefined && RL.draft) RL.draft.label = t.value; });
 document.addEventListener('input', e => { const t = e.target; if (!t) return; if (t.id === 'trv' || t.id === 'trs' || (t.dataset && t.dataset.buyin)) trialSync(); });
 
 /* ---------- Clicks and typing for the 1.0.0 places ---------- */
@@ -1480,7 +1443,15 @@ const CHANGELOG = [
     { t: 'C2M has its own icon in the browser tab. The browser no longer downloads the whole O2S app as C2M\'s icon while C2M opens, so the first screen comes sooner.', for: ['all'], guide: null },
     { t: 'On a smaller laptop screen the top bar fits: the tabs no longer run over each other or get cut off. Below a certain width the tab icons and the word Find are left out.', for: ['all'], guide: null }] },
   { ver: '2026-11-04b', date: '2026-11-04', title: 'Add a material class', items: [
-    { t: 'The CFO can add a material class on Setup, Costs, Materials: a name and the nutrient % it asks (for example N%, Amino acid%, OM%), or a class that adds no nutrients. It then shows in every material\'s Class list.', for: ['material.save', 'nutrient.edit'], guide: 'Add a material class' }] }
+    { t: 'The CFO can add a material class on Setup, Costs, Materials: a name and the nutrient % it asks (for example N%, Amino acid%, OM%), or a class that adds no nutrients. It then shows in every material\'s Class list.', for: ['material.save', 'nutrient.edit'], guide: 'Add a material class' }] },
+  { ver: '2026-11-04c', date: '2026-11-04', title: 'Daily O2S pull, POs checked by their time, and fixes', items: [
+ { t: 'C2M pulls O2S by itself every morning at about 06:00, so Margin carries yesterday\'s trucks. Pull now still works at any time.', for: ['see.margin'], guide: null },
+ { t: 'A PO is checked against the price in force when it came in. A price approved later the same day no longer marks that PO as below the approved price.', for: ['see.margin'], guide: null },
+ { t: 'Stuck jobs on Approvals now show working days (Monday to Saturday), the same days the stuck rule counts.', for: ['see.margin'], guide: null },
+ { t: 'Send to the COO and Create PDF send once even when pressed twice.', for: ['price.propose', 'list.revise', 'pricedoc.all'], guide: null },
+ { t: 'A freight rate dated ahead waits for its date, and a freight change waits for re-approval like any other cost.', for: ['freight.edit'], guide: null },
+ { t: 'Roles are no longer made in C2M: the System Administrator designs them on the launcher. The Roles tab under Setup, Settings is gone.', for: ['settings.approve'], guide: null },
+ { t: 'If C2M cannot open, it says why and offers Retry and Back to launcher.', for: ['all'], guide: null }] }
 ];
 let _wnShown = false, wnGuide = null;
 /** A Guide link only when that row is on this person's Guide (Yawar's rows, Tahir's rows, and Both; D-141). */
@@ -1651,7 +1622,7 @@ function homeGrid(J, nm0, W) {
       <div class="vstats"><div><b>${oldest == null ? '–' : oldest ? oldest + 'd' : 'today'}</b><span>Oldest waiting</span></div><div><b>${stuckN}</b><span>Stuck</span></div><div><b>${W.length}</b><span>With others</span></div></div></div>`; }
   const t0 = j => j.since ? d10(j.since) : '9999';
   const rows = J.map((j, i) => [j, i]).sort((a, b) => { const r = j => (j.kind === 'red' || (j.since && isStuck(j.since))) ? 0 : 1; return r(a[0]) - r(b[0]) || t0(a[0]).localeCompare(t0(b[0])) || (a[0].pri - b[0].pri); });
-  const st = j => (j.kind === 'red' || (j.since && isStuck(j.since))) ? ['red', j.since && isStuck(j.since) ? `Stuck ${daysSince(j.since)}d` : 'Act now'] : j.since ? ['amber', `Waiting ${ageTxt(j.since)}`] : ['grey', 'To do'];
+  const st = j => (j.kind === 'red' || (j.since && isStuck(j.since))) ? ['red', j.since && isStuck(j.since) ? `Stuck ${wdays(j.since)} working days` : 'Act now'] : j.since ? ['amber', `Waiting ${ageTxt(j.since)}`] : ['grey', 'To do'];
   const nmi = nextMove(J);
   const right = `<div class="jl" data-lft="jobs"><h2 class="gh">${J.length > 1 && nmi >= 0 ? 'Then' : 'Needs you'} <span class="c">${J.length > 1 && nmi >= 0 ? J.length - 1 : J.length}</span></h2>${J.length > 2 ? findBox('jobs', 'Find a job, product or client') : ''}${rows.filter(([j, i]) => i !== nmi || J.length === 1).map(([j, i]) => { const [c, w] = st(j); return `<div class="jrow ${c}"><div><div class="t">${esc(j.t)}</div><div class="d">${i === nmi ? 'Your next move, above.' : esc(j.d)}</div></div><span class="sw">${esc(w)}</span>${i === nmi ? '' : `<button class="btn ghost" data-job="${i}">${j.btn}</button>`}</div>`; }).join('') || '<div class="jrow green"><div class="t">Nothing needs you today.</div><span class="sw">Clear</span></div>'}</div>`;
   return `<div class="home">${left}${right}</div>`;
@@ -2415,11 +2386,22 @@ function vBridge() {
   <p class="ans" style="font-size:12.5px">The parts add to the change exactly; each figure is rounded to the rupee, so the rounded parts can differ from the total by a few rupees.${B.unc ? ` Trucks with no cost (${rs(B.unc)} of sales in the 2 months) are left out.` : ''}</p></div></div>`;
 }
 /** The approved price in force for a pack on a date: the same rule as the server (latest start on or before the date, not ended). */
-function priceOn(packId, date) { let best = null; (ST.priceHistory || []).forEach(p => { if (p.packId !== packId || p.from > date || (p.to && p.to < date)) return; if (!best || p.from > best.from || (p.from === best.from && p.id > best.id)) best = p; }); return best; }
+function priceOn0(packId, date, skip) { let best = null; (ST.priceHistory || []).forEach(p => { if (p.packId !== packId || p.from > date || (p.to && p.to < date) || (skip && skip(p))) return; if (!best || p.from > best.from || (p.from === best.from && p.id > best.id)) best = p; }); return best; }
+/** The approved price a PO is checked against (F-20, F-30; Tahir, 4 Nov 2026, D-145: "PO checked by its time"). A price approved on the PO's own date
+ *  counts only if it was approved at or before the PO was entered (enteredAt, Pakistan time); with no entry time it does not count, and the price
+ *  in force the day before is used. Mirrors lib.priceCountsForPo on the server. */
+function priceCounts(p, date, enteredAt) { const at = p.decidedAt ? String(p.decidedAt).slice(0, 19) : null, day = d10(date); if (!at || at.slice(0, 10) !== day) return true; return !!enteredAt && at <= String(enteredAt).slice(0, 19); }
+function priceOn(packId, date, enteredAt) {
+  if (enteredAt === undefined) return priceOn0(packId, date); // not a PO check: the price in force that day
+  const day = d10(date); const best = priceOn0(packId, day);
+  if (!best || priceCounts(best, day, enteredAt)) return best;
+  const skip = p => !priceCounts(p, day, enteredAt); // the same rule for the day before: a back-dated price approved on the PO's day after entry never counts (review 4 Nov)
+  return priceOn0(packId, day, skip) || priceOn0(packId, addDays(day, -1), skip);
+}
 /** Every O2S PO line against the approved price on its received date (R3, approved picture G). */
 function poCheck() {
   const cur = ST.today.slice(0, 7), last = addDays(cur + '-01', -1).slice(0, 7); const inPer = d => !!d && (poPer === 'month' ? d.slice(0, 7) === cur : poPer === 'last' ? d.slice(0, 7) === last : d >= fyStart());
-  const P = packIdx(); const all = (ST.poLines || []).filter(l => l.grp === 'White label' && !l.foc && inPer(l.received)).map(l => { const k = l.packId ? P.get(l.packId) : null; const ap = l.packId ? priceOn(l.packId, l.received) : null; const a = ap ? ap.price : null; const diff = a != null ? a - l.price : null;
+  const P = packIdx(); const all = (ST.poLines || []).filter(l => l.grp === 'White label' && !l.foc && inPer(l.received)).map(l => { const k = l.packId ? P.get(l.packId) : null; const ap = l.packId ? priceOn(l.packId, l.received, l.enteredAt || null) : null; const a = ap ? ap.price : null; const diff = a != null ? a - l.price : null;
     return { ...l, k, name: k ? packLabel(k) : `${l.brand} ${l.pack}`, ap: a, gap: diff != null ? Math.max(diff, 0) * l.kg : 0, state: !l.packId ? 'not placed on a pack' : a == null ? 'no approved price' : diff > 0.005 ? 'below approved' : diff < -0.005 ? 'above approved' : 'as approved' }; }).sort((a, b) => b.gap - a.gap || String(b.received).localeCompare(String(a.received)));
   const F = { all: () => true, below: x => x.state === 'below approved', as: x => x.state === 'as approved' || x.state === 'above approved', none: x => x.state === 'no approved price' || x.state === 'not placed on a pack' };
   return { all, F, list: all.filter(F[poF] || F.all), cur, last };
@@ -2873,10 +2855,10 @@ const WHO = [
   { r: 'qc', who: 'QC Head', does: 'Gives each material its class and nutrient %. Reviews the recipe and its nutrient analysis.', next: 'The Plant Manager endorses it next.' },
   { r: 'plant', who: 'Plant Manager', does: 'Checks the recipe, nutrients and cost. Endorses it, or sends it back with a reason.', next: 'The CFO approves the cost next.' },
   { r: 'cfo', who: 'CFO', does: 'Approves the cost of every recipe. Keeps rates, packing and labour current. Adds clients and products, and a rate for 1 variant. Proposes prices and VAN brand list revisions. Gives KAMs their lists.', next: 'The COO approves his prices, list revisions and setting changes.' },
-  { r: 'coo', who: 'COO', does: 'Approves prices, list revisions, targets and thresholds. Adds clients, products and variants. Makes the roles and decides who sees what. Does the monthly rate check.', next: 'As the administrator he may approve what he proposed himself; everyone else may not.' },
+  { r: 'coo', who: 'COO', does: 'Approves prices, list revisions, targets and thresholds. Adds clients, products and variants. Decides who sees which price lists. Does the monthly rate check.', next: 'As the administrator he may approve what he proposed himself; everyone else may not.' },
   { r: 'viewer', who: 'KAMs and managers', does: 'See only the price lists and clients they are given, and download the PDF. They never see cost or margin.', next: 'If no list shows, ask the CFO or the COO.' },
 ];
-const GUIDE_CUSTOM = ['This role was set up by the administrator in Setup, Settings, Roles. What you may do is what is ticked on it: the places you see are the places you may use.', 'Every change you make is dated and logged in the change record.'];
+const GUIDE_CUSTOM = ['This role was set up by the System Administrator on the launcher (People and access, Roles by app). What you may do is what is ticked on it: the places you see are the places you may use.', 'Every change you make is dated and logged in the change record.'];
 /* The one "I want to…" table for Yawar and Tahir (round 4): job, who, where, what happens next. Same rows as doc 07. */
 const GUIDE_JOBS = () => [
   ['Start the day', 'Both', 'Approvals', 'Do "Your next move", then the rest of your list. Each line opens in a panel and shows how long it has waited; "stuck" means more than 2 working days (Monday to Saturday). "End of your list" means you are done; what waits for others is folded under it.'],
@@ -2901,7 +2883,6 @@ const GUIDE_JOBS = () => [
   ['Change a client\'s name or what its lists print', 'Both', 'Setup, Clients, Edit', 'A rename moves the client\'s KAM access with it; lists already issued keep the name they were printed with.'],
   ['Give a KAM his lists', 'Both', 'Setup, Settings, KAM lists', 'Tick the lists and white label clients he may see; each tick saves at once. Copy from another manager, or See what this person sees, read only.'],
   ['Change a setting', 'Both', 'Setup, Settings', 'A threshold or the company GP target from the CFO waits for the COO on Approvals.'],
-  ['Make or change a role', 'COO', 'Setup, Settings, Roles', 'Tick what the role may do. Logins stay in the platform\'s People and access.'],
   ['Close the month', 'Both', 'Setup, Record and checks, Monthly checks', 'Enter actual labour and FOH; type ERP sales and COGS to tie the month to the books. The COO checks the 15 biggest material rates against the purchase register.'],
   ['Find who changed something', 'Both', 'Setup, Record and checks, Change record', 'Filter by person, kind, dates, or search a product, client or reason. It searches the newest 5,000 changes for the person, kind and dates picked; pick dates for older ones.'],
   ['Read a report', 'Both', 'More, Reports', 'GP bridge, PO price against approved, VAN brand list margin.'],
@@ -2919,7 +2900,7 @@ function vGuide() {
   if (big) {
     const J = GUIDE_JOBS(); const mine = J.filter(r => r[1] === 'Both' || r[1] === me);
     return `${head('Guide', 'I want to…', `Find the job, go where it says, and read what happens next. Rows for ${me} and for both of you; the full system documentation is in Setup, Record and checks.`)}
-  <h2>Your first day in 5 steps</h2><ol class="box form" style="margin:0 0 14px;padding:12px 12px 12px 32px">${(me === 'COO' ? ['Open <b>Approvals</b>. Do "Your next move", then the prices, list revisions, targets and settings waiting for you.', 'Open <b>Client prices</b>. A price from the CFO shows "Open to approve" in its row.', 'Open <b>Margin</b>. It opens on the whole company for this month; open a line, then a pack, down to each truck.', 'Open <b>Products</b>. Each client is a row: open it for its products, then a product for its recipe, cost by pack and history.', 'Open <b>Setup, Settings</b> for KAM lists and Roles.'] : ['Open <b>Approvals</b>. Do "Your next move", then the rest of your list.', 'Open <b>Products</b>. Each client is a row: open it for its products, then a product for its recipe, cost by pack and history.', 'Open <b>Client prices</b>. Pick a client, type a new price or target in the row, see the GP at once, then Send to the COO.', 'Open <b>Margin</b>. It opens on the whole company for this month; open a line, then a pack, down to each truck.', 'Open <b>Setup, Costs</b> when a material, packing, labour or FOH rate changes. Every change is dated and logged.']).map(x => `<li>${x}</li>`).join('')}</ol>
+  <h2>Your first day in 5 steps</h2><ol class="box form" style="margin:0 0 14px;padding:12px 12px 12px 32px">${(me === 'COO' ? ['Open <b>Approvals</b>. Do "Your next move", then the prices, list revisions, targets and settings waiting for you.', 'Open <b>Client prices</b>. A price from the CFO shows "Open to approve" in its row.', 'Open <b>Margin</b>. It opens on the whole company for this month; open a line, then a pack, down to each truck.', 'Open <b>Products</b>. Each client is a row: open it for its products, then a product for its recipe, cost by pack and history.', 'Open <b>Setup, Settings</b> for KAM lists.'] : ['Open <b>Approvals</b>. Do "Your next move", then the rest of your list.', 'Open <b>Products</b>. Each client is a row: open it for its products, then a product for its recipe, cost by pack and history.', 'Open <b>Client prices</b>. Pick a client, type a new price or target in the row, see the GP at once, then Send to the COO.', 'Open <b>Margin</b>. It opens on the whole company for this month; open a line, then a pack, down to each truck.', 'Open <b>Setup, Costs</b> when a material, packing, labour or FOH rate changes. Every change is dated and logged.']).map(x => `<li>${x}</li>`).join('')}</ol>
   ${wnGuideBox()}<h2>I want to…</h2><div class="box wrapx"><table class="cards" id="gjobs" data-nosort><thead><tr><th data-key="1">Job</th><th>Who</th><th data-key="2">Where</th><th>What happens next</th></tr></thead><tbody>
   ${mine.map(r => `<tr data-gj="${esc(r[0])}"${r[0] === wnGuide ? ' class="gjhl"' : ''}><td data-l="Job"><b>${esc(r[0])}</b></td><td data-l="Who">${esc(r[1])}</td><td data-l="Where">${esc(r[2])}</td><td data-l="Next">${esc(r[3])}</td></tr>`).join('')}</tbody></table></div>
   <details class="how" style="margin-top:12px"><summary>Who does what in the recipe chain</summary>${whoBox}</details>
@@ -2946,7 +2927,7 @@ document.addEventListener('click', async e => {
   // 2-step approvals: the first tap asks, the second acts (UX review)
   // The armed step is green with "Tap again to confirm", not red: approving is not a danger (UX review S16)
   if (d.confirm && !d.armed) { const was = t.textContent; d.armed = '1'; t.textContent = 'Tap again to confirm: ' + d.confirm.replace(/^Confirm: /, ''); t.classList.add('armed'); t.setAttribute('aria-live', 'assertive'); setTimeout(() => { if (t.isConnected) { delete t.dataset.armed; t.textContent = was; t.classList.remove('armed'); } }, 6000); return; }
-  if ('signout' in d) { e.preventDefault(); try { localStorage.removeItem('van_token'); } catch (_) {} await fetch('/harness/logout', { method: 'POST' }).catch(() => {}); location.href = '/'; return; }
+  if ('signout' in d) { e.preventDefault(); try { localStorage.removeItem('van_token'); } catch (_) {} location.href = '/'; return; }
   if ('panclose' in d) { if (t.classList.contains('scrim') && pan && pan.k === 'propose' && propose && $('ppv') && (String(val('ppn') || '').trim() || Number(val('ppv')) !== propose.v0)) { toast('Send it or press Cancel: a click beside the panel does not drop a typed price.'); return; } closePanel(); }
   else if ('finder' in d) { finder = { q: '', i: 0 }; moreOpen = false; }
   else if ('findclose' in d) { finder = null; render(); refocus('[data-finder]'); return; }
@@ -3057,7 +3038,7 @@ document.addEventListener('click', async e => {
   else if (d.aud) { PLB.aud = d.aud; PLB.effSet = PLB.tillSet = false; }
   else if (d.plf) { PLB.pick[PLB.aud][d.plf] = t.checked; }
   else if (d.list) { listSel = d.list; }
-  else if ('mkpdf' in d) { const a = PLB.aud; const pick = PLB.pick[a] || Object.fromEntries(fieldsFor(a).map(f => [f[0], !!f[2]])); try { const j = await api('/api/c2m/pricedocs', { audience: a, client: PLB.client, fields: fieldsFor(a).map(f => f[0]).filter(k => pick[k]), eff: PLB.effSet ? PLB.eff : undefined, till: PLB.tillSet ? PLB.till : undefined, note: PLB.note, reasons: PLB.reasons }); await savePdf(j.id); toast('PDF created: ' + (j.ref || 'see your downloads')); } catch (err) { toast(err.message, true); } await load(); return; }
+  else if ('mkpdf' in d) { const a = PLB.aud; const pick = PLB.pick[a] || Object.fromEntries(fieldsFor(a).map(f => [f[0], !!f[2]])); await once(async () => { try { const j = await api('/api/c2m/pricedocs', { audience: a, client: PLB.client, fields: fieldsFor(a).map(f => f[0]).filter(k => pick[k]), eff: PLB.effSet ? PLB.eff : undefined, till: PLB.tillSet ? PLB.till : undefined, note: PLB.note, reasons: PLB.reasons }); await savePdf(j.id); toast('PDF created: ' + (j.ref || 'see your downloads')); } catch (err) { toast(err.message, true); } try { await load(); } catch (_) {} }); return; } // a double click makes 1 document (D-145)
   else if (d.imp) { await act(`/api/c2m/import/${d.imp}/accept`, {}, 'Accepted under your name'); return; }
   else if (d.impc) corr = +d.impc; else if ('impcancel' in d) corr = null;
   else if (d.impsave) { const r = await act(`/api/c2m/import/${d.impsave}/correct`, { value: val('cv'), why: val('cw'), confirmed: !!($('cconf') && $('cconf').checked) }, j => j.reapproval ? `Saved. ${pl(j.reapproval, 'pack', 'packs')} to re-approve.` : j.kind === 'note' ? 'Recorded. Nothing in C2M changes from a note; make the change on its screen.' : 'Saved into C2M'); if (r) { corr = null; render(); } return; }
@@ -3153,7 +3134,12 @@ document.addEventListener('change', async e => {
   else if (d.elM != null) editLines.lines[+d.elM].gradeId = +t.value; else if (d.elQ != null) editLines.lines[+d.elQ].qty = Number(t.value);
   else if (d.blI != null) billEdit.lines[+d.blI].itemId = +t.value; else if (d.blL != null) { billEdit.lines[+d.blL].level = t.value; billEdit.name = val('ben'); render(); } else if (d.blP != null) billEdit.lines[+d.blP].pieces = Number(t.value); else if (d.blN != null) billEdit.lines[+d.blN].packsPerOuter = Number(t.value);
 });
-load().catch(e => { $('app').innerHTML = `<main><h1>C2M could not load.</h1><p class="ans">${esc(e.message)}</p></main>`; });
+/* First load (audit 3 Nov 2026, D-145): after 20 s a line says it is still loading; a failure shows the reason, Retry and the way back. */
+function firstLoad() {
+  const slow = setTimeout(() => { const el = document.querySelector('#app .loading'); if (el && !ST) el.innerHTML = 'Loading C2M…<br><span class="ans">C2M is taking longer than usual. It is still loading; you can wait here.</span>'; }, 20000);
+  load().then(() => clearTimeout(slow), e => { clearTimeout(slow); $('app').innerHTML = `<main><h1>C2M could not load.</h1><p class="ans">${esc(e.message)}</p><p><button class="btn" id="c2m-retry" type="button">Retry</button> <a class="btn ghost" href="/">Back to launcher</a></p></main>`; const b = $('c2m-retry'); if (b) b.onclick = () => { $('app').innerHTML = '<div class="loading">Loading C2M…</div>'; firstLoad(); }; });
+}
+firstLoad();
 </script>
 </body>
 </html>

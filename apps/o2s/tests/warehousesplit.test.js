@@ -151,9 +151,10 @@ ok('...and so does Lab QC', /isSC=canEdit\(\['Supply Chain','Warehouse'\]\)/.tes
   ok('Finance can now raise a PO', owners('entry').indexOf('Finance') > -1, owners('entry').join(','));
   /* STEP 2 DONE - the night of 23 Sep, R5: "Ismaeel, CFO, COO see, no one else,
      not even Basit." The Finance Desk Officer and the KAM both come off. */
-  ok('STEP 2 DONE — the Finance Desk Officer no longer has New PO Entry', owners('entry').indexOf('Finance Desk Officer') < 0);
+  /* 4 Nov 2026, D-367: Ismaeel moves to the Finance Desk Officer role and keeps New order, so the role is back on the owners (Tahir: both end up with the same access) */
+  ok('D-367 — the Finance Desk Officer has New order again (Ismaeel)', owners('entry').indexOf('Finance Desk Officer') > -1);
   ok('STEP 2 DONE — the KAM no longer has New PO Entry', owners('entry').indexOf('KAM') < 0);
-  eq('New PO Entry is exactly Finance, CFO, COO', owners('entry').slice().sort().join(','), 'CFO,COO,Finance');
+  eq('New PO Entry is exactly Finance, the Finance Desk Officer, CFO, COO (D-367)', owners('entry').slice().sort().join(','), 'CFO,COO,Finance,Finance Desk Officer');
   /* THE EDIT: remove 'KAM' from the entry screen's owners, and move
      customer.create / customer.amend off legacy:{kind:'hard',roles:['KAM']}.
      Those two are ONE change (C3 + C9): a read-only KAM cannot hold
@@ -167,7 +168,7 @@ ok('...and so does Lab QC', /isSC=canEdit\(\['Supply Chain','Warehouse'\]\)/.tes
   ok('so does customer.amend', /roles:\['KAM'\]/.test(right('customer.amend')));
   ['customer.create', 'customer.amend'].forEach(c =>
     ok("STEP 2 DONE — " + c + " is in RIGHTS_LIVE, decided by the grant table", liveNow.indexOf("'" + c + "'") > -1));
-  ok('and the grant goes to Finance and the CFO', /var CUSTOMER_GRANT=\{'Finance':true,'CFO':true\}/.test(H.html));
+  ok('and the grant goes to Finance, the Finance Desk Officer (11-04a, D-367) and the CFO', /var CUSTOMER_GRANT=\{'Finance':true,'Finance Desk Officer':true,'CFO':true\}/.test(H.html));
 }
 
 console.log('\nSupply Chain splits three ways — dispatch done, the KAM half done too: ' + pass + ' passed, ' + fail + ' failed');

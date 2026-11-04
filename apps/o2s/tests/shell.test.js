@@ -476,8 +476,8 @@ ok('a browser that remembered All actions or the Dashboard lands on Today', /if\
 /* 24l: Finance sees money on the Invoicing sheet alone (Tahir, 24 Sep) */
 {
   const mm = grab('mayMoney');
-  ok('the money roles stay the 4 of R6; Finance is a money role only on the Invoicing sheet', /MONEY_ROLES\.indexOf\(state\.role\)>-1/.test(mm) && /INVOICE_ROLES\.indexOf\(state\.role\)>-1 && state\.screen==='reports' && rpCur==='invoicing'/.test(mm) && /var INVOICE_ROLES=\['Finance'\]/.test(html));
-  const f = new Function('state', 'rpCur', "var MONEY_ROLES=['COO','CFO','Plant Manager','KAM']; var INVOICE_ROLES=['Finance'];\n" + mm + '\nreturn mayMoney;');
+  ok('the money roles stay the 4 of R6; Finance is a money role only on the Invoicing sheet', /MONEY_ROLES\.indexOf\(state\.role\)>-1/.test(mm) && /INVOICE_ROLES\.indexOf\(state\.role\)>-1 && state\.screen==='reports' && rpCur==='invoicing'/.test(mm) && /var INVOICE_ROLES=\['Finance','Finance Desk Officer'\]/.test(html)); // D-367: the Finance Desk Officer keeps the Invoicing sheet too
+  const f = new Function('state', 'rpCur', "var MONEY_ROLES=['COO','CFO','Plant Manager','KAM']; var INVOICE_ROLES=['Finance','Finance Desk Officer'];\n" + mm + '\nreturn mayMoney;');
   ok('Finance on the Invoicing sheet: money', f({ role: 'Finance', screen: 'reports' }, 'invoicing')() === true);
   ok('Finance anywhere else: no money', f({ role: 'Finance', screen: 'reports' }, 'docs')() === false && f({ role: 'Finance', screen: 'dash' }, 'invoicing')() === false);
   ok('a Production Officer never', f({ role: 'Production', screen: 'reports' }, 'invoicing')() === false);

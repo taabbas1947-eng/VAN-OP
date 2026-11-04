@@ -79,7 +79,8 @@
    "status": "confirmed",
    "src": [
     "o2s.html ROLE_TITLE, USER_TITLE, ROLE_DEPT, DEPTS",
-    "OP-HANDOFF-O2S.md 13 Oct 2026 (7) Production lead"
+    "OP-HANDOFF-O2S.md 13 Oct 2026 (7) Production lead",
+    "D-367 (4 Nov 2026): the Finance Desk Officer does what Finance does"
    ],
    "blocks": [
     {
@@ -176,13 +177,13 @@
         "Finance",
         "Invoicing Officer",
         "Finance",
-        "Muhammad Ismaeel"
+        "Abdul Basit Khan (from 4 Nov 2026, D-367; Muhammad Ismaeel until then). USER_TITLE keeps his own title, Procurement Accountant"
        ],
        [
         "Finance Desk Officer",
         "Procurement Accountant",
         "Finance",
-        "Abdul Basit Khan"
+        "Muhammad Ismaeel (from 4 Nov 2026, D-367; Abdul Basit Khan until then). USER_TITLE keeps his own title, Invoicing Officer"
        ]
       ]
      }
@@ -205,7 +206,8 @@
     "fn accessLevelOn",
     "o2s.html ACCESS_RULED_V2, ACCESS_RULED_V3, seedAccessV2",
     "fn setScreen, screenDataFix, smpMayView, rpMay, mayMoney, amxCycle",
-    "tests threeplaces.test.js"
+    "tests threeplaces.test.js",
+    "D-367 (4 Nov 2026): the Finance Desk Officer does what Finance does"
    ],
    "ask": "The table shows the code's defaults and the seeded rulings of 23 Sep. The live matrix can differ (the COO changes it on Back Office). Should this part: A) show the live matrix as the app draws it, B) keep the code defaults only, C) show both side by side?",
    "blocks": [
@@ -260,14 +262,14 @@
        [
         "New order",
         "entry",
-        "Finance, CFO, COO",
+        "Finance, Finance Desk Officer, CFO, COO",
         "Finance and CFO edit; every other role none",
         "-"
        ],
        [
         "Customers",
         "dealers",
-        "Finance, CFO, COO, Plant Manager",
+        "Finance, Finance Desk Officer, CFO, COO, Plant Manager",
         "Finance and CFO edit; Plant Manager view; others none",
         "Approving a new customer: CFO or COO"
        ],
@@ -351,7 +353,7 @@
        [
         "FOC samples",
         "samples",
-        "COO, KAM, Finance, CFO",
+        "COO, KAM, Finance, Finance Desk Officer, CFO",
         "-",
         "Shown in the menu only to the sample chain (smpMayView, 10 roles)"
        ],
@@ -389,7 +391,8 @@
     "o2s.html RIGHTS, RIGHTS_LIVE, DISPATCH_GRANT, PROCUREMENT_GRANT, CUSTOMER_GRANT, seedCustomerRightsV1",
     "fn mayRole, rightTick, grantRefusal",
     "OP-HANDOFF-O2S.md 13 Oct 2026 (3), 13 Oct 2026 (7)",
-    "tests authmodel, production-manager-split, dispatchgrants, warehousesplit"
+    "tests authmodel, production-manager-split, dispatchgrants, warehousesplit",
+    "D-367 (4 Nov 2026): the Finance Desk Officer does what Finance does"
    ],
    "ask": "For live rights the grant table on the server decides, and it was not read for this page. Should the column 'Who holds it' show: A) the live grants as the app draws them, B) the seeded and ruled grants as written here, C) both?",
    "blocks": [
@@ -412,7 +415,7 @@
         "Raise a new PO",
         "Commercial",
         "no",
-        "Edit on New order: Finance, CFO (seed)",
+        "Edit on New order: Finance, CFO (seed); the Finance Desk Officer from 4 Nov 2026 (D-367) once given Edit on the launcher",
         "yes"
        ],
        [
@@ -436,7 +439,7 @@
         "Add a customer or dealer",
         "Commercial",
         "yes",
-        "Finance, CFO (CUSTOMER_GRANT); saved Pending approval until the CFO or COO approves",
+        "Finance, Finance Desk Officer, CFO (CUSTOMER_GRANT, the default; live ticks on the launcher); saved Pending approval until the CFO or COO approves",
         "no (COO only)"
        ],
        [
@@ -444,7 +447,7 @@
         "Change a customer record",
         "Commercial",
         "yes",
-        "Finance, CFO",
+        "Finance, Finance Desk Officer, CFO",
         "no (COO only)"
        ],
        [
@@ -548,7 +551,7 @@
         "Close a PO line short when 50 Kg/L or less is left",
         "Commercial",
         "no",
-        "Supply Chain, Finance, Warehouse",
+        "Supply Chain, Finance, Finance Desk Officer, Warehouse",
         "no (COO only)"
        ],
        [

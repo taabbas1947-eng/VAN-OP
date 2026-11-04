@@ -611,3 +611,32 @@ the route mounted on express with a stand-in database (CFO adds 200, same name i
 Add class posts, toast, the new class appears in the Class list, form clears, no page error). Not run: C2M's own suite on Tahir's PC.
 After the push: as the CFO add "Amino acid source" (N%, Amino acid%, OM%); the QC Head moves Amino Acid to it and enters its %.
 Seen live 4 Nov, not changed: 2 class names say "sulphur" (Calcium and sulphur source, Sulphur source), against the "Sulfur" ruling (D-118).
+
+## 4 Nov 2026 (3) — Daily O2S pull, POs checked by their time, freight date, audit fixes (D-145) (MODULE: C2M) — NOT PUSHED
+
+Tahir ruled by panel (4 Nov): pull daily; PO checked by its time; freight date fix only. The rest are the 3 Nov audit fixes.
+Files: c2m-routes.js (pullOnce, daily pull with autoPullDue/autoPull and timers, roles read once, dismiss in tx, freight re-approval,
+margin settings for see.margin roles, entered_at and rcvAt in the state, /c2m no-cache, old roles routes removed, rolesvc note), c2m-lib.js
+(needsReapproval default 3, targetOr 0 = none, priceCountsForPo), c2m-engine.js (freightFor dated today or earlier; exported for tests),
+c2m-o2s.js (entered_at, enteredPk), c2m.html (once() busy guard, saved-but-not-refreshed message, first load slow line and Retry,
+stuck label in working days, priceOn by PO time, Client prices header GP, Roles screen removed, Sign out, Guide texts, CHANGELOG
+2026-11-04c), migrations 008 (+ PRODUCTION), docs 01, 03, 04, 05, 06 (D-145), 07, 08, 09, 11, 12.
+Migration 008: run locally first, then production by hand. The code works before it: the pull checks the column (SHOW COLUMNS) and
+skips it; PO checks then treat every PO as having no entry time.
+Tests: see doc 12 section 12.13. Not run: C2M App suite on Tahir's PC; a real database.
+After the push: watch the server log the next morning for "[c2m] daily pull"; Setup, From O2S shows the pull by c2m-auto; after 008,
+the next pull fills entered_at.
+
+### 4 Nov 2026 (3) — independent review of the D-145 batch, fixed (MODULE: C2M) — NOT PUSHED
+- PO entry time: the earliest "Created PO <po>" line in O2S's action log; printDecisionAt only as the fallback (O2S moves it when a print
+  decision is corrected). entered_at is written inside the PO line upsert (no extra UPDATE per line); a failed column check is logged.
+- priceOn: the day-before fallback applies the same entry-time rule (a back-dated price approved on the PO's day after entry never counts).
+- Freight dated ahead: freightDueSweep runs with the 15-minute timer, looks back 7 days, checks re-approval once per rate on its start day
+  (marker c2m_audit entity freight_due); a rate saved on or after its date was checked at the save. reapprovalFor passes its loadAll to the
+  filter (extra argument, no effect on other callers). The freight notice names the saver's role, not "the CFO".
+- A send whose refresh fails says "Sent. The screen could not refresh" (VAN brand list send, client price send).
+- Docs 03, 05, 11 mark the removed Roles routes and screen; engine export of freightFor listed once.
+- Tested: the pull with and without the column (entry time from the action log 09:00Z → 14:00 Pakistan time; fallback 20:00Z → next day
+  01:00); the freight sweep (due rate checked once, rate saved after its date skipped, second pass does nothing); the earlier route, page
+  and top-bar tests again; script parses, routes load.
+

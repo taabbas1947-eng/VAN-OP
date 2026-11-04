@@ -88,5 +88,5 @@ ok('Back Office keeps its FOC samples tile', /D\.push\(\{k:'samples',t:'FOC samp
 ok('the build is 2026-10-28c or later', /var BUILD_ID='2026-10-(28[c-z]|29[a-z]?|3\d[a-z]?)'|var BUILD_ID='2026-1[12]/.test(html));
 ok('the system documentation version follows the build', ((/var SYSDOC_VER='([^']+)'/.exec(html) || [])[1] || '') >= '2026-10-28c' && /var SYSDOC_VER='([^']+)'/.exec(html)[1] === /var BUILD_ID='([^']+)'/.exec(html)[1]);   // 30 Oct: any later build, equal to BUILD_ID   /* 28d, 29a: the version moves with every build of the day */
 ok('the change log has the 28c entry', /ver:'2026-10-28c'[^\n]*New entry has 2 tabs/.test(html));
-ok('the Guide says who sees the tab: Finance, the CFO and the COO; the KAM goes straight to the form', /the KAM goes straight to the sample form; Finance, the CFO and the COO pick the <b>FOC sample<\/b> tab beside <b>New order<\/b>/.test(grab('guideRules')));
+ok('the Guide says who sees the tab: Finance, the CFO and the COO; the KAM goes straight to the form', /the KAM goes straight to the sample form; Finance, the Finance Desk Officer, the CFO and the COO pick the <b>FOC sample<\/b> tab beside <b>New order<\/b>/.test(grab('guideRules')));
 process.exitCode = report('28c: New entry tabs, samples link, running shifts') ? 1 : 0;

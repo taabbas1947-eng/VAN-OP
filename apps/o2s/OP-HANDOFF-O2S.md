@@ -7689,3 +7689,40 @@ F. Security (docs/SECURITY-REGISTER.md only; not Tahir's job; never blocks a rel
 21. S-01: /api/state checks sign-in only, not role (KAM 'own clients only' is on screen only). S-06: backup hashes still in git history. S-07: the repo is public.
 
 Decided today, nothing to do: the 13-15 Oct read-and-sign brief stays as signed (D-366).
+
+## 4 Nov 2026 (57) - Build 2026-11-04a: the Finance Desk Officer does what Finance does (D-367); built and tested, NOT PUSHED (MODULE: O2S)
+
+Tahir, panels 3 and 4 Nov 2026: swap Ismaeel (Finance) and Basit (Finance Desk Officer), "Ismail should not lose any existing role", "Widen
+the FDO role" (both end up with the same access), "Yes, change O2S then swap". The swap itself is made on the launcher after this push.
+
+Code (role names, nothing taken from Finance): SCREENS owners entry, dealers, samples + Finance Desk Officer; RIGHTS po.shortclose_small
+legacy roles + FDO; INVOICE_ROLES, BUDGET_VIEW_ROLES, CUSTOMER_GRANT + FDO; USER_TITLE ismaeel Invoicing Officer, basit Procurement
+Accountant (each keeps his title across the swap); MV_PAGE_ROLE FDO -> ismaeel (his page also follows MV_PAGE_USER); actionItems: a job
+routed to Finance carries alsoRoles Finance Desk Officer (print-on-pack answers, PO or customer sent back; a job with a named person
+(who) stays that person's); CMP_TYPES print rolesPo + FDO; reports late, trucks, shortclose, invoicing + FDO; migrateAccountsV1 returns
+at once (the 23 Sep R22 move can never undo the swap); notify-routes.js JOB_ROLES Print price + FDO. Guide sentences (orders raised by,
+adds a customer, small remainder, Closed short report, FOC sample tab), changelog 2026-11-04a, BUILD_ID and SYSDOC_VER 2026-11-04a,
+System Documentation D-367 and access AC-02, AC-03, AC-04 (build_sysdoc.py run, problems 0).
+
+R5 of 23 Sep ("Ismaeel, CFO, COO see New PO Entry, no one else, not even Basit") is superseded for Basit by D-367: as Finance he gets
+New order. Tests moved with it: warehousesplit (entry owners), rolemodel (FDO screens), tinyclose29c (small close list, Guide),
+area1103a, reportsperiod, preflight, morning28c; new tests/fdo1104a.test.js (31). actioncenter.test.js still checks that the FDO cannot
+answer print-on-pack: it reads the 16 Jul test data matrix (FDO entry none), so it holds until that data is refreshed.
+
+Tests run in the cloud copy (no data/state.json there): 102 of 133 suites pass, the same 30 as before fail only for the missing
+data/state.json, pdfkit or the known date fails (audit17c 2, truckback17a); fdo1104a 31/31. Run the full O2S suite on Tahir's PC.
+
+Launcher, after the push (System Administrator, Roles by app, O2S, Finance Desk Officer): Edit New order, Customers, Reports, FOC samples;
+View Lab, Sales & Budget (keep Shipments Edit, Guide Edit and the rest); rights customer.create, customer.amend. Then People: ismaeel ->
+Finance Desk Officer, basit -> Finance.
+
+### 4 Nov 2026 — independent review of 2026-11-04a (D-367), fixed (MODULE: O2S) — NOT PUSHED
+- shell.test.js pinned INVOICE_ROLES=['Finance']; it now pins ['Finance','Finance Desk Officer'] (333/333). The earlier line here that
+  "the same 30 fail as before" was wrong for this one test; with this fix it holds.
+- Code comments said D-360 (that is "a KAM sees only his own clients"); they now say D-367.
+- Order of the swap on the launcher: first tick the Finance Desk Officer role (New order Edit, Customers Edit, Reports Edit, FOC samples
+  Edit, Lab View, Sales & Budget View, rights customer.create and customer.amend), then move ismaeel to FDO and basit to Finance. The
+  23 Sep access rows set New order and Customers to none for FDO, and they win over the SCREENS owners until the ticks are saved.
+
+- actioncenter.test.js: the Finance Desk Officer moved from "cannot" to "can answer print-on-pack" (D-367); 99/99. Full O2S suite on Tahir's
+  PC with data/state.json: 134 suites, all pass except the 2 known before this change (audit17c 2 date-based fails; truckback17a gives no result).

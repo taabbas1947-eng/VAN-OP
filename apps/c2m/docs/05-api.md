@@ -40,7 +40,7 @@ Roles: cfo = Yawar, coo = Tahir, production = Majid, qc = Himayat, plant = Fahim
 | GET | /c2m/assets/van-logo.png | anyone | | VAN logo PNG for the page and PDFs | D-13, D-14 | |
 | GET | /api/c2m/me | all roles | | {user, name, role, label, nav}. nav (0.9.0): cfo and coo [today, margin, reports, products, prices, inputs, setup, guide]; production and plant [today, recipes, guide]; qc [today, recipes, inputs, guide]; viewer [lists, guide]. Screens only: rights are checked on each route (D-45) | R-2 | |
 | GET | /api/c2m/state | all roles; filtered by role (see 11). `?as=username`: grants.give only, for a manager given price lists (viewer type role): the reply is that manager's own state, read only (D-97) | | everything the person's screens need, keys by role in 5.2a; a pack that is not costed has cost null and costGaps (what is missing, D-40) | R-2, D-14, D-40 | |
-| POST | /api/c2m/sync | cfo, coo | | {syncId, poLines, trucks, issues}; a pull left Pulling for more than 10 minutes frees itself | D-12, D-21 | yes |
+| POST | /api/c2m/sync | cfo, coo | | {syncId, poLines, trucks, issues}; a pull left Pulling for more than 10 minutes frees itself; 409 while another pull (a person's or the daily pull) runs. Since 4 Nov 2026 C2M also pulls by itself each day at about 06:00 (by c2m-auto; no route) | D-12, D-21, D-145 | yes |
 | POST | /api/c2m/recipes/new | production, cfo, coo | {clientProductId, fromVersionId?, note} | {id} | D-08, R-5i 2 | |
 | POST | /api/c2m/recipes/:id/lines | production; draft only | {lines:[{gradeId, qty}], note?} | {ok} | D-08 | yes |
 | POST | /api/c2m/recipes/:id/advance | the role of the current step (draft production, review qc, endorse plant, cost cfo) | {note?} | {state} | D-08, D-09 | yes |
@@ -62,7 +62,7 @@ Roles: cfo = Yawar, coo = Tahir, production = Majid, qc = Himayat, plant = Fahim
 | POST | /api/c2m/materials/:id/type | cfo, qc | {typeId} (the class) | {ok}; a non-nutrient class clears the grade's nutrient values (old values in the change record) | D-23 | |
 | POST | /api/c2m/grades/:id/nutrients | cfo, qc | {values: {"K%": 56}} (0 to 100) | {ok}; 400 for a class with no nutrient fields | D-23 | |
 | POST | /api/c2m/customers/:id | cfo | {priceRule: time, po or list, cycle, region, o2sNames: "a\|b"} | {ok} | R-5 client price rule | |
-| POST | /api/c2m/freight | cfo | {segment: Dealer or Farmer, region, rsPerKg, validFrom?} | {ok} | D-05 | |
+| POST | /api/c2m/freight | cfo | {segment: Dealer or Farmer, region, rsPerKg, validFrom?} | {ok, reapproval}; packs of that segment and region whose cost moved past the re-approval % wait in 1 item; a rate dated ahead moves nothing until its date | D-05, D-145 | |
 | POST | /api/c2m/prices/propose | cfo | {packId, price, reason, belowReason (needed below target), validFrom? (Takes effect from; default today; a past date is refused), validTo? (valid till: the last day the price applies; the effective date or later), replaceId? (a sent-back proposal)} | {id}; refused if the pack already has a price waiting for Tahir, its product is inactive, the pack is not costed (D-40), or it is a VAN brand pack (priced through list revisions, D-44) | D-06, D-22, D-34 | yes |
 | POST | /api/c2m/prices/:id/approve | coo | | {ok, waitsUntil, cancelled}. Starts on the later of its effective date and today. waitsUntil = the date when it is dated ahead, else null; today's price stays in force until then. cancelled = how many older waiting prices for the pack it replaced (audit "cancelled") | D-22, D-34, R-5i 3 | yes |
 | POST | /api/c2m/prices/:id/withdraw | coo | {why} | {ok, issuedDocs}; only an approved price still waiting for its date; the price it shortened gets its old end back; issuedDocs lists price lists already issued with it; Yawar gets a notice (audit "withdrawn", "end restored") | D-34 | yes |
@@ -240,10 +240,10 @@ Every route that was guarded by role names is now guarded by 1 action key (for e
 
 | Route | Needs | Does |
 |---|---|---|
-| GET /api/c2m/roles | roles.manage | {ready, catalogue, roles[{key, label, admin, builtin, actions, holders}]}; ready is false until migration 002 is run |
-| POST /api/c2m/roles | roles.manage | create {label, actions[]}; the key is made from the name; 400 on a name already used, an unknown action, or roles.manage; 409 before migration 002 |
-| POST /api/c2m/roles/:key | roles.manage | edit {label, actions[]}; 400 for the administrator role |
-| POST /api/c2m/roles/:key/delete (DELETE on the same path also works) | roles.manage | delete; 400 while a person holds the role, and for the administrator role |
+| GET /api/c2m/roles (removed 4 Nov 2026, D-145: roles are designed on the launcher through /api/c2m/rolesvc) | roles.manage | {ready, catalogue, roles[{key, label, admin, builtin, actions, holders}]}; ready is false until migration 002 is run |
+| POST /api/c2m/roles (removed 4 Nov 2026, D-145) | roles.manage | create {label, actions[]}; the key is made from the name; 400 on a name already used, an unknown action, or roles.manage; 409 before migration 002 |
+| POST /api/c2m/roles/:key (removed 4 Nov 2026, D-145) | roles.manage | edit {label, actions[]}; 400 for the administrator role |
+| POST /api/c2m/roles/:key/delete (DELETE on the same path also works) (removed 4 Nov 2026, D-145) | roles.manage | delete; 400 while a person holds the role, and for the administrator role |
 
 Changed replies: GET /me and state.me add admin (true for the administrator role) and actions (the keys the role holds); nav and more now follow from the actions. state.people adds roleLabel and grantee (true when the role may print granted lists). Approving a price, list revision, settings request or target request: the administrator may approve his own; anyone else must not be the proposer and the proposer must hold an administrator role, else 403 "You approve only what an administrator proposed (D-89)." Recipe steps check recipe.step.draft, review, endorse or cost.
 
@@ -314,3 +314,8 @@ Changed: recipes/new refuses a follower; recipes/:id/advance writes cost version
 | POST /api/c2m/recipes/new | recipe.start | adds recipeKind: default or other, recipeName | {id}; other needs migration 007 |
 | POST /api/c2m/recipes/:id/default | recipe.step.cost | {} | {ok, packs}; only an approved recipe that is not the Default |
 GET /api/c2m/state adds: m007, outOfUseKeys; on each product defaultName and others [{id, name, version, packs: [{id, total}]}]; on each recipe rname, isDefault, defaultName. POST /api/c2m/variants and /products/:id/variant refuse a variant name that is a pack size.
+
+### 4 Nov 2026 (D-145)
+- GET /api/c2m/state: poLines carry enteredAt (Pakistan time the PO was entered in O2S; null before migration 008 or for older orders); sales rows carry rcvAt. A role with see.margin but not see.settings now gets the settings the margin maths use (budget_gp, ambition_gp, wl_budget_gp, red_gap_pts, red_share_pct, reapprove_pct, rate_warn_pct, forward_months, conv_budget_month, fed_pct) as {k, v} only.
+- The old roles routes (GET and POST /api/c2m/roles, POST /api/c2m/roles/:key, POST and DELETE /api/c2m/roles/:key/delete) are removed; they answered 403 to everyone since 28 Oct.
+- GET /c2m is sent with Cache-Control no-cache (the browser revalidates by ETag) instead of no-store.

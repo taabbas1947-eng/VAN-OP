@@ -323,7 +323,7 @@ Places (D-76): ROLES gives cfo and coo nav [approvals, products, prices, margin,
 | Approve a price, list revision, settings request or target request | Administrator: allowed, even his own. Anyone else: refused if he proposed it, and refused unless the proposer holds an administrator role | D-63, D-89 |
 | Recipe steps | Advance and send back check recipe.step.<state>; the administrator may do any step, but is not shown as the person waited on | D-89 |
 | Screens | nav and more follow from the actions (navFor in c2m-access.js) | D-90 |
-| Create, edit, delete a role | Only roles.manage (administrator); delete refused while a person holds the role; every change in the change record | D-90 |
+| Create, edit, delete a role | Removed from C2M on 28 Oct and 4 Nov 2026 (D-145): the System Administrator designs roles on the launcher (People and access, Roles by app) through /api/c2m/rolesvc; removal refused while a person holds the role; every change in the change record and the platform access log | D-90, D-145 |
 
 
 ## KAM lists (D-97)
@@ -383,3 +383,9 @@ On live the state call is now about 3 seconds. About 15 waits remain in a row (h
 - sizeName (page) and notSize (server) stop a variant name with a number and kg, g, L or ml.
 - After the independent review (30 Oct): delete locks its row before reading uses; a product delete retires rates listed for it alone; /products/:id/full refuses to drop a pack on an open re-approval; recipes/advance refuses the cost step of a short-path version whose recipe is now the Default, and its resend goes to review; recipe lines, readPacks, packing/assign and packing/bill refuse an out-of-use item that is not already there; Add a product refuses an out-of-use client.
 - D-141 update notice (c2m.html CHANGELOG, checkWhatsNew, wnLines, gjVisible, wnGuideBox): after each load, if the newest CHANGELOG ver is not the one stored for this user in localStorage, the entries after the stored one that have a line for this person's actions are shown (none: stored quietly); not in a KAM preview (?as). Got it, the dark area, Escape or a Guide link store the newest ver. A Guide link marks its row (tr.gjhl).
+
+## 3.27 Daily pull, PO time, freight date and fixes (owner: Tahir rules; D-145, 4 Nov 2026)
+- Daily pull: c2m-routes.js pullOnce (shared by Pull now and the daily pull), autoPullDue (pure, tested), autoPull. Timers are unref'd, so they never keep the process alive; the mount option noAutoPull switches them off for tests.
+- One read of the roles per request: c2mAuth keeps the map on req.c2m.roles; build, adminUsers, notSelf and the KAM preview reuse it (the state call read c2m_role 3 times, now once).
+- Re-approval dismiss runs in 1 transaction with its re-batch: if the re-batch fails, the item stays open.
+- The page: 1 busy guard (once) covers every save, the list send, the client price send and Create PDF. A save that went through but whose refresh failed says "Saved. The screen could not refresh". The first load shows a line after 20 s, and on failure the reason with Retry and Back to launcher.

@@ -117,3 +117,14 @@ A pack takes 1 labour rate and 1 FOH rate, each the first match of these levels:
 | B-33 | Only the Default recipe sets cost, price for target and margin. Another approved recipe writes no cost | D-140 | yw1 Y-09 |
 | B-34 | Make default writes a new approved cost for every pack of the product and its followers from that moment; trucks dated the next day on carry it (costOnDate) | D-140 | yw1 Y-11; yw2 YU-08 |
 | B-35 | A variant name is never a pack size (a number with kg, g, L or ml) | D-138 | yw1 Y-02; yw2 YU-03 |
+
+## 4 Nov 2026 (D-145)
+| ID | Rule | Detail |
+|---|---|---|
+| F-20, F-30 (changed) | PO checked by its time | A PO line, and a truck through its PO, is checked against the approved price in force when the PO was entered. A price approved on the PO's own date counts only if it was approved at or before the PO's entry time (c2m_o2s_po_line.entered_at); with no entry time (older orders, or before migration 008) it does not count, and the price in force the day before is used. Example: Rs 180 in force; Rs 190 approved at 15:00 on 4 Nov; a PO entered at 09:00 on 4 Nov at Rs 180 is not below the approved price; a PO entered at 16:00 at Rs 180 is Rs 10 below. Code: c2m.html priceOn, priceCounts; lib.priceCountsForPo. A price still starts the day it is approved for everything else. |
+| F-11 (changed) | Missing re-approval % | When reapprove_pct is missing or not a number, 3 is used (lib.REAPPROVE_DEFAULT); a missing setting never switches re-approval off. |
+| F-23 (changed) | Targets of 0 | A product target of 0 or less is no target: it takes the company GP target (lib.targetOr), the same on the server and the page. |
+| F-23 (Client prices header) | GP with no expected kg | When no pack has expected kg, the header GP is the GP on 1 kg or L of each pack, weighted by price: sum(price - cost) / sum(price) x 100, never an average of %. |
+| F-31 | Freight in force | The freight per kg for a Dealer or Farmer product is the latest rate for its segment and region dated today or earlier (Pakistan date); a rate dated ahead waits. A freight save batches packs of that segment and region that moved past the re-approval % (as every cost input). Which products carry freight is unchanged (I-25 open). |
+| B-34 | Daily O2S pull | C2M pulls O2S by itself once a day at about 06:00 Pakistan time, and once 3 minutes after the server starts when the last finished pull is 20 hours old or more. It uses the same claim as Pull now, so only 1 pull runs at a time; a pull already running is left alone. Checked every 15 minutes; a failed pull is tried again at the next check. |
+| B-12 (label) | Stuck label | The stuck label on Approvals counts working days (Monday to Saturday), the same days the stuck rule counts: "Stuck 13 working days". |

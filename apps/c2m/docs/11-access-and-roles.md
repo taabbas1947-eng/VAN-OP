@@ -173,7 +173,7 @@ A KAM never receives a row's master pack id, nor a row that left the lists.
 | Item | Rule | Decision |
 |---|---|---|
 | Administrator | The COO role holds every action to start with. Since 2 Nov 2026 (D-142, roles trial) its actions are ticks the System Administrator may change on the launcher; it cannot be left with no tick or deleted. Tahir and Ahmer Shehzad hold it. It is exempt from "nobody approves what they proposed" (ruling 19) and from the second-person rate check | D-89, D-142 |
-| Create, edit and delete roles | Only the administrator role: Setup, Roles. Each action is a tick. The 6 starting roles can be edited too. A role cannot be deleted while a person holds it. Creating and editing roles ("roles.manage") can never be ticked on another role | D-89, D-90 |
+| Create, edit and delete roles | The System Administrator, on the launcher (People and access, Roles by app), through /api/c2m/rolesvc. The C2M Roles screen and roles.manage were removed (28 Oct and 4 Nov 2026). A role cannot be removed while a person holds it. | D-90, D-145 |
 | Approve what an administrator proposed | A person below the administrator who is given an approve right (price, list revision, settings, targets) approves only an item an administrator proposed: never his own, never a colleague's. The recipe cost step and re-approvals have no proposer, so the rule does not apply to them (ruled by Tahir, 21 Oct 2026) | D-89, D-96 |
 | Who holds a role | Still given and removed in the platform's People and access (user_module_roles). C2M never writes it | D-90 |
 | Screens | Follow from the ticks: a role that sees margin gets the 5 places and More; a role with only recipe and cost actions gets Today and Recipes; a role with only granted lists gets Price lists | D-90 |
@@ -189,7 +189,7 @@ The actions (key, plain meaning), grouped as on the Roles screen. The 6 starting
 | Costs and recipes | recipe.start, recipe.edit, recipe.step.draft, recipe.step.review, recipe.step.endorse, recipe.step.cost, reapproval.decide, rate.save, material.save, nutrient.edit, packing.manage, labour.manage, product.classify |
 | Setup | settings.edit, settings.approve, targets.propose, targets.approve, customer.edit, freight.edit, grants.give, lists.link, lists.mark, lists.carry, lists.remove, o2s.sync, import.decide, actuals.enter, actuals.tiebooks, actuals.ratecheck, notices.see |
 | What the role sees | see.products, see.cost, see.price, see.margin, see.settings, see.materials, see.granted_lists, guide.all |
-| Administration | roles.manage (administrator only) |
+| Administration | none since 28 Oct 2026 (roles.manage removed; roles are designed on the launcher) |
 
 People and access (platform piece 1b, 21 Oct 2026): the C2M column lists the roles in `c2m_role`, so a role made here can be given to a person at once. Rules there: the role key must match exactly (capitals included); only a platform administrator gives a role made here (it can carry approving rights), and the C2M CFO and COO; a C2M sub-admin gives the built-in roles only. Until migration 002 has run, People and access lists the 6 built-in roles. (Until 21 Oct this said a role made here could not yet be given.)
 
@@ -220,3 +220,7 @@ More for Tahir and Yawar is now Reports, Inputs and Guide. Back office is remove
 
 ## 11.15 Edit, Delete, Take out of use, Make default (30 Oct 2026; owner: Tahir; D-139, D-140)
 No new action: each list uses the right that adds to it. Delete, Take out of use and Put back: material grade material.save; packing item and packing bill packing.manage; labour and FOH labour.manage (Retire as before); freight freight.edit; client and white label product client.add; one of our products lists.link; a draft recipe recipe.start (Majid; Yawar holds it too). Edit of words follows the same rights; a client's Edit stays customer.edit. Another recipe is started with recipe.start and approved with recipe.step.cost. Make default needs recipe.step.cost (Yawar; the administrator holds every action). Himayat, Fahim and the KAMs see no Edit or Delete.
+
+## 11.12 4 Nov 2026 (D-145)
+- The C2M Roles screen (Setup, Settings, Roles) and its routes are removed. Roles are designed by the System Administrator on the launcher (People and access, Roles by app), through /api/c2m/rolesvc (since 28 Oct 2026). Sections 11.11 above describe the old screen and are history.
+- A role with "The Approvals, Products, Prices, Margin and Setup places" (see.margin) but not "Settings and targets" (see.settings) receives the settings its margin figures need, read only (list in 05). It still cannot see or change the Settings screen.

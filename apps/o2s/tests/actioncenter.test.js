@@ -76,7 +76,7 @@ function atEveryHour(label, fn){ [0,9,12,13,18,23].forEach(function(h){ TODAY=at
 
 /* Anyone who can create a PO. Since the night of 23 Sep (R5) that is Finance,
    the CFO and the COO - the box below runs the ruled matrix seed first. */
-['COO', 'Finance', 'CFO'].forEach(r => {
+['COO', 'Finance', 'CFO', 'Finance Desk Officer'].forEach(r => { // D-367 (4 Nov 2026): the Finance Desk Officer answers it too, as Finance does
   asRole(r); ok('CAN answer print-on-pack: ' + r, screenEditOK('entry') === true,
                 'accessLevel=' + accessLevel(r, 'entry'));
 });
@@ -84,7 +84,7 @@ function atEveryHour(label, fn){ [0,9,12,13,18,23].forEach(function(h){ TODAY=at
 /* Everyone else is refused. These are the roles the access matrix explicitly
    denies the entry screen, plus the CFO who has view but not edit. */
 ['Supply Chain', 'Supply Chain Officer', 'Production', 'QA Inspector',
- 'QCM', 'AQCM', 'Lab Rep', 'KAM', 'Plant Manager', 'Finance Desk Officer'].forEach(r => {
+ 'QCM', 'AQCM', 'Lab Rep', 'KAM', 'Plant Manager'].forEach(r => {
   asRole(r); ok('CANNOT answer print-on-pack: ' + r, screenEditOK('entry') === false,
                 'accessLevel=' + accessLevel(r, 'entry'));
 });

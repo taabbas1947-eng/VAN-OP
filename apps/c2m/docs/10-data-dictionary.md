@@ -282,3 +282,13 @@ Changed in 0.3.0 and 0.3.1: rs_per_kg fixed (1 rate of 1 kind, labour or FOH). A
 | Main | The name of a product's first recipe when none was given | recipe names |
 | What changed | The box at login, and the Guide section, listing the updates for your job | login; Guide |
 | CHANGELOG | The list of updates inside c2m.html, 1 entry per release, each line marked with who it is for | c2m.html |
+
+## 10.14 Added on 4 Nov 2026 (owner: Tahir; D-146)
+| Word | Meaning | Where |
+|---|---|---|
+| At list price | A VAN brand PO price within 1% of the list price, above or below | VAN brand PO against its price list |
+| Above list, Below list | A VAN brand PO price more than 1% above or below the list price | same |
+| Not on its list | The PO's product and pack has no row, or no price in its column, on the list it is checked against | same |
+| Cost only, no list | A client's own pack on a VAN brand PO: checked against its cost, never against a list | same |
+| Not checked | A line C2M cannot check, with the reason (for example a farmer whose region is not known, or a PO dated before 11 Oct 2026) | same |
+| region (PO line) | The customer's region from O2S, on each PO line (migration 009) | c2m_o2s_po_line |

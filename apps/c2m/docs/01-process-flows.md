@@ -637,3 +637,25 @@ flowchart LR
 ```
 - A PO is checked against the price in force when it was entered (F-20, F-30 changed). A price approved later the same day does not mark that PO.
 - Freight: a rate dated ahead waits for its date; a freight save waits for re-approval like any cost (F-31).
+
+## 1.26 VAN brand PO against its price list (owner: Tahir rules; C2M marks; the CFO and COO read; D-146, 4 Nov 2026)
+
+```mermaid
+flowchart LR
+  O[O2S PO line, VAN brand, priced] --> P[Daily pull: line with channel, region, payment terms]
+  P --> A{Client's own pack?}
+  A -- yes --> K[Cost only, no list]
+  A -- no --> L{Which list}
+  L -- Distributor, Punjab dealer --> D[Distributor list]
+  L -- Sindh dealer --> S[Dealer list, net]
+  L -- COBO --> C[Farmer list, Sindh cash]
+  L -- VGreen --> V[Farmer list, Punjab]
+  L -- Farmer --> F[Farmer list by region; Sindh cash or credit by terms]
+  L -- region not known --> N[Not checked, reason shown]
+  D & S & C & V & F --> M{List on the PO date: within 1%?}
+  M -- yes --> At[At list price]
+  M -- no --> Off[Above or below list]
+  M -- no row --> NL[Not on its list]
+  Off & NL --> R[Approvals line for the CFO and COO, and the report]
+```
+- Nobody acts inside C2M on a mark: the CFO and COO read the report and take it up outside (with the KAM or O2S). No PO is blocked; Margin keeps the O2S price.

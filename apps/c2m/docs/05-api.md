@@ -319,3 +319,6 @@ GET /api/c2m/state adds: m007, outOfUseKeys; on each product defaultName and oth
 - GET /api/c2m/state: poLines carry enteredAt (Pakistan time the PO was entered in O2S; null before migration 008 or for older orders); sales rows carry rcvAt. A role with see.margin but not see.settings now gets the settings the margin maths use (budget_gp, ambition_gp, wl_budget_gp, red_gap_pts, red_share_pct, reapprove_pct, rate_warn_pct, forward_months, conv_budget_month, fed_pct) as {k, v} only.
 - The old roles routes (GET and POST /api/c2m/roles, POST /api/c2m/roles/:key, POST and DELETE /api/c2m/roles/:key/delete) are removed; they answered 403 to everyone since 28 Oct.
 - GET /c2m is sent with Cache-Control no-cache (the browser revalidates by ETag) instead of no-store.
+
+### 4 Nov 2026 (D-146)
+- GET /api/c2m/state, roles with see.margin and see.price (CFO, COO): listCheck {first: '2026-10-11', tol: 1, before: lines this FY dated before the first list, regionRead: whether the region column exists (SHOW COLUMNS), regionPulled: whether any PO line has a region yet, lines[{po, received, cust, cat, ch, region, terms, brand, pack, packId, kg, state (at, above, below, off, cost, none), why, list, col, colLabel, listPrice, poPrice, diffPct, gp}]}. Farmers stay pooled as "Farmers and other" (D-74). No route added.

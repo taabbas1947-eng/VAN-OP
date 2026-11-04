@@ -167,6 +167,7 @@ Keys: IX ix_fm_source (source_id).
 | net_price | DECIMAL(12,4) | no | 0 | Rs per kg or L, without FED (F-10; FED is the only tax on VAN, D-72) |
 | fed_mode | VARCHAR(20) | yes | | Inclusive or Exclusive |
 | payment_terms | VARCHAR(40) | yes | | O2S payment terms |
+| region | VARCHAR(40) | yes | | The customer's region from the O2S customer record (Punjab, Sindh, ...); a dealer with none takes it from his code. Migration 009, 4 Nov 2026, D-146; null before 009, or when O2S has none |
 | short_closed | TINYINT(1) | no | 0 | 1 = short-close approved in O2S and not reopened by the COO |
 | sync_id | INT | no | | c2m_sync_run.id of the pull that wrote it |
 
@@ -804,3 +805,6 @@ Run migrations/007_c2m_out_of_use_default_recipe.sql on the local database first
 | c2m_recipe_default | client_product_id (key), recipe_name, set_by, set_at | INT, VARCHAR(80), VARCHAR(64), DATETIME | the recipe that sets the product's cost; no row = "Main" |
 
 c2m_audit actions added: delete (entity material, packing_item, packing_bill, conversion_rule, freight, customer, client_product, recipe; old values in old_value), out of use and in use (material_grade, packing_item, packing_bill, customer), edit (material, packing_item, conversion_rule, client_product), replace (conversion_rule), default (recipe).
+
+## 4.13 Migration 009: region on PO lines (4 Nov 2026, D-146)
+009_c2m_po_region.sql (and its PRODUCTION copy) adds c2m_o2s_po_line.region VARCHAR(40) NULL after payment_terms. Nothing else changes. Run once, locally first, then production by hand; a second run stops with "Duplicate column name", harmless. Until it runs, the price check reads a dealer's region from c2m_customer.region and marks farmer POs "region not known".

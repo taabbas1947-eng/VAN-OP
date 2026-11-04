@@ -6,6 +6,7 @@
  * ==========================================================================*/
 'use strict';
 const lib = require('./c2m-lib');
+const pc = require('./c2m-pricecheck');
 
 /** Customer name as C2M knows it: O2S writes dealers as "CODE | Name". */
 function o2sCustomerName(client) {
@@ -15,6 +16,18 @@ function o2sCustomerName(client) {
 
 /** O2S's entry time (ISO, UTC) as Pakistan time 'YYYY-MM-DD HH:MM:SS', or null when O2S has none (older orders). */
 function enteredPk(iso) { if (!iso) return null; const d = new Date(iso); return isNaN(d.getTime()) ? null : lib.pkNow(d); }
+
+/** O2S channel to the segment its customer records use (as O2S's _chanToSeg). */
+const CH_SEG = { 'White Label': 'White-label', Dealer: 'Dealer', Distributor: 'Distributor', Vgreen: 'VGreen', Cobo: 'COBO', Farmer: 'Direct Farmer' };
+/** The region of an order's customer, as O2S keeps it on the customer record (migration 009, D-146), or null.
+ *  O2S matches a dealer by the code written into the order ("DLR-PB-JHN-001 | Name"), every other customer by segment and name;
+ *  a dealer with no region on his record takes it from his code when the code carries one (older dealer codes do). */
+function orderRegion(o, customers) {
+  const client = String(o.client || ''), cs = Array.isArray(customers) ? customers : [];
+  if (o.channel === 'Dealer') { const code = client.split('|')[0].trim(); const c = cs.find(x => x && x.code === code); return pc.regionOf(c && c.region) || pc.regionFromCode(code); }
+  const seg = CH_SEG[o.channel]; if (!seg) return null;
+  const c = cs.find(x => x && x.segment === seg && !x.isParent && x.name === client); return pc.regionOf(c && c.region);
+}
 
 /** Pull O2S now. Returns {syncId, poLines, trucks, issues}. */
 async function pullO2S(q, byUser) {
@@ -30,12 +43,15 @@ async function pullO2S(q, byUser) {
   // When each PO came in (migration 008, D-145): the time of O2S's "Created PO <po>" line in its action log, the earliest one
   // (printDecisionAt moves when a print decision is corrected, so it is only the fallback; review 4 Nov). Until 008 is run the column is not written.
   let hasEntered = false; try { const [cols] = await q("SHOW COLUMNS FROM c2m_o2s_po_line LIKE 'entered_at'"); hasEntered = cols.length > 0; } catch (e) { hasEntered = false; console.error('[c2m] entered_at check failed, PO entry times not written: ' + (e.code || e.message)); }
+  // The customer's region on each PO line (migration 009, D-146), for the VAN brand PO price check; until 009 is run it is not written.
+  let hasRegion = false; try { const [cols] = await q("SHOW COLUMNS FROM c2m_o2s_po_line LIKE 'region'"); hasRegion = cols.length > 0; } catch (e) { hasRegion = false; console.error('[c2m] region check failed, PO regions not written: ' + (e.code || e.message)); }
   const createdAt = new Map();
   for (const e of d.actionLog || []) { const m = e && /^Created PO (\S+) /.exec(String(e.what || '')); if (m && e.t && (!createdAt.has(m[1]) || String(e.t) < createdAt.get(m[1]))) createdAt.set(m[1], String(e.t)); }
   let nl = 0, nt = 0;
   // No delete-first: rows are upserted with this sync's id, then rows from older pulls are removed.
   // A failure part-way leaves the previous pull's data in place (audit finding 16).
   for (const o of d.orders || []) {
+    const region = hasRegion ? orderRegion(o, d.customers) : null;
     for (const l of o.lines || []) {
       const price = lib.netPoPrice(l.invoicePrice, o.fedMode, o.foc, fed);
       if (!o.foc && price > 0 && price < 10) issues.push(`PO ${o.po}: ${l.brand} priced Rs ${l.invoicePrice} (below Rs 10, not a real price)`);
@@ -44,13 +60,13 @@ async function pullO2S(q, byUser) {
       const closed = !!sc.approvedAt && !sc.reopenedAt;   // O2S keeps the approval on a close the COO has reopened; that line is open again (29 Oct 2026)
       const ordered = Number(l.ordered) || 0, disp = Number(l.dispatched) || 0;
       const openKg = closed || /old pos/i.test(String(o.po)) ? 0 : Math.max(ordered - disp, 0);
-      await q(`INSERT INTO c2m_o2s_po_line (line_id, po, received, customer_name, channel, brand, pack, ordered_kg, dispatched_kg, open_kg, net_price, fed_mode, payment_terms, short_closed, sync_id${hasEntered ? ', entered_at' : ''})
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?${hasEntered ? ',?' : ''})
+      await q(`INSERT INTO c2m_o2s_po_line (line_id, po, received, customer_name, channel, brand, pack, ordered_kg, dispatched_kg, open_kg, net_price, fed_mode, payment_terms, short_closed, sync_id${hasEntered ? ', entered_at' : ''}${hasRegion ? ', region' : ''})
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?${hasEntered ? ',?' : ''}${hasRegion ? ',?' : ''})
                ON DUPLICATE KEY UPDATE po=VALUES(po), received=VALUES(received), customer_name=VALUES(customer_name), channel=VALUES(channel), brand=VALUES(brand), pack=VALUES(pack),
                ordered_kg=VALUES(ordered_kg), dispatched_kg=VALUES(dispatched_kg), open_kg=VALUES(open_kg), net_price=VALUES(net_price), fed_mode=VALUES(fed_mode),
-               payment_terms=VALUES(payment_terms), short_closed=VALUES(short_closed), sync_id=VALUES(sync_id)${hasEntered ? ', entered_at=VALUES(entered_at)' : ''}`,
+               payment_terms=VALUES(payment_terms), short_closed=VALUES(short_closed), sync_id=VALUES(sync_id)${hasEntered ? ', entered_at=VALUES(entered_at)' : ''}${hasRegion ? ', region=VALUES(region)' : ''}`,
         [l.id, o.po, (o.received || '').slice(0, 10) || null, o2sCustomerName(o.client), o.channel || '', l.brand || '', Number(l.pack) || 0,
-         ordered, disp, openKg, lib.round(price, 4), o.fedMode || null, o.paymentTerms || null, closed ? 1 : 0, syncId].concat(hasEntered ? [enteredPk(createdAt.get(String(o.po)) || o.printDecisionAt)] : []));
+         ordered, disp, openKg, lib.round(price, 4), o.fedMode || null, o.paymentTerms || null, closed ? 1 : 0, syncId].concat(hasEntered ? [enteredPk(createdAt.get(String(o.po)) || o.printDecisionAt)] : [], hasRegion ? [region] : []));
       lineById.set(l.id, true); nl++;
     }
   }
@@ -78,4 +94,4 @@ async function pullO2S(q, byUser) {
   return { syncId, poLines: nl, trucks: nt, issues };
 }
 
-module.exports = { pullO2S, o2sCustomerName, enteredPk };
+module.exports = { pullO2S, o2sCustomerName, enteredPk, orderRegion };

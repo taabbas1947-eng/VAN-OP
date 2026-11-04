@@ -17,6 +17,13 @@ Changed in 0.6.0: entry 0.6.0 added.
 Changed in 0.5.0: entry 0.5.0 added; real figures removed from earlier entries (public repo).
 Format: Keep a Changelog, semantic versions. Live: 1.0.0 (pushed 19 Oct about 22:09, checked live by Claude as Tahir the same evening; Yawar's view checked in the cloud copy only); 0.9.3 pushed 19 Oct 14:38, checked live; 0.9.2 pushed 19 Oct 12:43, checked live; first data load 19 Oct 2026 about 13:17, checked live. Before: 0.9.1 (pushed 19 Oct 09:39, checked live). apps/c2m first pushed by Tahir on 17 Oct and the live migration run the same day (39 empty c2m_ tables); 0.6.0 and 0.7.0 pushed on 18 Oct (17:29), 0.8.0 (20:16) and 0.9.0 (22:03), each checked live by Claude. The folder tabs (D-59) were built after the 0.9.0 push and ship in 0.9.1. No data loaded yet: the first data load runs on Monday 19 Oct 2026.
 
+## [Next version, VAN brand PO price check] · 4 Nov 2026 · D-146 · Who: Claude built and tested; Tahir ruled and approves the push
+### Added
+- Each VAN brand PO since 11 Oct is compared with the price list in force on its date and marked (at list within 1%, above, below, not on its list, cost only, not checked). Report: More, Reports, VAN brand PO against its price list, with Excel. A line on Approvals for the CFO and COO when any PO is off its list.
+- Migration 009: c2m_o2s_po_line.region, filled from O2S at each pull.
+### Not changed
+- No PO is blocked; Margin and the PO price report are unchanged.
+
 ## [Next version, daily O2S pull, POs by their time, audit fixes] · 4 Nov 2026 · D-145 · Who: Claude built and tested; Tahir ruled and approves the push
 ### Added
 - C2M pulls O2S by itself every day at about 06:00 (and once after a restart when the last pull is 20 h old). Pull now stays.

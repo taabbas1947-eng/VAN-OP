@@ -12,6 +12,7 @@ const lib = require('./c2m-lib');
 const engine = require('./c2m-engine');
 const { pullO2S } = require('./c2m-o2s');
 const PL = require('./c2m-pricelist');
+const PC = require('./c2m-pricecheck');
 
 /* Roles (stored in user_module_roles, module 'c2m'). Access matrix: docs/11-access-and-roles.md */
 const AC = require('./c2m-access');
@@ -300,7 +301,8 @@ module.exports = function mountC2mRoutes(app, deps) {
       "SELECT c.id, c.brand, c.o2s_brand, c.sold_per, GROUP_CONCAT(k.pack_size ORDER BY k.pack_size) sizes FROM c2m_client_product c LEFT JOIN c2m_client_pack k ON k.client_product_id=c.id WHERE c.channel='VAN brand' AND c.active=0 GROUP BY c.id, c.brand, c.o2s_brand, c.sold_per ORDER BY c.brand",
       'SELECT id, list_name, data_json FROM c2m_list_price ORDER BY id',
       "SELECT * FROM c2m_list_revision WHERE (status='approved' AND applied=0) OR id > (SELECT COALESCE(MAX(id), 0) - 30 FROM c2m_list_revision) ORDER BY id DESC",
-      "SELECT entity_id FROM c2m_audit WHERE entity='list_revision' AND action='replaced' AND why LIKE 'Closed at the carry-over%'"]) { const pr = q(sql); pr.catch(() => {}); pre.set(sql, pr); }
+      "SELECT entity_id FROM c2m_audit WHERE entity='list_revision' AND action='replaced' AND why LIKE 'Closed at the carry-over%'",
+      "SELECT id, list_name, items_json, valid_from, decided_at FROM c2m_list_revision WHERE status='approved' AND applied=1 ORDER BY id"]) { const pr = q(sql); pr.catch(() => {}); pre.set(sql, pr); }
     const [prices] = await pq('SELECT * FROM c2m_price ORDER BY id');
     const approvedPrice = inForce(prices, today()); const nextPrice = new Map();
     prices.filter(p => p.status === 'approved' && String(p.valid_from).slice(0, 10) > today()).sort((a, b) => String(b.valid_from).localeCompare(String(a.valid_from))).forEach(p => nextPrice.set(p.client_pack_id, p)); // earliest wins
@@ -416,6 +418,31 @@ module.exports = function mountC2mRoutes(app, deps) {
       out.poLines = poLines.filter(l => l.received && String(l.received).slice(0, 10) >= fy0).map(l => { const p = match(l.customer_name, l.brand, l.channel, l.pack); const cp = p ? D.cpById.get(p.client_product_id) : null; const cust = cp && !engine.isVanBrand(cp) ? D.custById.get(cp.customer_id) : custOf(l.customer_name);
         const pgrp = l.channel === 'White Label' ? 'White label' : 'VAN brand', pbl = lib.buyerLine(pgrp, cp && !engine.isVanBrand(cp) ? cp.channel : (engine.CHANNEL_NAME[l.channel] || l.channel), cust ? cust.name : l.customer_name);
         return { po: l.po, received: l.received ? String(l.received).slice(0, 10) : null, enteredAt: l.entered_at ? String(l.entered_at).slice(0, 19) : null, cust: pbl.line, cat: pbl.cat, grp: pgrp, brand: l.brand, pack: Number(l.pack), packId: p ? p.id : null, kg: Number(l.ordered_kg), price: Number(l.net_price), foc: !(Number(l.net_price) > 0) }; });
+      /* VAN brand PO price check (Tahir, 4 Nov 2026, D-146; F-32): each VAN brand PO line this FY, from the first list (11 Oct 2026),
+         against the list in force on its date. Marks only: it never blocks a PO and Margin keeps the price O2S entered.
+         The CFO and COO (see.margin with see.price) get it; the page shows it on Approvals and in Reports. */
+      if (has('see.price')) {
+        const [lr0] = await pq('SELECT id, list_name, data_json FROM c2m_list_price ORDER BY id');
+        let revs = []; try { [revs] = await pq("SELECT id, list_name, items_json, valid_from, decided_at FROM c2m_list_revision WHERE status='approved' AND applied=1 ORDER BY id"); } catch (e) { console.error('[c2m] price check: list revisions not read: ' + (e.code || e.message)); }
+        const byList = { dist: { now: [], old: [] }, dealer: { now: [], old: [] }, farmer: { now: [], old: [] } };
+        for (const r of lr0) { const m = /^(dist|dealer|farmer)(_old)?$/.exec(r.list_name); if (!m) continue; let d; try { d = JSON.parse(r.data_json); } catch (_) { continue; } byList[m[1]][m[2] ? 'old' : 'now'].push({ id: r.id, d }); }
+        const onDate = new Map(); const listsOn = (list, date, at) => { const k = list + '|' + date + '|' + (at || ''); if (!onDate.has(k)) onDate.set(k, PC.rowsOnDate(list, byList[list].now, byList[list].old, revs.filter(r => r.list_name === list), date, at || null)); return onDate.get(k); };
+        const pkById = new Map(D.packs.map(k => [Number(k.id), k])); const cpOfPack = id => { const k = pkById.get(Number(id)); return k ? D.cpById.get(k.client_product_id) : null; };
+        const ctx = { fedPct: lib.fedPct(D.settings.values.fed_pct), listsOn, soldPer: id => (cpOfPack(id) || {}).sold_per || 'kg',
+          packNames: id => { const c = cpOfPack(id); return c ? [c.brand].concat(String(c.o2s_brand || '').split('|')).map(x => String(x || '').trim()).filter(Boolean) : []; } };
+        const lines = poLines.filter(l => l.channel !== 'White Label' && Number(l.net_price) > 0 && l.received && String(l.received).slice(0, 10) >= fy0).map(l => {
+          const p = match(l.customer_name, l.brand, l.channel, l.pack); const cp = p ? D.cpById.get(p.client_product_id) : null; const van = engine.isVanBrand(cp);
+          const cust = custOf(l.customer_name); const region = PC.regionOf(l.region) || PC.regionOf(cust && cust.region); // the region O2S keeps on the customer (009), else C2M's customer record
+          const bl = lib.buyerLine('VAN brand', engine.CHANNEL_NAME[l.channel] || l.channel, cust ? cust.name : l.customer_name); // farmers pooled, never named (D-74)
+          const received = String(l.received).slice(0, 10);
+          const r = PC.check({ po: l.po, received, enteredAt: l.entered_at ? String(l.entered_at).slice(0, 19) : null, channel: l.channel, region, terms: l.payment_terms, fedMode: l.fed_mode, net: Number(l.net_price), size: Number(l.pack), packId: p ? p.id : null, own: !!cp && !van }, ctx);
+          let gp = null; if (r.state === 'cost') { const v = engine.versionOnDate(D, p.id, received); if (v && Number(l.net_price) > 0) gp = lib.round((Number(l.net_price) - Number(v.total)) / Number(l.net_price) * 100, 1); }
+          return { po: l.po, received, cust: bl.line, cat: bl.cat, ch: engine.CHANNEL_NAME[l.channel] || l.channel, region: region || null, terms: l.payment_terms || null, brand: l.brand, pack: Number(l.pack), packId: p ? p.id : null, kg: Number(l.ordered_kg), ...r, gp };
+        });
+        const before = lines.filter(x => x.received < PC.FIRST_LIST).length;
+        let regionRead = false; try { const [cols] = await q("SHOW COLUMNS FROM c2m_o2s_po_line LIKE 'region'"); regionRead = cols.length > 0; } catch (e) { console.error('[c2m] price check: region column check failed: ' + (e.code || e.message)); } // migration 009 (review 4 Nov, finding 5)
+        out.listCheck = { first: PC.FIRST_LIST, tol: PC.TOL_PCT, before, regionRead, regionPulled: poLines.some(l => l.region != null), lines: lines.filter(x => x.received >= PC.FIRST_LIST) };
+      }
       const [[ia]] = await pq("SELECT MIN(at) at FROM c2m_recipe_step WHERE action='imported'"); out.importedAt = ia && ia.at ? String(ia.at) : null; // the day Yawar's sheets were loaded: age of the sheet items
       const [[nd]] = await q('SELECT COUNT(*) n FROM c2m_price_doc WHERE ref LIKE ?', [`VAN/PL/${today().slice(0, 4)}/%`]); out.nextDocRef = `VAN/PL/${today().slice(0, 4)}/${String(Number(nd.n) + 1).padStart(3, '0')}`;
       const [imp] = await pq('SELECT * FROM c2m_import_item ORDER BY status, id'); out.imports = imp;

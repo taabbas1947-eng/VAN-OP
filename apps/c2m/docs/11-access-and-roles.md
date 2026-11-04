@@ -224,3 +224,6 @@ No new action: each list uses the right that adds to it. Delete, Take out of use
 ## 11.12 4 Nov 2026 (D-145)
 - The C2M Roles screen (Setup, Settings, Roles) and its routes are removed. Roles are designed by the System Administrator on the launcher (People and access, Roles by app), through /api/c2m/rolesvc (since 28 Oct 2026). Sections 11.11 above describe the old screen and are history.
 - A role with "The Approvals, Products, Prices, Margin and Setup places" (see.margin) but not "Settings and targets" (see.settings) receives the settings its margin figures need, read only (list in 05). It still cannot see or change the Settings screen.
+
+## 11.13 4 Nov 2026 (D-146)
+- No new action. The VAN brand PO price check goes to roles with see.margin and see.price (today the CFO and COO). The report sits in More, Reports; the line on Approvals shows only to them. Production, QC, Plant and price list viewers do not receive listCheck (tested).

@@ -389,3 +389,8 @@ On live the state call is now about 3 seconds. About 15 waits remain in a row (h
 - One read of the roles per request: c2mAuth keeps the map on req.c2m.roles; build, adminUsers, notSelf and the KAM preview reuse it (the state call read c2m_role 3 times, now once).
 - Re-approval dismiss runs in 1 transaction with its re-batch: if the re-batch fails, the item stays open.
 - The page: 1 busy guard (once) covers every save, the list send, the client price send and Create PDF. A save that went through but whose refresh failed says "Saved. The screen could not refresh". The first load shows a line after 20 s, and on failure the reason with Retry and Back to launcher.
+
+## 3.28 VAN brand PO price check (owner: Tahir rules; D-146, 4 Nov 2026)
+- c2m-pricecheck.js (pure, tested alone): listFor (channel, region, terms to list and column, or the reason it is not compared), rowsOnDate (a list as it stood on a date), rowFor (row by pack id, else by name and size), poPackPrice, check (the state of 1 line).
+- c2m-routes.js build: under see.margin, only when the role also has see.price, out.listCheck = {first, tol, before, regionRead, lines[]}; lists on a date are worked once per list and date.
+- c2m.html: listCheck() and vListCheck() (report "VAN brand PO against its price list", chips, Excel), listCheckMark() (the line on Approvals under For your information, only when a line is off its list). Margin, the PO price report and every save are unchanged.

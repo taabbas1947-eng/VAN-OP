@@ -640,3 +640,22 @@ the next pull fills entered_at.
   01:00); the freight sweep (due rate checked once, rate saved after its date skipped, second pass does nothing); the earlier route, page
   and top-bar tests again; script parses, routes load.
 
+
+
+## 4 Nov 2026 (4) — VAN brand PO price check (D-146) (MODULE: C2M) — NOT PUSHED
+
+Tahir ruled by panels and comments on the VAN Brand PO Price Check page (4 Nov) and said "Yes, build it".
+Each VAN brand PO line from 11 Oct is compared with the list in force on its PO date and marked (at list within 1%, above, below,
+not on its list, cost only, not checked). Distributor and Punjab dealer: distributor list; Sindh dealer: dealer net; COBO: farmer
+Sindh cash; VGreen: farmer Punjab; farmer: farmer list by region, Sindh cash or credit by payment terms. Never blocks; Margin unchanged.
+Files: c2m-pricecheck.js (new, pure), c2m-o2s.js (orderRegion; region written at the pull when 009 is in), c2m-routes.js (listCheck in
+the state for see.margin + see.price), c2m.html (report "VAN brand PO against its price list", line on Approvals, Excel, Guide row,
+CHANGELOG 2026-11-04d), migrations 009 (+ PRODUCTION), docs 01, 02, 03, 04, 05, 06 (D-146), 07, 08, 09 (F-32, B-36), 10, 11, 12 (12.14).
+Migration 009: local first, then production by hand (Ahmer, with 008 if 008 is not run yet). The code works before it: dealers take the
+region from C2M's customer record; farmer POs show "region not known".
+Tests: doc 12 section 12.14 (63 pure, 17 route, Playwright as the CFO at 1366 and 390). Independent review: 8 findings, all fixed but
+the FED % date (I-38). Open: I-46 (dealer or farmer outside Punjab and Sindh; Sindh farmer with no terms), A-25 (FED None) for Tahir.
+After the push and 009: Pull now, open More, Reports, VAN brand PO against its price list, and check against the 3 Nov counts on the page.
+
+Same day, after the build: Tahir ruled by panel "Others as Punjab" (dealer or farmer outside Punjab and Sindh checked as Punjab; Sindh farmer
+with no terms on Sindh cash) and "Yes, as entered" (FED None compared as entered). Built; I-46 closed, A-25 confirmed; 64 pure tests pass.

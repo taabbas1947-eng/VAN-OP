@@ -17,6 +17,17 @@ Changed in 0.6.0: entry 0.6.0 added.
 Changed in 0.5.0: entry 0.5.0 added; real figures removed from earlier entries (public repo).
 Format: Keep a Changelog, semantic versions. Live: 1.0.0 (pushed 19 Oct about 22:09, checked live by Claude as Tahir the same evening; Yawar's view checked in the cloud copy only); 0.9.3 pushed 19 Oct 14:38, checked live; 0.9.2 pushed 19 Oct 12:43, checked live; first data load 19 Oct 2026 about 13:17, checked live. Before: 0.9.1 (pushed 19 Oct 09:39, checked live). apps/c2m first pushed by Tahir on 17 Oct and the live migration run the same day (39 empty c2m_ tables); 0.6.0 and 0.7.0 pushed on 18 Oct (17:29), 0.8.0 (20:16) and 0.9.0 (22:03), each checked live by Claude. The folder tabs (D-59) were built after the 0.9.0 push and ship in 0.9.1. No data loaded yet: the first data load runs on Monday 19 Oct 2026.
 
+## [Next version, back to the launcher and a faster first load] · 4 Nov 2026 · D-143 · Who: Claude built and checked in a browser at 15 widths; Tahir ruled and approves the push
+### Fixed
+- The top bar links back to the VAN Systems launcher at every width, beside Sign out: "Back to launcher" from 1401 px, "Launcher" from 1101 to 1400 px and on a phone, a house icon from 761 to 1100 px. Before, the link sat inside the role label and was hidden at every width (from 761 px by `.hdr .foot .launch-w{display:none}`, on a phone with the role label); the only way back was the C2M logo.
+- C2M has its own tab icon (`/assets/favicon.png`). Before, the browser asked for /favicon.ico, which the platform's catch-all answers with o2s.html (4.2 MB): measured live on 3 Nov, 5.7 s during C2M's first load, holding up the logo.
+- The top bar fits from 761 px up. Before, tabs were cut off at 1101 to 1250 px and drawn over each other at 761 to 860 px. From 761 to 1300 px the tab icons and the word Find are left out and tabs pad less; from 761 to 900 px the first name is left out.
+- The What changed box has the entry 2026-11-04a for everyone who sees Products or Margin.
+### Database
+- None.
+### Not changed
+- The state call (2.9 to 5.1 s live) and the reload after every save: written up in the 3 Nov audit, not in this change.
+
 ## [Next version, update notice] · 30 Oct 2026 · D-141 · Who: Claude built; Tahir ruled and approves the push
 ### Added
 - At login, a box lists what changed since the person last opened C2M, only the lines for their job, each with a link to its Guide row; Got it closes it. The Guide keeps every update under What changed.

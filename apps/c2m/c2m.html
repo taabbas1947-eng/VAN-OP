@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>C2M · Cost to Margin</title>
+<link rel="icon" href="/assets/favicon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
 <style>
@@ -156,7 +157,7 @@ details.how{margin:0 0 12px;color:var(--muted);font-size:13px;max-width:90ch}det
   .hdr .brand{padding:0}.hdr .brand i{width:32px;height:23px}.hdr .brand small{display:none}
   .hdr .findbtn{width:auto;margin:0 0 0 auto;padding:6px 8px}.hdr .findbtn span,.hdr .findbtn kbd{display:none}
   .hdr .foot{margin:0;border:0;padding:0;font-size:12px;display:flex;gap:10px;white-space:nowrap;min-width:0}.hdr .foot b{max-width:34vw;overflow:hidden;text-overflow:ellipsis}
-  .hdr nav button:focus-visible,.hdr .more:focus-visible{outline-color:var(--blue)}.hdr .foot .who2,.hdr .foot .launch{display:none}
+  .hdr nav button:focus-visible,.hdr .more:focus-visible{outline-color:var(--blue)}.hdr .foot .who2,.hdr .foot .lw,.hdr .foot .li{display:none}.hdr .foot .ls{display:inline}
   .hdr nav{position:fixed;left:0;right:0;bottom:0;z-index:6;flex-direction:row;background:var(--surface);border-top:1px solid var(--line);box-shadow:0 -2px 10px rgba(0,0,0,.08);padding:0 0 env(safe-area-inset-bottom);gap:0}
   .hdr nav .g{display:none}
   .hdr nav button{flex:1 1 0;justify-content:center;flex-direction:column;gap:2px;min-height:54px;padding:6px 2px;color:var(--muted);font-size:11.5px;border-radius:0;box-shadow:none;border-top:3px solid transparent}
@@ -272,13 +273,17 @@ input.np{width:90px;text-align:right;font-family:var(--mono);padding:3px 6px}inp
  .hdr .findbtn{order:3;width:auto;margin:0 0 0 auto;padding:6px 10px;white-space:nowrap;flex:none}.hdr .findbtn span{white-space:nowrap}.hdr .findbtn kbd{display:none}.hdr .findbtn span{display:inline}
  .hdr .skins{order:4;margin:0 4px 0 10px}
  .hdr .foot{order:5;margin:0;border:0;border-left:1px solid rgba(255,255,255,.2);padding:0 0 0 12px;display:flex;flex-direction:row;align-items:center;gap:12px;white-space:nowrap}
- .hdr .foot .launch-w{display:none}.hdr .foot .who2{font-size:12px;opacity:.85}
+ .hdr .foot .ls,.hdr .foot .li{display:none}.hdr .foot .launch{display:inline-flex;align-items:center}.hdr .foot .who2{font-size:12px;opacity:.85}
  .shell{margin-left:0;padding-top:52px}
 }
-@media (min-width:761px) and (max-width:1100px){.hdr .brand small,.hdr .foot .who2,.hdr .findbtn span{display:none}.hdr nav button{flex:none;padding:8px 9px}.hdr .skins{display:none}.hdr .brand{padding-right:6px}.hdr nav{overflow:visible}
+@media (min-width:761px) and (max-width:1400px){.hdr .foot .lw{display:none}.hdr .foot .ls{display:inline}}
+@media (min-width:761px) and (max-width:1100px){.hdr .brand small,.hdr .foot .who2,.hdr .foot .lw,.hdr .foot .ls,.hdr .findbtn span{display:none}.hdr .foot .li{display:inline}.hdr nav button{flex:none;padding:8px 9px}.hdr .skins{display:none}.hdr .brand{padding-right:6px}.hdr nav{overflow:visible}
 
  .hdr .n{margin-left:6px}
 }
+/* Top bar fits (4 Nov 2026, D-143): below 1301 px the tab icons and the Find word go, tabs pad less; below 901 px the first name goes */
+@media (min-width:761px) and (max-width:1300px){.hdr nav button svg{display:none}.hdr .findbtn span{display:none}.hdr nav button{padding:8px 8px}.hdr .more.desk{padding:8px 8px}}
+@media (min-width:761px) and (max-width:900px){.hdr .foot b{display:none}}
 /* thin dim table lines, text left, numbers right, bolder tabs, smaller product headings */
 th,td{border-bottom:1px solid var(--line)}th{font-weight:600}
 .subnav button{font-weight:600}.subnav button[aria-current="true"],.subnav button[aria-selected="true"]{font-weight:700}
@@ -1469,7 +1474,11 @@ const CHANGELOG = [
     { t: 'Variant means the form of a product (Powder, Pellets, Granular). A size such as 1 L or 25 kg is a pack: add it under Packs. A variant typed as a size is stopped.', for: ['variant.add', 'client.add'], guide: 'Add a variant of a product' },
     { t: 'Send back on a VAN brand list revision opens its reason box again.', for: ['list.approve'], guide: null }] },
   { ver: '2026-10-30b', date: '2026-10-30', title: 'This box: what changed, at login', items: [
-    { t: 'When C2M changes, this box shows what changed for your job the first time you open it. Every update stays in the Guide, under What changed.', for: ['see.products', 'see.margin'], guide: null }] }
+    { t: 'When C2M changes, this box shows what changed for your job the first time you open it. Every update stays in the Guide, under What changed.', for: ['see.products', 'see.margin'], guide: null }] },
+  { ver: '2026-11-04a', date: '2026-11-04', title: 'Back to the launcher from every screen size, and a faster first load', items: [
+    { t: 'The top bar now always has a link back to the VAN Systems launcher, beside Sign out: "Back to launcher" on a wide screen, "Launcher" or a small house on a smaller one, "Launcher" on a phone. Before, it was hidden at every size and the only way back was the C2M logo.', for: ['all'], guide: null },
+    { t: 'C2M has its own icon in the browser tab. The browser no longer downloads the whole O2S app as C2M\'s icon while C2M opens, so the first screen comes sooner.', for: ['all'], guide: null },
+    { t: 'On a smaller laptop screen the top bar fits: the tabs no longer run over each other or get cut off. Below a certain width the tab icons and the word Find are left out.', for: ['all'], guide: null }] }
 ];
 let _wnShown = false, wnGuide = null;
 /** A Guide link only when that row is on this person's Guide (Yawar's rows, Tahir's rows, and Both; D-141). */
@@ -1542,7 +1551,7 @@ function render() {
   <nav aria-label="Screens">${navHtml}</nav>${hasMore ? `<button class="more${(M.more || []).length ? ' desk' : ''}" data-more aria-label="More places" aria-expanded="${moreOpen}"${(M.more || []).includes(scr) ? ' aria-current="true"' : ''}>${ICON.more}More</button>` : ''}
   <button class="findbtn" data-finder title="Find anything (Ctrl K)" aria-label="Find anything">${ICON.search}<span>Find anything</span><kbd>Ctrl K</kbd></button>
   <span class="skins" role="group" aria-label="Choose your look">${SKINS.map(([k, l]) => `<button data-skin="${k}" aria-pressed="${skin === k}" title="${l}" aria-label="${l}"></button>`).join('')}</span>
-  <div class="foot"><b>${esc(String(M.name || M.user).trim().split(/\s+/)[0])}</b><span class="who2">${esc(M.label)}<span class="launch-w"> · <a href="/" class="launch">Back to launcher</a></span></span><a href="/" data-signout>Sign out</a></div></aside>
+  <div class="foot"><b>${esc(String(M.name || M.user).trim().split(/\s+/)[0])}</b><span class="who2">${esc(M.label)}</span><a href="/" class="launch" title="Back to the VAN Systems launcher" aria-label="Back to the VAN Systems launcher"><span class="lw">Back to launcher</span><span class="ls">Launcher</span><svg class="li" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg></a><a href="/" data-signout>Sign out</a></div></aside>
   <div class="shell"><main ${over ? 'inert aria-hidden="true"' : ''}>${ST.preview ? vPvBar() : ''}${mainHtml}</main></div>${pan ? vPanel() : ''}${moreOpen ? vMore(p4) : ''}${finder ? vFinder() : ''}`;
   if (finder) { const f = $('fq'); if (f && document.activeElement !== f) { f.focus(); f.setSelectionRange(f.value.length, f.value.length); } return; }
   if (moreOpen) { const sh = document.querySelector('.sheet'), mb = document.querySelector('[data-more]'); /* D-113: on a wide screen More opens as a menu under its own button, not as a sheet at the foot of the page */

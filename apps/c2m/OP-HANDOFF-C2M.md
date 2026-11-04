@@ -587,3 +587,15 @@ Docs: 06-decisions D-142; 11-access 11.11 Administrator row. Checked on the tria
 exactly afterwards: not locked, 48 of 48 ticked, C2M gives Tahir 48; untick 1 = 47 in C2M; both rate rights allowed; no tick
 refused; cannot be removed. Roles-service check for C2M all passed; platform c2m-mount 25/25, notify-mount 15/15,
 pd-removed 17/17. C2M's own suite (C2M App) not run here. Trial server on port 3003 restarted on this code.
+
+## 4 Nov 2026 — Back to the launcher at every width, own tab icon, top bar fits (D-143) (MODULE: C2M) — NOT PUSHED
+
+From the 3 Nov read-only audit (artifact "C2M and Roles Audit"). Tahir: "go ahead". Files: apps/c2m/c2m.html (head icon link; the foot
+template: the launcher link left the role label, with 3 forms lw/ls/li; CSS in the phone block, the 761 px block, a new 761 to 1400 px
+rule, the 761 to 1100 px block and a new top bar fit block; CHANGELOG 2026-11-04a), docs 06 (D-143) and 08. No server, database or other
+app change. Checked in Playwright with a stand-in state at 1920, 1440, 1400, 1366, 1300, 1280, 1250, 1200, 1150, 1101, 1100, 1024, 960, 900,
+860, 820, 800, 780, 761, 390 and 360 px: link visible at each, no tab cut off or drawn over another (smallest gap 29 px at 761 px), no page
+error, script parses. C2M's own suite (C2M App, c2m_test) not run here: it is on Tahir's PC; if a test pins `launch-w`, it needs the new
+class names. After the push: open C2M live at full width and at a narrower window, press the launcher link, and see no /favicon.ico request.
+Same day, on Tahir's ruling (3 Nov panel), O2S role Supply Chain Officer: Lab screen Edit to View, through the platform roles service
+(PUT /api/o2s/rolesvc/roles/Supply Chain Officer, logged); nothing else on the role changed.

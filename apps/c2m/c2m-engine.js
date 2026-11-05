@@ -65,7 +65,7 @@ async function loadRecipes(q) {
 async function loadAll(q) {
   // Speed: these reads do not depend on each other, so they run together (one wait instead of 16 in a row).
   const soft = async sql => { try { return (await q(sql))[0]; } catch (e) { if (e && (e.code === 'ER_NO_SUCH_TABLE' || e.errno === 1146)) return null; throw e; } };
-  const [settings, rates, packing, recipes, [customers], [cps], [packs], [rules], [ruleProducts], [types], [freight], [versions], fam, pvs, exts, pexts, rvs, rnames, rdefs, ooUse] = await Promise.all([
+  const [settings, rates, packing, recipes, [customers], [cps], [packs], [rules], [ruleProducts], [types], [freight], [versions], fam, pvs, exts, pexts, rvs, rnames, rdefs, ooUse, lfRates, lfPicks] = await Promise.all([
     loadSettings(q), loadRates(q), loadPacking(q), loadRecipes(q),
     q('SELECT * FROM c2m_customer ORDER BY grp DESC, name'),
     q('SELECT * FROM c2m_client_product WHERE active=1 ORDER BY customer_id, brand'),
@@ -79,7 +79,9 @@ async function loadAll(q) {
     soft('SELECT id, name FROM c2m_product_family ORDER BY name'), soft('SELECT id, family_id, name FROM c2m_product_variant ORDER BY family_id, name'),
     soft('SELECT * FROM c2m_product_ext'), soft('SELECT * FROM c2m_pack_ext'), soft('SELECT * FROM c2m_rule_variant'),
     // Migration 007 (D-139, D-140): recipe names, the default recipe of each product, and items out of use. Until it is run they read as empty.
-    soft('SELECT recipe_version_id, recipe_name FROM c2m_recipe_name'), soft('SELECT client_product_id, recipe_name FROM c2m_recipe_default'), soft('SELECT entity, entity_id FROM c2m_out_of_use')]);
+    soft('SELECT recipe_version_id, recipe_name FROM c2m_recipe_name'), soft('SELECT client_product_id, recipe_name FROM c2m_recipe_default'), soft('SELECT entity, entity_id FROM c2m_out_of_use'),
+    // Migration 011 (D-150): labour and FOH as named rates, Low and High, and each product's pick. Until it is run C2M uses the old rates.
+    soft('SELECT * FROM c2m_lf_rate ORDER BY kind, name, valid_from, id'), soft('SELECT * FROM c2m_lf_pick ORDER BY client_product_id, kind, valid_from, id')]);
   const variantsReady = fam != null && pvs != null && exts != null && pexts != null && rvs != null;
   const m007 = rnames != null && rdefs != null && ooUse != null;
   const rn = new Map((rnames || []).map(r => [Number(r.recipe_version_id), r.recipe_name]));
@@ -95,7 +97,8 @@ async function loadAll(q) {
   versions.forEach(v => { if (!verByPack.has(v.client_pack_id)) verByPack.set(v.client_pack_id, []); verByPack.get(v.client_pack_id).push(v); });
   const ruleObjs = rules.map(r => ({ id: r.id, name: r.name, kind: r.kind, isBase: r.is_base, products: ruleProducts.filter(x => x.rule_id === r.id).map(x => x.client_product_id), scopePvariantId: ruleVar.has(r.id) ? ruleVar.get(r.id) : null, rsPerKg: Number(r.rs_per_kg), scopeClientProductId: r.scope_client_product_id, scopeBaseProductId: r.scope_base_product_id,
     scopeForm: r.scope_form, scopeReprocessed: r.scope_reprocessed, scopePackMin: r.scope_pack_min, scopePackMax: r.scope_pack_max, validFrom: r.valid_from, active: r.active, source: r.source }));
-  return { settings, rates, packing, recipes, customers, custById, cps, cpById, packs, rules: ruleObjs, productTypes: types, freight, verByPack, families: fam || [], pvariants: pvs || [], ext, packExt, variantsReady, m007, recDefault, outOfUse };
+  const lf = lfRates != null && lfPicks != null ? lfIndex(lfRates, lfPicks) : null; // null: before migration 011, the old rates apply
+  return { lf, settings, rates, packing, recipes, customers, custById, cps, cpById, packs, rules: ruleObjs, productTypes: types, freight, verByPack, families: fam || [], pvariants: pvs || [], ext, packExt, variantsReady, m007, recDefault, outOfUse };
 }
 
 /** The product whose recipe a product uses: itself, or the VAN product it follows (D-98: material cost only; packing, labour and overhead stay its own). */
@@ -155,6 +158,31 @@ function freightFor(D, cp) {
  *  every material has a rate; a pack VAN packs has a packing bill with at least 1 item, every item priced above Rs 0,
  *  and a pack size above 0 (a bulk product, and a client-packed pack with no bill, carry no packing); and both a labour
  *  and a FOH rate apply. Otherwise costed is false and gaps says what is missing, so no Rs 0 part is ever priced. */
+/* ---------- Labour and FOH, Low and High (Tahir and Yawar, 5 Nov 2026, R17 to R20, D-150; migration 011) ----------
+   Each client product uses 1 named labour rate and 1 named FOH rate (no pick: Low). All its packs share the Rs per kg or L.
+   A rate or a pick counts from the 1st of a month; the newest one on or before a date is in force. A rate not filled (NULL)
+   or Rs 0 is missing, so the pack is not costed until it is filled (I-20). */
+const day10 = v => String(v == null ? '' : v).slice(0, 10);
+function lfIndex(rates, picks) {
+  const R = new Map(), P = new Map(), names = { labour: new Set(), foh: new Set() };
+  for (const r of rates) { const k = r.kind + '|' + r.name; if (!R.has(k)) R.set(k, []); R.get(k).push({ id: r.id, kind: r.kind, name: r.name, rsPerKg: r.rs_per_kg == null ? null : Number(r.rs_per_kg), validFrom: day10(r.valid_from), source: r.source, by: r.set_by, at: r.set_at }); if (names[r.kind]) names[r.kind].add(r.name); }
+  for (const p of picks) { const k = Number(p.client_product_id) + '|' + p.kind; if (!P.has(k)) P.set(k, []); P.get(k).push({ id: p.id, name: p.rate_name, validFrom: day10(p.valid_from), by: p.set_by, at: p.set_at }); }
+  return { R, P, names: { labour: [...names.labour], foh: [...names.foh] } };
+}
+/** The newest entry dated on or before date (entries are in date, then id order). */
+const lfLatest = (list, date) => { let hit = null; for (const x of list || []) if (x.validFrom <= date) hit = x; return hit; };
+/** The named rate a client product uses for a kind on a date: 'Low' when it has no pick. */
+function lfPickOf(D, cpId, kind, date) { const x = lfLatest(D.lf.P.get(Number(cpId) + '|' + kind), date || today()); return x ? x.name : 'Low'; }
+/** The rate in force for a kind and name on a date: { id, name, label, rsPerKg (null: not filled), validFrom } or null. */
+function lfRateOf(D, kind, name, date) { const x = lfLatest(D.lf.R.get(kind + '|' + name), date || today()); return x ? { id: x.id, name: x.name, label: `${kind === 'labour' ? 'Labour' : 'FOH'} rate ${x.name}`, rsPerKg: x.rsPerKg, validFrom: x.validFrom } : null; }
+/** Labour and FOH for a pack on a date, the same shape as lib.conversionFor: { labour, foh, rsPerKg }. Old rates before migration 011. */
+function conversionOf(D, cp, pack, date) {
+  if (!D.lf) return lib.conversionFor({ clientProductId: cp.id, variantId: (D.ext.get(cp.id) || {}).pvariantId || null, baseProductId: cp.base_product_id, form: cp.form, reprocessed: cp.reprocessed, packSize: Number(pack.pack_size), onDate: date || today() }, D.rules);
+  const one = kind => { const r = lfRateOf(D, kind, lfPickOf(D, cp.id, kind, date), date); return r ? { id: r.id, name: r.label, rsPerKg: r.rsPerKg } : null; };
+  const labour = one('labour'), foh = one('foh');
+  return { labour, foh, rsPerKg: (labour && labour.rsPerKg > 0 ? labour.rsPerKg : 0) + (foh && foh.rsPerKg > 0 ? foh.rsPerKg : 0) };
+}
+
 function packCost(D, pack, opts = {}) {
   const cp = D.cpById.get(pack.client_product_id); if (!cp) return null;
   const ver = opts.version || approvedVersion(D, cp.id);
@@ -177,9 +205,10 @@ function packCost(D, pack, opts = {}) {
       packing = lib.packingPerUnit(lines, size);
     }
   }
-  const cv = lib.conversionFor({ clientProductId: cp.id, variantId: (D.ext.get(cp.id) || {}).pvariantId || null, baseProductId: cp.base_product_id, form: cp.form, reprocessed: cp.reprocessed, packSize: Number(pack.pack_size), onDate: today() }, D.rules);
+  const cv = conversionOf(D, cp, pack, today()); // Low and High after migration 011 (D-150), the old rates before
   const conversion = cv.rsPerKg;
-  const rule = cv.labour || cv.foh ? { name: [cv.labour ? `Labour: ${cv.labour.name} (Rs ${Number(cv.labour.rsPerKg)})` : 'Labour: none', cv.foh ? `FOH: ${cv.foh.name} (Rs ${Number(cv.foh.rsPerKg)})` : 'FOH: none'].join(' · '), labour: cv.labour, foh: cv.foh } : null;
+  const rsTxt = x => (x.rsPerKg == null ? 'not filled' : `Rs ${Number(x.rsPerKg)}`);
+  const rule = cv.labour || cv.foh ? { name: [cv.labour ? `Labour: ${cv.labour.name} (${rsTxt(cv.labour)})` : 'Labour: none', cv.foh ? `FOH: ${cv.foh.name} (${rsTxt(cv.foh)})` : 'FOH: none'].join(' · '), labour: cv.labour, foh: cv.foh } : null;
   const freight = freightFor(D, cp);
   // A labour or FOH rate of Rs 0 counts as missing (Tahir, 18 Oct 2026, I-20)
   if (!cv.labour || !(Number(cv.labour.rsPerKg) > 0)) gaps.push('no labour rate');
@@ -229,4 +258,4 @@ function isVanBrand(cp) { return !!cp && cp.channel === 'VAN brand'; }
 /** O2S channel words as C2M shows them. */
 const CHANNEL_NAME = { Cobo: 'COBO', Vgreen: 'VGreen', 'White Label': 'White label' };
 
-module.exports = { MAIN, defaultName, approvedVersions, recipeOwner, loadAll, packCost, priceRecipe, nutrients, costOnDate, versionOnDate, latestApproved, approvedVersion, latestVersion, matcher, isVanBrand, CHANNEL_NAME, freightFor, today };
+module.exports = { MAIN, defaultName, approvedVersions, recipeOwner, loadAll, packCost, priceRecipe, nutrients, costOnDate, versionOnDate, latestApproved, approvedVersion, latestVersion, matcher, isVanBrand, CHANNEL_NAME, freightFor, today, conversionOf, lfPickOf, lfRateOf };

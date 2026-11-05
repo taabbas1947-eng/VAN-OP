@@ -333,3 +333,11 @@ GET /api/c2m/state adds: m007, outOfUseKeys; on each product defaultName and oth
 - POST /api/c2m/costs/pending/:id/approve (price.approve; urgent only): the change goes in now; {ok, reapproval}. /later: it waits for Monday; {ok}.
 - GET /api/c2m/state, roles with see.margin: weekly {ready, monday, next} and pending [{id, kind, target, label, now, next, effect {count, items, pct}, applyOn, urgent, reason, status, by, at, decidedBy, decidedAt, result, body}].
 - Before migration 010 these routes answer 409 "needs migration 010"; the saves go in at once.
+
+### 5 Nov 2026 (D-150)
+- POST /api/c2m/lf/rate {kind: labour|foh, name, rsPerKg, source} (labour.manage; ?dry=1 for the effect): {ok, reapproval, first, baseline (packs given their approved cost when this fill completes the rates), validFrom (today)}. 409 before migration 011.
+- POST /api/c2m/lf/pick {clientProductId, kind, name} (labour.manage; ?dry=1): {ok, reapproval, first, validFrom}. 409 before migration 011.
+- POST /api/c2m/checks {month: YYYY-MM, kind: lf_cert, data: {result: no_change|changed}} (labour.manage).
+- GET /api/c2m/state, roles with see.margin: lf {ready, from, rates, picks}.
+- POST /api/c2m/rules/conversion, /rules/conversion/:id/replace, /rules/conversion/:id/retire, /edit/rule/:id and /delete with kind rule answer 409 after migration 011.
+- GET /api/c2m/state lf also carries since (YYYY-MM: the month of the switch).

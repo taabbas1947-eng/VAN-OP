@@ -273,3 +273,8 @@ c2m_list_price (farmer rows, by packId) -> lib.printMrp -> the MRP printing list
 - POST /api/c2m/rates, /packing/rate, /packing/bill and /freight, Tuesday to Sunday: the save is run once and rolled back (its own checks, and the effect), then written to c2m_cost_pending (1 waiting row per item; saving again replaces it). Nothing else is written.
 - Every 15 minutes (and at start) C2M reads waiting rows with apply_on on or before today and runs each save as its saver, in 1 transaction with marking the row applied; a failure marks it failed with the reason and tells the CFO and COO.
 - The state call sends weekly {ready, monday, next} and pending (waiting and failed rows, and those applied in the last 8 days) to roles with see.margin.
+
+## 2.27 Labour and FOH, Low and High (owner: Tahir; D-150; migration 011)
+- engine.loadAll reads c2m_lf_rate and c2m_lf_pick (soft: before 011 they read as missing and the old c2m_conversion_rule rates apply). engine.conversionOf gives each pack its labour and FOH from its product's pick (none = Low) and the rate in force on the date.
+- POST /api/c2m/lf/rate and /lf/pick write 1 row each and an audit line; when not first, a re-approval item and a notice to the COO; a first figure tells the COO too, a first move tells no one. The fill that completes all the rates also writes 1 c2m_cost_version per pack with an approved cost (cause "Switch to Low and High...") and an audit line lf_baseline, once. The certificate is a c2m_monthly_check row, kind lf_cert, data {result}.
+- The state call sends lf {ready, from, rates [kind, name, label, rsPerKg, validFrom, history], picks [id, labour, foh, lSet, fSet]} to roles with see.margin.

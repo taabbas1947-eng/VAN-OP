@@ -169,7 +169,7 @@ module.exports = function mountC2mRoutes(app, deps) {
     for (const p of D.packs) {
       if (filter && !filter(p)) continue;
       const cp = D.cpById.get(p.client_product_id); if (!cp) continue;
-      const cv = lib.conversionFor({ clientProductId: cp.id, variantId: (D.ext.get(cp.id) || {}).pvariantId || null, baseProductId: cp.base_product_id, form: cp.form, reprocessed: cp.reprocessed, packSize: Number(p.pack_size), onDate: today() }, D.rules);
+      const cv = engine.conversionOf(D, cp, p, today()); // Low and High after migration 011 (D-150)
       const noL = !cv.labour || !(Number(cv.labour.rsPerKg) > 0), noF = !cv.foh || !(Number(cv.foh.rsPerKg) > 0); // Rs 0 = missing (I-20)
       if (noL || noF) out.push(`${cp.brand} ${Number(p.pack_size)} ${cp.sold_per} (no ${noL ? 'labour' : 'FOH'} rate)`);
     }
@@ -486,6 +486,14 @@ module.exports = function mountC2mRoutes(app, deps) {
       const [nl] = await pq("SELECT entity_id, by_user, at FROM c2m_audit WHERE entity='product_name' ORDER BY id DESC LIMIT 400"); out.nameLog = {}; for (const x of nl) if (!out.nameLog[x.entity_id]) out.nameLog[x.entity_id] = { by: x.by_user, at: x.at }; // last name change per product (D-85)
       { const [off] = await pq("SELECT c.id, c.brand, c.o2s_brand, c.sold_per, GROUP_CONCAT(k.pack_size ORDER BY k.pack_size) sizes FROM c2m_client_product c LEFT JOIN c2m_client_pack k ON k.client_product_id=c.id WHERE c.channel='VAN brand' AND c.active=0 GROUP BY c.id, c.brand, c.o2s_brand, c.sold_per ORDER BY c.brand"); out.vanOff = off.map(r => ({ id: r.id, brand: r.brand, names: namesOf(r), soldPer: r.sold_per, sizes: String(r.sizes || '').split(',').filter(Boolean).map(Number) })); } // VAN brand products out of use (Tahir, 20 Oct 2026)
       out.freight = D.freight;
+      /* Labour and FOH, Low and High (push 2c, D-150): the rates in force with their history, and each product's pick. */
+      if (D.lf) { const T = today(); const KN = { labour: 'Labour', foh: 'FOH' };
+        const first0 = [...D.lf.R.values()].flat().map(x => x.validFrom).sort()[0] || T; // the switch: the earliest rate row (migration 011)
+        out.lf = { ready: true, from: T, since: String(first0).slice(0, 7), rates: [], picks: [] };
+        for (const kind of ['labour', 'foh']) for (const name of D.lf.names[kind]) { const now1 = engine.lfRateOf(D, kind, name, T); const H = (D.lf.R.get(kind + '|' + name) || []).slice().reverse();
+          out.lf.rates.push({ kind, name, label: `${KN[kind]} rate ${name}`, rsPerKg: now1 ? now1.rsPerKg : null, validFrom: now1 ? now1.validFrom : null, history: H.slice(0, 12).map(x => ({ rsPerKg: x.rsPerKg, validFrom: x.validFrom, by: x.by, at: x.at, source: x.source })) }); }
+        for (const cp of D.cps) out.lf.picks.push({ id: cp.id, labour: engine.lfPickOf(D, cp.id, 'labour', T), foh: engine.lfPickOf(D, cp.id, 'foh', T), lSet: D.lf.P.has(cp.id + '|labour'), fSet: D.lf.P.has(cp.id + '|foh') });
+      } else out.lf = { ready: false };
       /* Next week's costs (push 2b, D-149): waiting changes, and those that failed or went in during the last 8 days. */
       { const ready = await pendReady(); if (ready) await applyDue().catch(() => {}); /* due Monday changes go in before the list is read (review 2b, finding 8) */ const T = today(); out.weekly = { ready, monday: isMonday(T), next: nextMonday(T) }; out.pending = [];
         if (ready) { const since = new Date(Date.parse(T + 'T00:00:00Z') - 8 * 864e5).toISOString().slice(0, 10);
@@ -710,7 +718,7 @@ module.exports = function mountC2mRoutes(app, deps) {
     if (next === 'approved') {
       const D0 = await engine.loadAll(q); const pr = engine.priceRecipe(D0, D0.recipes.byVer.get(v.id));
       if (pr.missingRate) throw bad('A material on this recipe has no rate. Enter its rate first, then approve the cost.');
-      const gaps = packsWithoutRates(D0, p => p.client_product_id === v.client_product_id); if (gaps.length) throw bad(`No labour or FOH rate applies to: ${gaps.join('; ')}. Add the rate in Costs, Labour or FOH first.`);
+      const gaps = packsWithoutRates(D0, p => p.client_product_id === v.client_product_id); if (gaps.length) throw bad(`No labour or FOH rate applies to: ${gaps.join('; ')}. ${D0.lf ? 'Fill Labour rate Low and FOH rate Low (or the rate the product is on) in Costs, Labour or FOH first.' : 'Add the rate in Costs, Labour or FOH first.'}`);
       // Every pack must be fully costed on this version: no Rs 0 or part-priced packing goes into a cost version (defect 1)
       const cp0 = D0.cpById.get(v.client_product_id), ver0 = D0.recipes.byVer.get(v.id), notCosted = [];
       if (!cp0) throw bad('This product is inactive. Make it active before approving its cost.');
@@ -852,6 +860,9 @@ module.exports = function mountC2mRoutes(app, deps) {
   };
   /** When this person's change to this item went in, if that was less than 1 hour ago (Undo, edit only: R29, ruled 5 Nov); else null.
    *  A correction keeps the time of the change it corrects, so its hour never starts again (review 2b, finding 3). */
+  /** True once migration 011 has run (both tables, as the cost engine needs them). */
+  async function lfOn() { try { const [a] = await q("SHOW TABLES LIKE 'c2m_lf_rate'"); const [b] = await q("SHOW TABLES LIKE 'c2m_lf_pick'"); return a.length > 0 && b.length > 0; } catch (_) { return false; } }
+  const OLD_LF = 'Labour and FOH are now named rates, Low and High: change them on Costs, Labour or FOH. The old rates stay in the record only (D-150).';
   async function correctable(kind, target, user) {
     const since = lib.pkNow(new Date(Date.now() - 3600e3)); const key = `${kind}:${target}`;
     const [[cc]] = await q("SELECT new_value FROM c2m_audit WHERE entity='cost_correct' AND entity_id=? AND by_user=? AND at>=? ORDER BY id DESC LIMIT 1", [key.slice(0, 100), user, since]);
@@ -1069,6 +1080,7 @@ module.exports = function mountC2mRoutes(app, deps) {
 
   /* ---------- Conversion rules ---------- */
   app.post('/api/c2m/rules/conversion', can('labour.manage'), wrap(dryable(async (req, res) => {
+    { if (await lfOn()) throw Object.assign(new Error('Labour and FOH are now named rates, Low and High: change them on Costs, Labour or FOH. The old rates stay in the record only (D-150).'), { status: 409 }); }
     const b = req.body || {};
     /* Ruled 16 Oct: a named labour or FOH rate, assigned to all products (optionally a form, reprocessed, a pack range),
      * to a product type, or to a list of products. 1 labour + 1 FOH rate is picked per product and added. */
@@ -1233,7 +1245,7 @@ module.exports = function mountC2mRoutes(app, deps) {
     { const [[o]] = await softQ("SELECT entity_id FROM c2m_out_of_use WHERE entity='customer' AND entity_id=?", [cust.id]); if (o) throw bad(`${cust.name} is out of use. Put it back in use in Setup, Clients first.`); }
     { const [[ov]] = await q("SELECT COUNT(*) n FROM c2m_client_product WHERE customer_id=? AND channel='VAN brand'", [cust.id]); if (Number(ov.n)) throw bad(`${cust.name} owns the VAN brand products: a client's own brand is added to a client, not to the VAN brand owner.`); }
     const brand = cleanName(b.brand, 120, 'brand name'); const names = spellings(b.o2sNames, brand); const o2s = names.join('|'); if (o2s.length > 120) throw bad(`The brand name and spellings together can be at most 120 characters (now ${o2s.length}).`);
-    const typeId = Number(b.typeId); const [[ty]] = await q('SELECT id FROM c2m_base_product WHERE id=?', [typeId]); if (!ty) throw bad('Pick the product type: it decides which labour and overhead rates apply.');
+    const typeId = Number(b.typeId); const [[ty]] = await q('SELECT id FROM c2m_base_product WHERE id=?', [typeId]); if (!ty) throw bad('Pick the product type.');
     const form = b.form || 'solid', soldPer = b.soldPer || (form === 'liquid' ? 'L' : 'kg'); if (!['solid', 'liquid'].includes(form)) throw bad('Form is solid or liquid.'); if (!['kg', 'L'].includes(soldPer)) throw bad('Sold per is kg or L.'); if ((form === 'liquid') !== (soldPer === 'L')) throw bad('A liquid is sold per L and a solid per kg.');
     const mode = b.packingMode || 'VAN'; if (!modeOk(mode)) throw bad('Who supplies the packing: VAN, Client or Bulk.');
     const packs = await readPacks(b.packs, mode);
@@ -1422,6 +1434,7 @@ module.exports = function mountC2mRoutes(app, deps) {
   }));
 
   app.post('/api/c2m/rules/conversion/:id/retire', can('labour.manage'), wrap(async (req, res) => {
+    if (await lfOn()) throw Object.assign(new Error(OLD_LF), { status: 409 }); // old labour and FOH rates after migration 011 (review 2c, finding 7 and 8)
     const why = String((req.body || {}).why || '').trim(); if (!why) throw bad('Write why the rule is retired.');
     let re = 0;
     await tx(async () => {
@@ -1737,6 +1750,64 @@ module.exports = function mountC2mRoutes(app, deps) {
   };
   PEND_FN.freight = save_freight;
   app.post('/api/c2m/freight', can('freight.edit'), wrap(dryable(weekly('freight', save_freight))));
+  /* ---------- Labour and FOH, Low and High (Tahir and Yawar, 5 Nov 2026, R17 to R20; push 2c, D-150) ----------
+     A rate change or a product's move is in force from the day it is saved (ruled after the review, 5 Nov: "From the day saved").
+     Go-live (until 30 Nov 2026): the first figure of a rate and a product's first move need no re-approval; from 1 Dec every
+     change and every move goes to re-approval as usual (ruled after the review: "Go-live only"). When the last of the go-live
+     rates is filled, each pack's cost that day becomes its approved cost, with no re-approval ("New cost becomes approved"),
+     so later changes compare with it. Not in the weekly cycle: reviewed monthly (R15). */
+  const KN = { labour: 'Labour', foh: 'FOH' }; const LF_FREE_TILL = '2026-12-01';
+  const dWords = d => { const p = String(d).slice(0, 10).split('-'); const M = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']; return p.length === 3 ? `${+p[2]} ${M[+p[1] - 1]} ${p[0]}` : String(d); };
+  /** Once, when every named rate has a figure during go-live: each pack's cost today becomes its approved cost (no re-approval). */
+  async function lfBaseline(user) {
+    const D = await engine.loadAll(q); if (!D.lf) return 0;
+    const all = ['labour', 'foh'].every(k => D.lf.names[k].every(n => { const x = engine.lfRateOf(D, k, n, today()); return x && x.rsPerKg > 0; }));
+    if (!all) return 0;
+    const [[done]] = await q("SELECT id FROM c2m_audit WHERE entity='lf_baseline' LIMIT 1"); if (done) return 0;
+    let n = 0;
+    for (const p of D.packs) { if (!engine.latestApproved(D, p.id)) continue; const c = engine.packCost(D, p); if (!c || !c.costed) continue;
+      await q('INSERT INTO c2m_cost_version (client_pack_id, valid_from, materials, packing, conversion, freight, total, recipe_version_id, cause, approved_by) VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [p.id, now(), c.materials, c.packing, c.conversion, c.freight, c.total, c.recipeVersionId, 'Switch to Low and High labour and FOH: cost at go-live, no re-approval (ruled 5 Nov 2026)', user]); n++; }
+    await audit(user, 'lf_baseline', 'switch', 'baseline', null, { packs: n }, 'Every pack\'s cost at go-live becomes its approved cost (D-150)');
+    return n;
+  }
+  const needLf = D => { if (!D.lf) throw Object.assign(new Error('Labour and FOH Low and High needs migration 011 (apps/c2m/migrations/011_c2m_labour_foh_low_high.sql). Ask IT to run it.'), { status: 409 }); };
+  app.post('/api/c2m/lf/rate', can('labour.manage'), wrap(dryable(async (req, res) => {
+    const b = req.body || {}; const D = await engine.loadAll(q); needLf(D);
+    const kind = b.kind; if (!KN[kind]) throw bad('Pick labour or FOH.');
+    const name = String(b.name || '').trim().replace(/\s+/g, ' '); if (!/^[A-Za-z0-9 ]{1,40}$/.test(name)) throw bad('Name the rate in a few letters or digits, e.g. Low, High or Average.');
+    const rs = strictNum(b.rsPerKg); if (!(rs > 0) || rs > 100000) throw bad('Type the rate in Rs per kg or L, digits above 0.');
+    const known = D.lf.names[kind].find(n => n.toLowerCase() === name.toLowerCase()); const nm = known || name; // "low" is the same rate as "Low"
+    const T = today(), vf = T; const cur = engine.lfRateOf(D, kind, nm, T); const first = (!cur || cur.rsPerKg == null) && T < LF_FREE_TILL;
+    if (cur && cur.rsPerKg === rs) throw bad(`${KN[kind]} rate ${nm} is already Rs ${rs}.`);
+    const label = `${KN[kind]} rate ${nm}`; let re = 0, base = 0;
+    await tx(async () => {
+      await q('INSERT INTO c2m_lf_rate (kind, name, rs_per_kg, valid_from, source, set_by, set_at) VALUES (?,?,?,?,?,?,?)', [kind, nm, rs, vf, String(b.source || '').trim().slice(0, 200) || null, req.c2m.user, now()]);
+      await audit(req.c2m.user, 'lf_rate', `${kind}:${nm}`, 'save', cur ? { rsPerKg: cur.rsPerKg, validFrom: cur.validFrom } : null, { rsPerKg: rs, validFrom: vf }, b.source || null);
+      if (!first && cur && cur.rsPerKg != null) re = await reapprovalFor(`${label} Rs ${cur.rsPerKg} to Rs ${rs} from ${dWords(vf)}`, (p, D2) => engine.lfPickOf(D2, p.client_product_id, kind) === nm);
+      if (first) base = await lfBaseline(req.c2m.user);
+      if (first) await notice('coo', `${label} set at Rs ${rs} per kg or L from ${dWords(vf)} by the ${req.c2m.label} (go-live: no re-approval).${base ? ` All 4 rates are filled: ${base} pack(s) take their cost today as their approved cost.` : ''}`, req.c2m.user);
+      else await costNotice(req.c2m.user, `${label} changed to Rs ${rs} per kg or L from ${dWords(vf)} by the ${req.c2m.label}`, re);
+    });
+    res.json({ ok: true, reapproval: re, first, baseline: base, validFrom: vf });
+  })));
+  app.post('/api/c2m/lf/pick', can('labour.manage'), wrap(dryable(async (req, res) => {
+    const b = req.body || {}; const D = await engine.loadAll(q); needLf(D);
+    const kind = b.kind; if (!KN[kind]) throw bad('Pick labour or FOH.');
+    const cp = D.cpById.get(Number(b.clientProductId)); if (!cp) throw bad('Product not found, or it is out of use.');
+    if (cp.channel !== 'VAN brand' && (D.custById.get(cp.customer_id) || {}).grp !== 'White label') throw bad('Labour and FOH are picked for white label and VAN brand products.'); // the products C2M costs (D-44)
+    const name = String(b.name || '').trim(); if (!D.lf.names[kind].includes(name)) throw bad(`There is no ${KN[kind]} rate named ${name}.`);
+    const T = today(), vf = T; const was = engine.lfPickOf(D, cp.id, kind, T); if (was === name) throw bad(`${cp.brand} is already on ${KN[kind]} rate ${name}.`);
+    const to = engine.lfRateOf(D, kind, name, T); if (!to || to.rsPerKg == null) throw bad(`Fill ${KN[kind]} rate ${name} first: it has no figure yet.`);
+    const first = !D.lf.P.has(cp.id + '|' + kind) && T < LF_FREE_TILL; let re = 0; // free only at go-live (ruled 5 Nov)
+    await tx(async () => {
+      await q('INSERT INTO c2m_lf_pick (client_product_id, kind, rate_name, valid_from, set_by, set_at) VALUES (?,?,?,?,?,?)', [cp.id, kind, name, vf, req.c2m.user, now()]);
+      await audit(req.c2m.user, 'lf_pick', `${cp.id}:${kind}`, 'save', { name: was }, { name, validFrom: vf }, null);
+      if (!first) { re = await reapprovalFor(`${cp.brand}: ${KN[kind]} rate ${was} to ${name} from ${dWords(vf)}`, p => Number(p.client_product_id) === cp.id);
+        await costNotice(req.c2m.user, `${cp.brand} moved from ${KN[kind]} rate ${was} to ${name} from ${dWords(vf)} by the ${req.c2m.label}`, re); }
+    });
+    res.json({ ok: true, reapproval: re, first, validFrom: vf });
+  })));
   /* Next week's costs: drop a waiting change; Tahir approves an urgent one now, or sends it to Monday (push 2b, D-149). */
   async function pendingRow(id) { if (!(await pendReady())) throw Object.assign(new Error('Next week\'s costs needs migration 010 (apps/c2m/migrations/010_c2m_cost_pending.sql). Ask IT to run it.'), { status: 409 });
     const [[r]] = await q('SELECT * FROM c2m_cost_pending WHERE id=?', [Number(id)]); if (!r) throw bad('This change is no longer in Next week\'s costs.'); if (r.status !== 'waiting') throw moved(); return r; }
@@ -1830,10 +1901,15 @@ module.exports = function mountC2mRoutes(app, deps) {
     const { month, kind, data } = req.body || {};
     if (kind === 'rate_check' && (!mayDo(req, 'actuals.ratecheck') || (!req.c2m.admin && mayDo(req, 'rate.save')))) throw Object.assign(new Error(mayDo(req, 'rate.save') ? 'The rate check is done by a second person, not by the person who entered the rates.' : 'Your role cannot do this in C2M.'), { status: 403 });
     if (kind === 'tie_books' && !mayDo(req, 'actuals.tiebooks')) throw Object.assign(new Error('Your role cannot do this in C2M.'), { status: 403 });
-    if (!['rate_check', 'tie_books'].includes(kind) || !/^\d{4}-\d{2}$/.test(String(month))) throw bad('Pick the month and the check.');
+    if (kind === 'lf_cert' && !mayDo(req, 'labour.manage')) throw Object.assign(new Error('Your role cannot do this in C2M.'), { status: 403 }); // monthly labour and FOH certificate (R15, D-150)
+    if (!['rate_check', 'tie_books', 'lf_cert'].includes(kind) || !/^\d{4}-\d{2}$/.test(String(month))) throw bad('Pick the month and the check.');
     /* The checks carry their figures, not just a tick (cost review 18 Oct 2026, D-64): the rate check holds the register rate
        for each material listed; the tie to the books holds ERP sales and COGS beside C2M's own figures for the month. */
     let save = data || null;
+    if (kind === 'lf_cert') { if (!data || !['no_change', 'changed'].includes(data.result)) throw bad('Say whether the labour and FOH rates changed: No change, or Changed.');
+      if (!(String(month) < today().slice(0, 7))) throw bad('A certificate is for a month that has ended.'); // review 2c, finding 13
+      const [[had]] = await q("SELECT done_by FROM c2m_monthly_check WHERE month=? AND kind='lf_cert'", [month]); if (had) throw bad(`${month} is already certified, by ${had.done_by}.`);
+      save = { result: data.result }; }
     if (kind === 'rate_check') { const R = data && Array.isArray(data.rates) ? data.rates : null; if (!R || !R.length) throw bad('There is no material to check for this month: the check needs at least 1 material with its purchase register rate.');
       if (R.some(r => !r || typeof r !== 'object' || !r.gradeId || !(strictNum(r.register) > 0))) throw bad('Every material listed needs its purchase register rate (digits above 0) before the check is done.');
       save = { rates: R.map(r => ({ gradeId: Number(r.gradeId), name: String(r.name || '').slice(0, 120), c2m: Number(r.c2m) || null, date: r.date || null, source: String(r.source || '').slice(0, 200), rs: Number(r.rs) || 0, register: strictNum(r.register) })) }; }
@@ -2682,7 +2758,8 @@ module.exports = function mountC2mRoutes(app, deps) {
       label = r.name; out = Number(r.active) ? 'retire' : 'none'; isOut = !Number(r.active);
       if (!Number(r.active)) L.push('It is retired: a retired rate stays in the record'); // review 30 Oct, smaller point
       const [lp] = await q('SELECT client_product_id FROM c2m_conversion_rule_product WHERE rule_id=?', [id]); lp.forEach(x => { const c = cpN.get(Number(x.client_product_id)); if (c && !Number(c.active)) L.push(`${pn(c.id)} (out of use) is listed on it`); });
-      for (const p of D.packs) { const cp = D.cpById.get(p.client_product_id); if (!cp) continue;
+      if (D.lf) L.push('An old rate: since the switch to Low and High (D-150) no pack uses it; it stays in the record'); // review 2c, finding 6
+      if (!D.lf) for (const p of D.packs) { const cp = D.cpById.get(p.client_product_id); if (!cp) continue;
         const cv = lib.conversionFor({ clientProductId: cp.id, variantId: (D.ext.get(cp.id) || {}).pvariantId || null, baseProductId: cp.base_product_id, form: cp.form, reprocessed: cp.reprocessed, packSize: Number(p.pack_size), onDate: today() }, D.rules);
         if ((cv.labour && Number(cv.labour.id) === id) || (cv.foh && Number(cv.foh.id) === id)) L.push(`${pn(cp.id)}, ${Number(p.pack_size)} ${cp.sold_per} pack (its cost today)`); }
     } else if (kind === 'freight') {
@@ -2726,6 +2803,7 @@ module.exports = function mountC2mRoutes(app, deps) {
   app.post('/api/c2m/delete', wrap(async (req, res) => {
     const { kind } = req.body || {}; const id = Number((req.body || {}).id); const why = String((req.body || {}).why || '').trim();
     await rightFor(req, kind, id); if (!why) throw bad('Write why it is deleted.');
+    if (kind === 'rule' && await lfOn()) throw Object.assign(new Error(OLD_LF), { status: 409 }); // review 2c, finding 8
     const out = await tx(async () => {
       const LOCK = { grade: 'c2m_material_grade', pitem: 'c2m_packing_item', bill: 'c2m_packing_bill', rule: 'c2m_conversion_rule', freight: 'c2m_freight_rate', customer: 'c2m_customer', product: 'c2m_client_product', recipe: 'c2m_recipe_version' };
       await q(`SELECT id FROM ${LOCK[kind]} WHERE id=? FOR UPDATE`, [id]); // locked first: a save that adds a use waits, or this delete waits for it (review 30 Oct)
@@ -2818,6 +2896,7 @@ module.exports = function mountC2mRoutes(app, deps) {
   }));
   /** Edit the words of a labour or FOH rate (name, source). A new Rs, scope or date is saved as a new rate that replaces it (/replace). */
   app.post('/api/c2m/edit/rule/:id', can('labour.manage'), wrap(async (req, res) => {
+    if (await lfOn()) throw Object.assign(new Error(OLD_LF), { status: 409 }); // old labour and FOH rates after migration 011 (review 2c, finding 7 and 8)
     const b = req.body || {}; const id = Number(req.params.id);
     await tx(async () => {
       const [[r]] = await q('SELECT * FROM c2m_conversion_rule WHERE id=? FOR UPDATE', [id]); if (!r) throw bad('Rate not found.'); if (!Number(r.active)) throw bad('A retired rate cannot be edited.');
@@ -2832,6 +2911,7 @@ module.exports = function mountC2mRoutes(app, deps) {
   /** A new Rs or date for a labour or FOH rate (Edit, D-139): a new rate with the same kind and scope, from the date given, replaces it
    *  in 1 save; the old one is retired, never changed, so the record shows both. Costs that move more than the re-approval % wait on Approvals. */
   app.post('/api/c2m/rules/conversion/:id/replace', can('labour.manage'), wrap(dryable(async (req, res) => {
+    { if (await lfOn()) throw Object.assign(new Error('Labour and FOH are now named rates, Low and High: change them on Costs, Labour or FOH. The old rates stay in the record only (D-150).'), { status: 409 }); }
     const b = req.body || {}; const id = Number(req.params.id);
     const [[r]] = await q('SELECT * FROM c2m_conversion_rule WHERE id=?', [id]); if (!r || !Number(r.active)) throw bad('Rate not found, or it is retired already.');
     const rs = strictNum(b.rsPerKg); if (!(rs > 0)) throw bad('Type Rs per kg or L above 0 (digits only). A Rs 0 labour or FOH rate counts as missing.');

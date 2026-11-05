@@ -711,3 +711,20 @@ Open for Tahir (push 2c): a new packing bill goes in at once and Assign is not i
 made as a new bill and assigned. Not in 2b: Rs on open POs and prices below target in the packing and freight effect.
 Next: Tahir pushes, runs 010 locally; Ahmer runs 010 on production. Then push 2c (Labour and FOH Low and High, monthly certificate,
 first assignment free), picture first.
+
+## 5 Nov 2026 (4) — Push 2c: Labour and FOH, Low and High (D-150) (MODULE: C2M) — NOT PUSHED
+
+Push 2b (D-149) pushed by Tahir on 5 Nov (commit d3e8e85), checked live (migration 010 not yet on production: saves go in as before).
+Rulings (panel, 5 Nov evening): switch from today, rates "not filled" until Yawar fills them; each client product picks; after
+the independent review: in force from the day saved (not back-dated), first figure and first move free only until 30 Nov 2026,
+and when all rates are filled each pack's cost that day becomes its approved cost (no re-approval). Bill packs wait for Monday (2d).
+Files: migrations/011_c2m_labour_foh_low_high.sql and .PRODUCTION.sql (c2m_lf_rate, c2m_lf_pick, 4 rows not filled);
+c2m-engine.js (lfIndex, lfPickOf, lfRateOf, conversionOf; packCost uses it); c2m-routes.js (POST /lf/rate, /lf/pick, lfBaseline,
+lf_cert in /checks, state lf, old rule routes refuse after 011, wording); c2m.html (vLF, certificate box, boxes, Approvals lines,
+Setup products column, CHANGELOG 2026-11-05d, Guide rows); docs 01 (1.29), 02 (2.27), 03 (3.31), 04 (4.15), 05, 06 (D-150; D-149
+marked pushed), 07, 08, 09 (F-33, B-42 to B-44), 10 (10.16), 11 (11.16), 12 (12.18).
+Migration 011: the switch happens when it runs. Keep the time between 011 and Yawar filling the 4 figures short: in between, packs
+have no labour or FOH cost and other cost changes make no re-approval.
+Tests: 12.18. Independent review: no blocker; 3 points ruled, the rest fixed (12.18). Known: the Margin bridge Method bar moves.
+Next: Tahir pushes; runs 010 and 011 locally; Ahmer runs 010 and 011 on production; Yawar fills the 4 figures at once. Then push 2d
+(freight region list; packing bill picks its packs, moves wait for Monday), picture already approved (screen 6).

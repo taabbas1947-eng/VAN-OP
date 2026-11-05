@@ -233,3 +233,6 @@ No new action: each list uses the right that adds to it. Delete, Take out of use
 
 ## 11.15 5 Nov 2026 (D-149)
 - No new action. Holding, changing and dropping a waiting change follow the save's own right (rate.save, packing.manage, freight.edit). Approve now and Not urgent on an urgent change need price.approve (the COO). Next week's costs is seen by roles with see.margin; only the person who saved a change that went in can correct it within the hour.
+
+## 11.16 5 Nov 2026 (D-150)
+- No new action. Filling, changing and adding labour and FOH rates, moving products and the monthly certificate need labour.manage (the CFO). Roles with see.margin see the rates, the picks and the certificate.

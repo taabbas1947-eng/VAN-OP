@@ -17,7 +17,18 @@ Changed in 0.6.0: entry 0.6.0 added.
 Changed in 0.5.0: entry 0.5.0 added; real figures removed from earlier entries (public repo).
 Format: Keep a Changelog, semantic versions. Live: 1.0.0 (pushed 19 Oct about 22:09, checked live by Claude as Tahir the same evening; Yawar's view checked in the cloud copy only); 0.9.3 pushed 19 Oct 14:38, checked live; 0.9.2 pushed 19 Oct 12:43, checked live; first data load 19 Oct 2026 about 13:17, checked live. Before: 0.9.1 (pushed 19 Oct 09:39, checked live). apps/c2m first pushed by Tahir on 17 Oct and the live migration run the same day (39 empty c2m_ tables); 0.6.0 and 0.7.0 pushed on 18 Oct (17:29), 0.8.0 (20:16) and 0.9.0 (22:03), each checked live by Claude. The folder tabs (D-59) were built after the 0.9.0 push and ship in 0.9.1. No data loaded yet: the first data load runs on Monday 19 Oct 2026.
 
-## [Next version, Monday is cost day] · 5 Nov 2026 · D-149 · Who: Claude built and tested; Tahir and Yawar ruled and approve the push
+## [Next version, Labour and FOH: Low and High] · 5 Nov 2026 · D-150 · Who: Claude built and tested; Tahir and Yawar ruled and approve the push
+### Changed
+- Labour and FOH are 4 named rates, Rs per kg or L: Labour Low, Labour High, FOH Low, FOH High. Every product starts on Low. The old special rates are retired (kept in the record) and their forms refuse.
+- Until the 4 figures are filled, packs show "no labour rate" or "no FOH rate"; approved costs, prices and Margin do not change.
+### Added
+- Costs, Labour or FOH: each rate with Fill or Change and History; Add a named rate; every product with Low or High (filters: All, On Low, On High, White label, VAN brands). The effect shows before saving.
+- A change or a move is in force from the day saved. Until 30 Nov 2026 the first figure of a rate and a product's first move need no re-approval; when all the rates are filled, each pack's cost that day becomes its approved cost.
+- Monthly certificate by the 5th (No change or Changed), starting with the month of the switch; Approvals reminds the CFO.
+### Needs
+- Migration 011 (apps/c2m/migrations/011_c2m_labour_foh_low_high.sql), locally first, then production by hand. The switch happens when it runs.
+
+## [2026-11-05c, Monday is cost day] · 5 Nov 2026 · D-149 · pushed 5 Nov 2026 (commit d3e8e85) · Who: Claude built and tested; Tahir and Yawar ruled and approve the push
 ### Changed
 - Material, packing and freight costs change once a week. Saved on a Monday a change goes in at once; saved Tuesday to Sunday it waits in Next week's costs and goes in at Monday 00:00. A first cost goes in at once. Labour and FOH are not in this cycle.
 ### Added

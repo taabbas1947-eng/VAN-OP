@@ -695,3 +695,20 @@ flowchart LR
   IN --> R[Packs over the % wait for re-approval]
   IN --> K[Correct within 1 hour]
 ```
+
+## 1.29 Labour and FOH, Low and High (owner: Tahir and Yawar rule; Yawar sets; D-150, 5 Nov 2026)
+- At the switch (migration 011) every product is on Labour Low and FOH Low and the 4 rates are not filled. Approvals tells Yawar to fill them; until then packs have no labour or FOH cost.
+- Yawar fills or changes a rate on Costs, Labour or FOH (effect first). In force from the day saved. Go-live (until 30 Nov 2026), the first figure: no re-approval; when all the rates are filled, each pack's cost that day becomes its approved cost. Later changes: packs over the re-approval % go to re-approval; Tahir is told.
+- Yawar moves a product to High (or back) in the product list; effect first; in force from the day saved. Go-live first move: no re-approval. Later moves, and every move from 1 Dec: its packs go to re-approval.
+- From the 1st of each month Approvals asks Yawar to certify the month before (starting with the month of the switch); due by the 5th, overdue after. No change, or Changed and then change the rates.
+```mermaid
+flowchart LR
+  S[Migration 011: all on Low, rates not filled] --> F[Yawar fills 4 figures]
+  F --> C[Packs costed again; cost that day becomes approved]
+  M[1st of month] --> A[Approvals: certify last month by the 5th]
+  A -- No change --> D[Done]
+  A -- Changed --> R[Change a rate: from that day]
+  R --> Q[Packs over the % to re-approval; Tahir told]
+  P[Move a product Low to High] -- first move --> D
+  P -- later move --> Q
+```

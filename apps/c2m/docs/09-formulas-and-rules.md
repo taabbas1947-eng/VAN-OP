@@ -152,3 +152,11 @@ A pack takes 1 labour rate and 1 FOH rate, each the first match of these levels:
 |---|---|---|
 | B-40 | Monday is cost day | A material, packing price, packing bill or freight change saved on a Monday (Pakistan time) goes in at once; saved Tuesday to Sunday it goes in at Monday 00:00. A first cost goes in at once. Urgent: a reason and the COO's approval. Labour and FOH are reviewed monthly, outside this rule. |
 | B-41 | Correct within 1 hour | The person who saved a cost change that went in can correct its figure within 1 hour, with the effect shown first; the correction is a new save on the same day, logged. After the hour: a change for Monday, or urgent. |
+
+## 5 Nov 2026 (D-150)
+| ID | Rule | Detail |
+|---|---|---|
+| F-33 | Labour and FOH per kg | Labour per kg or L = the labour rate the product is on (Low unless moved); FOH per kg or L = the FOH rate it is on. Conversion = labour + FOH. All packs of a product share them. A rate not filled or Rs 0 is missing: the pack is not costed (I-20). Replaces the bands and special rates (D-27 onward) from migration 011. |
+| B-42 | From the day saved | A rate change or a product's move is in force from the day it is saved; trucks already shipped keep the cost in force when they shipped. |
+| B-43 | Go-live is free | Until 30 Nov 2026 the first figure of a rate and a product's first move need no re-approval. When all the rates are filled, each pack's cost that day becomes its approved cost once (cause "Switch to Low and High"). From 1 Dec every change and every move sends packs over the re-approval % to re-approval and tells the COO. |
+| B-44 | Monthly certificate | By the 5th, the CFO certifies the month before, starting with the month of the switch: No change or Changed. Reminded on Approvals from the 1st; overdue after the 5th. Once certified a month is not overwritten. |

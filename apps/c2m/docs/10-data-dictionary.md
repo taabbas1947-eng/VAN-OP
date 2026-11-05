@@ -301,3 +301,12 @@ Changed in 0.3.0 and 0.3.1: rs_per_kg fixed (1 rate of 1 kind, labour or FOH). A
 | Urgent change | A waiting change Yawar asks to go in now, with a reason; Tahir approves it | c2m_cost_pending.urgent, reason |
 | First cost | The first cost of a material or packing item, the first freight rate of a segment and region, a new packing bill or one no pack uses: goes in at once | B-40 |
 | Correct (minutes left) | Within 1 hour of a change going in, its saver corrects the figure | B-41 |
+
+## 10.16 Added on 5 Nov 2026 (owner: Tahir; D-150)
+| Term | Meaning | Where |
+|---|---|---|
+| Labour rate Low, High | Named labour rates, Rs per kg or L | c2m_lf_rate (kind labour) |
+| FOH rate Low, High | Named FOH (factory overhead) rates, Rs per kg or L | c2m_lf_rate (kind foh) |
+| On Low, On High | The labour or FOH rate a client product uses; Low when never moved | c2m_lf_pick |
+| Not filled | A named rate with no figure yet; its packs are not costed | c2m_lf_rate.rs_per_kg NULL |
+| Labour and FOH certificate | The CFO's monthly No change or Changed for the month before | c2m_monthly_check, kind lf_cert |

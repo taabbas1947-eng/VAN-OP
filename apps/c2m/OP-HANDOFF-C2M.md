@@ -671,3 +671,23 @@ Push 1 files: c2m.html (material, packing, rule, freight edit read fields before
 2026-11-05a), c2m-routes.js (settings and actuals strictNum; freight region spelling, uses check in force today, freight_case sweep;
 same-products labour/FOH refused), c2m-engine.js (freightFor region match), c2m-lib.js (sameRegion), docs 06 (D-147), 08, 09, 12 (12.15).
 No migration. Tests: 12.15. After the push: Setup, Costs, Freight should show no change unless a region was saved in other capitals.
+
+## 5 Nov 2026 (2) — Push 2a of the cost redesign: Costs has its own place (D-148) (MODULE: C2M) — NOT PUSHED
+
+Push 1 (D-147) and the price check (D-146) were pushed by Tahir on 5 Nov (commits 6dc6263 and 1f92a10); docs 06 and 08 updated.
+Push 2a, from the Costs Centre picture and Tahir's and Yawar's comments on it ("Its fine as it is"; Open only on the boxes):
+- c2m-access.js: see.margin roles: top bar Approvals, Products, Client prices, Margin, Costs; More: Setup, Reports, Guide. Phone bar keeps
+  the first 4; Costs is under More on the phone.
+- c2m-routes.js: dryable() on packing/rate, packing/bill, packing/assign, rules/conversion, rules/conversion/:id/replace, freight. ?dry=1 runs
+  the save in 1 transaction and rolls it back; q() lists every c2m_reapproval insert instead of writing it; refused (503) with no pool.
+  Messages say "Costs, Packing cost" etc.
+- c2m.html: vCosts (6 boxes, Open, crumb), effectFirst (first Save shows the effect; Save again counts only while it is on screen and after
+  1 second), Saved box on Costs, material History (data-mhist), Change cost, Labour and FOH apart, finder entries, network error wording,
+  CHANGELOG 2026-11-05b, Guide rows.
+- Docs 01 (1.27), 02 (2.25), 03 (3.29), 05, 06 (D-148), 07, 08, 09 (B-39), 10, 11 (11.14), 12 (12.16). No migration.
+Tests: 12.16 (routes 14 + 5, page 41, old page tests moved to Costs, earlier suites pass). Independent review: 1 blocker (packing price effect
+always empty) and 11 smaller findings, all fixed and listed in 12.16.
+Known, not this push: phone width overflow on Price lists and Setup, Settings, KAM lists (before this push too; push 6). Assign a bill has no
+effect step (push 2c).
+Next: Tahir pushes; check live: Costs in the top bar, change a labour rate (first Save shows the effect). Then 2b (weekly Monday cycle,
+urgent change with COO approval, Undo = edit within 1 hour), then 2c (Low and High labour and FOH, first assignment free).

@@ -272,7 +272,7 @@ Changed in 0.3.0 and 0.3.1: rs_per_kg fixed (1 rate of 1 kind, labour or FOH). A
 |---|---|---|
 | Variant | The form of a product: Powder, Pellets, Granular, Crystal. Never a size | Setup, Products and variants; Add a product; Add a variant |
 | Pack | A size: 1 L, 3 L, 20 L, 25 kg. Each pack has its own packing bill | every product |
-| Packing bill | The packing items for 1 pack (bag, label, carton) and how many of each | Setup, Costs, Packing |
+| Packing bill | The packing items for 1 pack (bag, label, carton) and how many of each | Costs, Packing cost |
 | Find box | The search above a list; "2 of 59" = rows shown of rows in the list | every list |
 | Delete | Removes an entry nothing uses, with a reason; its values stay in the change record | every list |
 | Take out of use / Put back in use | Hides an entry from forms and pickers while every approved cost keeps it; undone from its row | materials, packing items, packing bills, clients, products |

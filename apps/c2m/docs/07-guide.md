@@ -24,14 +24,14 @@ The app shows each of them the rows marked with their name and the rows marked B
 | Take a pack off a price list | Both | Client prices, VAN brand prices: Take off a list, in its row | No approval; logged, and the other is told. The row stays visible under "Off the lists" with its prices. |
 | Make a price list PDF | Both | Client prices, Price lists | Pick who it is for and the fields, check the page, then create the PDF. Cost and margin can never be printed. |
 | Make the MRP printing list | Both | Client prices, Price lists, MRP printing list (packing and printer) | MRP = Sindh credit price with FED, rounded up to the next Rs 50. The Recommended MRP on the Dealer and Distributor lists is a suggested price, not this one. Approvals names any list price above the printed MRP. |
-| Add a material class | Yawar | Setup, Costs, Materials: Add a material class | Name it and type the % it asks, e.g. N%, Amino acid%, OM%; use the same name as other classes for the same nutrient. Then pick it in the material's Class; the QC Head enters its %. |
-| Update a material, packing, labour or FOH rate | Yawar | Setup, Costs | Saved at once and logged. Try a rate first to see its effect. An inner bought per kg: Packing, Bought per Kg, with pieces in 1 kg. |
+| Add a material class | Yawar | Costs, Material cost: Add a material class | Name it and type the % it asks, e.g. N%, Amino acid%, OM%; use the same name as other classes for the same nutrient. Then pick it in the material's Class; the QC Head enters its %. |
+| Update a material, packing, labour or FOH cost | Yawar | Costs: open the box of that cost; Change cost (material), or Edit or Add in its list | The first Save shows which packs would move more than the re-approval % and wait for re-approval; nothing is saved yet. Save again to keep it. Logged. An inner bought per kg: Packing, Bought per Kg, with pieces in 1 kg. |
 | See margin and why it moved | Both | Margin | Opens on the whole company for this month; pick the group and month at the top. Open a line for its packs, and a pack for its trucks: each truck shows its PO price, for a client product the price approved when its PO came in, the cost and what it is made of, and opens the product. The restated switch shows past trucks at today's cost, for comparison only. |
 | Rename a product or settle an O2S name | Both | Setup, Products and variants | A rename keeps the old name as a spelling. Before a change that takes cost off O2S trucks, C2M shows how many trucks and Rs. Take out of use hides a product without deleting it. |
 | Change a client's name or what its lists print | Both | Setup, Clients, Edit | A rename moves the client's KAM access with it; lists already issued keep the name they were printed with. |
 | Give a KAM his lists | Both | Setup, Settings, KAM lists | Tick the lists and white label clients he may see; each tick saves at once. Copy from another manager, or See what this person sees, read only. |
 | Change a setting | Both | Setup, Settings | A threshold or the company GP target from Yawar waits for Tahir on Approvals. |
-| Close the month | Both | Setup, Record and checks, Monthly checks | Enter actual labour and FOH; type ERP sales and COGS to tie the month to the books. Tahir checks the 15 biggest material rates against the purchase register. |
+| Close the month | Both | Costs, Month end (also Setup, Record and checks) | Enter actual labour and FOH; type ERP sales and COGS to tie the month to the books. Tahir checks the 15 biggest material rates against the purchase register. |
 | Find who changed something | Both | Setup, Record and checks, Change record | Filter by person, kind, dates, or search a product, client or reason. It searches the newest 5,000 changes for the person, kind and dates picked; pick dates for older ones. |
 | Read a report | Both | More, Reports | GP bridge, PO price against approved, VAN brand PO against its price list, VAN brand list margin. |
 | Check VAN brand POs against their price list | Both | More, Reports, VAN brand PO against its price list | Each VAN brand PO since 11 Oct against the list in force on its date: distributors and Punjab dealers the distributor list; Sindh dealers the dealer list; COBO farmer Sindh cash; VGreen farmer Punjab; farmer POs the farmer list of their region (Sindh cash or credit by payment terms). Within 1% is at list price. Off their list opens first; Approvals shows a line when any are. It only marks: no PO is blocked and Margin keeps the O2S price. |
@@ -51,7 +51,7 @@ Yawar:
 2. Open **Products**. Each client is a row: open it for its products, then a product for its recipe, cost by pack and history.
 3. Open **Client prices**. Pick a client, type a new price or target in the row, see the GP at once, then Send to Tahir.
 4. Open **Margin**. It opens on the whole company for this month; open a line, then a pack, down to each truck.
-5. Open **Setup, Costs** when a material, packing, labour or FOH rate changes. Every change is dated and logged.
+5. Open **Costs** when a material, packing, labour or FOH cost changes; each cost has its own box. Every change is dated and logged.
 
 Tahir:
 1. Open **Approvals**. Do "Your next move", then the prices, list revisions, targets and settings waiting for you.

@@ -141,3 +141,8 @@ A pack takes 1 labour rate and 1 FOH rate, each the first match of these levels:
 | B-37 | No empty figure is saved as 0 | Settings and month-end actual labour and FOH take digits only; an empty box is refused, and 0 is saved only when typed. |
 | B-38 | 1 labour and 1 FOH rate per set of products | A new labour or FOH rate for exactly the same products as an active one is refused; the old one is changed with Edit (it retires and replaces it). |
 | F-31 (changed) | Freight region | A freight rate's region matches a client's region with capitals and spaces ignored; a saved region takes the spelling already in use by clients or freight rows. |
+
+## 5 Nov 2026 (D-148)
+| ID | Rule | Detail |
+|---|---|---|
+| B-39 | Effect before saving | A packing price, packing bill, labour, FOH or freight change shows, before it is saved, the packs whose cost would move more than the re-approval % (setting reapprove_pct, default 3). The check runs the real save and undoes it, so the figures are the ones the save would make. |

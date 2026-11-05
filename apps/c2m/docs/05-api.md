@@ -322,3 +322,7 @@ GET /api/c2m/state adds: m007, outOfUseKeys; on each product defaultName and oth
 
 ### 4 Nov 2026 (D-146)
 - GET /api/c2m/state, roles with see.margin and see.price (CFO, COO): listCheck {first: '2026-10-11', tol: 1, before: lines this FY dated before the first list, regionRead: whether the region column exists (SHOW COLUMNS), regionPulled: whether any PO line has a region yet, lines[{po, received, cust, cat, ch, region, terms, brand, pack, packId, kg, state (at, above, below, off, cost, none), why, list, col, colLabel, listPrice, poPrice, diffPct, gp}]}. Farmers stay pooled as "Farmers and other" (D-74). No route added.
+
+### 5 Nov 2026 (D-148)
+- POST /api/c2m/packing/rate, /api/c2m/packing/bill, /api/c2m/packing/assign, /api/c2m/rules/conversion, /api/c2m/rules/conversion/:id/replace, /api/c2m/freight take ?dry=1: same rights and checks as the save; answer {dry: true, reapprovePct, answer (what the save would answer), items [{packId, label, from, to, pct, first}] (first 200), count}. Nothing is kept. Without ?dry=1 (or ?dry=0) each saves as before.
+- No new route. Server messages now name the Costs place ("Costs, Packing cost", "Costs, Material cost", "Costs, Labour or FOH").

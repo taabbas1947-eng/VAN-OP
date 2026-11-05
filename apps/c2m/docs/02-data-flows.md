@@ -264,3 +264,7 @@ c2m_list_price (farmer rows, by packId) -> lib.printMrp -> the MRP printing list
 ## 2.24 VAN brand PO price check (owner: Tahir; D-146; migration 009)
 - The pull (c2m-o2s.js orderRegion) writes c2m_o2s_po_line.region: the region on the O2S customer record (dealer matched by the code in the order, others by segment and name, never a parent); a dealer with none takes it from his code (DLR-PB-..., DLR-SN-...). Until 009 is run the column is not written (SHOW COLUMNS check).
 - The state call (c2m-routes.js, see.margin and see.price) reads c2m_o2s_po_line, c2m_list_price (dist, dealer, farmer and their _old rows) and the applied rows of c2m_list_revision, and sends listCheck. The region is the PO line's, else the C2M customer record's (c2m_customer.region). Nothing is written.
+
+## 2.25 Effect before saving (owner: Tahir; D-148)
+- A save to /api/c2m/packing/rate, /packing/bill, /packing/assign, /rules/conversion, /rules/conversion/:id/replace or /freight with ?dry=1 runs the same code inside 1 database transaction and rolls it back: no row, audit line, re-approval or notice is kept. Every insert into c2m_reapproval the save would make is listed instead of written (caught in q, so packing price, which writes its own item, is covered too).
+- No new table or column.

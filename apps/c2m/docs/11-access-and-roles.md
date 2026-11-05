@@ -227,3 +227,6 @@ No new action: each list uses the right that adds to it. Delete, Take out of use
 
 ## 11.13 4 Nov 2026 (D-146)
 - No new action. The VAN brand PO price check goes to roles with see.margin and see.price (today the CFO and COO). The report sits in More, Reports; the line on Approvals shows only to them. Production, QC, Plant and price list viewers do not receive listCheck (tested).
+
+## 11.14 5 Nov 2026 (D-148)
+- No new action. Roles with see.margin (CFO, COO) get Costs in the top bar and Setup under More. A box's Open and its forms keep their own rights: rate.save (material), packing.manage, labour.manage, freight.edit, actuals.enter. Roles without see.margin keep their places as before.

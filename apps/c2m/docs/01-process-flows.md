@@ -659,3 +659,17 @@ flowchart LR
   Off & NL --> R[Approvals line for the CFO and COO, and the report]
 ```
 - Nobody acts inside C2M on a mark: the CFO and COO read the report and take it up outside (with the KAM or O2S). No PO is blocked; Margin keeps the O2S price.
+
+## 1.27 Change a cost on Costs (owner: Tahir and Yawar rule; Yawar acts; D-148, 5 Nov 2026)
+- Yawar opens **Costs** in the top bar. 6 boxes: Material cost, Packing cost, Labour, FOH, Freight cost, Month end. He opens the box of the cost that changed.
+- He types the change and presses Save. C2M shows its effect under the form: the packs whose cost would move more than the re-approval % (default 3%), with approved and new cost per kg. Nothing is saved yet.
+- He presses Save again with the same figures: the change is saved and logged; the packs listed wait for re-approval on Approvals. A Saved box stays on the screen with Open Approvals, Change another, Back to Costs and Close.
+- Changing a figure after the effect is shown asks for the effect again. A change dated ahead shows "Starts on ..." and moves nothing today.
+```mermaid
+flowchart LR
+  C[Costs] --> B[Open a box] --> F[Type the change] --> S1[Save: effect shown, nothing saved]
+  S1 --> S2[Save again: saved and logged] --> R{Packs moved more than the %?}
+  R -- yes --> A[Wait on Approvals for re-approval]
+  R -- no --> D[Done]
+  S2 --> SB[Saved box: Open Approvals, Change another, Back to Costs]
+```

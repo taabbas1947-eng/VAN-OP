@@ -833,7 +833,7 @@ module.exports = function mountC2mRoutes(app, deps) {
   const dow = d => new Date(String(d).slice(0, 10) + 'T00:00:00Z').getUTCDay();
   const isMonday = d => dow(d) === 1;
   const nextMonday = d => { const t = new Date(String(d).slice(0, 10) + 'T00:00:00Z'); t.setUTCDate(t.getUTCDate() + (((8 - t.getUTCDay()) % 7) || 7)); return t.toISOString().slice(0, 10); };
-  const AUD_KIND = { rate: 'rate', packing_rate: 'packing_rate', packing_bill: 'packing_bill', freight: 'freight' }; // c2m_audit entity of each kind
+  const AUD_KIND = { rate: 'rate', packing_rate: 'packing_rate', packing_bill: 'packing_bill', freight: 'freight', packing_assign: 'client_pack' }; // c2m_audit entity of each kind
   /** What a save changes, read before it is held: { target, label, nowV, newV, first, at (save at once for another reason) }. */
   const DESCRIBE = {
     async rate(b) {
@@ -846,9 +846,16 @@ module.exports = function mountC2mRoutes(app, deps) {
       return { target: String(it.id), label: `Packing · ${it.name}`, nowV: it.price, newV: nv, first: it.price == null };
     },
     async packing_bill(b) {
-      if (!b.id) return { target: 'new', label: `Packing bill · ${String(b.name || '').trim()}`, first: true }; // a new bill: no pack uses it yet
-      const D = await engine.loadAll(q); const bill = D.packing.billById.get(Number(b.id)); if (!bill) throw bad('Packing bill not found.');
-      return { target: String(bill.id), label: `Packing bill · ${String(b.name || bill.name).trim()}`, nowV: null, newV: null, first: !D.packs.some(p => Number(p.packing_bill_id) === bill.id) };
+      const D = await engine.loadAll(q); const mv = movedPacks(D, b); // packs taken from another bill: a move, so it waits (push 2d)
+      if (!b.id) return { target: 'new:' + String(b.name || '').trim().slice(0, 160).toLowerCase().slice(0, 75), label: `Packing bill · ${String(b.name || '').trim()}${mv.length ? `, with ${mv.length} pack(s) moved to it` : ''}`, first: !mv.length };
+      const bill = D.packing.billById.get(Number(b.id)); if (!bill) throw bad('Packing bill not found.');
+      const used = D.packs.some(p => Number(p.packing_bill_id) === bill.id); const changed = linesKey(b.lines) !== linesKey(bill.lines);
+      return { target: String(bill.id), label: `Packing bill · ${String(b.name || bill.name).trim()}${mv.length ? `, with ${mv.length} pack(s) moved to it` : ''}`, nowV: null, newV: null, first: !mv.length && (!used || !changed) };
+    },
+    async packing_assign(b) {
+      const D = await engine.loadAll(q); const k = D.packs.find(x => Number(x.id) === Number(b.packId)); if (!k) throw bad('Pack not found.');
+      const cp = D.cpById.get(k.client_product_id) || {}; const to = b.billId ? D.packing.billById.get(Number(b.billId)) : null;
+      return { target: String(k.id), label: `Pack · ${cp.brand || ''} ${Number(k.pack_size)} ${cp.sold_per || ''} to ${to ? 'bill ' + to.name : 'no bill'}`, first: k.packing_bill_id == null || Number(k.packing_bill_id) === Number(b.billId || 0) }; // its first bill goes in at once (ruled 5 Nov)
     },
     async freight(b) {
       const D = await engine.loadAll(q); const T = today(); const reg = String(b.region || '').trim();
@@ -874,6 +881,10 @@ module.exports = function mountC2mRoutes(app, deps) {
   }
   /** Run a save with a stand-in answer; returns what it answered (Monday saves, Next week's costs, the import queue). */
   async function callFn(fn, req) { const box = { answer: null }; const fake = { json: o => { box.answer = o; return fake; }, status: () => fake, setHeader: () => fake }; await fn(req, fake); return box.answer || {}; }
+  /** True when a bill's lines as sent differ from the bill's lines now (item, level, pieces, packs per outer). */
+  const linesKey = L => (L || []).map(l => [Number(l.itemId), l.level === 'secondary' ? 's' : 'p', Number(l.pieces), l.level === 'secondary' ? Number(l.packsPerOuter) : 0].join(':')).sort().join('|');
+  /** Packs a bill save asks for (body.packIds) that are now on another bill: these moves wait for Monday (ruled 5 Nov, push 2d). */
+  const movedPacks = (D, b) => (Array.isArray(b.packIds) ? b.packIds : []).map(Number).filter(id => { const k = D.packs.find(x => Number(x.id) === id); return k && k.packing_bill_id != null && Number(k.packing_bill_id) !== Number(b.id || 0); });
   const weekly = (kind, fn) => async (req, res) => {
     if (dryStore.getStore() || req.c2mApplying || !(await pendReady())) return fn(req, res);
     const b = req.body || {}; const d = await DESCRIBE[kind](b); const T = today();
@@ -894,6 +905,18 @@ module.exports = function mountC2mRoutes(app, deps) {
     const dryReq = { ...req, body: kind === 'freight' ? { ...b, validFrom: T } : b, query: {} };
     const eff = await runDry(fn, dryReq); // the save's own checks, and its effect worked out as if it went in today
     const on = nextMonday(T); const keep = { ...b }; delete keep.urgent; delete keep.reason; delete keep.correct;
+    let gaveNow = 0;
+    if (kind === 'packing_bill' || kind === 'packing_assign') { // bills and packs (push 2d; review 2d, findings 3 to 5)
+      const D = await engine.loadAll(q); const pkOf = id => D.packs.find(x => Number(x.id) === Number(id));
+      const ids = kind === 'packing_assign' ? [Number(b.packId)] : movedPacks(D, b);
+      const [w] = await q("SELECT id, kind, target, label, body_json FROM c2m_cost_pending WHERE status='waiting' AND kind IN ('packing_bill','packing_assign')");
+      for (const row of w) { if (row.kind === kind && row.target === d.target) continue; let bb = {}; try { bb = JSON.parse(row.body_json || '{}'); } catch (_) {}
+        const theirs = row.kind === 'packing_assign' ? [Number(bb.packId)] : Object.keys(bb.packFrom || {}).map(Number);
+        if (ids.some(x => theirs.includes(x))) throw bad(`A pack here already waits to move: "${row.label}" in Next week's costs. Change or drop that first.`); }
+      if (kind === 'packing_bill') { keep.packFrom = Object.fromEntries(ids.map(id => [id, Number(pkOf(id).packing_bill_id)]));
+        if (b.id) { const nb = (b.packIds || []).map(Number).filter(id => { const k = pkOf(id); return k && k.packing_bill_id == null; }); // a pack with no bill gets it at once
+          for (const id of nb) { await callFn(PEND_FN.packing_assign, { ...req, query: {}, body: { packId: id, billId: Number(b.id) } }); gaveNow++; }
+          keep.packIds = (b.packIds || []).map(Number).filter(id => !nb.includes(id)); } } }
     const effect = { count: eff.count, items: eff.items.slice(0, 50), pct: eff.reapprovePct };
     let id;
     await tx(async () => {
@@ -907,7 +930,7 @@ module.exports = function mountC2mRoutes(app, deps) {
       await audit(req.c2m.user, 'cost_pending', id, old ? 'change' : 'hold', null, { kind, target: d.target, applyOn: on, urgent }, urgent ? reason : null);
       if (urgent) await notice('coo', `Urgent cost change waits for you on Approvals: ${d.label}. Reason: ${reason}`, req.c2m.user);
     });
-    res.json({ ok: true, pending: true, id, applyOn: on, urgent, changed: true, reapproval: 0, effectCount: eff.count });
+    res.json({ ok: true, pending: true, id, applyOn: on, urgent, changed: true, reapproval: 0, effectCount: eff.count, gaveNow });
   };
   const PEND_FN = {}; // kind -> the save, filled where each route is defined
   /** Put 1 waiting change in now, as its saver; the row is marked in the same transaction. */
@@ -1036,6 +1059,20 @@ module.exports = function mountC2mRoutes(app, deps) {
     { const [had] = id ? await q('SELECT packing_item_id FROM c2m_packing_bill_line WHERE packing_bill_id=?', [id]) : [[]]; const was = new Set(had.map(x => Number(x.packing_item_id))); const [oo] = await softQ("SELECT entity_id FROM c2m_out_of_use WHERE entity='packing_item'"); const off = new Set(oo.map(x => Number(x.entity_id)));
       if (iids.some(i => off.has(i) && !was.has(i))) throw bad('A packing item on this bill is out of use. Put it back in use in Costs, Packing cost, or pick another.'); }
     if (id) { const [[ex]] = await q('SELECT id FROM c2m_packing_bill WHERE id=?', [id]); if (!ex) throw bad('Packing bill not found.'); }
+    /* The packs ticked on the bill (screen 6b, push 2d): a pack with no bill gets it at once; one on another bill moves to it
+       (that waits for Monday, as a bill change). A pack already on this bill stays on it; it is moved by ticking it on another bill. */
+    const want = Array.isArray((req.body || {}).packIds) ? [...new Set(req.body.packIds.map(Number).filter(n => n > 0))] : null; let firstSet = new Set(), addIds = [];
+    let fromBill = new Map();
+    if (want) { let [pk] = want.length ? await q(`SELECT k.id, k.packing_bill_id, c.packing_mode, c.channel, cu.grp FROM c2m_client_pack k JOIN c2m_client_product c ON c.id=k.client_product_id JOIN c2m_customer cu ON cu.id=c.customer_id WHERE k.id IN (${qs(want)})`, want) : [[]];
+      const ok = k => k.packing_mode !== 'bulk' && k.packing_mode !== 'client' && (k.channel === 'VAN brand' || k.grp === 'White label');
+      const was = (req.body || {}).packFrom || null; // held saves: where each moving pack was when saved (review 2d, finding 4)
+      if (req.c2mApplying) pk = pk.filter(k => ok(k) && (!was || !(String(k.id) in was) || Number(was[k.id] || 0) === Number(k.packing_bill_id || 0))); // Monday: a pack gone, changed or moved since is left out, the rest goes in
+      else { if (pk.length !== want.length) throw bad('A pack ticked on this bill was not found.'); if (pk.some(k => !ok(k))) throw bad('A bulk or client-packed product, or one that is not white label or VAN brand, takes no packing bill here.'); }
+      // A pack already on this bill and not in the list stays on it: the list only adds (a pack is moved by ticking it on another bill).
+      addIds = pk.filter(k => k.packing_bill_id == null || Number(k.packing_bill_id) !== Number(id || 0)).map(k => Number(k.id)); // review 2d, finding 1: a new bill takes packs with no bill
+      firstSet = new Set(pk.filter(k => k.packing_bill_id == null).map(k => Number(k.id))); fromBill = new Map(pk.map(k => [Number(k.id), k.packing_bill_id == null ? null : Number(k.packing_bill_id)]));
+      if (addIds.length && id) { const [[o]] = await softQ("SELECT entity_id FROM c2m_out_of_use WHERE entity='packing_bill' AND entity_id=?", [id]); if (o) throw bad('This packing bill is out of use. Put it back in use before giving it packs.'); } }
+    if (!id && !req.c2mApplying && await pendReady()) { const [[w]] = await q("SELECT id FROM c2m_cost_pending WHERE kind='packing_bill' AND target=? AND status='waiting'", ['new:' + nm.toLowerCase().slice(0, 75)]); if (w) throw bad('A new bill with this name already waits for Monday (Next week\'s costs): change or drop it there.'); } // review 2d, finding 6
     let billId = Number(id) || null, re = 0;
     await tx(async () => {
       const oldBill = billId ? { name: (await q('SELECT name FROM c2m_packing_bill WHERE id=?', [billId]))[0][0].name, lines: (await q('SELECT packing_item_id itemId, level, pieces, packs_per_outer packsPerOuter FROM c2m_packing_bill_line WHERE packing_bill_id=?', [billId]))[0] } : null;
@@ -1043,28 +1080,35 @@ module.exports = function mountC2mRoutes(app, deps) {
       else { const [b] = await q("INSERT INTO c2m_packing_bill (name, status, approved_by, approved_at) VALUES (?, 'approved', ?, ?)", [nm, req.c2m.user, now()]); billId = b.insertId; }
       { const [i2] = await q(`SELECT id FROM c2m_packing_item WHERE id IN (${qs(iids)}) LOCK IN SHARE MODE`, iids); if (new Set(i2.map(x => x.id)).size !== new Set(iids).size) throw moved(); } // an item deleted a moment ago (review 30 Oct)
       for (const l of lines) await q('INSERT INTO c2m_packing_bill_line (packing_bill_id, packing_item_id, level, pieces, packs_per_outer) VALUES (?,?,?,?,?)', [billId, Number(l.itemId), l.level === 'secondary' ? 'secondary' : 'primary', Number(l.pieces), l.level === 'secondary' ? Number(l.packsPerOuter) : null]);
-      await audit(req.c2m.user, 'packing_bill', billId, id ? 'update' : 'create', id ? oldBill : null, { name: nm, lines }, null);
-      if (id) re = await reapprovalFor(`Packing bill "${nm}" changed, ${today()}`, p => p.packing_bill_id === billId);
-      if (id) await costNotice(req.c2m.user, `Packing bill "${nm}" changed by the CFO`, re);
+      await audit(req.c2m.user, 'packing_bill', billId, id ? 'update' : 'create', id ? oldBill : null, { name: nm, lines, packs: addIds.length ? addIds : undefined }, null);
+      if (addIds.length) { await q(`UPDATE c2m_client_pack SET packing_bill_id=? WHERE id IN (${qs(addIds)})`, [billId, ...addIds]); for (const k of addIds) await audit(req.c2m.user, 'client_pack', k, 'packing_bill', fromBill.get(k) ?? null, billId, `Ticked on bill "${nm}"`); }
+      /* 1 re-approval item for the bill and its packs; a pack's first bill sends no re-approval (ruled 5 Nov) unless the pack has no
+         approved cost yet, when its first approved cost waits for the CFO as before (D-41). */
+      if (id || addIds.length) re = await reapprovalFor(`Packing bill "${nm}" ${id ? 'changed' : 'made'}${addIds.length ? `, ${addIds.length} pack(s) put on it` : ''}, ${today()}`, (p, D2) => Number(p.packing_bill_id) === billId && !(firstSet.has(Number(p.id)) && engine.latestApproved(D2, p.id)));
+      if (id || addIds.length) await costNotice(req.c2m.user, `Packing bill "${nm}" ${id ? 'changed' : 'made'} by the ${req.c2m.label}${addIds.length ? `, ${addIds.length} pack(s) put on it` : ''}`, re);
     });
     res.json({ id: billId, reapproval: re });
   };
   PEND_FN.packing_bill = save_packing_bill;
   app.post('/api/c2m/packing/bill', can('packing.manage'), wrap(dryable(weekly('packing_bill', save_packing_bill))));
-  app.post('/api/c2m/packing/assign', can('packing.manage'), wrap(dryable(async (req, res) => {
+  const save_packing_assign = async (req, res) => {
     const { packId, billId } = req.body || {};
     const [[p]] = await q('SELECT id, packing_bill_id FROM c2m_client_pack WHERE id=?', [packId]); if (!p) throw bad('Pack not found.');
+    { const [[m]] = await q('SELECT c.packing_mode FROM c2m_client_pack k JOIN c2m_client_product c ON c.id=k.client_product_id WHERE k.id=?', [packId]); if (m && billId && (m.packing_mode === 'bulk' || m.packing_mode === 'client')) throw bad('A bulk or client-packed product takes no packing bill.'); } // review 2d, finding 13
     if (billId) { const [[b]] = await q('SELECT name FROM c2m_packing_bill WHERE id=?', [billId]); if (!b) throw bad('Packing bill not found.'); const [[o]] = await softQ("SELECT entity_id FROM c2m_out_of_use WHERE entity='packing_bill' AND entity_id=?", [billId]); if (o && Number(billId) !== Number(p.packing_bill_id)) throw bad('This packing bill is out of use. Put it back in use in Costs, Packing cost, or pick another.'); }
     let re = 0;
     await tx(async () => {
       if (billId) { const [[b2]] = await q('SELECT id FROM c2m_packing_bill WHERE id=? LOCK IN SHARE MODE', [billId]); if (!b2) throw moved(); }
       await q('UPDATE c2m_client_pack SET packing_bill_id=? WHERE id=?', [billId || null, p.id]);
       await audit(req.c2m.user, 'client_pack', p.id, 'packing_bill', p.packing_bill_id, billId || null, null);
-      re = await reapprovalFor(`Packing bill changed on a pack, ${today()}`, x => x.id === p.id);
-      await costNotice(req.c2m.user, `Packing bill of pack ${p.id} changed by the CFO`, re);
+      const firstBill = p.packing_bill_id == null; // its first bill: no re-approval unless it has no approved cost yet (ruled 5 Nov)
+      re = await reapprovalFor(`Packing bill ${firstBill ? 'given to' : 'changed on'} a pack, ${today()}`, (x, D2) => x.id === p.id && !(firstBill && engine.latestApproved(D2, x.id)));
+      await costNotice(req.c2m.user, `Packing bill of pack ${p.id} ${firstBill ? 'given' : 'changed'} by the ${req.c2m.label}`, re);
     });
     res.json({ ok: true, reapproval: re });
-  })));
+  };
+  PEND_FN.packing_assign = save_packing_assign;
+  app.post('/api/c2m/packing/assign', can('packing.manage'), wrap(dryable(weekly('packing_assign', save_packing_assign))));
   app.post('/api/c2m/packing/item', can('packing.manage'), wrap(async (req, res) => {
     const { name, kind, source } = req.body || {}; const pp = piecePriceOf(req.body || {}); const price = pp.price;
     if (!String(name || '').trim() || !(Number(price) > 0) || !String(source || '').trim()) throw bad(req.body && req.body.buy === 'kg' ? 'Give the item name, price per kg, pieces per kg and source.' : 'Give the item name, price per piece and source.');
@@ -1734,7 +1778,8 @@ module.exports = function mountC2mRoutes(app, deps) {
     const vf = validFrom || today(); if (!isDate(vf)) throw bad('Valid from must be a date.');
     /* The region is saved in the spelling already in use, so "sindh" matches clients in Sindh (audit 4 Nov 2026, fault A7). */
     { const [cr] = await q("SELECT DISTINCT region FROM c2m_customer WHERE region IS NOT NULL AND region<>''"); const [fr] = await q('SELECT DISTINCT region FROM c2m_freight_rate');
-      const known = cr.map(x => x.region).concat(fr.map(x => x.region)).find(x => lib.sameRegion(x, req.body.region)); if (known) req.body.region = known; }
+      const cap = x => /^[A-Z]/.test(String(x).trim()) ? 1 : 0; if (!String(req.body.region || '').trim()) throw bad('Pick the region.'); const known = fr.map(x => x.region).find(x => lib.sameRegion(x, req.body.region)) || cr.map(x => x.region).filter(x => lib.sameRegion(x, req.body.region)).sort((a, b) => cap(b) - cap(a))[0]; /* a freight row's spelling first, then a client's with a capital */ if (known) req.body.region = known;
+      else throw bad('Pick the region from the list. A new region comes from a client: give the client its region in Setup, Clients first.'); } // R13: region from a list (push 2d); the list is the regions on clients and freight rows
     const region = String(req.body.region).trim().replace(/\s+/g, ' ').slice(0, 40);
     const [[oldF]] = await q('SELECT rs_per_kg FROM c2m_freight_rate WHERE segment=? AND region=? AND valid_from=?', [segment, region, vf]); let re = 0;
     await tx(async () => {
@@ -1813,7 +1858,7 @@ module.exports = function mountC2mRoutes(app, deps) {
     const [[r]] = await q('SELECT * FROM c2m_cost_pending WHERE id=?', [Number(id)]); if (!r) throw bad('This change is no longer in Next week\'s costs.'); if (r.status !== 'waiting') throw moved(); return r; }
   app.post('/api/c2m/costs/pending/:id/drop', can('rate.save', 'packing.manage', 'freight.edit'), wrap(async (req, res) => {
     const r = await pendingRow(req.params.id);
-    const RIGHT = { rate: 'rate.save', packing_rate: 'packing.manage', packing_bill: 'packing.manage', freight: 'freight.edit' }; if (!req.c2m.can.has(RIGHT[r.kind])) throw Object.assign(new Error('Your role cannot change this kind of cost.'), { status: 403 }); // review 2b, finding 12
+    const RIGHT = { rate: 'rate.save', packing_rate: 'packing.manage', packing_bill: 'packing.manage', freight: 'freight.edit', packing_assign: 'packing.manage' }; if (!req.c2m.can.has(RIGHT[r.kind])) throw Object.assign(new Error('Your role cannot change this kind of cost.'), { status: 403 }); // review 2b, finding 12
     await tx(async () => { const [u] = await q("UPDATE c2m_cost_pending SET status='dropped', waiting_key=NULL, decided_by=?, decided_at=? WHERE id=? AND status='waiting'", [req.c2m.user, now(), r.id]); if (!u.affectedRows) throw moved();
       await audit(req.c2m.user, 'cost_pending', r.id, 'drop', { label: r.label, next: r.new_value }, null, null); });
     res.json({ ok: true });
@@ -2969,6 +3014,7 @@ module.exports = function mountC2mRoutes(app, deps) {
       for (const k of drop) { await softQ('DELETE FROM c2m_pack_ext WHERE client_pack_id=?', [k.id]); await q('DELETE FROM c2m_client_pack WHERE id=?', [k.id]); await audit(req.c2m.user, 'client_pack', k.id, 'remove', Number(k.pack_size), null, `Removed the ${Number(k.pack_size)} ${cp.sold_per} pack of ${brand} (Edit)`); ch.push(`removed the ${Number(k.pack_size)} pack`); }
       for (const { ex, k } of keep) {
         const bill = mode === 'bulk' ? null : (k.billId ? Number(k.billId) : null); if (bill) { const [[bb]] = await q('SELECT id FROM c2m_packing_bill WHERE id=?', [bill]); if (!bb) throw bad('A packing bill you picked is not in C2M.'); }
+        if (mode !== 'bulk' && ex.packing_bill_id != null && (bill || null) !== (ex.packing_bill_id || null) && await pendReady() && !isMonday(today())) throw bad(`Moving the ${Number(ex.pack_size)} pack to another packing bill waits for Monday: do it on Costs, Packing cost (tick it on the bill), or on Monday here.`); // review 2d, finding 2
         if (mode !== 'bulk' && (bill || null) !== (ex.packing_bill_id || null)) { await q('UPDATE c2m_client_pack SET packing_bill_id=? WHERE id=?', [bill, ex.id]); await audit(req.c2m.user, 'client_pack', ex.id, 'packing_bill', ex.packing_bill_id, bill, 'Edit'); ch.push(`packing bill of the ${Number(ex.pack_size)} pack`); recost = true; }
         const only = !!k.clientOnly, was = D.packExt.has(Number(ex.id));
         if (only !== was) { if (only) await q('INSERT INTO c2m_pack_ext (client_pack_id, client_only_id) VALUES (?,?)', [ex.id, cp.customer_id]); else await softQ('DELETE FROM c2m_pack_ext WHERE client_pack_id=?', [ex.id]); ch.push(`${Number(ex.pack_size)} pack ${only ? 'for this client only' : 'no longer for this client only'}`); }

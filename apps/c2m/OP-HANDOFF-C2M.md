@@ -728,3 +728,14 @@ have no labour or FOH cost and other cost changes make no re-approval.
 Tests: 12.18. Independent review: no blocker; 3 points ruled, the rest fixed (12.18). Known: the Margin bridge Method bar moves.
 Next: Tahir pushes; runs 010 and 011 locally; Ahmer runs 010 and 011 on production; Yawar fills the 4 figures at once. Then push 2d
 (freight region list; packing bill picks its packs, moves wait for Monday), picture already approved (screen 6).
+
+## 5 Nov 2026 (5) — Push 2d: packing bills pick their packs; freight region list (D-151) (MODULE: C2M) — NOT PUSHED
+
+Push 2c (D-150) pushed by Tahir on 5 Nov (commit 4e2ccaf), checked live (migrations 010 and 011 not yet on production).
+Files: c2m-routes.js (save_packing_bill takes packIds, DESCRIBE packing_bill and packing_assign, Assign in the weekly cycle,
+product Edit refuses a bill move Tuesday to Sunday, freight region must be listed); c2m.html (Packs on this bill, Find a pack,
+region list, Assign note, CHANGELOG 2026-11-05e, Guide rows); docs 01 (1.30), 02 (2.28), 03 (3.32), 05, 06 (D-151; D-150 marked
+pushed), 07, 08, 09 (B-45, F-31), 12 (12.19). No migration.
+Tests: 12.19 (route 17, page 12; earlier suites pass). Independent review: 1 blocker and 14 points, all fixed.
+Push 2 (Costs centre) is complete with this. Next per R31: push 3, Clients place (White Label and VAN Brands; VAN price lists with
+their own margin and freight), picture first.

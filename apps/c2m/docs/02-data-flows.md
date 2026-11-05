@@ -278,3 +278,8 @@ c2m_list_price (farmer rows, by packId) -> lib.printMrp -> the MRP printing list
 - engine.loadAll reads c2m_lf_rate and c2m_lf_pick (soft: before 011 they read as missing and the old c2m_conversion_rule rates apply). engine.conversionOf gives each pack its labour and FOH from its product's pick (none = Low) and the rate in force on the date.
 - POST /api/c2m/lf/rate and /lf/pick write 1 row each and an audit line; when not first, a re-approval item and a notice to the COO; a first figure tells the COO too, a first move tells no one. The fill that completes all the rates also writes 1 c2m_cost_version per pack with an approved cost (cause "Switch to Low and High...") and an audit line lf_baseline, once. The certificate is a c2m_monthly_check row, kind lf_cert, data {result}.
 - The state call sends lf {ready, from, rates [kind, name, label, rsPerKg, validFrom, history], picks [id, labour, foh, lSet, fSet]} to roles with see.margin.
+
+## 2.28 Bill packs and freight region (owner: Tahir; D-151)
+- POST /api/c2m/packing/bill takes packIds: the packs ticked. Packs not yet on the bill get packing_bill_id; a pack on another bill makes the save wait in c2m_cost_pending (kind packing_bill); packs on the bill and not listed stay. POST /api/c2m/packing/assign goes through the same weekly cycle (kind packing_assign).
+- POST /api/c2m/freight refuses a region not found on c2m_customer.region or c2m_freight_rate.region.
+- A held bill save keeps packFrom (where each moving pack was); on Monday a pack gone, made bulk or client packed, or moved since is left out. Packs with no bill on a held save are given the bill at once (as /packing/assign). POST /api/c2m/products/:id/full refuses a move of an existing pack's bill Tuesday to Sunday once migration 010 is run.

@@ -160,3 +160,9 @@ A pack takes 1 labour rate and 1 FOH rate, each the first match of these levels:
 | B-42 | From the day saved | A rate change or a product's move is in force from the day it is saved; trucks already shipped keep the cost in force when they shipped. |
 | B-43 | Go-live is free | Until 30 Nov 2026 the first figure of a rate and a product's first move need no re-approval. When all the rates are filled, each pack's cost that day becomes its approved cost once (cause "Switch to Low and High"). From 1 Dec every change and every move sends packs over the re-approval % to re-approval and tells the COO. |
 | B-44 | Monthly certificate | By the 5th, the CFO certifies the month before, starting with the month of the switch: No change or Changed. Reminded on Approvals from the 1st; overdue after the 5th. Once certified a month is not overwritten. |
+
+## 5 Nov 2026 (D-151)
+| ID | Rule | Detail |
+|---|---|---|
+| B-45 | Bill picks its packs | A packing bill lists its packs. A pack with no bill gets it at once; a pack moved from another bill waits for Monday (B-40). A pack's first bill sends no re-approval unless it has no approved cost yet. |
+| F-31 (changed) | Freight region | Picked from the regions on clients and freight rows (R13); a region on neither is refused. |

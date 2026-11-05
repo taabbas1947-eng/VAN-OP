@@ -341,3 +341,9 @@ GET /api/c2m/state adds: m007, outOfUseKeys; on each product defaultName and oth
 - GET /api/c2m/state, roles with see.margin: lf {ready, from, rates, picks}.
 - POST /api/c2m/rules/conversion, /rules/conversion/:id/replace, /rules/conversion/:id/retire, /edit/rule/:id and /delete with kind rule answer 409 after migration 011.
 - GET /api/c2m/state lf also carries since (YYYY-MM: the month of the switch).
+
+### 5 Nov 2026 (D-151)
+- POST /api/c2m/packing/bill: new optional packIds [pack ids] (the packs ticked; only adds). Tuesday to Sunday a save that moves a pack from another bill, or changes items of a bill in use, answers pending (as D-149).
+- POST /api/c2m/packing/assign: goes through the weekly cycle (kind packing_assign); a pack's first bill goes in at once.
+- POST /api/c2m/freight: 400 "Pick the region from the list" for a region on no client and no freight row.
+- A held answer for a bill save also carries gaveNow (packs with no bill given the bill at once). 400 when a pack already waits to move in another change, or a new bill's name already waits.

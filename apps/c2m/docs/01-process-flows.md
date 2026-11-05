@@ -712,3 +712,8 @@ flowchart LR
   P[Move a product Low to High] -- first move --> D
   P -- later move --> Q
 ```
+
+## 1.30 Packing bill and its packs; freight region (owner: Tahir and Yawar rule; Yawar acts; D-151, 5 Nov 2026)
+- Yawar opens a bill on Costs, Packing cost, and ticks the packs it is for. Save shows the effect first. Packs with no bill get it at once; packs moved from another bill, and a change to the bill's items when packs use it, wait for Monday (urgent with Tahir's approval). 1 save, 1 re-approval item.
+- On the product page, moving a pack to another bill also waits for Monday; a pack's first bill goes in at once.
+- Set freight: Yawar picks the region from the list of regions on clients and freight rows.

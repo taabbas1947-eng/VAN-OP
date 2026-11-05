@@ -268,3 +268,8 @@ c2m_list_price (farmer rows, by packId) -> lib.printMrp -> the MRP printing list
 ## 2.25 Effect before saving (owner: Tahir; D-148)
 - A save to /api/c2m/packing/rate, /packing/bill, /packing/assign, /rules/conversion, /rules/conversion/:id/replace or /freight with ?dry=1 runs the same code inside 1 database transaction and rolls it back: no row, audit line, re-approval or notice is kept. Every insert into c2m_reapproval the save would make is listed instead of written (caught in q, so packing price, which writes its own item, is covered too).
 - No new table or column.
+
+## 2.26 Next week's costs (owner: Tahir; D-149; migration 010)
+- POST /api/c2m/rates, /packing/rate, /packing/bill and /freight, Tuesday to Sunday: the save is run once and rolled back (its own checks, and the effect), then written to c2m_cost_pending (1 waiting row per item; saving again replaces it). Nothing else is written.
+- Every 15 minutes (and at start) C2M reads waiting rows with apply_on on or before today and runs each save as its saver, in 1 transaction with marking the row applied; a failure marks it failed with the reason and tells the CFO and COO.
+- The state call sends weekly {ready, monday, next} and pending (waiting and failed rows, and those applied in the last 8 days) to roles with see.margin.

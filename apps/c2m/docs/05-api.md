@@ -326,3 +326,10 @@ GET /api/c2m/state adds: m007, outOfUseKeys; on each product defaultName and oth
 ### 5 Nov 2026 (D-148)
 - POST /api/c2m/packing/rate, /api/c2m/packing/bill, /api/c2m/packing/assign, /api/c2m/rules/conversion, /api/c2m/rules/conversion/:id/replace, /api/c2m/freight take ?dry=1: same rights and checks as the save; answer {dry: true, reapprovePct, answer (what the save would answer), items [{packId, label, from, to, pct, first}] (first 200), count}. Nothing is kept. Without ?dry=1 (or ?dry=0) each saves as before.
 - No new route. Server messages now name the Costs place ("Costs, Packing cost", "Costs, Material cost", "Costs, Labour or FOH").
+
+### 5 Nov 2026 (D-149)
+- POST /api/c2m/rates, /packing/rate, /packing/bill, /freight: new optional body fields urgent (true) and reason (5 characters or more when urgent), and correct (true: a correction within the saver's hour). Tuesday to Sunday the answer is {ok, pending: true, id, applyOn (YYYY-MM-DD), urgent, effectCount, reapproval: 0}; on a Monday, for a first cost or a correction, the answer is the save's own as before. ?dry=1 is unchanged (the effect only).
+- POST /api/c2m/costs/pending/:id/drop: {ok}. 409 if it is no longer waiting.
+- POST /api/c2m/costs/pending/:id/approve (price.approve; urgent only): the change goes in now; {ok, reapproval}. /later: it waits for Monday; {ok}.
+- GET /api/c2m/state, roles with see.margin: weekly {ready, monday, next} and pending [{id, kind, target, label, now, next, effect {count, items, pct}, applyOn, urgent, reason, status, by, at, decidedBy, decidedAt, result, body}].
+- Before migration 010 these routes answer 409 "needs migration 010"; the saves go in at once.

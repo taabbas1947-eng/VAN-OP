@@ -146,3 +146,9 @@ A pack takes 1 labour rate and 1 FOH rate, each the first match of these levels:
 | ID | Rule | Detail |
 |---|---|---|
 | B-39 | Effect before saving | A packing price, packing bill, labour, FOH or freight change shows, before it is saved, the packs whose cost would move more than the re-approval % (setting reapprove_pct, default 3). The check runs the real save and undoes it, so the figures are the ones the save would make. |
+
+## 5 Nov 2026 (D-149)
+| ID | Rule | Detail |
+|---|---|---|
+| B-40 | Monday is cost day | A material, packing price, packing bill or freight change saved on a Monday (Pakistan time) goes in at once; saved Tuesday to Sunday it goes in at Monday 00:00. A first cost goes in at once. Urgent: a reason and the COO's approval. Labour and FOH are reviewed monthly, outside this rule. |
+| B-41 | Correct within 1 hour | The person who saved a cost change that went in can correct its figure within 1 hour, with the effect shown first; the correction is a new save on the same day, logged. After the hour: a change for Monday, or urgent. |

@@ -691,3 +691,23 @@ Known, not this push: phone width overflow on Price lists and Setup, Settings, K
 effect step (push 2c).
 Next: Tahir pushes; check live: Costs in the top bar, change a labour rate (first Save shows the effect). Then 2b (weekly Monday cycle,
 urgent change with COO approval, Undo = edit within 1 hour), then 2c (Low and High labour and FOH, first assignment free).
+
+## 5 Nov 2026 (3) — Push 2b: Monday is cost day (D-149) (MODULE: C2M) — NOT PUSHED
+
+Push 2a (D-148) pushed by Tahir on 5 Nov (commit 02900da), checked live: Costs in the top bar, 6 boxes with real figures (5 packs
+with no packing bill; no freight rate in C2M yet).
+Tahir and Yawar ruled R11 again that evening: Monday is cost day (a change saved on Monday goes in that day; Tuesday to Sunday it
+waits for Monday 00:00); the 1-hour correction covers both the Saved box and urgent changes in force; a first cost goes in at once;
+a packing bill change waits for Monday.
+Files: migrations/010_c2m_cost_pending.sql and .PRODUCTION.sql (new table c2m_cost_pending); c2m-routes.js (weekly(), DESCRIBE,
+correctable(), applyPending(), applyDue() on the 15-minute timer and on state load, routes costs/pending/:id/drop|approve|later,
+state weekly and pending; the import queue rate correction goes through the cycle); c2m.html (form line with Urgent and reason,
+"Save ... for Monday", Next week's costs, waiting figure under today's in lists, Correct with minutes left, Approvals line for
+Tahir, CHANGELOG 2026-11-05c, Guide rows); docs 01 (1.28), 02 (2.26), 03 (3.30), 04 (4.14), 05, 06 (D-149, D-148 marked pushed),
+07, 08, 09 (B-40, B-41), 10 (10.15), 11 (11.15), 12 (12.17).
+Migration 010: run locally first, then production by hand (Ahmer). Until it runs, every change goes in when saved, as before.
+Tests: 12.17. Independent review: no blocker; 6 wrong results and 9 small points fixed (listed in 12.17).
+Open for Tahir (push 2c): a new packing bill goes in at once and Assign is not in the weekly cycle, so a bill change could be
+made as a new bill and assigned. Not in 2b: Rs on open POs and prices below target in the packing and freight effect.
+Next: Tahir pushes, runs 010 locally; Ahmer runs 010 on production. Then push 2c (Labour and FOH Low and High, monthly certificate,
+first assignment free), picture first.

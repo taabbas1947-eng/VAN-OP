@@ -230,3 +230,6 @@ No new action: each list uses the right that adds to it. Delete, Take out of use
 
 ## 11.14 5 Nov 2026 (D-148)
 - No new action. Roles with see.margin (CFO, COO) get Costs in the top bar and Setup under More. A box's Open and its forms keep their own rights: rate.save (material), packing.manage, labour.manage, freight.edit, actuals.enter. Roles without see.margin keep their places as before.
+
+## 11.15 5 Nov 2026 (D-149)
+- No new action. Holding, changing and dropping a waiting change follow the save's own right (rate.save, packing.manage, freight.edit). Approve now and Not urgent on an urgent change need price.approve (the COO). Next week's costs is seen by roles with see.margin; only the person who saved a change that went in can correct it within the hour.

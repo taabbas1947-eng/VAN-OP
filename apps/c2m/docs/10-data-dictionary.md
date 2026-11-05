@@ -292,3 +292,12 @@ Changed in 0.3.0 and 0.3.1: rs_per_kg fixed (1 rate of 1 kind, labour or FOH). A
 | Cost only, no list | A client's own pack on a VAN brand PO: checked against its cost, never against a list | same |
 | Not checked | A line C2M cannot check, with the reason (for example a farmer whose region is not known, or a PO dated before 11 Oct 2026) | same |
 | region (PO line) | The customer's region from O2S, on each PO line (migration 009) | c2m_o2s_po_line |
+
+## 10.15 Added on 5 Nov 2026 (owner: Tahir; D-149)
+| Term | Meaning | Where |
+|---|---|---|
+| Next week's costs | Cost changes saved Tuesday to Sunday that go in at Monday 00:00 | c2m_cost_pending; Costs, Open next week's costs |
+| Cost day | Monday: a cost change saved that day goes in at once | B-40 |
+| Urgent change | A waiting change Yawar asks to go in now, with a reason; Tahir approves it | c2m_cost_pending.urgent, reason |
+| First cost | The first cost of a material or packing item, the first freight rate of a segment and region, a new packing bill or one no pack uses: goes in at once | B-40 |
+| Correct (minutes left) | Within 1 hour of a change going in, its saver corrects the figure | B-41 |

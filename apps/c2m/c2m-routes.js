@@ -69,11 +69,16 @@ module.exports = function mountC2mRoutes(app, deps) {
     if (![].concat((req.query || {}).dry || []).map(String).includes('1')) return fn(req, res); // ?dry=1 (also when sent twice)
     if (mountFault) throw Object.assign(new Error(mountFault), { status: 503 });
     if (!deps.pool || txStore.getStore()) throw Object.assign(new Error('C2M cannot show the effect here (no database transaction). Nothing was saved.'), { status: 503 }); // never save by accident
+    res.json(await runDry(fn, req));
+  };
+  /** Run a save inside 1 transaction and roll it back; its refusal is thrown as itself. Used by ?dry=1 and by Next week's costs. */
+  async function runDry(fn, req) {
+    if (!deps.pool || txStore.getStore()) throw Object.assign(new Error('C2M cannot show the effect here (no database transaction). Nothing was saved.'), { status: 503 });
     const box = { items: [], answer: null }; const fake = { json: o => { box.answer = o; return fake; }, status: () => fake, setHeader: () => fake };
     try { await tx(() => dryStore.run(box, async () => { await fn(req, fake); throw DRY; })); } catch (e) { if (e !== DRY) throw e; }
     const S = (await engine.loadAll(q)).settings.values;
-    res.json({ dry: true, reapprovePct: S.reapprove_pct != null && S.reapprove_pct !== '' ? Number(S.reapprove_pct) : 3, answer: box.answer, items: box.items.slice(0, 200), count: box.items.length });
-  };
+    return { dry: true, reapprovePct: S.reapprove_pct != null && S.reapprove_pct !== '' ? Number(S.reapprove_pct) : 3, answer: box.answer, items: box.items.slice(0, 200), count: box.items.length };
+  }
   /** A query on the piece 3 link tables: [] if migration 003 has not been run yet. */
   const softQ = async (sql, p) => { try { return await q(sql, p); } catch (e) { if (e && (e.code === 'ER_NO_SUCH_TABLE' || e.errno === 1146)) return [[]]; throw e; } };
   const isDate = d => /^\d{4}-\d{2}-\d{2}$/.test(String(d || '')) && !isNaN(Date.parse(d));
@@ -481,6 +486,11 @@ module.exports = function mountC2mRoutes(app, deps) {
       const [nl] = await pq("SELECT entity_id, by_user, at FROM c2m_audit WHERE entity='product_name' ORDER BY id DESC LIMIT 400"); out.nameLog = {}; for (const x of nl) if (!out.nameLog[x.entity_id]) out.nameLog[x.entity_id] = { by: x.by_user, at: x.at }; // last name change per product (D-85)
       { const [off] = await pq("SELECT c.id, c.brand, c.o2s_brand, c.sold_per, GROUP_CONCAT(k.pack_size ORDER BY k.pack_size) sizes FROM c2m_client_product c LEFT JOIN c2m_client_pack k ON k.client_product_id=c.id WHERE c.channel='VAN brand' AND c.active=0 GROUP BY c.id, c.brand, c.o2s_brand, c.sold_per ORDER BY c.brand"); out.vanOff = off.map(r => ({ id: r.id, brand: r.brand, names: namesOf(r), soldPer: r.sold_per, sizes: String(r.sizes || '').split(',').filter(Boolean).map(Number) })); } // VAN brand products out of use (Tahir, 20 Oct 2026)
       out.freight = D.freight;
+      /* Next week's costs (push 2b, D-149): waiting changes, and those that failed or went in during the last 8 days. */
+      { const ready = await pendReady(); if (ready) await applyDue().catch(() => {}); /* due Monday changes go in before the list is read (review 2b, finding 8) */ const T = today(); out.weekly = { ready, monday: isMonday(T), next: nextMonday(T) }; out.pending = [];
+        if (ready) { const since = new Date(Date.parse(T + 'T00:00:00Z') - 8 * 864e5).toISOString().slice(0, 10);
+          const [pr] = await q("SELECT id, kind, target, label, now_value, new_value, effect_json, apply_on, urgent, reason, status, saved_by, saved_at, decided_by, decided_at, result_text, body_json FROM c2m_cost_pending WHERE status IN ('waiting','failed') OR (status='applied' AND decided_at>=?) ORDER BY urgent DESC, id DESC LIMIT 200", [since]);
+          out.pending = pr.map(x => ({ id: x.id, kind: x.kind, target: x.target, label: x.label, now: x.now_value == null ? null : Number(x.now_value), next: x.new_value == null ? null : Number(x.new_value), effect: (() => { try { return JSON.parse(x.effect_json || 'null'); } catch (_) { return null; } })(), applyOn: String(x.apply_on).slice(0, 10), urgent: !!x.urgent, reason: x.reason, status: x.status, by: x.saved_by, at: x.saved_at, decidedBy: x.decided_by, decidedAt: x.decided_at, result: x.result_text, body: (() => { try { return JSON.parse(x.body_json || '{}'); } catch (_) { return {}; } })() })); } }
       const [li0] = await pq('SELECT id, list_name, data_json FROM c2m_list_price ORDER BY id'); const li = li0.filter(r => MASTER_LISTS.includes(r.list_name)); out.listItems = li.map(r => ({ id: r.id, list: r.list_name, data: JSON.parse(r.data_json) }));
       out.listMaster = { carried: await masterOn(), old: li0.length - li.length }; // 1.0.3 (D-87): the carry-over, and the rows kept read only that left the lists
       out.listOld = li0.filter(r => !MASTER_LISTS.includes(r.list_name)).map(r => { const d = JSON.parse(r.data_json); const l = String(r.list_name).replace(/_old$/, ''); const pk1 = d.packId != null ? D.packs.find(k => Number(k.id) === Number(d.packId)) : null; const c1 = pk1 ? D.cps.find(c => Number(c.id) === Number(pk1.client_product_id)) : null; const z1 = lib.rowSize(l, d); const fitsP = pk1 && (!z1 || !c1 || (Math.abs(z1.v - Number(pk1.pack_size)) < 1e-6 && z1.u === (c1.sold_per || 'kg')));
@@ -626,10 +636,10 @@ module.exports = function mountC2mRoutes(app, deps) {
     } finally { autoBusy = false; }
   }
   if (!deps.noAutoPull) {
-    const t1 = setTimeout(() => { autoPull(null, true).catch(() => {}); }, AUTO.firstMs); if (t1.unref) t1.unref();
-    const t2 = setInterval(() => { autoPull().catch(() => {}).then(() => freightDueSweep()).catch(() => {}); }, AUTO.everyMs); if (t2.unref) t2.unref();
+    const t1 = setTimeout(() => { autoPull(null, true).catch(() => {}).then(() => applyDue()).catch(() => {}); }, AUTO.firstMs); if (t1.unref) t1.unref();
+    const t2 = setInterval(() => { autoPull().catch(() => {}).then(() => applyDue()).catch(() => {}).then(() => freightDueSweep()).catch(() => {}); }, AUTO.everyMs); if (t2.unref) t2.unref(); // Monday costs go in before the freight check (push 2b)
   }
-  module.exports._test = Object.assign(module.exports._test || {}, { autoPullDue, autoPull, freightDueSweep });
+  module.exports._test = Object.assign(module.exports._test || {}, { autoPullDue, autoPull, freightDueSweep, applyDue: (...a) => applyDue(...a), nextMonday: d => nextMonday(d) });
 
   /* ---------- Recipes: write, review, endorse, approve cost, send back (ruling 13 to 14 Oct) ---------- */
   async function getVersion(id) { const [[v]] = await q('SELECT * FROM c2m_recipe_version WHERE id=?', [id]); if (!v) throw bad('Recipe version not found.'); return v; }
@@ -800,10 +810,132 @@ module.exports = function mountC2mRoutes(app, deps) {
     });
     return mv.length;
   }
-  app.post('/api/c2m/rates', can('rate.save'), wrap(async (req, res) => {
+  /* ---------- Next week's costs: Monday is cost day (Tahir and Yawar, 5 Nov 2026, R11 as ruled that evening, D-149; push 2b) ----------
+     A material, packing price, packing bill or freight change saved on a Monday (Pakistan time) goes in at once. Saved Tuesday to Sunday
+     it waits in c2m_cost_pending and goes in at Monday 00:00, or at once when Tahir approves it as urgent; until then it can be changed
+     (save again) or dropped. A first cost (a material or packing item with none yet, a freight region with none in force, a new bill or a
+     bill no pack uses) goes in at once, since nothing costed moves. For 1 hour after a change goes in, its saver can correct it at once.
+     Labour and FOH are not in this cycle (monthly, push 2c). Until migration 010 is run every change goes in when saved, as before. */
+  const PEND = { has: null, at: 0 };
+  async function pendReady() {
+    if (PEND.has != null && Date.now() - PEND.at < 60000) return PEND.has;
+    try { const [t] = await q("SHOW TABLES LIKE 'c2m_cost_pending'"); PEND.has = t.length > 0; PEND.at = Date.now(); } catch (_) { return false; } // a passing error is not remembered (review 2b, finding 10)
+    return PEND.has;
+  }
+  const dow = d => new Date(String(d).slice(0, 10) + 'T00:00:00Z').getUTCDay();
+  const isMonday = d => dow(d) === 1;
+  const nextMonday = d => { const t = new Date(String(d).slice(0, 10) + 'T00:00:00Z'); t.setUTCDate(t.getUTCDate() + (((8 - t.getUTCDay()) % 7) || 7)); return t.toISOString().slice(0, 10); };
+  const AUD_KIND = { rate: 'rate', packing_rate: 'packing_rate', packing_bill: 'packing_bill', freight: 'freight' }; // c2m_audit entity of each kind
+  /** What a save changes, read before it is held: { target, label, nowV, newV, first, at (save at once for another reason) }. */
+  const DESCRIBE = {
+    async rate(b) {
+      const D = await engine.loadAll(q); const g = D.rates.get(Number(b.gradeId)); if (!g) throw bad('Material not found.');
+      return { target: String(g.gradeId), label: `Material · ${g.name}${g.grade ? ', ' + g.grade : ''}`, nowV: g.rate, newV: strictNum(b.rate), first: g.rate == null };
+    },
+    async packing_rate(b) {
+      const D = await engine.loadAll(q); const it = D.packing.itemById.get(Number(b.itemId)); if (!it) throw bad('Packing item not found.');
+      let nv = null; try { nv = piecePriceOf(b).price; } catch (_) { nv = null; } // the save itself refuses a wrong figure
+      return { target: String(it.id), label: `Packing · ${it.name}`, nowV: it.price, newV: nv, first: it.price == null };
+    },
+    async packing_bill(b) {
+      if (!b.id) return { target: 'new', label: `Packing bill · ${String(b.name || '').trim()}`, first: true }; // a new bill: no pack uses it yet
+      const D = await engine.loadAll(q); const bill = D.packing.billById.get(Number(b.id)); if (!bill) throw bad('Packing bill not found.');
+      return { target: String(bill.id), label: `Packing bill · ${String(b.name || bill.name).trim()}`, nowV: null, newV: null, first: !D.packs.some(p => Number(p.packing_bill_id) === bill.id) };
+    },
+    async freight(b) {
+      const D = await engine.loadAll(q); const T = today(); const reg = String(b.region || '').trim();
+      const vf = b.validFrom && isDate(b.validFrom) ? b.validFrom : T;
+      const inForce = D.freight.find(x => x.segment === b.segment && lib.sameRegion(x.region, reg) && String(x.valid_from).slice(0, 10) <= T);
+      return { target: `${b.segment}|${reg}`.toLowerCase().replace(/\s+/g, ' '), label: `Freight · ${b.segment} ${reg}`, nowV: inForce ? Number(inForce.rs_per_kg) : null, newV: strictNum(b.rsPerKg), first: !inForce,
+        at: vf >= nextMonday(T) }; // dated for next Monday or later: it already waits for its own date
+    }
+  };
+  /** When this person's change to this item went in, if that was less than 1 hour ago (Undo, edit only: R29, ruled 5 Nov); else null.
+   *  A correction keeps the time of the change it corrects, so its hour never starts again (review 2b, finding 3). */
+  async function correctable(kind, target, user) {
+    const since = lib.pkNow(new Date(Date.now() - 3600e3)); const key = `${kind}:${target}`;
+    const [[cc]] = await q("SELECT new_value FROM c2m_audit WHERE entity='cost_correct' AND entity_id=? AND by_user=? AND at>=? ORDER BY id DESC LIMIT 1", [key.slice(0, 100), user, since]);
+    if (cc) { let o = null; try { o = JSON.parse(cc.new_value).wentIn; } catch (_) {} return o && o >= since ? o : null; }
+    const ent = AUD_KIND[kind]; const id = kind === 'freight' ? null : target;
+    const [rows] = await q(`SELECT entity_id, at FROM c2m_audit WHERE entity=? AND by_user=? AND at>=? AND action='save' ${id ? 'AND entity_id=?' : ''} ORDER BY id DESC LIMIT 20`, id ? [ent, user, since, id] : [ent, user, since]);
+    const hit = kind === 'freight' ? rows.find(r => String(r.entity_id).toLowerCase().replace(/\s+/g, ' ') === target) : rows[0];
+    return hit ? String(hit.at).slice(0, 19) : null;
+  }
+  /** Run a save with a stand-in answer; returns what it answered (Monday saves, Next week's costs, the import queue). */
+  async function callFn(fn, req) { const box = { answer: null }; const fake = { json: o => { box.answer = o; return fake; }, status: () => fake, setHeader: () => fake }; await fn(req, fake); return box.answer || {}; }
+  const weekly = (kind, fn) => async (req, res) => {
+    if (dryStore.getStore() || req.c2mApplying || !(await pendReady())) return fn(req, res);
+    const b = req.body || {}; const d = await DESCRIBE[kind](b); const T = today();
+    if (b.correct) {
+      const wentIn = await correctable(kind, d.target, req.c2m.user);
+      if (!wentIn) throw bad('The hour to correct this cost has passed. Save it as a change for next Monday, or as urgent with a reason.');
+      if (kind === 'freight' && !(b.validFrom && b.validFrom > T)) req.body = { ...b, validFrom: T }; // corrects the rate in force, dated today (review 2b, finding 2)
+      let a; await tx(async () => { a = await callFn(fn, req); await audit(req.c2m.user, 'cost_correct', `${kind}:${d.target}`.slice(0, 100), 'correct', null, { wentIn }, null); });
+      return res.json(a);
+    }
+    if (d.first || d.at) return fn(req, res);
+    if (isMonday(T)) { // Monday is cost day: in at once; anything still waiting for this item is replaced by it, in the same transaction
+      let a; await tx(async () => { await q("UPDATE c2m_cost_pending SET status='replaced', waiting_key=NULL, decided_by=?, decided_at=? WHERE kind=? AND target=? AND status='waiting'", [req.c2m.user, now(), kind, d.target]); a = await callFn(fn, req); });
+      return res.json(a);
+    }
+    const urgent = !!b.urgent; const reason = String(b.reason || '').trim();
+    if (urgent && reason.length < 5) throw bad('Say why this cannot wait for Monday (a few words), or untick Urgent.');
+    const dryReq = { ...req, body: kind === 'freight' ? { ...b, validFrom: T } : b, query: {} };
+    const eff = await runDry(fn, dryReq); // the save's own checks, and its effect worked out as if it went in today
+    const on = nextMonday(T); const keep = { ...b }; delete keep.urgent; delete keep.reason; delete keep.correct;
+    const effect = { count: eff.count, items: eff.items.slice(0, 50), pct: eff.reapprovePct };
+    let id;
+    await tx(async () => {
+      const vals = [d.label.slice(0, 200), JSON.stringify(keep), d.nowV == null ? null : d.nowV, d.newV == null || isNaN(d.newV) ? null : d.newV, JSON.stringify(effect), on, urgent ? 1 : 0, urgent ? reason.slice(0, 300) : null, req.c2m.user, now()];
+      const wkey = `${kind}|${d.target}`.slice(0, 110); // unique while waiting: 1 waiting change per item (review 2b, finding 6)
+      const upd = async oid => { id = oid; await q('UPDATE c2m_cost_pending SET label=?, body_json=?, now_value=?, new_value=?, effect_json=?, apply_on=?, urgent=?, reason=?, saved_by=?, saved_at=? WHERE id=?', [...vals, id]); };
+      const [[old]] = await q("SELECT id FROM c2m_cost_pending WHERE waiting_key=? FOR UPDATE", [wkey]);
+      if (old) await upd(old.id);
+      else { try { const [ins] = await q('INSERT INTO c2m_cost_pending (label, body_json, now_value, new_value, effect_json, apply_on, urgent, reason, saved_by, saved_at, kind, target, waiting_key) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)', [...vals, kind, d.target, wkey]); id = ins.insertId; }
+        catch (e) { if (!(e && (e.code === 'ER_DUP_ENTRY' || e.errno === 1062))) throw e; const [[o2]] = await q("SELECT id FROM c2m_cost_pending WHERE waiting_key=? FOR UPDATE", [wkey]); if (!o2) throw moved(); await upd(o2.id); } }
+      await audit(req.c2m.user, 'cost_pending', id, old ? 'change' : 'hold', null, { kind, target: d.target, applyOn: on, urgent }, urgent ? reason : null);
+      if (urgent) await notice('coo', `Urgent cost change waits for you on Approvals: ${d.label}. Reason: ${reason}`, req.c2m.user);
+    });
+    res.json({ ok: true, pending: true, id, applyOn: on, urgent, changed: true, reapproval: 0, effectCount: eff.count });
+  };
+  const PEND_FN = {}; // kind -> the save, filled where each route is defined
+  /** Put 1 waiting change in now, as its saver; the row is marked in the same transaction. */
+  async function applyPending(row, by) {
+    const fn = PEND_FN[row.kind]; if (!fn) throw bad('Unknown kind of cost change.');
+    const body = JSON.parse(row.body_json || '{}'); const T = today();
+    if (row.kind === 'freight' && !(body.validFrom && body.validFrom > T)) body.validFrom = T;
+    const box = { answer: null }; const fake = { json: o => { box.answer = o; return fake; }, status: () => fake, setHeader: () => fake };
+    let label = row.saved_by; try { const [[ur]] = await q("SELECT role FROM user_module_roles WHERE username=? AND module='c2m'", [row.saved_by]); const R = ur ? (await loadRoles()).get(ur.role) : null; if (R) label = R.label; } catch (_) {} // review 2b, finding 11
+    const req = { body, query: {}, c2mApplying: true, c2m: { user: row.saved_by, label, name: row.saved_by } };
+    await tx(async () => {
+      const [[cur]] = await q('SELECT status FROM c2m_cost_pending WHERE id=? FOR UPDATE', [row.id]); if (!cur || cur.status !== 'waiting') throw moved();
+      await fn(req, fake);
+      const re = box.answer && box.answer.reapproval ? Number(box.answer.reapproval) : 0;
+      await q("UPDATE c2m_cost_pending SET status='applied', waiting_key=NULL, decided_by=?, decided_at=?, result_text=? WHERE id=?", [by, now(), `Went in. ${re ? re + ' pack(s) wait for re-approval.' : 'No pack moved more than the re-approval %.'}`, row.id]);
+    });
+    return box.answer || {};
+  }
+  let applyBusy = false;
+  /** Every 15 minutes and at start: changes waiting for a Monday that has come go in (missed Mondays too, when the server was down). */
+  async function applyDue() {
+    if (applyBusy || !(await pendReady())) return 0; applyBusy = true; let n = 0, bad1 = 0;
+    try {
+      const [rows] = await q("SELECT * FROM c2m_cost_pending WHERE status='waiting' AND apply_on<=? ORDER BY id", [today()]);
+      for (const r of rows) {
+        try { await applyPending(r, 'monday'); n++; }
+        catch (e) { if (e && e.status === 409) continue; bad1++; // approved or dropped a moment before: not a failure (review 2b, finding 9)
+ await q("UPDATE c2m_cost_pending SET status='failed', waiting_key=NULL, decided_by='monday', decided_at=?, result_text=? WHERE id=? AND status='waiting'", [now(), String(e.message || e).slice(0, 400), r.id]).catch(() => {}); }
+      }
+      if (n || bad1) { const t = `Monday costs: ${n} change(s) went in${bad1 ? `, ${bad1} could not (see Costs, Next week's costs)` : ''}.`; await notice('coo', t, 'C2M'); if (bad1) await notice('cfo', t, 'C2M'); }
+    } finally { applyBusy = false; }
+    return n;
+  }
+  const save_rate = async (req, res) => {
     const { gradeId, rate, source, confirmed } = req.body || {};
     res.json({ ok: true, reapproval: await saveRate(req.c2m.user, gradeId, rate, source, confirmed) });
-  }));
+  };
+  PEND_FN.rate = save_rate;
+  app.post('/api/c2m/rates', can('rate.save'), wrap(dryable(weekly('rate', save_rate))));
   /** Price per piece from what Yawar typed: per piece, or per kg with pieces per kg (an inner bought by weight, 26 Oct 2026). */
   function piecePriceOf(b) {
     if (b.buy === 'kg') {
@@ -815,7 +947,7 @@ module.exports = function mountC2mRoutes(app, deps) {
     return { price: Number(b.price), note: '' };
   }
   const srcWith = (source, note) => { const t = String(source).trim(); if (t.length + note.length > 200) throw bad(`The source can be at most ${200 - note.length} characters here.`); return t + note; };
-  app.post('/api/c2m/packing/rate', can('packing.manage'), wrap(dryable(async (req, res) => {
+  const save_packing_rate = async (req, res) => {
     const { itemId, source, confirmed } = req.body || {}; const pp = piecePriceOf(req.body || {}); const price = pp.price;
     const D = await engine.loadAll(q); const it = D.packing.itemById.get(Number(itemId)); if (!it) throw bad('Packing item not found.');
     const r = Number(price); if (!(r > 0)) throw bad('Type a price above 0.'); if (!String(source || '').trim()) throw bad('Add the source: PO number or quote.');
@@ -835,7 +967,9 @@ module.exports = function mountC2mRoutes(app, deps) {
       if (moved.length) await q('INSERT INTO c2m_reapproval (cause, items_json, created_at) VALUES (?,?,?)', [`${it.name} price Rs ${it.price} to Rs ${r}, ${today()}`, JSON.stringify(moved), now()]);
     });
     res.json({ ok: true, reapproval: moved.length });
-  })));
+  };
+  PEND_FN.packing_rate = save_packing_rate;
+  app.post('/api/c2m/packing/rate', can('packing.manage'), wrap(dryable(weekly('packing_rate', save_packing_rate))));
   /* Approve the batch (or only the packs ticked: body.packIds). Packs not ticked go into a new open item
      "Left open from item N" so none drops out of every queue (cost review 18 Oct 2026, D-61). */
   app.post('/api/c2m/reapprovals/:id/approve', can('reapproval.decide'), wrap(async (req, res) => {
@@ -879,7 +1013,7 @@ module.exports = function mountC2mRoutes(app, deps) {
   }));
 
   /* ---------- Packing bills (Yawar keeps and approves them alone; ruled 15 Oct) ---------- */
-  app.post('/api/c2m/packing/bill', can('packing.manage'), wrap(dryable(async (req, res) => {
+  const save_packing_bill = async (req, res) => {
     const { id, name, lines } = req.body || {};
     if (!String(name || '').trim()) throw bad('Name the packing bill, e.g. "25 kg bag with inner".');
     if (!Array.isArray(lines) || !lines.length) throw bad('Add at least 1 packing item.');
@@ -903,7 +1037,9 @@ module.exports = function mountC2mRoutes(app, deps) {
       if (id) await costNotice(req.c2m.user, `Packing bill "${nm}" changed by the CFO`, re);
     });
     res.json({ id: billId, reapproval: re });
-  })));
+  };
+  PEND_FN.packing_bill = save_packing_bill;
+  app.post('/api/c2m/packing/bill', can('packing.manage'), wrap(dryable(weekly('packing_bill', save_packing_bill))));
   app.post('/api/c2m/packing/assign', can('packing.manage'), wrap(dryable(async (req, res) => {
     const { packId, billId } = req.body || {};
     const [[p]] = await q('SELECT id, packing_bill_id FROM c2m_client_pack WHERE id=?', [packId]); if (!p) throw bad('Pack not found.');
@@ -1473,15 +1609,18 @@ module.exports = function mountC2mRoutes(app, deps) {
       if (!v || !why) throw bad('Type the correct value and why.');
       note = `Corrected to ${v}. Why: ${why}`;
     }
+    const pl = JSON.parse(it.payload || '{}'); let held = null;
+    /* A rate correction is saved through the same controls as any rate: digits only, 10% warning, re-approval, and Monday is cost day
+       (review 2b, finding 4): Tuesday to Sunday it waits in Next week's costs. */
+    if (req.params.act === 'correct' && it.kind === 'rate' && pl.gradeId) {
+      const a = await callFn(weekly('rate', save_rate), { ...req, query: {}, body: { gradeId: pl.gradeId, rate: v.replace(/^rs\.?\s*/i, '').replace(/,/g, ''), source: 'Import queue correction: ' + why.slice(0, 150), confirmed: !!(req.body || {}).confirmed } });
+      re = a.reapproval || 0; if (a.pending) { held = a.applyOn; note += ` Waits for Monday ${a.applyOn}.`; } }
     await tx(async () => {
       const [u] = await q("UPDATE c2m_import_item SET status=?, decided_by=?, decided_at=?, decision_note=? WHERE id=? AND status='open'", [req.params.act === 'accept' ? 'accepted' : 'corrected', req.c2m.user, now(), note.slice(0, 400), it.id]);
       if (!u.affectedRows) throw moved();
-      const pl = JSON.parse(it.payload || '{}');
-      // A rate correction is saved through the same controls as any rate: digits only, 10% warning, re-approval.
-      if (req.params.act === 'correct' && it.kind === 'rate' && pl.gradeId) re = await saveRate(req.c2m.user, pl.gradeId, v.replace(/^rs\.?\s*/i, '').replace(/,/g, ''), 'Import queue correction: ' + why.slice(0, 150), !!(req.body || {}).confirmed);
       await audit(req.c2m.user, 'import_item', it.id, req.params.act, it.prefill_text, note, null);
     });
-    res.json({ ok: true, reapproval: re, kind: it.kind });
+    res.json({ ok: true, reapproval: re, kind: it.kind, pending: !!held, applyOn: held || undefined });
   }));
 
   /* ---------- Master data that had no form (audit, 16 Oct) ---------- */
@@ -1575,7 +1714,7 @@ module.exports = function mountC2mRoutes(app, deps) {
     });
     res.json({ ok: true });
   }));
-  app.post('/api/c2m/freight', can('freight.edit'), wrap(dryable(async (req, res) => {
+  const save_freight = async (req, res) => {
     const { segment, rsPerKg, validFrom } = req.body || {};
     if (!['Dealer', 'Farmer'].includes(segment)) throw bad('Freight applies to Dealer or Farmer prices.');
     if (!String((req.body || {}).region || '').trim() || !(strictNum(rsPerKg) >= 0)) throw bad('Give the region and Rs per kg (digits).');
@@ -1595,7 +1734,34 @@ module.exports = function mountC2mRoutes(app, deps) {
       await costNotice(req.c2m.user, `Freight ${segment} ${reg} saved at Rs ${strictNum(rsPerKg)} per kg from ${vf} by the ${req.c2m.label}`, re);
     });
     res.json({ ok: true, reapproval: re });
-  })));
+  };
+  PEND_FN.freight = save_freight;
+  app.post('/api/c2m/freight', can('freight.edit'), wrap(dryable(weekly('freight', save_freight))));
+  /* Next week's costs: drop a waiting change; Tahir approves an urgent one now, or sends it to Monday (push 2b, D-149). */
+  async function pendingRow(id) { if (!(await pendReady())) throw Object.assign(new Error('Next week\'s costs needs migration 010 (apps/c2m/migrations/010_c2m_cost_pending.sql). Ask IT to run it.'), { status: 409 });
+    const [[r]] = await q('SELECT * FROM c2m_cost_pending WHERE id=?', [Number(id)]); if (!r) throw bad('This change is no longer in Next week\'s costs.'); if (r.status !== 'waiting') throw moved(); return r; }
+  app.post('/api/c2m/costs/pending/:id/drop', can('rate.save', 'packing.manage', 'freight.edit'), wrap(async (req, res) => {
+    const r = await pendingRow(req.params.id);
+    const RIGHT = { rate: 'rate.save', packing_rate: 'packing.manage', packing_bill: 'packing.manage', freight: 'freight.edit' }; if (!req.c2m.can.has(RIGHT[r.kind])) throw Object.assign(new Error('Your role cannot change this kind of cost.'), { status: 403 }); // review 2b, finding 12
+    await tx(async () => { const [u] = await q("UPDATE c2m_cost_pending SET status='dropped', waiting_key=NULL, decided_by=?, decided_at=? WHERE id=? AND status='waiting'", [req.c2m.user, now(), r.id]); if (!u.affectedRows) throw moved();
+      await audit(req.c2m.user, 'cost_pending', r.id, 'drop', { label: r.label, next: r.new_value }, null, null); });
+    res.json({ ok: true });
+  }));
+  app.post('/api/c2m/costs/pending/:id/approve', can('price.approve'), wrap(async (req, res) => {
+    const r = await pendingRow(req.params.id); if (!r.urgent) throw bad('Only an urgent change waits for approval; this one goes in on Monday.');
+    if (String(r.saved_by).toLowerCase() === String(req.c2m.user).toLowerCase()) throw Object.assign(new Error('You saved this change, so another person approves it. It goes in on Monday otherwise.'), { status: 403 }); // review 2b, finding 12
+    const a = await applyPending(r, req.c2m.user);
+    await audit(req.c2m.user, 'cost_pending', r.id, 'approve_urgent', null, { label: r.label }, r.reason);
+    await notice('cfo', `Urgent change approved and in force: ${r.label}.`, req.c2m.user);
+    res.json({ ok: true, reapproval: a.reapproval || 0 });
+  }));
+  app.post('/api/c2m/costs/pending/:id/later', can('price.approve'), wrap(async (req, res) => {
+    const r = await pendingRow(req.params.id); if (!r.urgent) throw bad('This change already waits for Monday.');
+    await q("UPDATE c2m_cost_pending SET urgent=0 WHERE id=? AND status='waiting'", [r.id]);
+    await audit(req.c2m.user, 'cost_pending', r.id, 'not_urgent', null, { label: r.label }, null);
+    await notice('cfo', `Not urgent: ${r.label} goes in on Monday ${String(r.apply_on).slice(0, 10)}.`, req.c2m.user);
+    res.json({ ok: true });
+  }));
 
   /* ---------- Access grants (Yawar grants lists and clients) ---------- */
   app.post('/api/c2m/grants', can('grants.give'), wrap(async (req, res) => {

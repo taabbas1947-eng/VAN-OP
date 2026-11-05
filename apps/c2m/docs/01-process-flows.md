@@ -673,3 +673,25 @@ flowchart LR
   R -- no --> D[Done]
   S2 --> SB[Saved box: Open Approvals, Change another, Back to Costs]
 ```
+
+## 1.28 Monday is cost day (owner: Tahir and Yawar rule; Yawar saves; Tahir approves urgent; C2M runs Monday; D-149, 5 Nov 2026)
+- Yawar changes a material, packing price, packing bill or freight cost on Costs. The effect shows first (1.27).
+- On a Monday it goes in when saved. Tuesday to Sunday it waits in Next week's costs: he can change it (save again) or drop it until Monday.
+- Monday 00:00 (Pakistan time): C2M puts every waiting change in, as Yawar's save; packs that move more than the re-approval % wait for his re-approval; Tahir gets 1 notice.
+- Urgent: Yawar ticks Urgent and writes why; Tahir sees it on Approvals and approves it (in at once) or sends it to Monday.
+- For 1 hour after a change goes in, Yawar can correct the figure (effect first).
+```mermaid
+flowchart LR
+  Y[Yawar saves a cost] --> F{First cost?}
+  F -- yes --> IN[In at once]
+  F -- no --> M{Monday?}
+  M -- yes --> IN
+  M -- no --> W[Next week's costs]
+  W --> C[Change or drop until Monday]
+  W -- Urgent, with a reason --> T{Tahir on Approvals}
+  T -- Approve now --> IN
+  T -- Not urgent --> W
+  W -- Monday 00:00 --> IN
+  IN --> R[Packs over the % wait for re-approval]
+  IN --> K[Correct within 1 hour]
+```

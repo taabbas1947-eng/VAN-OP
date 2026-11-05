@@ -17,7 +17,17 @@ Changed in 0.6.0: entry 0.6.0 added.
 Changed in 0.5.0: entry 0.5.0 added; real figures removed from earlier entries (public repo).
 Format: Keep a Changelog, semantic versions. Live: 1.0.0 (pushed 19 Oct about 22:09, checked live by Claude as Tahir the same evening; Yawar's view checked in the cloud copy only); 0.9.3 pushed 19 Oct 14:38, checked live; 0.9.2 pushed 19 Oct 12:43, checked live; first data load 19 Oct 2026 about 13:17, checked live. Before: 0.9.1 (pushed 19 Oct 09:39, checked live). apps/c2m first pushed by Tahir on 17 Oct and the live migration run the same day (39 empty c2m_ tables); 0.6.0 and 0.7.0 pushed on 18 Oct (17:29), 0.8.0 (20:16) and 0.9.0 (22:03), each checked live by Claude. The folder tabs (D-59) were built after the 0.9.0 push and ship in 0.9.1. No data loaded yet: the first data load runs on Monday 19 Oct 2026.
 
-## [Next version, Costs has its own place] · 5 Nov 2026 · D-148 · Who: Claude built and tested; Tahir and Yawar ruled and approve the push
+## [Next version, Monday is cost day] · 5 Nov 2026 · D-149 · Who: Claude built and tested; Tahir and Yawar ruled and approve the push
+### Changed
+- Material, packing and freight costs change once a week. Saved on a Monday a change goes in at once; saved Tuesday to Sunday it waits in Next week's costs and goes in at Monday 00:00. A first cost goes in at once. Labour and FOH are not in this cycle.
+### Added
+- Costs, Open next week's costs: each waiting change with today's figure, Monday's, the change % and the packs that move; Change or Drop until Monday. The lists show the waiting figure under today's.
+- Urgent change: a reason, and Tahir approves it on Approvals (Approve now, or Not urgent: Monday).
+- Correct (1 hour): the person who saved a change that went in can correct the figure within the hour; the effect shows first.
+### Needs
+- Migration 010 (apps/c2m/migrations/010_c2m_cost_pending.sql), locally first, then production by hand. Until then every change goes in when saved, as before.
+
+## [2026-11-05b, Costs has its own place] · 5 Nov 2026 · D-148 · pushed 5 Nov 2026 (commit 02900da) · Who: Claude built and tested; Tahir and Yawar ruled and approve the push
 ### Changed
 - Costs is in the top bar for the CFO and COO. It opens on 6 boxes: Material cost, Packing cost, Labour, FOH, Freight cost and Month end, each with its figures, what waits and what is wrong, and Open. Setup moved under More (clients, products, settings, record and checks).
 - A packing price, packing bill, labour, FOH or freight change shows its effect before it is saved: the first Save lists the packs whose cost moves more than the re-approval % and saves nothing; Save again keeps it. Material "Try a new rate" is now "Change cost".

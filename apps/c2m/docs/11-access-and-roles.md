@@ -236,3 +236,6 @@ No new action: each list uses the right that adds to it. Delete, Take out of use
 
 ## 11.16 5 Nov 2026 (D-150)
 - No new action. Filling, changing and adding labour and FOH rates, moving products and the monthly certificate need labour.manage (the CFO). Roles with see.margin see the rates, the picks and the certificate.
+
+## 11.17 5 Nov 2026 (D-152)
+- No new action. Roles with see.margin (Tahir and Yawar) see Clients in the top bar; Products is under More. Proposing still needs price.propose or list.revise; approving price.approve or list.approve. Other roles' places are unchanged.

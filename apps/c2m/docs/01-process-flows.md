@@ -717,3 +717,9 @@ flowchart LR
 - Yawar opens a bill on Costs, Packing cost, and ticks the packs it is for. Save shows the effect first. Packs with no bill get it at once; packs moved from another bill, and a change to the bill's items when packs use it, wait for Monday (urgent with Tahir's approval). 1 save, 1 re-approval item.
 - On the product page, moving a pack to another bill also waits for Monday; a pack's first bill goes in at once.
 - Set freight: Yawar picks the region from the list of regions on clients and freight rows.
+
+## 1.31 Clients place and the Monday price cycle (owner: Tahir and Yawar rule; Yawar proposes, Tahir approves; D-152, 5 Nov 2026)
+- Yawar or Tahir opens Clients: it opens on White Label (or the side last used); the switch at the top goes to VAN Brands. White Label: pick the client (its packs with price, cost, GP and target, as on Client prices before), then a brand in a row: the brand page shows recipe, cost by pack, the 3 prices and margin. New price opens the price panel for that pack.
+- Yawar types new prices and sends them to Tahir. From is a Monday (the next Monday by default). Urgent: tick and write why.
+- Tahir approves on Approvals. A price or list revision goes in on its Monday; if that Monday has passed, on the next Monday; urgent the day he approves.
+- VAN Brands: Products, Prices by list (the list grid, as before) and Price lists (the builder, as before). The 5 list cards with target margin and freight come in push 3b.

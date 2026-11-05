@@ -347,3 +347,8 @@ GET /api/c2m/state adds: m007, outOfUseKeys; on each product defaultName and oth
 - POST /api/c2m/packing/assign: goes through the weekly cycle (kind packing_assign); a pack's first bill goes in at once.
 - POST /api/c2m/freight: 400 "Pick the region from the list" for a region on no client and no freight row.
 - A held answer for a bill save also carries gaveNow (packs with no bill given the bill at once). 400 when a pack already waits to move in another change, or a new bill's name already waits.
+
+### 5 Nov 2026 (D-152)
+- POST /api/c2m/prices/propose and POST /api/c2m/lists/revise: validFrom optional (default the next Monday, today when today is Monday); a date that is not a Monday answers 400 naming the next Monday. New optional urgent (true) and urgentWhy (required with urgent): saved for today.
+- POST /api/c2m/prices/:id/approve and /lists/revisions/:id/approve: waitsUntil is the Monday it takes effect (the next Monday when its own has passed); urgent goes in that day.
+- GET /api/c2m/state: proposals[].urgent and listRevisions[].urgent (reason or null); products[].packs[].approvedFrom.

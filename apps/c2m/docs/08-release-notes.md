@@ -17,7 +17,18 @@ Changed in 0.6.0: entry 0.6.0 added.
 Changed in 0.5.0: entry 0.5.0 added; real figures removed from earlier entries (public repo).
 Format: Keep a Changelog, semantic versions. Live: 1.0.0 (pushed 19 Oct about 22:09, checked live by Claude as Tahir the same evening; Yawar's view checked in the cloud copy only); 0.9.3 pushed 19 Oct 14:38, checked live; 0.9.2 pushed 19 Oct 12:43, checked live; first data load 19 Oct 2026 about 13:17, checked live. Before: 0.9.1 (pushed 19 Oct 09:39, checked live). apps/c2m first pushed by Tahir on 17 Oct and the live migration run the same day (39 empty c2m_ tables); 0.6.0 and 0.7.0 pushed on 18 Oct (17:29), 0.8.0 (20:16) and 0.9.0 (22:03), each checked live by Claude. The folder tabs (D-59) were built after the 0.9.0 push and ship in 0.9.1. No data loaded yet: the first data load runs on Monday 19 Oct 2026.
 
-## [Next version, Packing bills pick their packs; freight regions from a list] · 5 Nov 2026 · D-151 · Who: Claude built and tested; Tahir and Yawar ruled and approve the push
+## [Next version, Clients: client first, then its brand; prices change on Monday] · 5 Nov 2026 · D-152 · Who: Claude built and tested; Tahir and Yawar ruled and approve the push
+### Changed
+- The top bar is Approvals, Clients, Margin, Costs and More. Client prices is inside Clients; Products moves under More (until push 3b).
+- A new client price or VAN list revision takes effect on a Monday, the cost day (next Monday unless a later Monday is picked). One whose Monday passes while it waits for Tahir takes the next Monday. Urgent: ticked with a reason; it goes in the day Tahir approves it and comes first on his Approvals.
+### Added
+- Clients opens on White Label; a switch at the top goes to VAN Brands, each side saying what waits and what is below target. Clients remembers the side last used.
+- White Label: the client page (as Client prices was) with each brand opening its brand page: recipe, cost by pack, Existing, Current and Projected prices with GP, margin FY to date and open POs, New price.
+- VAN Brands: Products (recipe, cost, standard margin), Prices by list and Price lists.
+### Needs
+- No migration.
+
+## [2026-11-05e, Packing bills pick their packs; freight regions from a list] · 5 Nov 2026 · D-151 · pushed 5 Nov 2026 (commit c1fb8d1) · Who: Claude built and tested; Tahir and Yawar ruled and approve the push
 ### Added
 - Costs, Packing cost: each bill lists its packs (white label and VAN brand, not bulk or client packed). Tick the packs: a pack with no bill gets it at once; a pack on another bill moves on Monday.
 ### Changed

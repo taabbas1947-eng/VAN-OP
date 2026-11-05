@@ -814,3 +814,6 @@ c2m_audit actions added: delete (entity material, packing_item, packing_bill, co
 
 ## 4.15 Migration 011: Labour and FOH, Low and High (5 Nov 2026, D-150)
 011_c2m_labour_foh_low_high.sql (and its PRODUCTION copy) creates c2m_lf_rate (id, kind labour or foh, name, rs_per_kg NULL = not filled, valid_from the day it is in force from (the migration rows: the 1st of the month it runs in), source, set_by, set_at; key kind, name, valid_from) and c2m_lf_pick (id, client_product_id, kind, rate_name, valid_from, set_by, set_at; key client_product_id, kind, valid_from), and adds 4 rows (Labour Low, Labour High, FOH Low, FOH High, not filled, from the 1st of the month it runs in) only when the table is empty. Nothing else changes; c2m_conversion_rule stays, unused. Safe to run twice. The switch to Low and High happens when it runs.
+
+## 4.16 No new table (5 Nov 2026, D-152)
+Urgent prices and list revisions are marked by a c2m_audit row: entity price or list_revision, entity_id the row id, action urgent, why the reason. c2m_price.valid_from and c2m_list_revision.valid_from hold a Monday, or the save day when urgent.

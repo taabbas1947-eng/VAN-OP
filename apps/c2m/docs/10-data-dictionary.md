@@ -310,3 +310,13 @@ Changed in 0.3.0 and 0.3.1: rs_per_kg fixed (1 rate of 1 kind, labour or FOH). A
 | On Low, On High | The labour or FOH rate a client product uses; Low when never moved | c2m_lf_pick |
 | Not filled | A named rate with no figure yet; its packs are not costed | c2m_lf_rate.rs_per_kg NULL |
 | Labour and FOH certificate | The CFO's monthly No change or Changed for the month before | c2m_monthly_check, kind lf_cert |
+
+## 10.17 Added on 5 Nov 2026 (owner: Tahir; D-152)
+| Word | Meaning | Where |
+|---|---|---|
+| Clients | The place for prices: White Label and VAN Brands | top bar |
+| Brand page | 1 white label brand: recipe, cost by pack, prices, margin | Clients, White Label, client, brand |
+| Existing price | The client's last PO price for the pack | c2m_o2s_po_line |
+| Current price | The approved price in force today | c2m_price |
+| Projected price | The price for the target GP at today's cost | worked on the page |
+| Urgent price | A price or list revision in force the day Tahir approves it | c2m_audit, action urgent |

@@ -739,3 +739,14 @@ pushed), 07, 08, 09 (B-45, F-31), 12 (12.19). No migration.
 Tests: 12.19 (route 17, page 12; earlier suites pass). Independent review: 1 blocker and 14 points, all fixed.
 Push 2 (Costs centre) is complete with this. Next per R31: push 3, Clients place (White Label and VAN Brands; VAN price lists with
 their own margin and freight), picture first.
+
+
+## 5 Nov 2026 (6) - push 3a: Clients place, brand page, Monday price cycle (D-152), MODULE: C2M
+Module: C2M. Not pushed (Tahir pushes). No migration. Push 2d was pushed as c1fb8d1 ("push 4 c2m"); D-151 marked pushed.
+Picture: C2M Clients Place artifact (R33 to R38 ruled that evening). Tahir after the first build: no landing page; Clients opens on White Label with a switch to VAN Brands.
+Files: apps/c2m/c2m.html, c2m-routes.js, c2m-access.js; docs 01, 02, 03, 04, 05, 06, 07, 08, 09, 10, 11, 12.
+- Top bar for see.margin: Approvals, Clients, Margin, Costs; More: Products, Setup, Reports, Guide. Every old way into Client prices lands in Clients.
+- White Label: the client price table; a brand opens the brand page (recipe, cost by pack, Existing/Current/Projected with GP, margin FY to date, open POs, New price). VAN Brands: Products, Prices by list, Price lists.
+- R33: client prices and list revisions take effect on a Monday; Monday passed while waiting = next Monday; urgent (audit row action urgent, reason) = the approval day.
+Tests: 12.20 (route 18, page 36; earlier suites pass). Independent review: 1 blocker and 10 points; fixed except 2 left for 3b and Tahir's note (12.20).
+Next: push 3b, VAN Brands with the 5 list cards, list target margin and freight (R34, R35), 1 migration. Then push 4 (Month end, with R37 VAN sales freight).

@@ -166,3 +166,10 @@ A pack takes 1 labour rate and 1 FOH rate, each the first match of these levels:
 |---|---|---|
 | B-45 | Bill picks its packs | A packing bill lists its packs. A pack with no bill gets it at once; a pack moved from another bill waits for Monday (B-40). A pack's first bill sends no re-approval unless it has no approved cost yet. |
 | F-31 (changed) | Freight region | Picked from the regions on clients and freight rows (R13); a region on neither is refused. |
+
+## 5 Nov 2026 (D-152)
+| ID | Rule | Detail |
+|---|---|---|
+| B-46 | Price cycle (R33) | A client price or VAN list revision takes effect on a Monday. Approved after its Monday: the next Monday. Urgent, with a reason, the day Tahir approves it. |
+| F-34 | Projected price (R36) | Cost today ÷ (1 − target GP %), Rs per kg or L, shown with 2 decimals. |
+| F-35 | Brand margin, FY to date | Sales = Σ kg × PO price of trucks since 1 July; GP % = Σ kg × (price − cost) ÷ Σ kg × price over trucks with a cost. |

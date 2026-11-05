@@ -283,3 +283,8 @@ c2m_list_price (farmer rows, by packId) -> lib.printMrp -> the MRP printing list
 - POST /api/c2m/packing/bill takes packIds: the packs ticked. Packs not yet on the bill get packing_bill_id; a pack on another bill makes the save wait in c2m_cost_pending (kind packing_bill); packs on the bill and not listed stay. POST /api/c2m/packing/assign goes through the same weekly cycle (kind packing_assign).
 - POST /api/c2m/freight refuses a region not found on c2m_customer.region or c2m_freight_rate.region.
 - A held bill save keeps packFrom (where each moving pack was); on Monday a pack gone, made bulk or client packed, or moved since is left out. Packs with no bill on a held save are given the bill at once (as /packing/assign). POST /api/c2m/products/:id/full refuses a move of an existing pack's bill Tuesday to Sunday once migration 010 is run.
+
+## 2.29 Clients place and price cycle (owner: Tahir; D-152)
+- The page builds the Clients place from the state it already reads (products, packs, proposals, list revisions, sales, open POs). New in the state: each pack's approvedFrom (the date of its approved cost), and urgent (the reason, or null) on proposals and list revisions, read from c2m_audit rows with action urgent.
+- POST /api/c2m/prices/propose and /lists/revise store valid_from as a Monday, or today when urgent; an urgent save writes an audit row (entity price or list_revision, action urgent, why = the reason).
+- On approval the effective date is worked again: urgent = the approval day; otherwise the first Monday on or after the later of valid_from and today. A list revision's valid_from is moved to that date before it waits or applies.

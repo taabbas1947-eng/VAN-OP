@@ -345,7 +345,7 @@ module.exports = function mountC2mRoutes(app, deps) {
         const price = ap ? Number(ap.price) : ended ? null : (lastPo.get(p.id) ?? null);
         const out = { id: p.id, size: Number(p.pack_size), billId: p.packing_bill_id, clientOnly: D.packExt.has(p.id) ? D.packExt.get(p.id) : null };
         if (seeCost) Object.assign(out, { cost: c && c.costed ? { materials: c.materials, packing: c.packing, conversion: c.conversion, freight: c.freight, total: c.total, rule: c.rule ? c.rule.name : null } : null, costGaps: c && !c.costed ? c.gaps : null,
-          approvedCost: av ? Number(av.total) : null, floor: c && c.costed ? lib.contributionFloor(c) : null, labour: c && c.costed ? c.labour : null,
+          approvedCost: av ? Number(av.total) : null, approvedFrom: av ? String(av.valid_from).slice(0, 10) : null, /* R4 brand page: date of the last cost approval (push 3a) */ floor: c && c.costed ? lib.contributionFloor(c) : null, labour: c && c.costed ? c.labour : null,
           sheet: (() => { const v = (D.verByPack.get(p.id) || []).filter(x => /^Yawar's Master Cost Sheet/.test(x.cause)).pop(); return v ? { materials: Number(v.materials), packing: Number(v.packing), conversion: Number(v.conversion), total: Number(v.total) } : null; })() });
         const np = nextPrice.get(p.id);
         if (seePrice) Object.assign(out, { price, priceSource: ap ? 'approved' : (price != null ? 'O2S PO' : null), priceEnded: ended ? { price: Number(ended.price), till: String(ended.valid_to).slice(0, 10) } : null, lastPoPrice: lastPo.get(p.id) ?? null, prevPrice: ap && ap.prev_price != null ? Number(ap.prev_price) : null, priceFrom: ap ? ap.valid_from : null, priceTill: ap && ap.valid_to ? String(ap.valid_to).slice(0, 10) : null,
@@ -429,7 +429,9 @@ module.exports = function mountC2mRoutes(app, deps) {
         return { cust: obl.line, cat: obl.cat, grp: ogrp, brand: l.brand, pack: Number(l.pack), packId: p ? p.id : null, po: l.po, received: l.received,
           kg: Number(l.open_kg), price: Number(l.net_price), cost: c && c.costed ? c.total : null, target: cp && cp.target_gp != null ? Number(cp.target_gp) : null };
       });
-      out.proposals = prices.filter(p => p.status !== 'approved' || p.decided_at).slice(-60).map(p => ({ byAdmin: byAd(p.proposed_by), id: p.id, packId: p.client_pack_id, price: Number(p.price), prev: p.prev_price == null ? null : Number(p.prev_price), status: p.status,
+      let urgRows = []; try { [urgRows] = await pq("SELECT entity, entity_id, why FROM c2m_audit WHERE action='urgent' AND entity IN ('price','list_revision')"); } catch (_) {} // R33
+      const urgOf = (e, id) => { const u = urgRows.filter(x => x.entity === e && String(x.entity_id) === String(id)).pop(); return u ? u.why : null; };
+      out.proposals = prices.filter(p => p.status !== 'approved' || p.decided_at).slice(-60).map(p => ({ urgent: urgOf('price', p.id), byAdmin: byAd(p.proposed_by), id: p.id, packId: p.client_pack_id, price: Number(p.price), prev: p.prev_price == null ? null : Number(p.prev_price), status: p.status,
         reason: p.reason, belowReason: p.below_target_reason, backReason: p.back_reason, by: p.proposed_by, at: p.proposed_at, decidedBy: p.decided_by, decidedAt: p.decided_at, from: p.valid_from, to: p.valid_to || null }));
       // 0.9.0 (read only, no new table): every approved price with its dates, for Price history and the PO price report (R3)
       // 'replaced' with no send-back reason = approved, then ended by a newer price (review 18 Oct, finding 1)
@@ -507,7 +509,7 @@ module.exports = function mountC2mRoutes(app, deps) {
       { const [cc] = await pq("SELECT entity_id FROM c2m_audit WHERE entity='list_revision' AND action='replaced' AND why LIKE 'Closed at the carry-over%'"); const ccs = new Set(cc.map(x => Number(x.entity_id))); // revisions closed at the carry-over, shown with their prices (review 1.0.3, third check)
         const [crv] = ccs.size ? await q(`SELECT id, list_name, items_json, reason, back_reason, valid_from FROM c2m_list_revision WHERE id IN (${qs([...ccs])})`, [...ccs]) : [[]]; out.closedAtCarry = crv.map(r => ({ id: r.id, list: r.list_name, reason: r.reason, back: r.back_reason, items: JSON.parse(r.items_json).map(it => ({ product: it.product, pack: it.pack, to: it.to })) })); }
       out.listRevisions = lr.map(r => { const open = r.status === 'proposed' || r.status === 'sent_back' || (r.status === 'approved' && !Number(r.applied));
-        return { ...r, byAdmin: byAd(r.proposed_by), items: JSON.parse(r.items_json).map(it => open ? itemNow(D, liById, it) : it), items_json: undefined }; }); /* a revision still open shows each row under its name today (review 1.0.2, design finding 5) */
+        return { ...r, urgent: urgOf('list_revision', r.id), byAdmin: byAd(r.proposed_by), items: JSON.parse(r.items_json).map(it => open ? itemNow(D, liById, it) : it), items_json: undefined }; }); /* a revision still open shows each row under its name today (review 1.0.2, design finding 5) */
       out.customers = D.customers.map(c => ({ id: c.id, name: c.name, grp: c.grp, segment: c.segment, priceRule: c.price_rule, cycle: c.price_cycle, region: c.region, o2sNames: c.o2s_names, printName: c.print_name || '' })); out.printNameReady = D.customers.length > 0 && 'print_name' in D.customers[0];
       { const [oo] = await pq("SELECT c.id, c.brand, cu.name customer FROM c2m_client_product c JOIN c2m_customer cu ON cu.id=c.customer_id WHERE c.active=0 AND c.channel='White label' ORDER BY cu.name, c.brand"); out.outOfUse = oo; }
       const [docs] = [fs.readdirSync(path.join(__dirname, 'docs')).filter(f => f.endsWith('.md')).sort()]; out.docs = docs;
@@ -833,6 +835,17 @@ module.exports = function mountC2mRoutes(app, deps) {
   const dow = d => new Date(String(d).slice(0, 10) + 'T00:00:00Z').getUTCDay();
   const isMonday = d => dow(d) === 1;
   const nextMonday = d => { const t = new Date(String(d).slice(0, 10) + 'T00:00:00Z'); t.setUTCDate(t.getUTCDate() + (((8 - t.getUTCDay()) % 7) || 7)); return t.toISOString().slice(0, 10); };
+  /* Price cycle (R33, push 3a, D-152): an approved client price, and an approved VAN list revision, take effect on a Monday,
+     the cost day, so cost and price move together. Urgent: in force when Tahir approves it, with a reason he reads first. */
+  const mondayFrom = d => isMonday(d) ? String(d).slice(0, 10) : nextMonday(d); // the first Monday on or after d
+  async function urgentWhy(entity, id) { const [[r]] = await q("SELECT why FROM c2m_audit WHERE entity=? AND entity_id=? AND action='urgent' ORDER BY id DESC LIMIT 1", [entity, String(id)]); return r ? r.why : null; }
+  /** The effective date a new price or list revision is saved with: today when urgent, else the Monday asked for (next Monday by default). */
+  function cycleFrom(validFrom, urgent, why, what) {
+    if (urgent) { if (!String(why || '').trim()) throw bad(`Write why ${what} is urgent: Tahir reads it before he approves.`); return today(); }
+    const f = validFrom || mondayFrom(today());
+    if (!isMonday(f)) throw bad(`${what[0].toUpperCase() + what.slice(1)} takes effect on a Monday, the cost day (R33). Pick a Monday (the next is ${mondayFrom(today())}), or tick Urgent and write why.`);
+    return f;
+  }
   const AUD_KIND = { rate: 'rate', packing_rate: 'packing_rate', packing_bill: 'packing_bill', freight: 'freight', packing_assign: 'client_pack' }; // c2m_audit entity of each kind
   /** What a save changes, read before it is held: { target, label, nowV, newV, first, at (save at once for another reason) }. */
   const DESCRIBE = {
@@ -1499,14 +1512,15 @@ module.exports = function mountC2mRoutes(app, deps) {
     return { D, p, cp, gaps: c && !c.costed ? c.gaps : [], cost: c && c.costed ? c.total : null, target: lib.targetOr(cp.target_gp, D.settings && D.settings.values ? D.settings.values.budget_gp : null) }; // no target set = the company GP target (D-75)
   }
   app.post('/api/c2m/prices/propose', can('price.propose'), wrap(async (req, res) => {
-    const { packId, price, reason, belowReason, replaceId, validFrom, validTo } = req.body || {};
+    const { packId, price, reason, belowReason, replaceId, validFrom, validTo, urgent, urgentWhy: uWhy } = req.body || {};
     const v = strictNum(price); if (!(v > 0)) throw bad('Type a price above 0, digits only.');
     if (Math.abs(v - Math.round(v)) > 1e-9) throw bad(`A client price is a whole rupee. Type ${Math.ceil(v)} (the next whole rupee) or another whole number.`); // Tahir, 22 Oct 2026
     const P = await packInfo(packId);
     if (engine.isVanBrand(P.cp)) throw bad('A VAN brand pack is priced per channel through the VAN brand list revisions (Prices, VAN brand lists), not here.'); // D-44
     if (validFrom && !isDate(validFrom)) throw bad('Effective date must be a date.');
     if (validFrom && validFrom < today()) throw bad('The effective date cannot be in the past.');
-    if (validTo && (!isDate(validTo) || validTo < (validFrom || today()))) throw bad('Valid till must be the effective date or later (it is the last day the price applies).');
+    const from0 = cycleFrom(validFrom, !!urgent, uWhy, 'a price'); // R33
+    if (validTo && (!isDate(validTo) || validTo < from0)) throw bad('Valid till must be the effective date or later (it is the last day the price applies).');
     // No price for a pack that is not costed, including one whose recipe is not in C2M yet (D-40; Tahir 18 Oct, I-24)
     if (P.cost == null) throw bad(`This pack is not costed (${P.gaps.join(', ')}), so its GP cannot be checked. Fix its cost first, then propose the price.`);
     const gp = lib.marginPct(v, P.cost);
@@ -1521,8 +1535,9 @@ module.exports = function mountC2mRoutes(app, deps) {
       for (const o of old) { await q("UPDATE c2m_price SET status='replaced' WHERE id=?", [o.id]); await audit(req.c2m.user, 'price', o.id, 'replaced', 'sent_back', 'replaced', 'A newer price for the same pack was sent'); }
       const cur = await priceInForce(P.p.id);
       const [r] = await q("INSERT INTO c2m_price (client_pack_id, price, prev_price, valid_from, valid_to, reason, below_target_reason, status, proposed_by, proposed_at) VALUES (?,?,?,?,?,?,?,'proposed',?,?)",
-        [P.p.id, v, cur ? cur.price : null, validFrom || today(), validTo || null, String(reason || '').slice(0, 400) || null, String(belowReason || '').slice(0, 400) || null, req.c2m.user, now()]);
+        [P.p.id, v, cur ? cur.price : null, from0, validTo || null, String(reason || '').slice(0, 400) || null, String(belowReason || '').slice(0, 400) || null, req.c2m.user, now()]);
       await audit(req.c2m.user, 'price', r.insertId, 'propose', cur ? cur.price : null, v, reason);
+      if (urgent) await audit(req.c2m.user, 'price', r.insertId, 'urgent', null, null, String(uWhy).trim().slice(0, 400)); // R33: Tahir reads why on Approvals
       return r.insertId;
     });
     res.json({ id });
@@ -1530,7 +1545,9 @@ module.exports = function mountC2mRoutes(app, deps) {
   app.post('/api/c2m/prices/:id/approve', can('price.approve'), wrap(async (req, res) => {
     await tx(async () => {
       const [[p]] = await q("SELECT * FROM c2m_price WHERE id=? AND status='proposed' FOR UPDATE", [req.params.id]); if (!p) throw moved(); await notSelf(p.proposed_by, req);
-      const from = String(p.valid_from).slice(0, 10) > today() ? String(p.valid_from).slice(0, 10) : today();
+      const urg = await urgentWhy('price', p.id);
+      const from0 = String(p.valid_from).slice(0, 10) > today() ? String(p.valid_from).slice(0, 10) : today();
+      const from = urg ? today() : mondayFrom(from0); // R33: a price whose Monday passed while it waited takes the next Monday; urgent goes in today
       if (p.valid_to && String(p.valid_to).slice(0, 10) < from) throw bad(`Its valid till date (${String(p.valid_to).slice(0, 10)}) is before it would start (${from}). Send it back for new dates.`);
       // Only 1 price may wait for its date: a newer approval cancels the waiting one, puts back what it shortened, and says so
       const [waiting] = await q("SELECT * FROM c2m_price WHERE client_pack_id=? AND status='approved' AND valid_from>? AND id<>? FOR UPDATE", [p.client_pack_id, today(), p.id]);
@@ -2440,11 +2457,12 @@ module.exports = function mountC2mRoutes(app, deps) {
     res.json(out);
   }));
   app.post('/api/c2m/lists/revise', can('list.revise'), wrap(async (req, res) => {
-    const { list, items, reason, validFrom, validTill, replaceId } = req.body || {};
+    const { list, items, reason, validTill, replaceId, urgent, urgentWhy: uWhy } = req.body || {}; let { validFrom } = req.body || {};
     if (!LIST_FIELDS[list]) throw bad('Pick the list.');
     if (!String(reason || '').trim()) throw bad('Write the reason for the revision.');
-    if (!isDate(validFrom)) throw bad('Effective date must be a date.');
-    if (validFrom < today()) throw bad('The effective date cannot be in the past.');
+    if (validFrom && !isDate(validFrom)) throw bad('Effective date must be a date.');
+    if (validFrom && validFrom < today()) throw bad('The effective date cannot be in the past.');
+    validFrom = cycleFrom(validFrom, !!urgent, uWhy, 'a list revision'); // R33
     if (validTill && (!isDate(validTill) || validTill < validFrom)) throw bad('Valid till must be after the effective date.');
     if (!Array.isArray(items) || !items.length) throw bad('Change at least 1 price.');
     const [rows] = await q('SELECT id, data_json FROM c2m_list_price WHERE list_name=?', [list]); const byId = new Map(rows.map(r => [r.id, JSON.parse(r.data_json)]));
@@ -2504,6 +2522,7 @@ module.exports = function mountC2mRoutes(app, deps) {
       for (const o of oldR) { await q("UPDATE c2m_list_revision SET status='replaced' WHERE id=?", [o.id]); await audit(req.c2m.user, 'list_revision', o.id, 'replaced', 'sent_back', 'replaced', 'A newer revision of the same list was sent'); }
       const [r] = await q('INSERT INTO c2m_list_revision (list_name, items_json, reason, valid_from, valid_till, proposed_by, proposed_at) VALUES (?,?,?,?,?,?,?)', [list, JSON.stringify(out), String(reason).slice(0, 400), validFrom, validTill || null, req.c2m.user, now()]);
       await audit(req.c2m.user, 'list_revision', r.insertId, 'propose', null, { list, rows: out.length }, reason);
+      if (urgent) await audit(req.c2m.user, 'list_revision', r.insertId, 'urgent', null, null, String(uWhy).trim().slice(0, 400)); // R33
       return r.insertId;
     });
     res.json({ id, rows: out.length });
@@ -2514,8 +2533,13 @@ module.exports = function mountC2mRoutes(app, deps) {
       const [[r]] = await q("SELECT * FROM c2m_list_revision WHERE id=? AND status='proposed' FOR UPDATE", [req.params.id]); if (!r) throw moved(); await notSelf(r.proposed_by, req);
       { const ids = JSON.parse(r.items_json).filter(it => it.id != null).map(it => Number(it.id)); if (ids.length) { const [still] = await q(`SELECT id FROM c2m_list_price WHERE list_name=? AND id IN (${qs(ids)}) FOR UPDATE`, [r.list_name, ...ids]); if (still.length < new Set(ids).size) throw bad('A row of this revision is no longer on the list (taken off, or left at the carry-over into the master): send this revision back to the CFO.'); } } // review 1.0.3, code finding 2
       { const adds = JSON.parse(r.items_json).filter(it => it.id == null && it.added); if (adds.length) { for (const it of adds) { const [[c]] = await q('SELECT c.active FROM c2m_client_pack k JOIN c2m_client_product c ON c.id=k.client_product_id WHERE k.id=?', [it.packId]); if (!c || !Number(c.active)) throw bad(`${it.product} ${it.pack} is out of use now: send this revision back to the CFO.`); } } } // review 1.0.2 re-check 2, finding 1
+      /* R33: the list changes on a Monday; one whose Monday passed while it waited takes the next Monday; urgent goes in today. */
+      const urg = await urgentWhy('list_revision', r.id), f0 = String(r.valid_from).slice(0, 10) > today() ? String(r.valid_from).slice(0, 10) : today();
+      const from = urg ? today() : mondayFrom(f0);
+      if (r.valid_till && String(r.valid_till).slice(0, 10) < from) throw bad(`Its valid till date (${String(r.valid_till).slice(0, 10)}) is before it would start (${from}). Send it back for new dates.`);
+      if (from !== String(r.valid_from).slice(0, 10)) { await q('UPDATE c2m_list_revision SET valid_from=? WHERE id=?', [from, r.id]); r.valid_from = from; }
       const [u] = await q("UPDATE c2m_list_revision SET status='approved', decided_by=?, decided_at=? WHERE id=? AND status='proposed'", [req.c2m.user, now(), r.id]); if (!u.affectedRows) throw moved();
-      const waits = String(r.valid_from).slice(0, 10) > today() ? String(r.valid_from).slice(0, 10) : null;
+      const waits = from > today() ? from : null;
       if (!waits) await applyRevision(r);
       await audit(req.c2m.user, 'list_revision', r.id, 'approve', null, { list: r.list_name, waitsUntil: waits }, r.reason);
       res.locals.out = { ok: true, waitsUntil: waits };

@@ -1453,7 +1453,12 @@ const CHANGELOG = [
  { t: 'Roles are no longer made in C2M: the System Administrator designs them on the launcher. The Roles tab under Setup, Settings is gone.', for: ['settings.approve'], guide: null },
  { t: 'If C2M cannot open, it says why and offers Retry and Back to launcher.', for: ['all'], guide: null }] },
   { ver: '2026-11-04d', date: '2026-11-04', title: 'VAN brand POs checked against their price list', items: [
- { t: 'Each VAN brand PO since 11 Oct is compared with the price list in force on its date and marked: at list price (within 1%), above, below, or not on its list. Distributors and Punjab dealers: distributor list. Sindh dealers: dealer list. COBO: farmer list, Sindh cash. VGreen: farmer list, Punjab. Farmer POs: farmer list for their region, Sindh cash or credit by payment terms. A client\'s own pack is checked against its cost only. Nothing is blocked and Margin keeps the price O2S entered. See More, Reports, VAN brand PO against its price list; Approvals shows a line when POs are off their list.', for: ['see.price'], guide: 'Check VAN brand POs against their price list' }] }
+ { t: 'Each VAN brand PO since 11 Oct is compared with the price list in force on its date and marked: at list price (within 1%), above, below, or not on its list. Distributors and Punjab dealers: distributor list. Sindh dealers: dealer list. COBO: farmer list, Sindh cash. VGreen: farmer list, Punjab. Farmer POs: farmer list for their region, Sindh cash or credit by payment terms. A client\'s own pack is checked against its cost only. Nothing is blocked and Margin keeps the price O2S entered. See More, Reports, VAN brand PO against its price list; Approvals shows a line when POs are off their list.', for: ['see.price'], guide: 'Check VAN brand POs against their price list' }] },
+  { ver: '2026-11-05a', date: '2026-11-05', title: '7 cost saves made safe', items: [
+ { t: 'Edit a material: a new name or class and a new rate typed together now both go through. Before, the rate was lost and the screen said Saved. The same for a packing item\'s name and price.', for: ['rate.save', 'material.save', 'packing.manage'], guide: null },
+ { t: 'Settings: a box left empty is no longer saved (it counted as 0). Month end: an empty actual labour or FOH box is no longer saved as Rs 0.', for: ['settings.edit', 'actuals.enter'], guide: null },
+ { t: 'Freight: a region typed in small letters ("sindh") now matches clients in Sindh. Before Delete, C2M now checks the freight rate in force today, not one dated ahead.', for: ['freight.edit'], guide: null },
+ { t: 'Labour and FOH: adding a second rate for exactly the same products is refused, since one of the two would never be used. Change a rate with Edit in its row.', for: ['labour.manage'], guide: null }] }
 ];
 let _wnShown = false, wnGuide = null;
 /** A Guide link only when that row is on this person's Guide (Yawar's rows, Tahir's rows, and Both; D-141). */
@@ -1846,28 +1851,33 @@ document.addEventListener('click', async e => {
   else if ('rwsave' in d) { const E = rowEd;
     if (E.kind === 'grade') { const m = (ST.rates || []).find(x => x.gradeId === E.id) || (ST.materials || []).find(x => x.gradeId === E.id) || {}; const mm = (ST.materials || []).find(x => x.gradeId === E.id) || {};
       if (!need([['rwe-n', 'Write the material name.'], ['rwe-g', 'Write the grade, e.g. Standard.']])) return;
-      const words = val('rwe-n').trim() !== m.name || val('rwe-g').trim() !== m.grade || val('rwe-u') !== (m.unit || 'kg');
-      if (words && !(await act(`/api/c2m/edit/grade/${E.id}`, { name: val('rwe-n'), grade: val('rwe-g'), unit: val('rwe-u') }, 'Saved. The change is in the change record.'))) return;
-      const ty = $('rwe-t'); if (ty && !ty.disabled && Number(ty.value) !== Number(mm.typeId) && mm.materialId && !(await act(`/api/c2m/materials/${mm.materialId}/type`, { typeId: +ty.value }, 'Class saved.'))) return;
-      const nr = val('rwe-r'); rowEd = null;
-      if (nr !== '' && Number(nr) !== Number(m.rate) && CAN('rate.save')) { trial = { gradeId: E.id, rate: Number(nr), source: val('rwe-s') || '', conf: false, res: null }; render(); toast('Check the effect of the new rate below, then save it.'); $('trf') && $('trf').scrollIntoView({ block: 'center' }); return; }
-      if (!words && !(ty && !ty.disabled && Number(ty.value) !== Number(mm.typeId))) toast('Nothing changed.'); }
+      /* Every field is read before the first save: a save redraws the form from the saved data, so a field read after it gives
+         the old value (audit 4 Nov 2026, fault A1: a new rate typed with a new name was lost). */
+      const F = { n: val('rwe-n'), g: val('rwe-g'), u: val('rwe-u'), r: val('rwe-r'), s: val('rwe-s') || '' }; const ty = $('rwe-t'); const tyv = ty && !ty.disabled ? Number(ty.value) : null;
+      const words = F.n.trim() !== m.name || F.g.trim() !== m.grade || F.u !== (m.unit || 'kg'); const cls = tyv != null && tyv !== Number(mm.typeId) && !!mm.materialId;
+      if (words && !(await act(`/api/c2m/edit/grade/${E.id}`, { name: F.n, grade: F.g, unit: F.u }, 'Saved. The change is in the change record.'))) return;
+      if (cls && !(await act(`/api/c2m/materials/${mm.materialId}/type`, { typeId: tyv }, 'Class saved.'))) return;
+      rowEd = null;
+      if (F.r !== '' && Number(F.r) !== Number(m.rate) && CAN('rate.save')) { trial = { gradeId: E.id, rate: Number(F.r), source: F.s, conf: false, res: null }; render(); toast((words || cls ? 'Name or class saved. ' : '') + 'Check the effect of the new rate below, then save it.'); $('trf') && $('trf').scrollIntoView({ block: 'center' }); return; }
+      if (!words && !cls) toast('Nothing changed.'); }
     else if (E.kind === 'pitem') { const it = (ST.packingItems || []).find(x => x.id === E.id) || {};
-      if (!need([['rwe-n', 'Write the item name.']])) return; const words = val('rwe-n').trim() !== it.name || (val('rwe-k') || '').trim() !== (it.kind || '');
-      if (words && !(await act(`/api/c2m/edit/pitem/${E.id}`, { name: val('rwe-n'), kind: val('rwe-k') }, 'Saved. The change is in the change record.'))) return;
-      const np = val('rwe-r'); rowEd = null;
-      if (np !== '' && Number(np) !== Number(it.price)) { ptrial = { itemId: E.id, buy: it.buy ? 'kg' : 'piece', source: '', conf: false, warn: null, price: Number(np) }; render(); toast('Check the new price below: give its source, then save it.'); return; }
+      if (!need([['rwe-n', 'Write the item name.']])) return; const F = { n: val('rwe-n'), k: val('rwe-k') || '', r: val('rwe-r') }; // read before the first save (fault A2)
+      const words = F.n.trim() !== it.name || F.k.trim() !== (it.kind || '');
+      if (words && !(await act(`/api/c2m/edit/pitem/${E.id}`, { name: F.n, kind: F.k }, 'Saved. The change is in the change record.'))) return;
+      const np = F.r; rowEd = null;
+      if (np !== '' && Number(np) !== Number(it.price)) { ptrial = { itemId: E.id, buy: it.buy ? 'kg' : 'piece', source: '', conf: false, warn: null, price: Number(np) }; render(); toast((words ? 'Name saved. ' : '') + 'Check the new price below: give its source, then save it.'); return; }
       if (!words) toast('Nothing changed.'); }
     else if (E.kind === 'rule') { const r = (ST.rules || []).find(x => x.id === E.id) || {};
       if (!need([['rwe-n', 'Write the rate name.'], ['rwe-r', 'Type Rs per kg or L.']])) return;
-      const cost = Number(val('rwe-r')) !== Number(r.rsPerKg) || val('rwe-f') !== String(r.validFrom).slice(0, 10);
-      if (cost) { if (!(await act(`/api/c2m/rules/conversion/${E.id}/replace`, { name: val('rwe-n'), rsPerKg: val('rwe-r'), validFrom: val('rwe-f'), source: val('rwe-s') }, j => `Saved as a new rate from ${fmtD(val('rwe-f') || ST.today)}; the old one is retired.${j.reapproval ? ' ' + pl(j.reapproval, 'pack waits', 'packs wait') + ' for re-approval.' : ''}`))) return; }
-      else if (val('rwe-n').trim() !== r.name || (val('rwe-s') || '') !== (r.source || '')) { if (!(await act(`/api/c2m/edit/rule/${E.id}`, { name: val('rwe-n'), source: val('rwe-s') }, 'Saved. The change is in the change record.'))) return; }
+      const F = { n: val('rwe-n'), r: val('rwe-r'), f: val('rwe-f'), s: val('rwe-s') || '' }; // read before the save (audit 4 Nov 2026)
+      const cost = Number(F.r) !== Number(r.rsPerKg) || F.f !== String(r.validFrom).slice(0, 10);
+      if (cost) { if (!(await act(`/api/c2m/rules/conversion/${E.id}/replace`, { name: F.n, rsPerKg: F.r, validFrom: F.f, source: F.s }, j => `Saved as a new rate from ${fmtD(F.f || ST.today)}; the old one is retired.${j.reapproval ? ' ' + pl(j.reapproval, 'pack waits', 'packs wait') + ' for re-approval.' : ''}`))) return; }
+      else if (F.n.trim() !== r.name || F.s !== (r.source || '')) { if (!(await act(`/api/c2m/edit/rule/${E.id}`, { name: F.n, source: F.s }, 'Saved. The change is in the change record.'))) return; }
       else toast('Nothing changed.');
       rowEd = null; }
     else if (E.kind === 'freight') { const f = (ST.freight || []).find(x => Number(x.id) === E.id) || {};
       if (!need([['rwe-r', 'Type Rs per kg.']])) return;
-      if (!(await act('/api/c2m/freight', { segment: f.segment, region: f.region, rsPerKg: val('rwe-r'), validFrom: val('rwe-f') || ST.today }, 'Freight saved from the date given.'))) return; rowEd = null; }
+      const F = { r: val('rwe-r'), f: val('rwe-f') || ST.today }; if (!(await act('/api/c2m/freight', { segment: f.segment, region: f.region, rsPerKg: F.r, validFrom: F.f }, 'Freight saved from the date given.'))) return; rowEd = null; }
   }
   else return;
   render();
@@ -3080,7 +3090,7 @@ document.addEventListener('click', async e => {
   else if (d.impsave) { const r = await act(`/api/c2m/import/${d.impsave}/correct`, { value: val('cv'), why: val('cw'), confirmed: !!($('cconf') && $('cconf').checked) }, j => j.reapproval ? `Saved. ${pl(j.reapproval, 'pack', 'packs')} to re-approve.` : j.kind === 'note' ? 'Recorded. Nothing in C2M changes from a note; make the change on its screen.' : 'Saved into C2M'); if (r) { corr = null; render(); } return; }
   else if ('sync' in d) { await act('/api/c2m/sync', {}, j => `Pulled O2S: ${j.poLines} PO lines, ${j.trucks} trucks, ${pl(j.issues.length, 'issue', 'issues')}.`); return; }
   else if (d.grant) { const [u, k, v] = d.grant.split('|'); await act('/api/c2m/grants', { username: u, kind: k, value: v, on: t.checked }, t.checked ? 'Granted' : 'Removed'); return; }
-  else if ('setsave' in d) { const ch = {}; (ST.settings || []).forEach(s => { const v = val('set-' + s.k); if (v != null) ch[s.k] = v; }); await act('/api/c2m/settings', { changes: ch }, j => j.pending ? 'Sent to the COO for approval.' + (j.applied ? ' Other changes saved; the COO notified.' : '') : j.applied ? 'Saved. The COO is notified.' : 'Nothing changed.'); return; }
+  else if ('setsave' in d) { const ch = {}; const empty = []; (ST.settings || []).forEach(s => { const v = val('set-' + s.k); if (v == null) return; if (String(v).trim() === '') { if (String(s.v) !== '') empty.push(s.label || s.k); return; } ch[s.k] = String(v).trim(); }); if (empty.length) { toast(`Type a number for: ${empty.join(', ')}. An empty box is not saved (it would count as 0).`, true); return; } await act('/api/c2m/settings', { changes: ch }, j => j.pending ? 'Sent to the COO for approval.' + (j.applied ? ' Other changes saved; the COO notified.' : '') : j.applied ? 'Saved. The COO is notified.' : 'Nothing changed.'); return; }
   else if (d.setok) { await act(`/api/c2m/settings/requests/${d.setok}/approve`, {}, 'Approved. New thresholds apply.'); return; }
   else if (d.setno) { await act(`/api/c2m/settings/requests/${d.setno}/refuse`, {}, 'Refused.'); return; }
   else if (d.treq) { const tv = String(val('tg-' + d.treq) || '').trim(), tn = Number(tv); if (tv === '' || !isFinite(tn) || tn <= 0 || tn >= 100) { toast('Type the new target GP: a number above 0 and below 100.', true); return; } await act('/api/c2m/targets/request', { clientProductId: +d.treq, toGp: tn, reason: val('tr-' + d.treq) }, 'Sent to the COO. He approves it on Approvals; Margin then judges this product against it.'); return; }
@@ -3091,7 +3101,7 @@ document.addEventListener('click', async e => {
   else if ('rfall' in d) { document.querySelectorAll('[data-rfp]').forEach(x => { rf.picks[x.dataset.rfp] = true; }); }
   else if ('rfnone' in d) rf.picks = {};
   else if ('crsave' in d) { const j0 = await act('/api/c2m/rules/conversion', { name: val('crn'), kind: val('crk'), rsPerKg: val('crr'), validFrom: val('crv'), scope: rf.scope, pvariantId: val('crvar') || null, baseProductId: val('crt') || null, productIds: Object.keys(rf.picks).filter(k => rf.picks[k]).map(Number), form: val('crf') || null, reprocessed: val('crp2'), packMin: val('crmin') || null, packMax: val('crmax') || null }, j => j.reapproval ? `Rate saved and applied. ${pl(j.reapproval, 'pack', 'packs')} moved over ${SET('reapprove_pct')}%: re-approval added.` : 'Rate saved and applied'); if (j0) { rf = { scope: 'general', picks: {} }; render(); } return; }
-  else if ('actsave' in d) { await act('/api/c2m/actuals', { month: val('am'), labour: Number(val('al')), foh: Number(val('af')) }, 'Saved'); return; }
+  else if ('actsave' in d) { if (!need([['al', 'Type actual labour in Rs (0 only if there was none).'], ['af', 'Type actual FOH in Rs (0 only if there was none).']])) return; await act('/api/c2m/actuals', { month: val('am'), labour: String(val('al')).trim(), foh: String(val('af')).trim() }, 'Saved'); return; } // an empty box is never sent as Rs 0 (fault A4)
   else if (d.chk) { const m = addDays(ST.today.slice(0, 7) + '-01', -1).slice(0, 7); const C = c2mMonth(m);
     const data = d.chk === 'tie_books' ? { erpSales: val('tbs'), erpCogs: val('tbc') } : { rates: topRates(m).map((r, i) => ({ gradeId: r.gradeId, name: r.name, c2m: r.c2m, date: r.date, source: r.source, rs: Math.round(r.rs), register: val('rgr-' + i) != null ? val('rgr-' + i) : (document.querySelector(`[data-rgr="${i}"]`) || {}).value })) };
     await act('/api/c2m/checks', { month: m, kind: d.chk, data }, 'Recorded'); return; }

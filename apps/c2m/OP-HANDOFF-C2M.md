@@ -659,3 +659,15 @@ After the push and 009: Pull now, open More, Reports, VAN brand PO against its p
 
 Same day, after the build: Tahir ruled by panel "Others as Punjab" (dealer or farmer outside Punjab and Sindh checked as Punjab; Sindh farmer
 with no terms on Sindh cash) and "Yes, as entered" (FED None compared as entered). Built; I-46 closed, A-25 confirmed; 64 pure tests pass.
+
+
+## 5 Nov 2026 (1) — Push 1 of the cost redesign: 7 faults fixed (D-147) (MODULE: C2M) — NOT PUSHED
+
+Tahir and Yawar ruled the whole cost and pricing redesign by panel on 5 Nov (R1 to R32, on the C2M Cost Jobs Review page):
+client first (White Label, VAN Brands), top bar Approvals, Clients, Margin, Costs, More; Costs as a 6-box configuration centre; named
+Labour and FOH Low/High rates per product; weekly Monday cost cycle; month end with absorption on kg made and a lock; Reports with downloads.
+Build order: 1 faults (this), 2 Costs centre, 3 Clients, 4 Month end, 5 Reports, 6 words, Guide, Find, phone. Pictures first from push 2.
+Push 1 files: c2m.html (material, packing, rule, freight edit read fields before saving; settings and actuals refuse empty; CHANGELOG
+2026-11-05a), c2m-routes.js (settings and actuals strictNum; freight region spelling, uses check in force today, freight_case sweep;
+same-products labour/FOH refused), c2m-engine.js (freightFor region match), c2m-lib.js (sameRegion), docs 06 (D-147), 08, 09, 12 (12.15).
+No migration. Tests: 12.15. After the push: Setup, Costs, Freight should show no change unless a region was saved in other capitals.

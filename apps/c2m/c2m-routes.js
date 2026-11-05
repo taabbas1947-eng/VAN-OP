@@ -557,7 +557,7 @@ module.exports = function mountC2mRoutes(app, deps) {
     return nowPk >= today6 && String(lastFinished) < today6; // past 06:00 today and nothing finished since
   }
   /** Packs of 1 freight segment and region (reapprovalFor passes its own loadAll to the filter). */
-  const freightPacks = (segment, reg) => (p, D0) => { const cp = D0.cpById.get(p.client_product_id); const cu = cp && D0.custById.get(cp.customer_id); return !!cp && cp.channel === segment && !!cu && cu.region === reg; };
+  const freightPacks = (segment, reg) => (p, D0) => { const cp = D0.cpById.get(p.client_product_id); const cu = cp && D0.custById.get(cp.customer_id); return !!cp && cp.channel === segment && !!cu && lib.sameRegion(cu.region, reg); };
   /** A freight rate dated ahead reaches its date (review 4 Nov): the packs it moves are checked for re-approval once, that day or the next pass.
    *  A rate saved on or after its own date was checked at the save. Looks back 7 days, so a server that was down still catches up. */
   let freightBusy = false;
@@ -574,6 +574,19 @@ module.exports = function mountC2mRoutes(app, deps) {
           const re = atSave ? 0 : await reapprovalFor(`Freight ${r.segment} ${r.region} from ${vf} reached its date`, freightPacks(r.segment, r.region));
           if (re) await costNotice('c2m', `Freight ${r.segment} ${r.region} dated ${vf} is in force from today`, re);
           await audit('c2m', 'freight_due', key, 'checked', null, { reapproval: re }, 'Freight rate reached its date'); n++;
+        });
+      }
+      /* Once (5 Nov 2026, review of fault A7): a freight row saved before in other capitals ("sindh") matched no client; regions now
+         match with capitals ignored, so such a row can start to count. Each segment and region with more than 1 spelling is
+         checked for re-approval once (marker entity freight_case). */
+      const [allF] = await q('SELECT DISTINCT segment, region FROM c2m_freight_rate'); const grp = new Map();
+      for (const r of allF) { const k = `${r.segment}|${String(r.region || '').trim().replace(/\s+/g, ' ').toLowerCase()}`; if (!grp.has(k)) grp.set(k, []); grp.get(k).push(r.region); }
+      for (const [k, spell] of grp) { if (new Set(spell).size < 2) continue; const seg = k.split('|')[0];
+        await tx(async () => {
+          const [[done]] = await q("SELECT id FROM c2m_audit WHERE entity='freight_case' AND entity_id=? LIMIT 1 FOR UPDATE", [k.slice(0, 60)]); if (done) return;
+          const re = await reapprovalFor(`Freight ${seg} ${spell[0]}: rows saved in other capitals (${spell.join(', ')}) now count, ${t}`, freightPacks(seg, spell[0]));
+          if (re) await costNotice('c2m', `Freight ${seg} ${spell[0]}: rows saved in other capitals now count`, re);
+          await audit('c2m', 'freight_case', k.slice(0, 60), 'checked', null, { spellings: spell, reapproval: re }, 'Freight region spellings joined (fault A7)'); n++;
         });
       }
     } catch (e) { console.error('[c2m] freight date check failed: ' + (e && e.message)); } finally { freightBusy = false; }
@@ -924,6 +937,12 @@ module.exports = function mountC2mRoutes(app, deps) {
     if (scope === 'variant') { const D0 = await needVariants(); pvId = Number(b.pvariantId); if (!D0.pvariants.some(v => Number(v.id) === pvId)) throw bad('Pick the variant this rate applies to.'); }
     if (scope === 'type') { const [[t]] = await q('SELECT id FROM c2m_base_product WHERE id=?', [b.baseProductId]); if (!t) throw bad('Pick the product type.'); }
     if (!['general', 'type', 'list', 'variant'].includes(scope)) throw bad("Assign the rate to all products, a product type, a variant, or a client's pack.");
+    /* A second rate for exactly the same products would leave 2 live rates, and one dated earlier would never be used
+       (audit 4 Nov 2026, fault A6). The way to change a rate is Edit in its row, which retires the old one. */
+    { const D1 = await engine.loadAll(q); const nn = v => (v == null || v === '' ? null : Number(v)); const same = (a, b) => [...new Set(a.map(Number))].sort().join(',') === [...new Set(b.map(Number))].sort().join(',');
+      const nw = { kind: b.kind, type: scope === 'type' ? Number(b.baseProductId) : null, pv: scope === 'variant' ? pvId : null, form: b.form || null, rep: b.reprocessed == null || b.reprocessed === '' ? null : Number(b.reprocessed), min: b.packMin ? strictNum(b.packMin) : null, max: b.packMax ? strictNum(b.packMax) : null };
+      const clash = D1.rules.find(r => Number(r.active) && !Number(r.isBase) && (r.kind || 'foh') === nw.kind && nn(r.scopeBaseProductId) === nw.type && nn(r.scopePvariantId) === nw.pv && (r.scopeForm || null) === nw.form && nn(r.scopeReprocessed) === nw.rep && nn(r.scopePackMin) === nw.min && nn(r.scopePackMax) === nw.max && same(r.products || [], ids));
+      if (clash) throw bad(`"${clash.name}" is already the ${b.kind === 'labour' ? 'labour' : 'FOH'} rate for the same products, from ${String(clash.validFrom).slice(0, 10)}. To change it, press Edit in its row: the new figure replaces it, and no second rate is left that would never be used.`); }
     let id, re = 0;
     await tx(async () => {
       const [r] = await q('INSERT INTO c2m_conversion_rule (name, kind, rs_per_kg, scope_client_product_id, scope_base_product_id, scope_form, scope_reprocessed, scope_pack_min, scope_pack_max, valid_from, source) VALUES (?,?,?,?,?,?,?,?,?,?,?)',
@@ -1375,7 +1394,7 @@ module.exports = function mountC2mRoutes(app, deps) {
     const ch = (req.body || {}).changes || {};
     const [rows] = await q('SELECT k, v, label, needs_approval FROM c2m_setting'); rows.forEach(r => { if (r.k === 'budget_gp') { r.needs_approval = 1; r.label = 'Company GP target, %'; } }); // D-75: waits for Tahir, under the name Setup shows (no SQL needed)
     const pend = {}, direct = [];
-    for (const r of rows) if (ch[r.k] != null && String(ch[r.k]) !== String(r.v)) { if (!(Number(ch[r.k]) >= 0)) throw bad(`${r.label}: type a number.`); if (r.k === 'fed_pct' && !(Number(ch[r.k]) > 0 && Number(ch[r.k]) < 100)) throw bad(`${r.label}: type a % above 0 and below 100.`); (r.needs_approval ? (pend[r.k] = String(ch[r.k])) : direct.push([r, String(ch[r.k])])); }
+    for (const r of rows) if (ch[r.k] != null && String(ch[r.k]) !== String(r.v)) { if (String(ch[r.k]).trim() === '' || !(strictNum(ch[r.k]) >= 0)) throw bad(`${r.label}: type a number (digits only). An empty box is not saved, since it would count as 0 (audit 4 Nov 2026, fault A3).`); if (r.k === 'fed_pct' && !(Number(ch[r.k]) > 0 && Number(ch[r.k]) < 100)) throw bad(`${r.label}: type a % above 0 and below 100.`); (r.needs_approval ? (pend[r.k] = String(ch[r.k])) : direct.push([r, String(ch[r.k])])); }
     await tx(async () => {
       for (const [r, v] of direct) { await q('UPDATE c2m_setting SET v=?, updated_by=?, updated_at=? WHERE k=?', [v, req.c2m.user, now(), r.k]); await notice('coo', `Setting changed: ${r.label} ${r.v} to ${v}`, req.c2m.user); await audit(req.c2m.user, 'setting', r.k, 'change', r.v, v, null); if (r.k === 'fed_pct') await refedLists(req.c2m.user); }
       if (Object.keys(pend).length) {
@@ -1539,17 +1558,21 @@ module.exports = function mountC2mRoutes(app, deps) {
     res.json({ ok: true });
   }));
   app.post('/api/c2m/freight', can('freight.edit'), wrap(async (req, res) => {
-    const { segment, region, rsPerKg, validFrom } = req.body || {};
+    const { segment, rsPerKg, validFrom } = req.body || {};
     if (!['Dealer', 'Farmer'].includes(segment)) throw bad('Freight applies to Dealer or Farmer prices.');
-    if (!String(region || '').trim() || !(strictNum(rsPerKg) >= 0)) throw bad('Give the region and Rs per kg (digits).');
+    if (!String((req.body || {}).region || '').trim() || !(strictNum(rsPerKg) >= 0)) throw bad('Give the region and Rs per kg (digits).');
     const vf = validFrom || today(); if (!isDate(vf)) throw bad('Valid from must be a date.');
-    const [[oldF]] = await q('SELECT rs_per_kg FROM c2m_freight_rate WHERE segment=? AND region=? AND valid_from=?', [segment, String(region).trim().slice(0, 40), vf]); let re = 0;
+    /* The region is saved in the spelling already in use, so "sindh" matches clients in Sindh (audit 4 Nov 2026, fault A7). */
+    { const [cr] = await q("SELECT DISTINCT region FROM c2m_customer WHERE region IS NOT NULL AND region<>''"); const [fr] = await q('SELECT DISTINCT region FROM c2m_freight_rate');
+      const known = cr.map(x => x.region).concat(fr.map(x => x.region)).find(x => lib.sameRegion(x, req.body.region)); if (known) req.body.region = known; }
+    const region = String(req.body.region).trim().replace(/\s+/g, ' ').slice(0, 40);
+    const [[oldF]] = await q('SELECT rs_per_kg FROM c2m_freight_rate WHERE segment=? AND region=? AND valid_from=?', [segment, region, vf]); let re = 0;
     await tx(async () => {
-      await q('INSERT INTO c2m_freight_rate (segment, region, rs_per_kg, valid_from) VALUES (?,?,?,?) ON DUPLICATE KEY UPDATE rs_per_kg=VALUES(rs_per_kg)', [segment, String(region).trim().slice(0, 40), strictNum(rsPerKg), vf]);
+      await q('INSERT INTO c2m_freight_rate (segment, region, rs_per_kg, valid_from) VALUES (?,?,?,?) ON DUPLICATE KEY UPDATE rs_per_kg=VALUES(rs_per_kg)', [segment, region, strictNum(rsPerKg), vf]);
       await audit(req.c2m.user, 'freight', `${segment}|${region}`, 'save', oldF ? { rsPerKg: oldF.rs_per_kg, validFrom: vf } : null, { rsPerKg, validFrom: vf }, null);
       // Like every other cost input (D-145): packs of this segment and region whose cost moved past the re-approval % wait for the CFO.
       // A rate dated ahead moves nothing today; freightDueSweep checks it on the day it starts (review 4 Nov).
-      const reg = String(region).trim().slice(0, 40);
+      const reg = region;
       re = vf > today() ? 0 : await reapprovalFor(`Freight ${segment} ${reg} saved, ${today()}`, freightPacks(segment, reg));
       await costNotice(req.c2m.user, `Freight ${segment} ${reg} saved at Rs ${strictNum(rsPerKg)} per kg from ${vf} by the ${req.c2m.label}`, re);
     });
@@ -1610,7 +1633,7 @@ module.exports = function mountC2mRoutes(app, deps) {
   app.post('/api/c2m/actuals', can('actuals.enter'), wrap(async (req, res) => {
     const { month, labour, foh } = req.body || {};
     if (!/^\d{4}-\d{2}$/.test(String(month))) throw bad('Pick the month.');
-    if (!(Number(labour) >= 0) || !(Number(foh) >= 0)) throw bad('Type actual labour and FOH in Rs.');
+    if (labour == null || foh == null || String(labour).trim() === '' || String(foh).trim() === '' || !(strictNum(labour) >= 0) || !(strictNum(foh) >= 0)) throw bad('Type actual labour and FOH in Rs, digits only. An empty box is not saved as Rs 0 (audit 4 Nov 2026, fault A4).');
     const [[oldA]] = await q('SELECT actual_labour, actual_foh, entered_by FROM c2m_monthly_actual WHERE month=?', [month]);
     await tx(async () => {
       await q('INSERT INTO c2m_monthly_actual (month, actual_labour, actual_foh, entered_by, entered_at) VALUES (?,?,?,?,?) ON DUPLICATE KEY UPDATE actual_labour=VALUES(actual_labour), actual_foh=VALUES(actual_foh), entered_by=VALUES(entered_by), entered_at=VALUES(entered_at)',
@@ -2481,7 +2504,7 @@ module.exports = function mountC2mRoutes(app, deps) {
     } else if (kind === 'freight') {
       const [[f]] = await q('SELECT * FROM c2m_freight_rate WHERE id=?', [id]); if (!f) throw bad('Freight row not found.');
       label = `${f.segment}, ${f.region}, from ${String(f.valid_from).slice(0, 10)}`;
-      for (const cp of D.cps) { if (!['Dealer', 'Farmer'].includes(cp.channel)) continue; const cu = D.custById.get(cp.customer_id) || {}; const row = D.freight.find(x => x.segment === cp.channel && x.region === cu.region); if (row && Number(row.id) === id) L.push(`${pn(cp.id)} (its cost today)`); }
+      for (const cp of D.cps) { if (!['Dealer', 'Farmer'].includes(cp.channel)) continue; const cu = D.custById.get(cp.customer_id) || {}; const row = D.freight.find(x => x.segment === cp.channel && lib.sameRegion(x.region, cu.region) && String(x.valid_from).slice(0, 10) <= today()); /* the row in force today, not the newest (a row dated ahead is newest; audit 4 Nov 2026, fault A5) */ if (row && Number(row.id) === id) L.push(`${pn(cp.id)} (its cost today)`); }
     } else if (kind === 'customer') {
       const [[c]] = await q('SELECT * FROM c2m_customer WHERE id=?', [id]); if (!c) throw bad('Client not found.');
       label = c.name; out = 'out'; isOut = D.outOfUse.has('customer:' + id);

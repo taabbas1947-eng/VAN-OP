@@ -253,6 +253,9 @@ function priceCountsForPo(p, received, enteredAt) {
   return !!enteredAt && at <= String(enteredAt).slice(0, 19);
 }
 
+/** 2 region names are the same when they match with capitals and spaces ignored ("sindh" is Sindh; audit 4 Nov 2026, fault A7). */
+function sameRegion(a, b) { const k = v => String(v == null ? '' : v).trim().replace(/\s+/g, ' ').toLowerCase(); return k(a) !== '' && k(a) === k(b); }
+
 /** Pakistani number format with digits, e.g. 1,234,567. */
 function fmtInt(x) { return x == null ? '' : Math.round(x).toLocaleString('en-US'); }
 
@@ -322,7 +325,7 @@ function newMaterialClass(name, role, fieldsText, known) {
 }
 module.exports = {
   newMaterialClass,
-  rowNameKey, looseKey, rowSize, masterCmp,
+  rowNameKey, looseKey, rowSize, masterCmp, sameRegion,
   listRowIs, listRowSize, officialRow, officialPack, restoreRow,
   round, rateWarning, materialCost, recipeTotal, packingPerUnit, buyOf, buyNote, sourceText, piecePrice, printMrp, mrpIssues, mrpMissing, pickConversionRule, conversionFor, costBreakdown,
   marginPct, targetPrice, contributionFloor, fedPct, netPoPrice, needsReapproval, exposure, flag,

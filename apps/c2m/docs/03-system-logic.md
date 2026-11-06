@@ -430,3 +430,7 @@ On live the state call is now about 3 seconds. About 15 waits remain in a row (h
 - c2m-o2s.js: the production copy.
 - c2m.html: vMonthEnd() (the 5 steps; monthChecks(m, forms, 'tie' or 'rate') draws the tie and the rate check), nmCost adds a VAN brand sale's list freight, nmMonthEnd() (list freight note and sales with no list, the company line, the locked month and its change since the lock, compared without list freight), goME jobs.
 - c2m-engine.js conversionOf: a day before the first Low and High rate takes the old rates (lib.conversionFor with D.rules), so a month before migration 011 is charged and costed as its trucks were (review 4, blocker). A rate that exists but is not filled stays not filled.
+
+## 3.36 Stock kg to its products (owner: Tahir rule R43; D-155, 6 Nov 2026)
+- absorbedFor finds a stock entry's products by its O2S base: c2m-o2s.o2sBaseBrands(q) gives base → brands from O2S's product master, masters.products only, as O2S reads it (base, else the brand; catBase; alsoBases), names compared in lower case with double spaces as 1. A C2M product is on that base when a name in its o2s_brand list is 1 of those brands, or, for a VAN brand product, its own brand (as engine.matcher).
+- A base with no C2M product is "base not known" (unknownKg) and not charged, as before. If O2S's data row cannot be read, or has no product list, the last map read is used and the fault is logged; with none, Month end says the product list could not be read (noMap), stock is not charged in that view, and the lock is refused.

@@ -10,7 +10,7 @@
 const { AsyncLocalStorage } = require('async_hooks');
 const lib = require('./c2m-lib');
 const engine = require('./c2m-engine');
-const { pullO2S } = require('./c2m-o2s');
+const { pullO2S, o2sBaseBrands } = require('./c2m-o2s');
 const PL = require('./c2m-pricelist');
 const PC = require('./c2m-pricecheck');
 
@@ -174,7 +174,13 @@ module.exports = function mountC2mRoutes(app, deps) {
     C = C || {};
     const byPoBrand = C.byPoBrand || (C.byPoBrand = (() => { const m0 = new Map(); for (const l of poLines) { const k = String(l.po) + '|' + String(l.brand); if (!m0.has(k)) m0.set(k, l); } return m0; })());
     const packOf = C.packOf || (C.packOf = (() => { const m0 = new Map(); for (const p of D.packs) if (!m0.has(p.client_product_id)) m0.set(p.client_product_id, p); return m0; })());
-    const cpsOfBase = C.cpsOfBase || (C.cpsOfBase = (() => { const tn = new Map((D.productTypes || []).map(t => [Number(t.id), String(t.name || '').trim().toLowerCase()])); const m0 = new Map(); for (const c of D.cps) { const k = tn.get(Number(c.base_product_id)) || ''; if (!m0.has(k)) m0.set(k, []); m0.get(k).push(c); } return m0; })());
+    /* A stock batch's base is O2S's base name (Potassium Humate, NP 6.32): its C2M products are those whose brand, or an
+       O2S name on them, O2S packs from that base (fix 4b, 6 Nov 2026; push 4 keyed this on C2M's production lines). */
+    if (!('bb' in C)) C.bb = await o2sBaseBrands(q); const bb = C.bb; /* null: O2S's product master could not be read */
+    const cpsOfBase = C.cpsOfBase || (C.cpsOfBase = (() => { const nm = x => String(x == null ? '' : x).replace(/\s+/g, ' ').trim().toLowerCase(); const m0 = new Map();
+      /* the product's own name counts only for a VAN brand product, as in engine.matcher (review 4b, finding 2) */
+      for (const [base, brands] of (bb || new Map())) { const cs = D.cps.filter(c => (c.channel === 'VAN brand' && brands.has(nm(c.brand))) || String(c.o2s_brand || '').split('|').some(b => brands.has(nm(b)))); if (cs.length) m0.set(base, cs); }
+      return m0; })());
     const stockConv = C.stockConv || (C.stockConv = new Map());
     const firstPack = cp => packOf.get(cp.id) || { pack_size: 1 };
     const out = { kg: 0, stockKg: 0, splitKg: 0, unknownKg: 0, unmatchedKg: 0, noRateKg: 0, labour: {}, foh: {}, products: {} };
@@ -183,7 +189,7 @@ module.exports = function mountC2mRoutes(app, deps) {
       let cp = null, pk = null; if (r.po && r.brand) { const l = byPoBrand.get(String(r.po) + '|' + String(r.brand)); pk = l ? match(l.customer_name, l.brand, l.channel, l.pack) : null; cp = pk ? D.cpById.get(pk.client_product_id) : null; if (!cp) out.unmatchedKg += kg; }
       let conv = null;
       if (cp) { conv = engine.conversionOf(D, cp, pk || firstPack(cp), day); const k = cp.brand + ' · ' + ((D.custById.get(cp.customer_id) || {}).name || ''); const pr = out.products[k] || (out.products[k] = { kg: 0, labour: conv.labour ? conv.labour.name : null, foh: conv.foh ? conv.foh.name : null }); pr.kg += kg; } /* the PO line's own pack (review 4, finding 11) */
-      else { out.stockKg += kg; const base = String(r.base || '').trim().toLowerCase(); const ck = base + '|' + day;
+      else { out.stockKg += kg; const base = String(r.base || '').replace(/\s+/g, ' ').trim().toLowerCase(); const ck = base + '|' + day;
         if (!stockConv.has(ck)) { const cps = base ? (cpsOfBase.get(base) || []) : []; let v;
           if (!cps.length) v = { kind: 'unknown', conv: null };
           else { const convs = cps.map(c => engine.conversionOf(D, c, firstPack(c), day)); const same = convs.every(c => (c.labour || {}).name === (convs[0].labour || {}).name && (c.foh || {}).name === (convs[0].foh || {}).name);
@@ -193,7 +199,7 @@ module.exports = function mountC2mRoutes(app, deps) {
         const v = stockConv.get(ck); conv = v.conv; if (v.kind === 'split') out.splitKg += kg; if (v.kind === 'unknown') out.unknownKg += kg; } /* a base C2M does not know: not charged, named apart (review 4, finding 8) */
       const okL = conv ? add('labour', conv.labour, kg) : false, okF = conv ? add('foh', conv.foh, kg) : false; if (!okL || !okF) out.noRateKg += kg; }
     const fin = kind => { const rows = Object.entries(out[kind]).map(([name, x]) => ({ name, kg: Math.round(x.kg * 1000) / 1000, rs: Math.round(x.rs), rsPerKg: Object.keys(x.rates).length === 1 ? Number(Object.keys(x.rates)[0]) : null })); return { rows, total: rows.reduce((s0, x) => s0 + x.rs, 0) }; };
-    return { kg: out.kg, stockKg: out.stockKg, splitKg: out.splitKg, unknownKg: out.unknownKg, unmatchedKg: out.unmatchedKg, noRateKg: out.noRateKg, labour: fin('labour'), foh: fin('foh'), products: Object.entries(out.products).map(([name, x]) => ({ name, ...x })).sort((a, b) => b.kg - a.kg) };
+    return { noMap: !bb && out.stockKg > 0, kg: out.kg, stockKg: out.stockKg, splitKg: out.splitKg, unknownKg: out.unknownKg, unmatchedKg: out.unmatchedKg, noRateKg: out.noRateKg, labour: fin('labour'), foh: fin('foh'), products: Object.entries(out.products).map(([name, x]) => ({ name, ...x })).sort((a, b) => b.kg - a.kg) };
   }
   /** The labour, FOH, packing and freight changes made in a month, from the change record, for the COO check (R8). */
   async function monthChanges(month, until) {
@@ -2078,8 +2084,9 @@ module.exports = function mountC2mRoutes(app, deps) {
     if (need.length) throw bad(`Before the lock: ${need.join(', ')}.`);
     const D = await engine.loadAll(q); const match = engine.matcher(D); const [pl0] = await q('SELECT * FROM c2m_o2s_po_line');
     let ab = null; if (await prodReady()) { const [p] = await q('SELECT made_on, base, brand, po, kg FROM c2m_o2s_production WHERE made_on>=? AND made_on<?', [month + '-01', dayAfterMonth(month)]); ab = await absorbedFor(D, month, p, pl0, match); }
+    if (ab && ab.noMap) throw bad("O2S's product list could not be read, so stock made for no brand cannot be charged. Try the lock again in a few minutes, or press Pull now first.");
     const F = await monthFigures(month);
-    const snap = { sales: Math.round(F.sales), cogs: Math.round(F.cogs), uncosted: Math.round(F.uncosted), focCost: Math.round(F.focCost), kgMade: ab ? ab.kg : null, labourCharged: ab ? ab.labour.total : null, fohCharged: ab ? ab.foh.total : null, actualLabour: Number(act.actual_labour), actualFoh: Number(act.actual_foh) };
+    const snap = { sales: Math.round(F.sales), cogs: Math.round(F.cogs), uncosted: Math.round(F.uncosted), focCost: Math.round(F.focCost), kgMade: ab ? ab.kg : null, labourCharged: ab ? ab.labour.total : null, fohCharged: ab ? ab.foh.total : null, notChargedKg: ab ? Math.round(ab.noRateKg) : null, actualLabour: Number(act.actual_labour), actualFoh: Number(act.actual_foh) };
     await tx(async () => {
       const [[a2]] = await q('SELECT actual_labour, actual_foh FROM c2m_monthly_actual WHERE month=? FOR UPDATE', [month]); if (!a2 || Number(a2.actual_labour) !== snap.actualLabour || Number(a2.actual_foh) !== snap.actualFoh) throw moved();
       try { await q("INSERT INTO c2m_monthly_check (month, kind, data_json, done_by, done_at) VALUES (?,'lock',?,?,?)", [month, JSON.stringify(snap), req.c2m.user, now()]); } catch (e) { if (e && e.code === 'ER_DUP_ENTRY') throw bad(`${month} is already locked.`); throw e; } /* 2 presses at once (review 4, finding 10) */

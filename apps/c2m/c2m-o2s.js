@@ -29,11 +29,35 @@ function orderRegion(o, customers) {
   const c = cs.find(x => x && x.segment === seg && !x.isParent && x.name === client); return pc.regionOf(c && c.region);
 }
 
+/** O2S's base for each brand, as O2S itself reads it (its product master: base, or the brand when no base, and any
+ *  "also packed from" bases; applyProductsV1 in o2s.html reads masters.products only). Map: base in lower case -> Set of brands in lower case.
+ *  Month end uses it to find the C2M products a stock batch can belong to (fix 4b, 6 Nov 2026: push 4 matched
+ *  O2S base names against C2M's production lines, so stock kg was named "base not known"). */
+function baseBrandsOf(d) {
+  const nm = s => String(s == null ? '' : s).replace(/\s+/g, ' ').trim().toLowerCase(); const out = new Map();
+  const put = (b, br) => { const k = nm(b); if (!k || !br) return; if (!out.has(k)) out.set(k, new Set()); out.get(k).add(br); };
+  const list = (d && d.masters && Array.isArray(d.masters.products)) ? d.masters.products : []; /* O2S reads only this list; custom products were merged into it (review 4b, finding 3) */
+  for (const p of list) { if (!p || !p.brand) continue; const br = nm(p.brand); put(p.base || p.brand, br); if (p.catBase) put(p.catBase, br); for (const a of (Array.isArray(p.alsoBases) ? p.alsoBases : [])) put(a, br); }
+  return out;
+}
+const BB = { at: 0, map: null };
+/** The same map, read from O2S's data row and kept for 10 minutes (read only). null when it cannot be read and none was
+ *  read before: Month end then says so and the month cannot be locked (review 4b, finding 1). */
+async function o2sBaseBrands(q) {
+  if (BB.map && Date.now() - BB.at < 10 * 60 * 1000) return BB.map;
+  try { const [[row]] = await q('SELECT data FROM app_state WHERE id=1'); const d = row && row.data ? JSON.parse(row.data) : null;
+    if (!d || !d.masters || !Array.isArray(d.masters.products)) throw new Error('O2S data has no product master');
+    BB.map = baseBrandsOf(d); BB.at = Date.now(); }
+  catch (e) { console.error('[c2m] O2S product master not read for Month end: ' + (e.code || e.message)); return BB.map || null; }
+  return BB.map;
+}
+
 /** Pull O2S now. Returns {syncId, poLines, trucks, issues}. */
 async function pullO2S(q, byUser) {
   const [[row]] = await q('SELECT data FROM app_state WHERE id=1');
   if (!row) throw new Error('O2S data not found (app_state row 1 is missing).');
   const d = JSON.parse(row.data);
+  BB.map = baseBrandsOf(d); BB.at = Date.now(); /* fix 4b */
   const now = lib.pkNow();
   const [ins] = await q('INSERT INTO c2m_sync_run (started_at, by_user) VALUES (?, ?)', [now, byUser]);
   const syncId = ins.insertId;
@@ -108,4 +132,4 @@ async function pullO2S(q, byUser) {
   return { syncId, poLines: nl, trucks: nt, production: np, issues };
 }
 
-module.exports = { pullO2S, o2sCustomerName, enteredPk, orderRegion };
+module.exports = { pullO2S, o2sCustomerName, enteredPk, orderRegion, baseBrandsOf, o2sBaseBrands };

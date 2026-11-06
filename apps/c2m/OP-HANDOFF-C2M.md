@@ -771,3 +771,12 @@ Also c2m-engine.js: conversionOf takes the old rates on a day before the first L
 Tests: 12.22. Independent review: 1 blocker and 15 points, all fixed except 3 left for push 5 (12.22).
 Not yet delivered: Tahir's computer was not reachable at the end.
 Next: push 5, Reports (R28, R30).
+
+
+## 6 Nov 2026 (3) - fix 4b: Month end stock kg found through O2S (D-155), MODULE: C2M
+Module: C2M. Not pushed (Tahir pushes). Push 4 was pushed as 38ae60b; Ahmer ran migrations 010 to 012 on production that afternoon; Tahir pressed Pull now. Live: kg made matched O2S's production log month by month (October 407,219 kg), but 375,349 kg of October stock showed as "base not known".
+Cause: absorbedFor looked O2S base names up among C2M's production lines. Fix: c2m-o2s.js baseBrandsOf / o2sBaseBrands (O2S's masters.products, read only, 10 minute cache, refreshed on pull); a C2M product is on a base by its O2S name, or its own name for a VAN brand product. No map: Month end says so and the lock is refused; the lock keeps notChargedKg.
+Also: the in-app CHANGELOG was out of date order (latest taken as 2026-11-05e), so it was sorted, newest last; new entry 2026-11-06b.
+Files: apps/c2m/c2m-o2s.js, c2m-routes.js, c2m.html; docs 02, 03, 06, 08, 09, 10, 12.
+Tests: t12 (15), new t14 (9), t3 to t13 and no-011, p9 to p11, pricecheck 64: all passed. Independent review: no blocker, 1 Major and 5 Minor, all fixed.
+Next: after the push, check October on live Month end (stock charged; only Liquid Bio Stimulant not known). Then push 5, Reports (R28, R30), picture first.

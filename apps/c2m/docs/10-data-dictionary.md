@@ -336,3 +336,6 @@ Changed in 0.3.0 and 0.3.1: rs_per_kg fixed (1 rate of 1 kind, labour or FOH). A
 | Under or over charged | Actual labour or FOH less charged | Month end, Margin |
 | COO check | The COO's monthly check of top material rates and every cost change | c2m_monthly_check kind coo_check |
 | Lock | A month closed by the COO, its figures kept | c2m_monthly_check kind lock |
+
+## 10.20 6 Nov 2026 (D-155)
+- c2m_o2s_production.base: O2S's base name as O2S writes it on the production entry (for example Potassium Humate, NP 6.32), not a C2M production line. Matched to C2M products through O2S's product master (03 §3.36).

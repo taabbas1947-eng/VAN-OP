@@ -17,7 +17,13 @@ Changed in 0.6.0: entry 0.6.0 added.
 Changed in 0.5.0: entry 0.5.0 added; real figures removed from earlier entries (public repo).
 Format: Keep a Changelog, semantic versions. Live: 1.0.0 (pushed 19 Oct about 22:09, checked live by Claude as Tahir the same evening; Yawar's view checked in the cloud copy only); 0.9.3 pushed 19 Oct 14:38, checked live; 0.9.2 pushed 19 Oct 12:43, checked live; first data load 19 Oct 2026 about 13:17, checked live. Before: 0.9.1 (pushed 19 Oct 09:39, checked live). apps/c2m first pushed by Tahir on 17 Oct and the live migration run the same day (39 empty c2m_ tables); 0.6.0 and 0.7.0 pushed on 18 Oct (17:29), 0.8.0 (20:16) and 0.9.0 (22:03), each checked live by Claude. The folder tabs (D-59) were built after the 0.9.0 push and ship in 0.9.1. No data loaded yet: the first data load runs on Monday 19 Oct 2026.
 
-## [Next version, Month end in 5 steps; VAN brand list freight in Margin] · 6 Nov 2026 · D-154 · Who: Claude built and tested; Tahir and Yawar ruled and approve the push
+## [Next version, fix 4b: Month end finds stock products through O2S] · 6 Nov 2026 · D-155 · Who: Claude found and fixed; Tahir approves the push
+### Fixed
+- Month end: stock made for no brand is now charged at its products' rate. The base O2S writes on a production entry is matched through O2S's own product master; before, it was looked for among C2M's production lines, so most stock showed as "base not known".
+- If O2S's product list cannot be read, Month end says so and the month cannot be locked until it is read.
+- "What's changed since you last opened C2M": the change list is back in date order, so pushes 3a, 3b and 4 now show to anyone who has not seen them.
+
+## [Pushed 38ae60b, Month end in 5 steps; VAN brand list freight in Margin] · 6 Nov 2026 · D-154 · Who: Claude built and tested; Tahir and Yawar ruled and approve the push
 ### Added
 - Costs › Month end: 1 page per month in 5 steps: actuals, labour and FOH charged on kg made in O2S (each rate, kg, charged, actual, under or over), tie to the books, COO check (top material rates and every labour, FOH, packing and freight change, ticked as seen; the certificate), lock.
 - Lock and reopen (the COO, reopen with a reason). A locked month's actuals and checks cannot change.

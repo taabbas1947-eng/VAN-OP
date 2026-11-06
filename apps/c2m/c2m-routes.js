@@ -202,7 +202,11 @@ module.exports = function mountC2mRoutes(app, deps) {
               v = { kind: 'split', conv: L.labour || L.foh ? L : convs.slice().sort((a, b) => has(b).length - has(a).length || tot(a) - tot(b))[0] }; } } /* most rates filled first, then the lowest (review R47, M1) */ /* before Low and High: the lowest of its products' rates, R43's "Low" (fix 4c) */
           stockConv.set(ck, v); }
         const v = stockConv.get(ck); conv = v.conv; if (v.kind === 'split') out.splitKg += kg; if (v.kind === 'unknown') out.unknownKg += kg; } /* a base C2M does not know: not charged, named apart (review 4, finding 8) */
-      const okL = conv ? add('labour', conv.labour, kg) : false, okF = conv ? add('foh', conv.foh, kg) : false; if (!okL || !okF) out.noRateKg += kg; }
+      const okL = conv ? add('labour', conv.labour, kg) : false, okF = conv ? add('foh', conv.foh, kg) : false; if (!okL || !okF) out.noRateKg += kg;
+      /* Kg made in Your own report (push 5b, R53, D-158): each entry as it was charged here, so its totals are Month end's own */
+      if (C.rows) { const v = cp ? null : stockConv.get(String(r.base || '').replace(/\s+/g, ' ').trim().toLowerCase() + '|' + day); const L = okL ? conv.labour : null, F = okF ? conv.foh : null;
+        C.rows.push({ made, base: r.base || '', brand: r.brand || null, po: r.po || null, kg, product: cp ? cp.brand + ' · ' + ((D.custById.get(cp.customer_id) || {}).name || '') : null, how: cp ? 'po' : v && v.kind === 'same' ? 'stock' : v && v.kind === 'split' ? 'low' : 'unknown', poNotFound: !!(r.po && r.brand && !cp), early: day !== made ? day : null,
+          labour: L ? L.name : null, labourRate: L ? Number(L.rsPerKg) : null, labourRs: L ? kg * L.rsPerKg : 0, foh: F ? F.name : null, fohRate: F ? Number(F.rsPerKg) : null, fohRs: F ? kg * F.rsPerKg : 0 }); } }
     const fin = kind => { const rows = Object.entries(out[kind]).map(([name, x]) => ({ name, kg: Math.round(x.kg * 1000) / 1000, rs: Math.round(x.rs), rsPerKg: Object.keys(x.rates).length === 1 ? Number(Object.keys(x.rates)[0]) : null })); return { rows, total: rows.reduce((s0, x) => s0 + x.rs, 0) }; };
     return { noMap: !bb && out.stockKg > 0, kg: out.kg, earlyKg: out.earlyKg, firstRateDay: out.earlyKg > 0 ? first : null, stockKg: out.stockKg, splitKg: out.splitKg, unknownKg: out.unknownKg, unmatchedKg: out.unmatchedKg, noRateKg: out.noRateKg, labour: fin('labour'), foh: fin('foh'), products: Object.entries(out.products).map(([name, x]) => ({ name, ...x })).sort((a, b) => b.kg - a.kg) };
   }
@@ -585,6 +589,7 @@ module.exports = function mountC2mRoutes(app, deps) {
         return { ...r, urgent: urgOf('list_revision', r.id), byAdmin: byAd(r.proposed_by), items: JSON.parse(r.items_json).map(it => open ? itemNow(D, liById, it) : it), items_json: undefined }; }); /* a revision still open shows each row under its name today (review 1.0.2, design finding 5) */
       out.customers = D.customers.map(c => ({ id: c.id, name: c.name, grp: c.grp, segment: c.segment, priceRule: c.price_rule, cycle: c.price_cycle, region: c.region, o2sNames: c.o2s_names, printName: c.print_name || '' })); out.printNameReady = D.customers.length > 0 && 'print_name' in D.customers[0];
       { const [oo] = await pq("SELECT c.id, c.brand, cu.name customer FROM c2m_client_product c JOIN c2m_customer cu ON cu.id=c.customer_id WHERE c.active=0 AND c.channel='White label' ORDER BY cu.name, c.brand"); out.outOfUse = oo; }
+      try { out.savedReports = await savedOf(user); } catch (e) { console.error('[c2m] saved reports not read: ' + (e.code || e.message)); out.savedReports = { ready: false, message: 'Saved reports could not be read just now.', rows: [] }; } /* push 5b (D-158): this person's own only */
       const [docs] = [fs.readdirSync(path.join(__dirname, 'docs')).filter(f => f.endsWith('.md')).sort()]; out.docs = docs;
     } else {
       out.docs = fs.readdirSync(path.join(__dirname, 'docs')).filter(f => docAllowed(acc, f)).sort();
@@ -2840,7 +2845,7 @@ module.exports = function mountC2mRoutes(app, deps) {
     mine.forEach(x => { parts.push('(entity=? AND action=?)'); P.push(...x.split(':')); });
     if (kind === 'settings') { const all = Object.values(AUDIT_KIND).flat().filter(x => !x.includes(':')); parts.push(`entity NOT IN (${all.map(() => '?').join(',')})`); P.push(...all); } // anything not filed elsewhere
     return { sql: '(' + parts.join(' OR ') + ')', P }; };
-  const AUD_THING = { product_name: 'Product name', client_product: 'Product', client_pack: 'Pack', customer: 'Client', price: 'Price', recipe: 'Recipe', reapproval: 'Re-approval', rate: 'Material rate', packing_bill: 'Packing bill', packing_item: 'Packing item', packing_rate: 'Packing rate', product_family: 'Product', product_variant: 'Variant', setting: 'Setting', setting_request: 'Setting change', sync: 'O2S data', target: 'Target GP', target_request: 'Target GP change', first_cost_sweep: 'Packs with no approved cost', list_revision: 'List revision', list_price: 'List row', list_master: 'Price lists', price_doc: 'Price list PDF', material: 'Material', grade_nutrients: 'Nutrients', conversion_rule: 'Labour and FOH rate', freight: 'Freight', monthly_actual: 'Monthly actuals', monthly_check: 'Monthly check', grant: 'List access', role: 'Role', import_item: 'Sheet item' };
+  const AUD_THING = { product_name: 'Product name', client_product: 'Product', client_pack: 'Pack', customer: 'Client', price: 'Price', recipe: 'Recipe', reapproval: 'Re-approval', rate: 'Material rate', packing_bill: 'Packing bill', packing_item: 'Packing item', packing_rate: 'Packing rate', product_family: 'Product', product_variant: 'Variant', setting: 'Setting', setting_request: 'Setting change', sync: 'O2S data', target: 'Target GP', target_request: 'Target GP change', first_cost_sweep: 'Packs with no approved cost', saved_report: 'Saved report', list_revision: 'List revision', list_price: 'List row', list_master: 'Price lists', price_doc: 'Price list PDF', material: 'Material', grade_nutrients: 'Nutrients', conversion_rule: 'Labour and FOH rate', freight: 'Freight', monthly_actual: 'Monthly actuals', monthly_check: 'Monthly check', grant: 'List access', role: 'Role', import_item: 'Sheet item' };
   const AUD_DID = { add: 'added', create: 'created', save: 'saved', edit: 'changed', update: 'changed', change: 'changed', remove: 'removed', delete: 'deleted', propose: 'proposed', approve: 'approved', sent_back: 'sent back', withdrawn: 'withdrawn', 'taken back': 'taken back', cancelled: 'cancelled', ended: 'ended', replaced: 'replaced', 'end restored': 'end date restored', request: 'requested', refuse: 'refused', dismiss: 'dismissed', pull: 'pulled', run: 'put on Approvals', cost_approved: 'cost approved', endorsed: 'endorsed', reviewed: 'reviewed', sent: 'sent on', new: 'new version started', lines: 'lines changed', packing_bill: 'packing bill changed', add_variant: 'variant added', follow: 'set to follow a product', type: 'product type changed', variant: 'variant tagged', group: 'group changed', name: 'name changed', print_name: 'printed name changed', class: 'class set', retire: 'retired', copy: 'copied', grant: 'given', link: 'linked', rename: 'renamed', left_list: 'left the list', applied: 'in force', carried: 'carried into the master', done: 'done', reprocessed: 'reprocessed flag changed', 'in use': 'back in use', 'out of use': 'out of use', in_use: 'back in use', out_of_use: 'out of use', 'all clients': 'all clients given', 'no clients': 'no clients', 'FED changed': 'FED changed', 'cost moved since shown': 'cost moved since shown', 'left: not costed': 'left: not costed', 'left: within threshold': 'left: within the threshold', spelling: 'O2S spelling kept', spec: 'description changed', o2s_names: 'O2S spellings changed', not_c2m_pack: 'marked not a C2M pack', unlink: 'unlinked', imported: 'imported', accept: 'accepted', reject: 'rejected' };
   const MON3 = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const isoWords = t => String(t == null ? '' : t).replace(/\b(20\d\d)-(\d\d)-(\d\d)\b/g, (m, y, mo, d) => `${+d} ${MON3[+mo - 1]} ${y}`);
@@ -2891,6 +2896,89 @@ module.exports = function mountC2mRoutes(app, deps) {
     const [lp] = await q('SELECT id, list_name, data_json, issued, valid_till FROM c2m_list_price ORDER BY id');
     let revs = []; try { [revs] = await q("SELECT id, list_name, items_json, reason, valid_from, valid_till, decided_by, decided_at, applied FROM c2m_list_revision WHERE status='approved' ORDER BY valid_from, id"); } catch (e) { console.error('[c2m] price history: list revisions not read: ' + (e.code || e.message)); }
     res.json(listHistory(lp, revs, PC.FIRST_LIST));
+  }));
+  /* ---------- Your own report (push 5b, R52 to R54, D-158): 2 more data sets and saved reports ---------- */
+  /** Rates (R53): every change to a material rate, a packing item rate, a labour or FOH rate (Low and High, and the rates before them)
+   *  and a freight rate: in force from, kind, item, was, now, change, source and who. Read only. */
+  app.get('/api/c2m/reports/rates', can('see.margin'), wrap(async (req, res) => {
+    const N = v => (v == null || v === '' || !isFinite(Number(v)) ? null : Number(v)); const day = v => (v == null ? '' : String(v).slice(0, 10)); const out = [];
+    /** 1 item's changes, oldest first: each row's was is the same item's rate before it. */
+    const chain = (rows, keyOf, mk) => { const last = new Map(); for (const r of rows) { const k = keyOf(r), now1 = mk.now(r); if (now1 == null) continue; const was = last.has(k) ? last.get(k) : null; last.set(k, now1);
+      out.push({ kind: mk.kind(r), item: mk.item(r), unit: mk.unit(r), from: day(mk.from(r)), was, now: now1, chg: was ? Math.round((now1 - was) / was * 10000) / 100 : null, source: mk.source(r) || '', by: mk.by(r) || '', at: mk.at(r) ? String(mk.at(r)).slice(0, 19) : null }); } };
+    const [mr] = mayDo(req, 'see.materials') ? await q('SELECT r.id, r.grade_id, r.rate, r.rate_date, r.source, r.entered_by, r.entered_at, g.grade, m.name, m.unit FROM c2m_material_rate r JOIN c2m_material_grade g ON g.id=r.grade_id JOIN c2m_raw_material m ON m.id=g.material_id ORDER BY r.grade_id, r.rate_date, r.id') : [[]]; /* raw material rates only for roles that see them (review 5b, finding 4) */
+    chain(mr, r => r.grade_id, { kind: () => 'material', item: r => `${r.name}${r.grade ? ' · ' + r.grade : ''}`, unit: r => 'Rs per ' + (r.unit === 'L' ? 'L' : 'kg'), from: r => r.rate_date, now: r => N(r.rate), source: r => r.source, by: r => r.entered_by, at: r => r.entered_at });
+    const [pr] = await q('SELECT r.id, r.packing_item_id, r.price_per_piece, r.rate_date, r.source, r.entered_by, r.entered_at, i.name FROM c2m_packing_rate r JOIN c2m_packing_item i ON i.id=r.packing_item_id ORDER BY r.packing_item_id, r.rate_date, r.id');
+    chain(pr, r => r.packing_item_id, { kind: () => 'packing', item: r => r.name, unit: () => 'Rs per piece', from: r => r.rate_date, now: r => N(r.price_per_piece), source: r => r.source, by: r => r.entered_by, at: r => r.entered_at });
+    const [cr] = await q('SELECT id, name, kind, rs_per_kg, valid_from, source FROM c2m_conversion_rule ORDER BY kind, name, valid_from, id'); /* the rates before Low and High, kept in the record */
+    chain(cr, r => r.kind + '|' + r.name, { kind: r => (r.kind === 'labour' ? 'labour' : 'foh'), item: r => `${r.name} (before Low and High)`, unit: () => 'Rs per kg or L', from: r => r.valid_from, now: r => N(r.rs_per_kg), source: r => r.source, by: () => '', at: () => null });
+    const [lr] = await softQ('SELECT id, kind, name, rs_per_kg, valid_from, source, set_by, set_at FROM c2m_lf_rate ORDER BY kind, name, valid_from, id'); /* migration 011; [] before it */
+    chain(lr, r => r.kind + '|' + r.name, { kind: r => (r.kind === 'labour' ? 'labour' : 'foh'), item: r => `${r.kind === 'labour' ? 'Labour' : 'FOH'} rate ${r.name}`, unit: () => 'Rs per kg or L', from: r => r.valid_from, now: r => N(r.rs_per_kg), source: r => r.source, by: r => r.set_by, at: r => r.set_at });
+    const [fr] = await q('SELECT id, segment, region, rs_per_kg, valid_from FROM c2m_freight_rate ORDER BY segment, region, valid_from, id');
+    const [fa] = await q("SELECT entity_id, by_user, at, new_value FROM c2m_audit WHERE entity='freight' AND action='save' ORDER BY id"); const fwho = new Map();
+    for (const a of fa) { let v = null; try { v = JSON.parse(a.new_value || 'null'); } catch (_) {} if (v && v.validFrom) fwho.set(a.entity_id + '|' + day(v.validFrom), { by: a.by_user, at: a.at }); } /* the freight table keeps no name: the change record does */
+    chain(fr, r => r.segment + '|' + r.region, { kind: () => 'freight', item: r => `${r.segment} · ${r.region}`, unit: () => 'Rs per kg', from: r => r.valid_from, now: r => N(r.rs_per_kg), source: () => '', by: r => (fwho.get(r.segment + '|' + r.region + '|' + day(r.valid_from)) || {}).by, at: r => (fwho.get(r.segment + '|' + r.region + '|' + day(r.valid_from)) || {}).at });
+    out.sort((a, b) => b.from.localeCompare(a.from) || a.kind.localeCompare(b.kind) || a.item.localeCompare(b.item));
+    res.json({ rows: out });
+  }));
+  /** Kg made (R53): each O2S production entry with the labour and FOH charged on it, worked out by Month end's own absorbedFor,
+   *  so the totals for a month are Month end's. from and till: days (both kept); none = every entry. */
+  const dayAfter = d => { const t = new Date(String(d).slice(0, 10) + 'T00:00:00Z'); t.setUTCDate(t.getUTCDate() + 1); return t.toISOString().slice(0, 10); };
+  app.get('/api/c2m/reports/made', can('see.margin'), wrap(async (req, res) => {
+    if (!(await prodReady())) return res.json({ ready: false, message: 'Kg made needs migration 012 (O2S production), which has not been run yet.', rows: [], months: {} });
+    const Q = req.query || {}; const from = isDate(Q.from) ? String(Q.from) : '', till = isDate(Q.till) ? String(Q.till) : '';
+    const [prod] = await q('SELECT made_on, base, brand, po, kg FROM c2m_o2s_production WHERE made_on>=? AND made_on<?', [from || '1900-01-01', till ? dayAfter(till) : '9999-12-31']);
+    const D = await engine.loadAll(q); const match = engine.matcher(D); const [pl0] = await q('SELECT * FROM c2m_o2s_po_line');
+    const C = { rows: [] }; const months = {}; const ms = [...new Set(prod.map(r => String(r.made_on).slice(0, 7)))].sort(); let noMap = false;
+    const byM = new Map(); for (const r of prod) { const k = String(r.made_on).slice(0, 7); if (!byM.has(k)) byM.set(k, []); byM.get(k).push(r); } /* each month reads only its own entries (review 5b, finding 5) */
+    for (const m of ms) { const A = await absorbedFor(D, m, byM.get(m), pl0, match, C); if (A.noMap) noMap = true; months[m] = { kg: A.kg, labour: A.labour.total, foh: A.foh.total, noRateKg: A.noRateKg }; }
+    res.json({ ready: true, from, till, noMap, months, rows: C.rows.sort((a, b) => a.made.localeCompare(b.made)) });
+  }));
+  /** Saved reports (R54): kept for the person who made it; only they see, open, rename or delete it. Migration 013. */
+  const SAVED = { has: false };
+  async function savedReady() { if (SAVED.has) return true; try { const [t] = await q("SHOW TABLES LIKE 'c2m_saved_report'"); SAVED.has = t.length > 0; } catch (_) { return false; } return SAVED.has; } /* once there, it stays; until then it is asked again each time */
+  const NEED013 = 'Saving a report needs migration 013 (apps/c2m/migrations/013_c2m_saved_report.sql), which IT has not run yet. The report itself works; it cannot be kept until then.';
+  const need013 = async () => { if (!(await savedReady())) throw Object.assign(new Error(NEED013), { status: 409, need: 13 }); };
+  const SETS = ['sales', 'open', 'costs', 'wlp', 'vanp', 'rates', 'made'];
+  const savedRow = r => { let spec = null; try { spec = JSON.parse(r.spec_json); } catch (_) {} return { id: Number(r.id), name: r.name, spec, created: r.created_at ? String(r.created_at).slice(0, 19) : null, updated: r.updated_at ? String(r.updated_at).slice(0, 19) : null }; };
+  async function savedOf(user) { if (!(await savedReady())) return { ready: false, message: NEED013, rows: [] }; const [rows] = await q('SELECT id, name, spec_json, created_at, updated_at FROM c2m_saved_report WHERE owner=? ORDER BY updated_at DESC, id DESC', [user]); return { ready: true, rows: rows.map(savedRow) }; }
+  const nameOf = v => { const n = String(v == null ? '' : v).replace(/\s+/g, ' ').trim(); if (!n) throw bad('Name the report.'); if (n.length > 120) throw bad('Keep the name to 120 letters or fewer.'); return n; };
+  /** The report's recipe: what it shows, never its figures. Under 20 KB, and it must read back as a report of 1 of the 7 data sets. */
+  function specOf(v) {
+    let o = v; if (typeof v === 'string') { if (Buffer.byteLength(v, 'utf8') > 20000) throw bad('This report is too large to keep (over 20 KB).'); try { o = JSON.parse(v); } catch (_) { throw bad('The report could not be read, so it was not saved.'); } }
+    if (!o || typeof o !== 'object' || Array.isArray(o)) throw bad('The report could not be read, so it was not saved.');
+    const t = JSON.stringify(o); if (Buffer.byteLength(t, 'utf8') > 20000) throw bad('This report is too large to keep (over 20 KB).');
+    if (!SETS.includes(o.set)) throw bad('The report has no data set C2M knows.'); if (!Array.isArray(o.cols) || !o.cols.length || o.cols.some(c => typeof c !== 'string')) throw bad('The report has no columns.');
+    return t;
+  }
+  app.get('/api/c2m/reports/saved', can('see.margin'), wrap(async (req, res) => { res.json(await savedOf(req.c2m.user)); }));
+  app.post('/api/c2m/reports/saved', can('see.margin'), wrap(async (req, res) => {
+    await need013(); const b = req.body || {}; const name = nameOf(b.name), spec = specOf(b.spec), user = req.c2m.user;
+    const [[old]] = await q('SELECT id, name, spec_json FROM c2m_saved_report WHERE owner=? AND name=?', [user, name]); let id;
+    if (old) { if (b.overwrite !== true) throw Object.assign(new Error(`You already have a report called "${old.name}". Press Save over it to replace it, or type another name.`), { status: 409 });
+      const was = { name: String(old.name), spec: old.spec_json }; id = Number(old.id);
+      await q('UPDATE c2m_saved_report SET name=?, spec_json=?, updated_at=? WHERE id=? AND owner=?', [name, spec, now(), id, user]); /* takes the name as typed now, capitals included (review 5b, finding 3) */
+      await audit(user, 'saved_report', id, 'save', was, { name, spec }, 'Saved over'); }
+    else { const [[cnt]] = await q('SELECT COUNT(*) AS n FROM c2m_saved_report WHERE owner=?', [user]); if (Number(cnt && cnt.n) >= 50) throw bad('You have 50 saved reports, the most C2M keeps for 1 person. Delete one you no longer use, then save again.'); /* keeps the state call light (review 5b, finding 5) */
+      try { const [r] = await q('INSERT INTO c2m_saved_report (owner, name, spec_json, created_at, updated_at) VALUES (?,?,?,?,?)', [user, name, spec, now(), now()]); id = Number(r.insertId); }
+      catch (e) { if (e && e.code === 'ER_DUP_ENTRY') throw Object.assign(new Error(`You already have a report called "${name}". Press Save over it to replace it, or type another name.`), { status: 409 }); throw e; } /* 2 saves at once */
+      await audit(user, 'saved_report', id, 'save', null, { name, spec }, null); }
+    res.json({ ok: true, id, ...(await savedOf(user)) });
+  }));
+  /** 1 saved report of this person; another person's is "not found" (never shown, renamed or deleted). */
+  const mySaved = async (req) => { const id = Number(req.params.id); if (!(id > 0)) throw bad('Pick a saved report.'); const [[r]] = await q('SELECT id, name, spec_json FROM c2m_saved_report WHERE id=? AND owner=?', [id, req.c2m.user]); if (!r) throw Object.assign(new Error('That saved report is not yours, or it is no longer there.'), { status: 404 }); return r; };
+  app.post('/api/c2m/reports/saved/:id/rename', can('see.margin'), wrap(async (req, res) => {
+    await need013(); const r = await mySaved(req); const name = nameOf((req.body || {}).name), user = req.c2m.user, was = String(r.name);
+    if (name === was) throw bad('That is its name already.');
+    const [[clash]] = await q('SELECT id FROM c2m_saved_report WHERE owner=? AND name=? AND id<>?', [user, name, r.id]); if (clash) throw Object.assign(new Error(`You already have a report called "${name}". Pick another name.`), { status: 409 });
+    try { await q('UPDATE c2m_saved_report SET name=?, updated_at=? WHERE id=? AND owner=?', [name, now(), r.id, user]); } catch (e) { if (e && e.code === 'ER_DUP_ENTRY') throw Object.assign(new Error(`You already have a report called "${name}". Pick another name.`), { status: 409 }); throw e; }
+    await audit(user, 'saved_report', r.id, 'rename', { name: was }, { name }, null);
+    res.json({ ok: true, ...(await savedOf(user)) });
+  }));
+  app.post('/api/c2m/reports/saved/:id/delete', can('see.margin'), wrap(async (req, res) => {
+    await need013(); const r = await mySaved(req); const user = req.c2m.user, old = { name: String(r.name), spec: r.spec_json };
+    await q('DELETE FROM c2m_saved_report WHERE id=? AND owner=?', [r.id, user]);
+    await audit(user, 'saved_report', r.id, 'delete', old, null, null);
+    res.json({ ok: true, ...(await savedOf(user)) });
   }));
   app.get('/api/c2m/audit', can('see.margin'), wrap(async (req, res) => {
     const Q = req.query || {}; const dt = v => /^\d{4}-\d{2}-\d{2}$/.test(String(v || '')) ? String(v) : null;

@@ -352,3 +352,16 @@ Changed in 0.3.0 and 0.3.1: rs_per_kg fixed (1 rate of 1 kind, labour or FOH). A
 | First data load | The start of VAN list history in C2M (11 Oct 2026 for a list revised since) | Price history, VAN lists |
 | lkey, lfr on an open PO row | The list an open VAN brand PO line is priced on, and that list's freight Rs per kg or L (null: not set) | state, open |
 | c2m.rtcols.<report> | The columns a person hid on a report, kept in that browser | localStorage |
+
+## 10.22 6 Nov 2026 (D-158)
+| Word | Meaning | Where |
+|---|---|---|
+| Your own report | A report a person makes in Reports from 1 of 7 data sets | Reports |
+| Data set | Sales, Open POs, Pack cost, Client prices, VAN list prices, Rates, Kg made | Your own report |
+| Totals by group | 1 row per client, brand, month (and so on), adding what adds up | Your own report |
+| Short of target Rs | What an open line's GP is below its target, in Rs (F-46) | Your own report, Open POs |
+| Charged as | How Month end charged a production entry: for a PO, stock at its base's rate, stock at Low, base not known, no rate | Your own report, Kg made |
+| c2m_saved_report | A saved report: id, owner (platform username), name (1 to 120 letters, once per owner), spec_json, created_at, updated_at (migration 013) | database |
+| spec_json | The recipe: set (sales, open, costs, wlp for client prices, vanp for VAN list prices, rates, made), period ({q: month, last, m3, year or all} or {from, till}), cols (column keys in order), filters ({key: value}), show (rows or group), groupBy (a group key) | c2m_saved_report |
+| saved_report (audit) | entity of the change record for save, rename and delete; old and new hold the name and the recipe | c2m_audit |
+| c2m.rtcols.own | The columns hidden on Your own report's bar; cleared when the builder changes | localStorage |

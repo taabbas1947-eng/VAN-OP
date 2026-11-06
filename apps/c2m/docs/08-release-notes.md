@@ -17,6 +17,16 @@ Changed in 0.6.0: entry 0.6.0 added.
 Changed in 0.5.0: entry 0.5.0 added; real figures removed from earlier entries (public repo).
 Format: Keep a Changelog, semantic versions. Live: 1.0.0 (pushed 19 Oct about 22:09, checked live by Claude as Tahir the same evening; Yawar's view checked in the cloud copy only); 0.9.3 pushed 19 Oct 14:38, checked live; 0.9.2 pushed 19 Oct 12:43, checked live; first data load 19 Oct 2026 about 13:17, checked live. Before: 0.9.1 (pushed 19 Oct 09:39, checked live). apps/c2m first pushed by Tahir on 17 Oct and the live migration run the same day (39 empty c2m_ tables); 0.6.0 and 0.7.0 pushed on 18 Oct (17:29), 0.8.0 (20:16) and 0.9.0 (22:03), each checked live by Claude. The folder tabs (D-59) were built after the 0.9.0 push and ship in 0.9.1. No data loaded yet: the first data load runs on Monday 19 Oct 2026.
 
+## [Next version, push 5b: Your own report] · 6 Nov 2026 · D-158 · Who: Tahir ruled (R52 to R54); Claude built and tested; not pushed · Needs migration 013 (Ahmer)
+### Added
+- Reports: Your own report, first on the page. Pick the data (Sales, Open POs, Pack cost, Client prices, VAN list prices, Rates, Kg made), the period, the columns in your order, the filters, and each row or totals by group; download as Excel, CSV or PDF. Sales totals agree with Margin; Kg made agrees with Month end.
+- Save a report with a name: kept for you, listed under Your own report to open on today's data, rename or delete. Needs migration 013 (013_c2m_saved_report.sql, for Ahmer, after 012); until it is run Save is off and says so, and everything else works.
+- Adjust on the bar of Cost history, Price history, Margin by client and brand and GP bridge: opens the report in Your own report on its data, dates, filters and columns. The other 3 reports show Adjust off, with the reason.
+- Routes: GET /api/c2m/reports/rates and /api/c2m/reports/made (read only); GET and POST /api/c2m/reports/saved, POST /api/c2m/reports/saved/:id/rename and /delete (own reports only). All for the roles that see margin.
+- Find: "Your own report". In-app change list entry 2026-11-06e.
+### Changed
+- Month end's charge on kg made (absorbedFor) can also hand back each entry as it is charged, for Kg made; its totals are unchanged (tested against the lock).
+
 ## [Next version, push 5a: Reports] · 6 Nov 2026 · D-157 · Who: Tahir ruled (R28, R30, R48 to R51); Claude built and tested; not pushed
 ### Added
 - Reports: Cost history, Price history (client prices and the 5 VAN lists) and Margin by client and brand. 7 reports ready.

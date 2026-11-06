@@ -306,3 +306,11 @@ c2m_list_price (farmer rows, by packId) -> lib.printMrp -> the MRP printing list
 - Margin by client and brand: from the state's sales rows, as Margin (nmRows, nmCost, nmSum), in the browser.
 - Open PO rows (state, see.margin): a VAN brand line now carries lkey and lfr (its list and that list's freight Rs per kg or L) or noList, picked as for trucks (R46).
 - Downloads are made in the browser (Excel by the page's own .xlsx writer, CSV as UTF-8 text with a byte order mark; PDF through the print box). Nothing is sent to the server. Column choices are kept in the browser (localStorage c2m.rtcols.<report>).
+
+## 2.33 Your own report (owner: Tahir; D-158)
+- Sales and Open POs: the state's sales and open rows, in the browser, costed as Margin's approved view (nmCost, nmSum, saleTgt); nothing new is sent.
+- Pack cost and Client prices: GET /api/c2m/reports/costs (as Cost history; client prices from the state's priceHistory with phWlBase). VAN list prices: GET /api/c2m/reports/prices.
+- Rates: new GET /api/c2m/reports/rates (see.margin), read only: c2m_material_rate (with c2m_material_grade, c2m_raw_material), c2m_packing_rate (with c2m_packing_item), c2m_conversion_rule (the rates before Low and High), c2m_lf_rate (when migration 011 is run), c2m_freight_rate, and c2m_audit rows of entity freight for who saved a freight rate (the freight table keeps no name).
+- Kg made: new GET /api/c2m/reports/made?from&till (see.margin), read only: c2m_o2s_production in the dates, charged by Month end's own absorbedFor (each entry collected as it is charged), with Month end's sums per month. Before migration 012 it answers ready false with the reason.
+- Saved reports: c2m_saved_report (migration 013). The state call carries savedReports {ready, rows} for a person who sees margin (their own rows only); GET /api/c2m/reports/saved gives the same. POST save, rename and delete write the row and a c2m_audit row (entity saved_report); each answer returns the person's list, so the page does not reload. Only the recipe (spec_json) is kept, never the figures.
+- Downloads of Your own report are made in the browser, as every report (2.32).

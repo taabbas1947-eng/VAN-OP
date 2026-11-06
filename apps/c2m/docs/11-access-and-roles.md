@@ -248,3 +248,8 @@ No new action: each list uses the right that adds to it. Delete, Take out of use
 
 ## 11.20 6 Nov 2026 (D-157)
 - No new action and no right changed. Reports stays only for the roles that see margin (see.margin: the CFO and the COO); the 2 new routes, GET /api/c2m/reports/costs and /prices, answer 403 to every other role (tested for production, QC, plant and viewer). VAN brand PO against its price list still also needs see.price.
+
+## 11.21 6 Nov 2026 (D-158)
+- No new action and no right changed. Your own report sits in Reports, so it is only for the roles that see margin (see.margin: the CFO and the COO). The 6 new routes (rates, made, saved list, save, rename, delete) answer 403 to every other role (tested for production, QC, plant and viewer).
+- A saved report belongs to the person who saved it: the owner is taken from the signed-in person on the server, never from the page. Nobody else sees, opens, renames or deletes it, the administrator role included (another person's id answers "not yours, or no longer there").
+- Review 5b (6 Nov 2026): the rates route sends raw material rates only to a role that also has see.materials, as the state call does; other rates go to every see.margin role. A person keeps at most 50 saved reports.

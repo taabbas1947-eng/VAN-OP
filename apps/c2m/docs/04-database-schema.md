@@ -820,3 +820,6 @@ Urgent prices and list revisions are marked by a c2m_audit row: entity price or 
 
 ## 4.17 Migration 012: O2S production by day (6 Nov 2026, D-154)
 012_c2m_o2s_production.sql (and its PRODUCTION copy) creates c2m_o2s_production (id from O2S, made_on, base, brand NULL, po NULL, kg, sync_id; key made_on), refilled on every O2S pull. New kinds in c2m_monthly_check, no table change: coo_check (data: seen change ids) and lock (data: sales, cogs, uncosted, focCost, kgMade, labourCharged, fohCharged, actualLabour, actualFoh).
+
+## 4.18 Migration 013: saved reports (6 Nov 2026, D-158)
+013_c2m_saved_report.sql (and its PRODUCTION copy) creates c2m_saved_report (id INT auto increment, owner VARCHAR(60) the platform username, name VARCHAR(120), spec_json TEXT the recipe, created_at, updated_at; unique key owner, name) and changes nothing else. Safe to run twice (CREATE TABLE IF NOT EXISTS). Until it runs, Your own report works without Save.

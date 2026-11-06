@@ -802,3 +802,14 @@ Next: push 5b, Your own report and saved reports (migration 013), with the Adjus
 Independent review 5a: no Blocking; 2 Major and 5 Minor fixed (CSV formula guard with -, GP at start on a later cost marked, change note corrected, below cost always red, list history Till, escaping); see docs 12. Open for Tahir: VAN brand target in Margin by client and brand (ambition) differs from Margin (product target).
 R55 (Tahir, same evening): each VAN brand sale judged against its own price list's target (saleTgt in nmSum), on Margin and the new report alike; no list or no list target = not judged. Replaces the ambition GP.
 Review of R55: 1 Blocking, 1 Major, 6 Minor, all fixed (direction from GP on judged sales; list margin portfolio on list targets; export, chip, answer, help text, sort, below-cost warning). See docs 12.
+
+## 6 Nov 2026 (6) - push 5b: Your own report and saved reports (D-158), MODULE: C2M
+Module: C2M. Not pushed (Tahir pushes). Needs migration 013 (Ahmer, after 012): 013_c2m_saved_report.sql and its PRODUCTION copy. Local first was not possible in this build (no database here); it is written and tested in the harness (stubbed table, before and after it exists). Until it runs, Your own report works without Save and says why.
+Picture: C2M Reports artifact, version 3 (screen 7, the data you can pick, R52 to R54).
+Files: apps/c2m/c2m.html, c2m-routes.js, migrations/013_c2m_saved_report(.PRODUCTION).sql; docs 01 to 12.
+- Your own report first on Reports: Data (7 sets: Sales, Open POs, Pack cost, Client prices, VAN list prices, Rates, Kg made), Period, Columns (add, ‹ ›, ✕), Filters, Each row or Totals by group; through the 5a tool bar. GP % on totals = GP ÷ sales. Sales equals Margin; Kg made equals Month end.
+- Routes: GET /api/c2m/reports/rates and /made; saved list (also in state), save, rename, delete (own only; see.margin; audited).
+- Adjust on Cost history, Price history, Margin by client and brand, GP bridge; off with the reason on the other 3. CHANGELOG 2026-11-06e.
+Tests: new t17 (55) and p13 (75); t3 to t16, no-011, p9 to p12, pricecheck 64: all passed (docs 12, D-158).
+Next: push 6 (words, Guide, Find and phone).
+Independent review 5b: no Blocking or Major; 5 Minor fixed or stated (Kg made rounding note, filter option values, saved name case, raw material rates need see.materials, Kg made per month, 50 saved reports a person). See docs 12.

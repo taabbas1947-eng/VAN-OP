@@ -198,3 +198,11 @@ A pack takes 1 labour rate and 1 FOH rate, each the first match of these levels:
 | F-43 | Last per pack (Cost history) | Each pack's newest approved cost in the dates; change = (that total − the cost before the dates) ÷ the cost before the dates, where the cost before the dates is the previous cost of the pack's earliest approval in the dates. |
 | F-44 | VAN brand list margin after freight | GP = (list price per pack without FED − cost per pack before freight − the list's freight Rs per kg or L × pack size) ÷ list price per pack without FED; judged on the list's own target (lt_ setting); freight not set: not judged; the same function as the price lists (lcJudge). Replaces F-22's "before freight". |
 | B-50 | Report downloads | The ticked rows shown, else every row shown; only the columns shown; the total row only when nothing is ticked. Every report opens on the current month (R49); "This year" is the financial year from 1 July. |
+
+## 6 Nov 2026 (D-158)
+| ID | Rule | Detail |
+|---|---|---|
+| F-45 | Totals in Your own report | A total or group row adds kg (kg and L together, as "Kg or L"), Rs (sales, cost, GP, against target, short of target, labour and FOH charged) and the count of rows. GP % = the row's GP ÷ its sales × 100, never an average of the rows' %. Target % = target Rs ÷ judged sales (nmSum, R55). Price, cost and each part per kg on a total = Rs ÷ kg (weighted by kg). A change %, a rate, a list price or a date is never added: those columns are not shown on group rows. Sales totals use Margin's own sums, so they equal Margin for the same dates. |
+| F-46 | Short of target Rs (Open POs) | Per open line: the larger of 0 and (target % × sales Rs − GP Rs), at today's cost (VAN brand after its list's freight); added over the lines; a line not judged (no target) adds nothing. |
+| F-47 | Rate change % (Rates) | (now − was) ÷ was × 100 for the same item (material grade, packing item, labour or FOH rate by name, freight segment and region), 2 decimals; the first rate of an item has no change. |
+| B-51 | Saved reports | Kept for the person who saved them; only the recipe (data set, dates, columns in order, filters, show, group by), never the figures; opening builds it again on today's data. 1 name once per person; saving over needs the person to press Save over it. |

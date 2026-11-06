@@ -325,6 +325,11 @@ h1.topic{font-size:17px;letter-spacing:.04em}
 .cboxes{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px;margin-top:12px}.cbox{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:14px;display:flex;flex-direction:column;gap:4px;min-width:0}.cbox .ct{margin:0;font-size:15px;color:var(--blue)}.cbox .cn{font-weight:600;overflow-wrap:anywhere}.cbox .clast{color:var(--muted);font-size:13px}.cbox .cw{color:var(--late);font-size:13px}.cbox .cp{color:var(--over);font-size:13px}.cbox .cok{color:var(--ok);font-size:13px}.cbox .cb{align-self:flex-start;margin-top:auto}.savedbox{margin:6px 0 10px}.savedbox .acts{display:flex;gap:8px;flex-wrap:wrap}.effect{margin:8px 0}.wk{margin:6px 0}.pklist{display:flex;flex-direction:column;gap:2px;max-height:260px;overflow:auto;margin:6px 0;padding:4px 0}.pklist .chk{display:flex;gap:8px;align-items:center;min-height:32px}.pklist .chk input,.wk .chk input{width:auto;min-height:0;flex:none;margin:0}@media (max-width:760px){.pklist .chk{min-height:44px}}.wk .chk{display:inline-flex;gap:6px;align-items:center;color:var(--ink);align-self:flex-end;min-height:36px}.wkstrip{margin:8px 0 4px}.wkstrip .acts{display:flex;gap:8px;flex-wrap:wrap}.seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}.seg button{font:inherit;font-size:13px;border:0;border-right:1px solid var(--line);background:var(--surface);color:var(--ink);padding:6px 12px;min-height:34px;cursor:pointer}.seg button:last-child{border-right:0}.seg button[aria-pressed="true"]{background:var(--ink);color:var(--surface)}.seg button:disabled{cursor:default}@media (max-width:760px){.seg button{min-height:44px;padding:6px 16px}}.next.warn{border-left-color:var(--late)}.corr{display:inline-flex;gap:8px;align-items:flex-end;flex-wrap:wrap}.corr label{display:flex;flex-direction:column;font-size:13px}.effslot{flex-basis:100%}.effect.ok{border-color:var(--ok);background:color-mix(in srgb,var(--ok) 10%,var(--surface))}tr.sub td{background:var(--bg)}
 /* Report tools (push 5a, D-157) */
 .rtbar{align-items:flex-end;gap:8px 12px}.rtbar .chips{margin:0}.rtd{display:flex;gap:8px;flex-wrap:wrap}.rtd label,.rtsel{display:grid;gap:2px;font-size:12px;color:var(--mute,#4a5a70)}.rtd input{min-width:150px}
+.owb{background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:2px 12px;margin:0 0 12px}.owrow{display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center;padding:9px 0;border-bottom:1px solid var(--line);min-width:0}.owrow:last-child{border-bottom:0}.owrow>*{min-width:0;max-width:100%}.owrow .chips{margin:0}.owrow select{max-width:100%}
+.owl{flex:0 0 74px;font-weight:600;font-size:13px}.owor{font-size:12px;color:var(--muted)}.owhint{flex:1 1 100%;font-size:12px;color:var(--muted)}.owc{display:inline-flex;align-items:center;gap:0;border:1px solid var(--blue);border-radius:14px;padding:0 2px 0 10px;font-size:13px;background:var(--surface)}.owc button{border:0;background:none;color:var(--ink);min-width:30px;min-height:30px;cursor:pointer;font:inherit}.owc button:disabled{opacity:.3;cursor:default}
+.owa{border:1px dashed var(--line);background:none;border-radius:14px;padding:4px 10px;font:inherit;font-size:12.5px;color:var(--ink);cursor:pointer;min-height:30px}.owa:hover{border-color:var(--blue)}.owsave{align-items:flex-end}.owsave input{min-width:220px}
+.rown{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:0 14px}.rcard.mine{border-left-color:var(--blue)}.owsv{cursor:default}.owsv .lnk{padding:0;text-align:left}.owsvb{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}.owsvb .btn{min-height:32px;padding:3px 10px}.owland{margin:0 0 14px}
+@media (max-width:600px){.owl{flex:1 1 100%}.owsave input{min-width:0;width:100%}.owsave label{flex:1 1 100%}}
 .rtt .rtx{width:30px;text-align:center}.rtt tr.child td{font-size:13px}.colsmenu .box.rtcl{left:0;right:auto;max-height:340px;overflow-y:auto}
 #rtprint{display:none}
 @media print{body.rtp>:not(#rtprint){display:none!important}body.rtp #rtprint{display:block;font:10.5px/1.35 Calibri,Arial,sans-serif;color:#000;background:#fff}
@@ -1913,7 +1918,11 @@ const CHANGELOG = [
  { t: 'Reports: 3 new reports. Cost history (every approved cost of every pack and why it moved), Price history (client prices and the 5 VAN lists, from when to when) and Margin by client and brand (any dates; totals agree with Margin).', for: ['see.margin'], guide: 'Read a report' },
  { t: 'Every report opens on the current month. Pick the dates, the columns and the rows, and download what is on the screen as Excel, CSV or PDF (the print box: "Save as PDF").', for: ['see.margin'], guide: 'Download a report' },
  { t: 'VAN brand GP is after list freight in 2 more places: the VAN brand list margin report (judged on each list\'s own target; a list with no freight set is not judged, but a price below cost is always shown) and Margin opened on a VAN brand, where list freight is its own part of the cost.', for: ['see.margin'], guide: 'Margin by client and brand' },
- { t: 'VAN brand sales are now judged against the target of the price list each was sold on (each channel has its own target), on Margin and on Margin by client and brand. A sale with no list, or on a list with no target set yet, is shown as not judged.', for: ['see.margin'], guide: 'Margin by client and brand' }] }
+ { t: 'VAN brand sales are now judged against the target of the price list each was sold on (each channel has its own target), on Margin and on Margin by client and brand. A sale with no list, or on a list with no target set yet, is shown as not judged.', for: ['see.margin'], guide: 'Margin by client and brand' }] },
+  { ver: '2026-11-06e', date: '2026-11-06', title: 'Reports: Your own report, saved reports and Adjust', items: [
+ { t: 'Your own report, first on Reports: pick the data (Sales, Open POs, Pack cost, Client prices, VAN list prices, Rates, Kg made), the dates, the columns in your order, the filters, and each row or totals by group. GP % on a total is its GP ÷ its sales. Download it as Excel, CSV or PDF.', for: ['see.margin'], guide: 'Make your own report' },
+ { t: 'Save a report with a name: it is kept for you and listed under Your own report on Reports, to open on today\'s data, rename or delete. Saving starts once IT runs migration 013; until then a report can be made and downloaded, not kept.', for: ['see.margin'], guide: 'Save, open, rename or delete a report' },
+ { t: 'Adjust, on the bar of a report, opens it in Your own report on its data, with its dates, filters and columns, to change it further.', for: ['see.margin'], guide: 'Adjust a report' }] }
 ];
 let _wnShown = false, wnGuide = null;
 /** A Guide link only when that row is on this person's Guide (Yawar's rows, Tahir's rows, and Both; D-141). */
@@ -2017,7 +2026,7 @@ function finderItems(q) {
     if (M.nav.concat(M.more || []).includes('costs')) [['materials', 'material cost rate raw'], ['packing', 'packing cost bag bottle carton label liner bill'], ['labour', 'labour labor rate conversion wages'], ['foh', 'foh factory overhead rate conversion'], ['freight', 'freight cost transport delivery region'], ['month', 'month end actual close tie books erp rate check certificate'], ['next', 'next week costs monday waiting urgent weekly review']].forEach(([k, w]) => { if (hit(CPARTS[k] + ' ' + w)) out.push({ l: CPARTS[k], s: 'Costs', go: `cost:${k}` }); });
     if (M.nav.concat(M.more || []).includes('costs')) (ST.packingItems || []).forEach(i => { if (hit(i.name)) out.push({ l: i.name, s: 'Packing item', go: 'cost:packing' }); });
     if (M.nav.concat(M.more || []).includes('inputs') || (M.nav.concat(M.more || []).includes('costs') && CAN('rate.save'))) (ST.materials || []).forEach(m => { if (hit(m.name)) out.push({ l: `${m.name} ${m.grade}`, s: 'Material', go: `mat:${m.name}` }); });
-    if (M.nav.concat(M.more || []).includes('reports')) REPORTS.filter(r => !r.need || CAN(r.need)).forEach(r => { if (hit(r.t + ' ' + r.q)) out.push({ l: r.t, s: 'Report', go: `rep:${r.k}` }); });
+    if (M.nav.concat(M.more || []).includes('reports')) REPORTS.filter(r => !r.need || CAN(r.need)).forEach(r => { if (hit(r.t + ' ' + r.q)) out.push({ l: r.t, s: 'Report', go: `rep:${r.k}` }); }); if (M.nav.concat(M.more || []).includes('reports') && hit('Your own report make a report')) out.push({ l: 'Your own report', s: 'Report', go: 'rep:own' });
   }
   const st = x => Q && String(x.l).toLowerCase().startsWith(Q) ? 0 : 1;
   return out.filter(x => !/^rec:$/.test(x.go)).map((x, i) => [x, i]).sort((a, b) => st(a[0]) - st(b[0]) || a[1] - b[1]).map(a => a[0]).slice(0, 40);
@@ -2818,7 +2827,7 @@ function rtView(def) {
   const td = (c, inner) => `<td${c.r ? ' class="r num"' : ''}>${inner}</td>`;
   const foot = def.foot ? `<tfoot><tr><td></td>${C.map((c, i) => td(c, c.tot ? rtCell(c, def.foot) : i === 0 ? esc(def.foot._lbl || 'Total') : '')).join('')}</tr></tfoot>` : '';
   return `${def.extra ? `<div class="wtbar rtbar">${def.extra}</div>` : ''}${dates ? `<div class="wtbar rtbar">${dates}</div>` : ''}
-  <div class="wtbar rtbar">${cols}<span class="ans" data-rtn>${tick}</span><span class="sp"></span><button class="btn ghost" data-rtk="${k}" data-rtdl="xlsx">Excel</button><button class="btn ghost" data-rtk="${k}" data-rtdl="csv">CSV</button><button class="btn ghost" data-rtk="${k}" data-rtdl="pdf">PDF</button></div>
+  <div class="wtbar rtbar">${cols}<span class="ans" data-rtn>${tick}</span><span class="sp"></span><button class="btn ghost" data-rtk="${k}" data-rtdl="xlsx">Excel</button><button class="btn ghost" data-rtk="${k}" data-rtdl="csv">CSV</button><button class="btn ghost" data-rtk="${k}" data-rtdl="pdf">PDF</button>${OWADJ[def.k] ? `<button class="btn ghost" data-rtk="${k}" data-rtadj title="Open this report in Your own report, to change it further">Adjust</button>` : OWNOADJ[def.k] ? `<button class="btn ghost" disabled title="${esc(OWNOADJ[def.k])}" aria-label="Adjust: ${esc(OWNOADJ[def.k])}">Adjust</button>` : ''}</div>
   <div class="box wrapx"><table class="wt rtt" data-nosort data-rtt="${k}"><thead><tr><th class="rtx"><input type="checkbox" id="rta-${k}" data-rtk="${k}" data-rtall aria-label="Tick all ${def.rows.length} rows shown"${allT ? ' checked' : ''}></th>${C.map(c => `<th${c.r ? ' class="r"' : ''}>${esc(c.l)}</th>`).join('')}</tr></thead>
   <tbody>${def.rows.map((r, i) => `<tr${r._cls ? ` class="${r._cls}"` : ''}${r._tr || ''}><td class="rtx"><input type="checkbox" id="rtk-${k}-${i}" data-rtk="${k}" data-rttick="${esc(r._id)}" aria-label="Tick this row"${s.ticks.has(r._id) ? ' checked' : ''}></td>${C.map(c => td(c, rtCell(c, r))).join('')}</tr>`).join('') || `<tr><td colspan="${C.length + 1}">${esc(def.empty || 'No row in these dates.')}</td></tr>`}</tbody>${foot}</table></div>`;
 }
@@ -2832,6 +2841,7 @@ function rtClick(t, d) {
   if (d.rttick != null) { if (t.checked) s.ticks.add(d.rttick); else s.ticks.delete(d.rttick); return false; }
   if ('rtall' in d) { if (t.checked) def.rows.forEach(r => s.ticks.add(r._id)); else s.ticks.clear(); return false; }
   if (d.rtdl) { rtDownload(k, d.rtdl); return true; }
+  if ('rtadj' in d) { const sp = OWADJ[k] ? OWADJ[k]() : null; if (!sp) { toast('This report cannot be opened in Your own report as it stands.', true); return true; } owOpen(sp); return false; } /* Adjust (push 5b, D-158) */
   return false;
 }
 /** What a download holds: the ticked rows shown, else every row shown; the columns shown; the total row only with nothing ticked. */
@@ -2895,10 +2905,12 @@ const seenSet = (k, v) => { try { localStorage.setItem('c2m.seen.' + k, v); } ca
 const repSig = k => k === 'bridge' ? (bridge().b || '') : k === 'pocheck' ? String((ST.poLines || []).length) + '|' + ((ST.poLines || []).map(x => x.received || '').sort().pop() || '') : k === 'listcheck' ? ((ST.listCheck && ST.listCheck.lines) || []).map(x => x.po + ':' + x.state).join(',') : k === 'vanmargin' ? (ST.listItems || []).map(x => x.id + ':' + [x.data.now, x.data.nsv, x.data.disc, x.data.pb, x.data.sn, x.data.snc, x.data.packId].map(v => v ?? '').join('/')).join(',') : '';
 function vReports() {
   const REPS = REPORTS.filter(r => !r.need || CAN(r.need)); // a report only for the roles that receive its data (review 4 Nov, finding 8)
+  if (rep === 'own') return vOwn(); // Your own report (push 5b, R52, D-158)
   if (rep) { const r = REPS.find(x => x.k === rep); if (r) { if (r.ready) seenSet(r.k, repSig(r.k)); return r.k === 'bridge' ? vBridge() : r.k === 'pocheck' ? vPoCheck() : r.k === 'listcheck' ? vListCheck() : r.k === 'vanmargin' ? vVanMargin() : r.k === 'costs' ? vCostHist() : r.k === 'prices' ? vPriceHist() : r.k === 'margin' ? vMarginRep() : vRepLater(r); } rep = null; }
   const isNew = r => r.ready && seenGet(r.k) !== repSig(r.k); const nNew = REPS.filter(isNew).length; const q = repQ.trim().toLowerCase();
   return `${head('Reports', `${REPS.filter(r => r.ready).length} reports ready${nNew ? `, ${nNew} with something new since you last looked` : ''}. ${REPS.filter(r => !r.ready).length} more are coming.`, 'Each card names the 1 question its report answers. Every report opens on the current month with its answer line; on each you can pick the dates, the columns and the rows (tick them), and download what is on the screen as Excel, CSV or PDF. "New" means the report has data you have not opened yet in this browser.')}
   <div class="wtbar"><input type="search" id="rq" value="${esc(repQ)}" placeholder="Find a report" aria-label="Find a report"></div>
+  ${owLanding()}
   <div class="rgroups">${['Cost', 'Prices', 'Money', 'Control'].filter(g => REPS.some(r => r.g === g && r.ready)).map(g => `<section><h2 class="gh">${g}</h2>${REPS.filter(r => r.g === g && r.ready && (!q || (r.t + ' ' + r.q).toLowerCase().includes(q))).map(r => `<button class="rcard ${r.ready ? 'ready' : 'later'}" data-rep="${r.k}"><b>${esc(r.t)}${isNew(r) ? '<em>new</em>' : r.ready ? '' : '<em>not built yet</em>'}</b><span>${esc(r.q)}</span></button>`).join('') || '<p class="ans">No report matches.</p>'}</section>`).join('')}</div>
   <details class="how"><summary>Coming later (${REPS.filter(r => !r.ready).length})</summary><div class="rgroups">${REPS.filter(r => !r.ready && (!q || (r.t + ' ' + r.q).toLowerCase().includes(q))).map(r => `<button class="rcard later" data-rep="${r.k}"><b>${esc(r.t)}</b><span>${esc(r.q)}</span></button>`).join('')}</div></details>`;
 }
@@ -3203,10 +3215,15 @@ function vPriceHist() {
   if (C.err || L.err) return `${crumb}${head('Price history', 'The price history could not be read: ' + esc(C.err || L.err), '')}${tabs}<p><button class="btn ghost" data-rep-retry="prices">Try again</button></p>`;
   return phTab === 'van' ? vPhVan(L.data || { rows: [] }, crumb, tabs) : vPhWl((C.data && C.data.rows) || [], crumb, tabs);
 }
-function vPhWl(costs, crumb, tabs) {
-  const P = packIdx(); const now = ST.today; const inForce = p => p.from <= now && (!p.to || p.to >= now);
-  const base = (ST.priceHistory || []).map(p => { const k = P.get(p.packId); if (k && k.product.grp !== 'White label') return null; const c = costOnDay(costs, p.packId, p.from); const gp = c && p.price > 0 ? (p.price - c.total) / p.price * 100 : null; const later = !!(c && c.later);
+/** Every approved white label price, with its GP at its start: Price history and Your own report (push 5b) read the same rows. */
+function phWlBase(costs) {
+  const P = packIdx();
+  return (ST.priceHistory || []).map(p => { const k = P.get(p.packId); if (k && k.product.grp !== 'White label') return null; const c = costOnDay(costs, p.packId, p.from); const gp = c && p.price > 0 ? (p.price - c.total) / p.price * 100 : null; const later = !!(c && c.later);
     return { ...p, k, cust: k ? k.product.customer : 'Pack no longer active', name: k ? `${k.product.customer} · ${k.product.brand} · ${szTxt(k)}` : 'A pack no longer active', size: k ? Number(k.size) : null, u: k && k.product.soldPer === 'L' ? 'L' : 'kg', gp, later, tgt: k ? tgtOf(k.product.target) : null, chg: p.prev ? chg(p.price, p.prev) : null }; }).filter(Boolean);
+}
+function vPhWl(costs, crumb, tabs) {
+  const now = ST.today; const inForce = p => p.from <= now && (!p.to || p.to >= now);
+  const base = phWlBase(costs);
   const custs = [...new Set(base.map(r => r.cust))].sort((a, b) => a.localeCompare(b));
   const rows = rtIds(base.filter(r => (!phCl || r.cust === phCl) && (phShow === 'now' ? inForce(r) : rtIn('prices', r.from))).sort((a, b) => b.from.localeCompare(a.from) || b.id - a.id), r => 'p' + r.id);
   const low = r => r.gp != null && r.tgt != null && r.gp < r.tgt - 0.05; const nLow = rows.filter(low).length; const per = phShow === 'now' ? 'In force today' : rtPer('prices');
@@ -3283,6 +3300,245 @@ function vMarginRep() {
   return `${repCrumb('Margin by client and brand')}${meta([per, KN[mbKind], o2sAsOf()])}${head('Margin by client and brand', ans, `Cost: each truck at the cost approved before its gate pass date, as in Margin; VAN brand sales show by buyer line, after each sale's list freight. Target: each product's target GP for white label; for VAN brands the target of the price list each sale was sold on, as each channel has its own (a sale with no list, or on a list with no target set, is not judged). Target and against target count judged sales only. Against target Rs = GP Rs − target % × sales Rs. GP % on a total is total GP ÷ total sales, never an average of the rows. Labour and FOH (factory overhead) under or over charged is a company line on Month end and Margin; it is not spread to clients. Prices without FED; free (FOC) trucks are not sales.`)}
   ${rtView({ k: 'margin', name: 'Margin by client and brand', sheet: 'Margin', cols, rows, extra, filt: [KN[mbKind], mbRows === 'br' ? 'Every brand' : 'Clients, open to brands'].join(' · '), foot: { _lbl: 'All clients', ...T }, empty: 'No costed truck in these dates.' })}
   ${njTxt}${outTxt}`;
+}
+/* ---------- Your own report (push 5b, R52 to R54, D-158) ----------
+   As Custom report in O2S: 1 row per step (Data, Period, Columns in your order, Filters, Show each row or totals by group), then the
+   answer line and the table with its total row, through the same tool bar as every report (ticks, Columns, Excel, CSV, PDF).
+   7 data sets (R53), each from what C2M already keeps: Sales (Margin's own rows and sums, so the totals agree with Margin), Open POs,
+   Pack cost and Client prices (Cost history and Price history), VAN list prices, Rates and Kg made (2 read-only routes).
+   A total or group row adds Rs and kg; GP % on it is its GP ÷ its sales, never an average; a % or a rate is never added.
+   Save with a name (R54, migration 013): only the recipe is kept, for the person who made it; opening it builds it on today's data. */
+const OWQ = [['month', 'This month'], ['last', 'Last month'], ['m3', 'Last 3 months'], ['year', 'FY to date'], ['all', 'All']];
+const OWKIND = { material: 'Material', packing: 'Packing item', labour: 'Labour', foh: 'FOH', freight: 'Freight' };
+const OWHOW = { po: 'For a PO, at its product\'s rate', stock: 'Stock, at its base product\'s rate', low: 'Stock, at Low (its products are on different rates)', unknown: 'Base not known: not charged' };
+const LSTN = { dist: 'Distributor', dealer: 'Dealer, Sindh', farmer_pb: 'Farmer, Punjab', farmer_sn: 'Farmer, Sindh cash', farmer_snc: 'Farmer, Sindh credit' };
+let OW = null; // the report being made: { set, q, from, till, cols, filt, show, by, savedId, savedName, saveOpen, nameDraft, saveErr, clash }
+let owRen = null;
+const owFocus = sel => { const el = document.querySelector(sel); if (el) el.focus(); }; // a saved report being renamed on Reports: { id, v, err }
+const owNum = v => v == null || !isFinite(v) ? null : v;
+const owPk = r => (r.packId ? packIdx().get(r.packId) : null);
+/** Sums of a group of sales or open PO rows: Rs and kg added; GP % = GP ÷ sales; target on the judged sales (nmSum); per kg = Rs ÷ kg. */
+function owSalesAgg(rows) {
+  const keep = nm.hist; nm.hist = 'approved'; let o; try { o = nmSum(rows.map(r => r.raw)); } finally { nm.hist = keep; } const q = o.kg + o.L; const wk = f => { let a = 0, k = 0; rows.forEach(r => { if (r[f] != null) { a += r[f] * r.kg; k += r.kg; } }); return k ? a / k : null; };
+  return { kg: q, sales: o.sales, cost: o.cost, gp: o.gp, pct: o.pct, tgt: o.tgt, ag: o.tgt != null ? o.ag : null, price: q ? o.sales / q : null, costKg: q ? o.cost / q : null, mat: wk('mat'), pk: wk('pk'), lf: wk('lf'), fr: wk('fr'), lfr: wk('lfr'),
+    short: rows.some(r => r.short != null) ? rows.reduce((s, r) => s + (r.short || 0), 0) : null };
+}
+const rsCol = (k, l) => ({ k, l, r: 1, tot: 1, x: r => owNum(r[k]) != null ? Math.round(r[k]) : '', f: r => owNum(r[k]) != null ? n0(r[k]) : '' });
+const kgCol = (k, l, dp) => ({ k, l, r: 1, tot: 1, dp: dp || 2, x: r => owNum(r[k]) != null ? r[k] : '', f: r => owNum(r[k]) != null ? n2(r[k]) : '' });
+const pctCol = (k, l, tot) => ({ k, l, r: 1, tot: tot ? 1 : 0, dp: 1, x: r => owNum(r[k]) != null ? r[k] : '', f: r => owNum(r[k]) != null ? p1(r[k]) + '%' : '' });
+const chgCol = (k, l) => ({ k, l, r: 1, x: r => r.chg != null ? +r.chg.toFixed(2) : (r[k + '0'] || 'first'), f: r => r.chg != null ? chgTxt(r.chg) : (r[k + '0'] || 'first') });
+const txt = (k, l, f) => ({ k, l, x: r => (f ? f(r) : r[k]) == null ? '' : String(f ? f(r) : r[k]) });
+const dayCol = (k, l) => ({ k, l, x: r => r[k] ? d10(r[k]) : '', f: r => r[k] ? fmtD(r[k]) : '' });
+const qtyCol = (l) => ({ k: 'kg', l, r: 1, tot: 1, x: r => owNum(r.kg) != null ? Math.round(r.kg * 1000) / 1000 : '', f: r => owNum(r.kg) != null ? n0(r.kg) : '' });
+/** The 7 data sets: label, the date a period reads, columns, the default columns, filters, group by choices, and the rows. */
+const OWSET = {
+  sales: { l: 'Sales: trucks, with cost and GP', one: ['truck', 'trucks'], date: 'date', agg: owSalesAgg,
+    cols: [dayCol('date', 'Gate pass'), txt('cust', 'Client'), txt('grp', 'Kind'), txt('brand', 'Brand'), txt('pack', 'Pack'), txt('region', 'Region'), txt('list', 'Price list'), txt('po', 'PO'), qtyCol('Kg or L'),
+      kgCol('price', 'Price Rs/kg'), kgCol('costKg', 'Cost Rs/kg'), kgCol('mat', 'Materials Rs/kg'), kgCol('pk', 'Packing Rs/kg'), kgCol('lf', 'Labour and FOH Rs/kg'), kgCol('fr', 'Freight Rs/kg'), kgCol('lfr', 'List freight Rs/kg'),
+      rsCol('sales', 'Sales Rs'), rsCol('cost', 'Cost Rs'), rsCol('gp', 'GP Rs'), pctCol('pct', 'GP %', 1), { ...pctCol('tgt', 'Target %', 1), x: r => owNum(r.tgt) != null ? r.tgt : 'not judged', f: r => owNum(r.tgt) != null ? p1(r.tgt) + '%' : 'not judged' },
+      { k: 'ag', l: 'Against target Rs', r: 1, tot: 1, x: r => owNum(r.ag) != null ? Math.round(r.ag) : '', f: r => owNum(r.ag) == null ? '' : (r.ag > 0.5 ? '+' : r.ag < -0.5 ? '−' : '') + n0(Math.abs(r.ag)) }],
+    def: ['cust', 'kg', 'sales', 'gp', 'pct'], show: 'group', by: 'cust',
+    filters: [['grp', 'Kind'], ['cust', 'Client'], ['brand', 'Brand'], ['region', 'Region'], ['list', 'Price list']],
+    groups: [['cust', 'Client', ['client', 'clients']], ['brand', 'Brand', ['brand', 'brands']], ['clpack', 'Client and pack', ['pack', 'packs']], ['month', 'Month', ['month', 'months']], ['region', 'Region', ['region', 'regions']], ['grp', 'Kind', ['kind', 'kinds']], ['list', 'Price list', ['list', 'lists']]] },
+  open: { l: 'Open POs: lines not yet fully out', one: ['line', 'lines'], date: 'received', agg: owSalesAgg,
+    cols: [dayCol('received', 'PO received'), txt('cust', 'Client'), txt('grp', 'Kind'), txt('brand', 'Brand'), txt('pack', 'Pack'), txt('list', 'Price list'), txt('po', 'PO'), qtyCol('Open kg or L'),
+      kgCol('price', 'Price Rs/kg'), kgCol('costKg', 'Cost today Rs/kg'), rsCol('sales', 'Sales Rs'), rsCol('cost', 'Cost Rs'), rsCol('gp', 'GP Rs'), pctCol('pct', 'GP %', 1),
+      { ...pctCol('tgt', 'Target %', 1), x: r => owNum(r.tgt) != null ? r.tgt : 'not judged', f: r => owNum(r.tgt) != null ? p1(r.tgt) + '%' : 'not judged' }, rsCol('short', 'Short of target Rs')],
+    def: ['cust', 'brand', 'pack', 'kg', 'price', 'costKg', 'gp', 'short'], show: 'rows', by: 'cust',
+    filters: [['grp', 'Kind'], ['cust', 'Client'], ['brand', 'Brand'], ['list', 'Price list']],
+    groups: [['cust', 'Client', ['client', 'clients']], ['brand', 'Brand', ['brand', 'brands']], ['clpack', 'Client and pack', ['pack', 'packs']], ['month', 'Month received', ['month', 'months']], ['grp', 'Kind', ['kind', 'kinds']], ['list', 'Price list', ['list', 'lists']]] },
+  costs: { l: 'Pack cost: every approved cost of a pack', one: ['approval', 'approvals'], date: 'from', need: 'costs',
+    cols: [dayCol('from', 'From'), txt('cust', 'Client'), txt('brand', 'Brand'), txt('pack', 'Pack'), kgCol('mat', 'Materials'), kgCol('pk', 'Packing'), kgCol('lf', 'Labour and FOH'), kgCol('fr', 'Freight'), kgCol('tot', 'Total Rs per kg or L'), kgCol('was', 'Was'), chgCol('chg', 'Change'), txt('why', 'Why'), txt('who', 'Approved by')].map(c => ({ ...c, tot: 0 })),
+    def: ['from', 'cust', 'brand', 'pack', 'tot', 'chg', 'why'], show: 'rows', by: 'cust',
+    filters: [['cust', 'Client'], ['brand', 'Brand']],
+    groups: [['cust', 'Client', ['client', 'clients']], ['brand', 'Brand', ['brand', 'brands']], ['clpack', 'Client and pack', ['pack', 'packs']], ['month', 'Month', ['month', 'months']]] },
+  wlp: { l: 'Client prices: approved white label prices', one: ['price', 'prices'], date: 'from', need: 'costs',
+    cols: [txt('cust', 'Client'), txt('brand', 'Brand'), txt('pack', 'Pack'), dayCol('from', 'From'), txt('till', 'Till'), kgCol('kg', 'Rs per kg or L'), { k: 'pk', l: 'Rs per pack', r: 1, x: r => r.pk != null ? Math.round(r.pk * 100) / 100 : '', f: r => r.pk != null ? n0(r.pk) : '' },
+      { k: 'was', l: 'Was', r: 1, dp: 2, x: r => r.was != null ? r.was : 'first', f: r => r.was != null ? n2(r.was) : 'first' }, chgCol('chg', 'Change'),
+      { k: 'gp', l: 'GP at its start', r: 1, dp: 1, x: r => r.gp != null ? +r.gp.toFixed(2) : 'no cost then', f: r => r.gp != null ? pc(r.gp) + (r.later ? ' (on its first cost, approved later)' : '') : 'no cost then' },
+      pctCol('tgt', 'Target'), txt('why', 'Reason'), txt('who', 'Approved by')].map(c => ({ ...c, tot: 0 })),
+    def: ['cust', 'brand', 'pack', 'from', 'till', 'kg', 'chg', 'gp'], show: 'rows', by: 'cust',
+    filters: [['cust', 'Client'], ['brand', 'Brand'], ['now', 'In force']],
+    groups: [['cust', 'Client', ['client', 'clients']], ['brand', 'Brand', ['brand', 'brands']], ['month', 'Month', ['month', 'months']]] },
+  vanp: { l: 'VAN list prices: the 5 lists', one: ['price', 'prices'], date: 'from', need: 'prices',
+    cols: [txt('list', 'List'), txt('pack', 'Product · pack'), dayCol('from', 'From'), txt('till', 'Till'), { k: 'price', l: 'Price per pack', r: 1, x: r => r.price, f: r => n0(r.price) }, { k: 'was', l: 'Was', r: 1, x: r => r.was != null ? r.was : '', f: r => r.was != null ? n0(r.was) : '—' }, chgCol('chg', 'Change'), txt('why', 'Reason · approved by')].map(c => ({ ...c, tot: 0 })),
+    def: ['list', 'pack', 'from', 'till', 'price', 'chg', 'why'], show: 'rows', by: 'list',
+    filters: [['list', 'List'], ['pack', 'Product · pack']],
+    groups: [['list', 'List', ['list', 'lists']], ['pack', 'Product · pack', ['pack', 'packs']], ['month', 'Month', ['month', 'months']]] },
+  rates: { l: 'Rates: every change to a rate', one: ['change', 'changes'], date: 'from', need: 'rates',
+    cols: [dayCol('from', 'In force from'), txt('kind', 'Kind'), txt('item', 'Item'), txt('unit', 'Per'), { k: 'was', l: 'Was', r: 1, dp: 2, x: r => r.was != null ? r.was : 'first', f: r => r.was != null ? n2(r.was) : 'first' }, kgCol('now', 'Now'), chgCol('chg', 'Change'), txt('source', 'Source'), txt('who', 'Who')].map(c => ({ ...c, tot: 0 })),
+    def: ['from', 'kind', 'item', 'was', 'now', 'chg', 'who'], show: 'rows', by: 'kind',
+    filters: [['kind', 'Kind of rate'], ['item', 'Item'], ['who', 'Who']],
+    groups: [['kind', 'Kind of rate', ['kind', 'kinds']], ['item', 'Item', ['item', 'items']], ['month', 'Month', ['month', 'months']], ['who', 'Who', ['person', 'people']]] },
+  made: { l: 'Kg made: production from O2S, with labour and FOH charged', one: ['entry', 'entries'], date: 'made', need: 'made',
+    agg: rows => ({ kg: rows.reduce((s, r) => s + r.kg, 0), labourRs: rows.reduce((s, r) => s + r.labourRs, 0), fohRs: rows.reduce((s, r) => s + r.fohRs, 0), rs: rows.reduce((s, r) => s + r.rs, 0) }),
+    cols: [dayCol('made', 'Made on'), txt('base', 'Base'), txt('brand', 'Brand'), txt('po', 'PO'), txt('product', 'C2M product'), txt('how', 'Charged as'), qtyCol('Kg'), txt('labour', 'Labour rate'), { ...kgCol('labourRate', 'Labour Rs/kg'), tot: 0 }, txt('foh', 'FOH rate'), { ...kgCol('fohRate', 'FOH Rs/kg'), tot: 0 },
+      rsCol('labourRs', 'Labour charged Rs'), rsCol('fohRs', 'FOH charged Rs'), rsCol('rs', 'Charged Rs')],
+    def: ['made', 'base', 'brand', 'po', 'kg', 'labour', 'foh', 'rs'], show: 'rows', by: 'month',
+    filters: [['base', 'Base'], ['brand', 'Brand'], ['how', 'Charged as']],
+    groups: [['month', 'Month', ['month', 'months']], ['made', 'Day', ['day', 'days']], ['base', 'Base', ['base', 'bases']], ['brand', 'Brand', ['brand', 'brands']], ['how', 'Charged as', ['way', 'ways']], ['labour', 'Labour rate', ['rate', 'rates']]] } };
+const OWKEYS = Object.keys(OWSET);
+/** A spec (what a saved report keeps, R54) from the builder: the data set, the dates, the columns in order, the filters, each row or totals by group. */
+const owSpec = () => ({ set: OW.set, period: OW.q ? { q: OW.q } : { from: OW.from, till: OW.till }, cols: OW.cols.slice(), filters: { ...OW.filt }, show: OW.show, groupBy: OW.by });
+/** The builder from a spec: unknown columns, filters and groupings are dropped, so a saved report still opens after a column is renamed. */
+function owOpen(spec, saved) {
+  const S = OWSET[spec && spec.set] ? spec.set : 'sales', D = OWSET[S]; const P = (spec && spec.period) || {}; const q = OWQ.some(x => x[0] === P.q) ? P.q : P.from || P.till ? '' : 'month';
+  const [from, till] = q ? rtRange(q) : [/^\d{4}-\d{2}-\d{2}$/.test(P.from || '') ? P.from : '', /^\d{4}-\d{2}-\d{2}$/.test(P.till || '') ? P.till : ''];
+  const ks = D.cols.map(c => c.k); let cols = (Array.isArray(spec && spec.cols) ? spec.cols : D.def).filter((k, i, a) => ks.includes(k) && a.indexOf(k) === i); if (!cols.length) cols = D.def.slice();
+  const filt = {}; Object.entries((spec && spec.filters) || {}).forEach(([k, v]) => { if (D.filters.some(f => f[0] === k) && v != null && v !== '') filt[k] = String(v); });
+  OW = { set: S, q, from, till, cols, filt, show: spec && (spec.show === 'group' || spec.show === 'rows') ? spec.show : D.show, by: D.groups.some(g => g[0] === (spec && spec.groupBy)) ? spec.groupBy : D.by,
+    savedId: saved ? saved.id : null, savedName: saved ? saved.name : null, saveOpen: false, nameDraft: saved ? saved.name : '', saveErr: null, clash: false };
+  owColsReset(); rep = 'own'; window.scrollTo(0, 0);
+}
+/** A change of set, columns or show clears the tool bar's own hidden columns, so a column picked here is never hidden there. */
+function owColsReset() { const s = rtS('own'); s.hide = null; s.colsOpen = false; try { localStorage.removeItem('c2m.rtcols.own'); } catch (_) {} }
+/* Adjust (push 5b): a ready report opens here on its data set, with its dates, its filters and the columns it shows. */
+const owPer = k => { const s = rtS(k); return s.q ? { q: s.q === 'year' ? 'year' : s.q } : { from: s.from, till: s.till }; };
+const owColsOf = (k, map) => { const def = RTDEF[k]; return def ? rtCols(k, def.cols).flatMap(c => map[c.k] || [c.k]) : []; };
+const OWADJ = {
+  costs: () => ({ set: 'costs', period: owPer('costs'), cols: owColsOf('costs', { pack: ['cust', 'brand', 'pack'], tot: ['tot'] }), filters: chCl ? { cust: chCl } : {}, show: 'rows' }),
+  prices: () => ({ set: 'wlp', period: phShow === 'now' ? { q: 'all' } : owPer('prices'), cols: owColsOf('prices', { pack: ['cust', 'brand', 'pack'], why: ['why', 'who'] }), filters: { ...(phCl ? { cust: phCl } : {}), ...(phShow === 'now' ? { now: 'In force today' } : {}) }, show: 'rows' }),
+  vanp: () => ({ set: 'vanp', period: owPer('vanp'), cols: owColsOf('vanp', {}), filters: phList !== 'all' ? { list: PHLIST[phList] } : {}, show: 'rows' }),
+  margin: () => ({ set: 'sales', period: owPer('margin'), cols: owColsOf('margin', { name: [], qty: ['kg'] }), filters: mbKind !== 'all' ? { grp: mbKind === 'wl' ? 'White label' : 'VAN brand' } : {}, show: 'group', groupBy: mbRows === 'br' ? 'clpack' : 'cust' }),
+  bridge: () => { const B = bridge(); if (!B.ok) return null; return { set: 'sales', period: { from: B.a + '-01', till: addDays(addDays(B.b + '-01', 32).slice(0, 7) + '-01', -1) }, cols: ['kg', 'sales', 'cost', 'gp', 'pct'], filters: brGrp === 'all' ? {} : { grp: GRPN[brGrp] }, show: 'group', groupBy: 'month' }; } };
+const OWNOADJ = { pocheck: 'This report\'s PO lines are not a data set of Your own report.', listcheck: 'This report\'s PO lines checked against their list are not a data set of Your own report.', vanmargin: 'This report\'s list margin after freight is not a data set of Your own report.' };
+/** The rows of the set in its dates (before the filters); busy, err or msg while a route is read. */
+function owBase() {
+  const S = OW.set, D = OWSET[S], P = packIdx(); const inD = d => { const x = d10(d); if (!x) return !OW.from && !OW.till; return (!OW.from || x >= OW.from) && (!OW.till || x <= OW.till); };
+  const pkTxt = r => { const k = owPk(r); return k ? szTxt(k) : r.pack != null ? r.pack + ' ' + (r.u || 'kg') : ''; }, brOf = r => { const k = owPk(r); return k ? k.product.brand : r.brand; };
+  if (S === 'sales' || S === 'open') {
+    const keep = nm.hist; nm.hist = 'approved'; /* the approved view, as Margin opens (mbData) */
+    try {
+      const src = S === 'sales' ? (ST.sales || []) : (ST.open || []); const all = src.filter(r => inD(S === 'sales' ? r.date : r.received));
+      const cOf = r => S === 'sales' ? nmCost(r) : r.cost == null ? null : r.cost + (r.grp === 'VAN brand' && r.lfr > 0 ? r.lfr : 0); /* an open VAN brand line after its list's freight (push 5a) */
+      const costed = all.filter(r => cOf(r) != null), out = all.length - costed.length;
+      const rows = costed.map(r => { const c = cOf(r), s = r.kg * r.price, cr = r.kg * c, t = saleTgt(r), pa = S === 'sales' && r.parts ? r.parts : null;
+        return { raw: r, date: r.date, received: r.received ? d10(r.received) : '', month: d10(S === 'sales' ? r.date : r.received).slice(0, 7), cust: r.cust, grp: r.grp, brand: brOf(r), pack: pkTxt(r), clpack: `${r.cust} · ${brOf(r)} · ${pkTxt(r)}`,
+          region: r.region || '', list: r.lkey ? LSTN[r.lkey] || r.lkey : '', po: r.po || '', kg: r.kg, price: r.price, costKg: c, mat: pa ? pa[0] : null, pk: pa ? pa[1] : null, lf: pa ? pa[2] : null, fr: pa ? pa[3] : null, lfr: r.grp === 'VAN brand' ? (r.lfr > 0 ? r.lfr : 0) : null,
+          sales: s, cost: cr, gp: s - cr, pct: s ? (s - cr) / s * 100 : null, tgt: t, ag: t != null ? (s - cr) - t / 100 * s : null, short: t != null ? Math.max(0, t / 100 * s - (s - cr)) : null, _k: `${r.date || r.received}|${r.po}|${r.packId}|${r.cust}` }; });
+      return { rows, out, outWord: S === 'sales' ? pl(out, 'truck with no approved cost on its date is', 'trucks with no approved cost on their date are') : pl(out, 'line with no cost today is', 'lines with no cost today are') };
+    } finally { nm.hist = keep; }
+  }
+  const R = repData(D.need === 'made' ? `made?from=${OW.from}&till=${OW.till}` : D.need);
+  if (R.busy) return { busy: true }; if (R.err) return { err: R.err, kind: D.need === 'made' ? `made?from=${OW.from}&till=${OW.till}` : D.need };
+  const J = R.data || {}; if (J.ready === false) return { rows: [], msg: J.message };
+  if (S === 'costs') return { rows: (J.rows || []).filter(r => inD(r.from)).map(r => ({ ...r, from: r.from, month: d10(r.from).slice(0, 7), pack: r.size != null ? packTxt(r.size, r.soldPer) : 'pack', clpack: chPack(r), mat: r.materials, pk: r.packing, lf: r.conversion, fr: r.freight, tot: r.total, was: r.prev, chg: r.prev != null ? chg(r.total, r.prev) : null, why: r.cause, who: personName(r.by), _k: 'v' + r.id })) };
+  if (S === 'wlp') { const now = ST.today; return { rows: phWlBase(J.rows || []).filter(r => inD(r.from)).map(r => ({ ...r, cust: r.cust, brand: r.k ? r.k.product.brand : 'A pack no longer active', pack: r.k ? szTxt(r.k) : '', month: r.from.slice(0, 7), till: r.to ? fmtD(r.to) : r.from > now ? 'not yet in force' : 'in force',
+    now: r.from <= now && (!r.to || r.to >= now) ? 'In force today' : 'Not in force today', kg: r.price, pk: r.size != null ? r.price * r.size : null, was: r.prev, why: r.reason || '', who: r.decidedBy ? `${personName(r.decidedBy)}${r.decidedAt ? ', ' + fmtShort(r.decidedAt) : ''}` : '', _k: 'p' + r.id })) }; }
+  if (S === 'vanp') return { rows: (J.rows || []).filter(r => inD(r.from)).map(r => { const k = r.packId != null ? P.get(r.packId) : null; return { ...r, list: LSTN[r.list] || r.list, pack: k ? packLabel(k) : `${r.product}${r.pack ? ' ' + r.pack : ''}`, month: r.from.slice(0, 7),
+    till: r.till ? fmtD(r.till) : r.from > ST.today ? 'not yet in force' : r.off ? 'taken off the list' : 'in force', chg: r.was ? chg(r.price, r.was) : null, why: r.first ? 'From the first data load' : [r.reason || '', r.by ? `${personName(r.by)}${r.at ? ', ' + fmtShort(r.at) : ''}` : ''].filter(Boolean).join(' · '), _k: `${r.list}|${r.product}|${r.pack}|${r.from}` }; }) };
+  if (S === 'rates') return { rows: (J.rows || []).filter(r => inD(r.from)).map(r => ({ ...r, kind: OWKIND[r.kind] || r.kind, month: r.from.slice(0, 7), who: r.by ? personName(r.by) : '', _k: `${r.kind}|${r.item}|${r.from}` })) };
+  if (S === 'made') return { rows: (J.rows || []).map(r => ({ ...r, brand: r.brand || 'Stock (no brand)', po: r.po || '', product: r.product || '', month: r.made.slice(0, 7), how: !(r.labourRs + r.fohRs > 0) && r.how !== 'unknown' ? 'No rate that day: not charged' : OWHOW[r.how] || r.how,
+    labour: r.labour || '', foh: r.foh || '', rs: r.labourRs + r.fohRs, _k: `${r.made}|${r.base}|${r.po}|${r.brand}` })), months: J.months || {}, noMap: J.noMap };
+  return { rows: [] };
+}
+/** The report: rows (filtered), the columns shown, the total row and, by group, 1 row per group. */
+function owData() {
+  const D = OWSET[OW.set], B = owBase(); if (!B.rows) return B;
+  const opts = {}; D.filters.forEach(([k]) => { opts[k] = [...new Set(B.rows.map(r => r[k]).filter(v => v != null && v !== ''))].map(String).sort((a, b) => a.localeCompare(b)); });
+  const rows = B.rows.filter(r => D.filters.every(([k]) => !OW.filt[k] || String(r[k]) === OW.filt[k]));
+  const agg = rs => ({ ...(D.agg ? D.agg(rs) : {}), _n: rs.length });
+  const cnt = { k: '_n', l: D.one[1].charAt(0).toUpperCase() + D.one[1].slice(1), r: 1, tot: 1, x: r => r._n };
+  const chosen = OW.cols.map(k => D.cols.find(c => c.k === k)).filter(Boolean);
+  let cols, view, foot;
+  if (OW.show === 'group') {
+    const G = D.groups.find(g => g[0] === OW.by) || D.groups[0]; const isM = G[0] === 'month' || G[0] === 'made';
+    const m = new Map(); rows.forEach(r => { const k = r[G[0]] == null || r[G[0]] === '' ? '(none)' : String(r[G[0]]); (m.get(k) || m.set(k, []).get(k)).push(r); });
+    view = [...m].map(([k, rs]) => ({ ...agg(rs), _g: G[0] === 'month' && k !== '(none)' ? mon(k) : G[0] === 'made' ? fmtD(k) : k, _gk: k, _id: 'g:' + k }));
+    const by = D.agg ? (view[0] && view[0].sales != null ? 'sales' : 'kg') : '_n';
+    view.sort((a, b) => isM ? a._gk.localeCompare(b._gk) : (b[by] || 0) - (a[by] || 0) || a._g.localeCompare(b._g));
+    cols = [{ k: '_g', l: G[1], x: r => r._g }, cnt].concat(chosen.filter(c => c.tot)); foot = { ...agg(rows), _lbl: 'Total' }; return { ...B, D, G, rows, view, cols, foot, opts };
+  }
+  const dk = D.date; view = rows.slice().sort((a, b) => String(b[dk] || '').localeCompare(String(a[dk] || '')) || String(a._k).localeCompare(String(b._k))); rtIds(view, r => r._k);
+  cols = chosen; foot = D.agg ? { ...agg(rows), _lbl: `Total, ${pl(rows.length, D.one[0], D.one[1])}` } : null; return { ...B, D, rows, view, cols, foot, opts };
+}
+const owPerTxt = () => { const q = OWQ.find(x => x[0] === OW.q); if (q) return q[0] === 'all' ? 'All dates' : q[1]; return OW.from && OW.till ? `${fmtD(OW.from)} to ${fmtD(OW.till)}` : OW.from ? `From ${fmtD(OW.from)}` : OW.till ? `Till ${fmtD(OW.till)}` : 'All dates'; };
+const owDatesTxt = () => OW.from || OW.till ? `From ${OW.from ? fmtD(OW.from) : 'the first date'} till ${OW.till ? fmtD(OW.till) : 'today'}` : 'All dates';
+/** The answer line: the period, how it is shown, how many, and the figures that matter for the set (the picture's line). */
+function owAnswer(X) {
+  const D = X.D, T = X.foot || {}; const per = owPerTxt(); const by = OW.show === 'group' ? `, by ${X.G[1].toLowerCase()}` : '';
+  const n = OW.show === 'group' ? pl(X.view.length, X.G[2][0], X.G[2][1]) : pl(X.rows.length, D.one[0], D.one[1]);
+  let fig = ''; if (OW.set === 'sales' || OW.set === 'open') fig = X.rows.length ? `, GP ${rsM1(T.gp)}, ${p1(T.pct)}% on ${rsM1(T.sales)} sales${OW.set === 'open' && T.short ? `; ${rsM1(T.short)} short of target` : ''}` : '';
+  if (OW.set === 'made') fig = X.rows.length ? `, ${n0(T.kg)} kg made, ${rsM1(T.rs)} labour and FOH charged` : '';
+  return `${per}${by}: ${n}${fig}.`;
+}
+function vOwn() {
+  if (!OW) owOpen({ set: 'sales' });
+  const D = OWSET[OW.set]; const X = owData(); const crumb = `<p class="crumb"><button data-repback>Reports</button> › ${OW.savedName ? esc(OW.savedName) : 'Make a report'}</p>`;
+  const SR = ST.savedReports || { ready: false, rows: [] };
+  const setRow = `<div class="owrow"><span class="owl" id="owl-set">Data</span><select data-owset aria-labelledby="owl-set">${OWKEYS.map(k => `<option value="${k}"${k === OW.set ? ' selected' : ''}>${esc(OWSET[k].l)}</option>`).join('')}</select></div>`;
+  const perRow = `<div class="owrow"><span class="owl">Period</span><div class="chips" aria-label="Period">${OWQ.map(([q, l]) => `<button data-owq="${q}" aria-pressed="${OW.q === q}">${l}</button>`).join('')}</div><span class="owor">or</span><label class="rtsel" for="ow-from">From<input type="date" id="ow-from" data-owfrom value="${esc(OW.from)}"></label><label class="rtsel" for="ow-till">Till<input type="date" id="ow-till" data-owtill value="${esc(OW.till)}"></label></div>`;
+  const cl = OW.cols.map((k, i) => { const c = D.cols.find(x => x.k === k); if (!c) return ''; const L = esc(c.l);
+    return `<span class="owc"><span>${L}</span><button data-owcl="${i}" aria-label="Move ${L} left"${i === 0 ? ' disabled' : ''}>‹</button><button data-owcr="${i}" aria-label="Move ${L} right"${i === OW.cols.length - 1 ? ' disabled' : ''}>›</button><button data-owcx="${i}" aria-label="Remove ${L}"${OW.cols.length < 2 ? ' disabled' : ''}>✕</button></span>`; }).join('');
+  const add = D.cols.filter(c => !OW.cols.includes(c.k)).map(c => `<button class="owa" data-owca="${esc(c.k)}">+ ${esc(c.l)}</button>`).join('');
+  const colRow = `<div class="owrow"><span class="owl">Columns</span>${cl}${add ? `<span class="owor">Add</span>${add}` : ''}${OW.show === 'group' ? '<span class="owhint">By group, only the columns that add up are shown: Rs and kg, and GP % on the totals.</span>' : ''}</div>`;
+  const fRow = `<div class="owrow"><span class="owl">Filters</span>${D.filters.map(([k, l]) => { const o = (X.opts && X.opts[k]) || []; const cur = OW.filt[k] || ''; const L = o.includes(cur) || !cur ? o : [cur].concat(o);
+    return `<label class="rtsel" for="owf-${k}">${esc(l)}<select id="owf-${k}" data-owf="${k}"><option value="">All</option>${L.map(v => `<option value="${esc(v)}"${v === cur ? ' selected' : ''}>${esc(v)}</option>`).join('')}</select></label>`; }).join('')}</div>`;
+  const showRow = `<div class="owrow"><span class="owl">Show</span><div class="chips" aria-label="Show">${[['rows', 'Each row'], ['group', 'Totals by group']].map(([k, l]) => `<button data-owshow="${k}" aria-pressed="${OW.show === k}">${l}</button>`).join('')}</div>${OW.show === 'group' ? `<span class="owor">Group by</span><div class="chips" aria-label="Group by">${D.groups.map(([k, l]) => `<button data-owby="${k}" aria-pressed="${OW.by === k}">${esc(l)}</button>`).join('')}</div>` : ''}</div>`;
+  const builder = `<div class="owb">${setRow}${perRow}${colRow}${fRow}${showRow}</div>`;
+  const howTxt = `Pick the data, the dates, the columns in your order (‹ › to move, ✕ to take out), the filters, and each row or totals by group. A total adds Rs and kg; GP % on a total or a group is its GP ÷ its sales, never an average of the rows; a % or a rate is never added. Sales are Margin's own rows: each truck at the cost approved before its gate pass, VAN brand sales after each sale's list freight, prices without FED, free (FOC) trucks not sales; so the totals agree with Margin for the same dates. Open POs: each line at today's cost; Short of target Rs is what a line's GP is below its target, added over the lines. Kg made is charged as Month end charges it. Saving keeps the recipe, not the figures: opening a saved report builds it again on today's data.`;
+  if (X.busy) return `${crumb}${head('Your own report', 'Loading…', howTxt)}${builder}`;
+  if (X.err) return `${crumb}${head('Your own report', 'The data could not be read: ' + esc(X.err), howTxt)}${builder}<p><button class="btn ghost" data-owretry="${esc(X.kind)}">Try again</button></p>`;
+  const save = !SR.ready ? `<button class="btn ghost" disabled aria-describedby="ow-nosave">Save as…</button><span class="ans" id="ow-nosave" style="font-size:12.5px">${esc(SR.message || 'Saving a report needs migration 013, which IT has not run yet.')}</span>`
+    : OW.saveOpen ? `<label class="rtsel" for="owname">Name<input type="text" id="owname" maxlength="120" value="${esc(OW.nameDraft)}" placeholder="e.g. Syngenta GP by month"${OW.saveErr ? ' aria-invalid="true" aria-describedby="ow-saveerr"' : ''}></label><button class="btn" data-owsavego>Save</button>${OW.clash ? '<button class="btn ghost" data-owover>Save over it</button>' : ''}<button class="btn ghost" data-owsavex>Cancel</button>${OW.saveErr ? `<span class="ferr" id="ow-saveerr">${esc(OW.saveErr)}</span>` : ''}`
+    : `<button class="btn ghost" data-owsave>Save as…</button>`;
+  const note = [X.msg ? `<p class="ans" data-ownote>${esc(X.msg)}</p>` : '', X.out ? `<p class="ans" data-owout>${X.outWord} left out, as in Margin.</p>` : '',
+    OW.set === 'made' && X.months && Object.keys(X.months).length ? `<p class="ans" data-owme>Month end's own sums on these kg: ${Object.entries(X.months).map(([m, v]) => `${mon(m)} ${n0(v.kg)} kg, labour Rs ${n0(v.labour)} and FOH Rs ${n0(v.foh)}`).join('; ')}. Totals worked on the rows can differ from these by Rs 1 or so for each rate, as Month end rounds each rate\'s total. The rows are charged the same way, entry by entry.</p>` : '',
+    X.noMap ? '<p class="ans"><b>O2S\'s product list could not be read:</b> stock made for no brand shows as not charged here, as on Month end.</p>' : ''].join('');
+  const filt = [D.l.split(':')[0]].concat(D.filters.filter(([k]) => OW.filt[k]).map(([k, l]) => `${l}: ${OW.filt[k]}`), OW.show === 'group' ? ['Totals by ' + X.G[1].toLowerCase()] : []).join(' · ');
+  const name = OW.savedName || `Your own report, ${D.l.split(':')[0]}`;
+  return `${crumb}${meta([owPerTxt(), D.l.split(':')[0], OW.savedName ? 'Saved report' : ''])}${head('Your own report', esc(owAnswer(X)), howTxt)}${builder}
+  <div class="wtbar owsave">${save}</div>
+  ${rtView({ k: 'own', name, sheet: D.l.split(':')[0], dated: false, asOf: owDatesTxt(), cols: X.cols, rows: X.view, foot: X.foot, filt, empty: X.msg || 'No row in these dates and filters.' })}${note}`;
+}
+/** The "Your own report" group on Reports: Make a report, then this person's saved reports (R54). */
+function owLanding() {
+  const SR = ST.savedReports || { ready: false, rows: [] }; const SH = s => { const D = OWSET[s && s.set]; if (!D) return 'Data set no longer in C2M'; const G = D.groups.find(g => g[0] === s.groupBy); return `${D.l.split(':')[0]}, ${s.show === 'group' && G ? 'totals by ' + G[1].toLowerCase() : 'each row'}`; };
+  const cards = (SR.rows || []).map(r => owRen && owRen.id === r.id
+    ? `<div class="rcard mine owsv"><label class="rtsel" for="owrenv">New name<input type="text" id="owrenv" maxlength="120" value="${esc(owRen.v)}"${owRen.err ? ' aria-invalid="true" aria-describedby="owrenerr"' : ''}></label><span class="owsvb"><button class="btn" data-owrengo="${r.id}">Save name</button><button class="btn ghost" data-owrenx>Cancel</button></span>${owRen.err ? `<span class="ferr" id="owrenerr">${esc(owRen.err)}</span>` : ''}</div>`
+    : `<div class="rcard mine owsv"><button class="lnk" data-owopen="${r.id}"><b>${esc(r.name)}</b></button><span>Saved ${fmtD(r.updated || r.created)} · ${esc(SH(r.spec))}</span><span class="owsvb"><button class="btn ghost" data-owopen="${r.id}" aria-label="Open ${esc(r.name)}">Open</button><button class="btn ghost" data-owren="${r.id}" aria-label="Rename ${esc(r.name)}">Rename</button><button class="btn ghost" data-owdel="${r.id}" data-confirm="Delete ${esc(r.name)}" aria-label="Delete ${esc(r.name)}">Delete</button></span></div>`).join('');
+  return `<section class="owland"><h2 class="gh">Your own report</h2><div class="rown"><button class="rcard mine" data-owmake><b>Make a report<em>new</em></b><span>Any C2M data, your columns, filters and totals; Excel, CSV or PDF.</span></button>${cards}</div>${SR.ready ? '' : `<p class="ans" style="font-size:12.5px">${esc(SR.message || 'Saving a report needs migration 013, which IT has not run yet.')} You can still make a report and download it.</p>`}</section>`;
+}
+/** Save, rename and delete: only this person's own (the server checks it again). The list comes back with each answer; nothing else reloads. */
+async function owSave(over) {
+  const nmv = String(($('owname') || {}).value || OW.nameDraft || '').replace(/\s+/g, ' ').trim(); OW.nameDraft = nmv;
+  if (!nmv) { OW.saveErr = 'Name the report.'; OW.clash = false; render(); owFocus('#owname'); return; }
+  const j = await once(async () => { try { return await api('/api/c2m/reports/saved', { name: nmv, spec: owSpec(), overwrite: !!over }); } catch (e) { OW.saveErr = e.message; OW.clash = /already have a report/.test(e.message); return null; } });
+  if (j && j.ok) { ST.savedReports = { ready: j.ready, rows: j.rows }; Object.assign(OW, { savedId: j.id, savedName: nmv, saveOpen: false, saveErr: null, clash: false }); toast(`Saved as "${nmv}". It is listed under Your own report on Reports.`); }
+  render(); if (OW.saveOpen) owFocus('#owname');
+}
+async function owSavedAct(path, body, msg) { const j = await once(async () => { try { return await api(path, body); } catch (e) { return { err: e.message }; } }); if (!j) return null; if (j.err) { toast(j.err, true); return j; } ST.savedReports = { ready: j.ready, rows: j.rows }; toast(msg); return j; }
+/** The builder's clicks. true: handled. */
+async function owClick(t, d) {
+  if ('owmake' in d) { owOpen({ set: OW ? OW.set : 'sales' }); OW.savedId = null; OW.savedName = null; OW.nameDraft = ''; return true; }
+  if (d.owopen) { const r = ((ST.savedReports || {}).rows || []).find(x => x.id === +d.owopen); if (r) { owOpen(r.spec || {}, r); if (r.spec && !OWSET[r.spec.set]) toast('This saved report\'s data set is no longer in C2M: it opens on Sales.', true); } return true; }
+  if (d.owren) { const r = ((ST.savedReports || {}).rows || []).find(x => x.id === +d.owren); if (r) owRen = { id: r.id, v: r.name, err: null }; render(); owFocus('#owrenv'); return 'done'; }
+  if ('owrenx' in d) { owRen = null; return true; }
+  if (d.owrengo) { const v = String(($('owrenv') || {}).value || '').replace(/\s+/g, ' ').trim(); owRen.v = v; if (!v) { owRen.err = 'Name the report.'; render(); owFocus('#owrenv'); return 'done'; }
+    const j = await owSavedAct(`/api/c2m/reports/saved/${+d.owrengo}/rename`, { name: v }, `Renamed "${v}".`); if (j && j.err) { owRen.err = j.err; render(); owFocus('#owrenv'); return 'done'; } if (j) { owRen = null; if (OW && OW.savedId === +d.owrengo) OW.savedName = v; } return true; }
+  if (d.owdel) { const r = ((ST.savedReports || {}).rows || []).find(x => x.id === +d.owdel); const j = await owSavedAct(`/api/c2m/reports/saved/${+d.owdel}/delete`, {}, `Deleted "${r ? r.name : 'the report'}".`); if (j && !j.err && OW && OW.savedId === +d.owdel) { OW.savedId = null; OW.savedName = null; } return true; }
+  if (!OW) return false;
+  const D = OWSET[OW.set];
+  if (d.owq) { OW.q = d.owq; [OW.from, OW.till] = rtRange(d.owq); return true; }
+  if (d.owcl != null || d.owcr != null) { const i = +(d.owcl != null ? d.owcl : d.owcr), j = d.owcl != null ? i - 1 : i + 1; if (j < 0 || j >= OW.cols.length) return true; [OW.cols[i], OW.cols[j]] = [OW.cols[j], OW.cols[i]]; owColsReset(); render(); owFocus(`[data-${d.owcl != null ? 'owcl' : 'owcr'}="${j}"]`); return 'done'; }
+  if (d.owcx != null) { if (OW.cols.length < 2) { toast('Keep at least 1 column.', true); return true; } OW.cols.splice(+d.owcx, 1); owColsReset(); return true; }
+  if (d.owca) { if (D.cols.some(c => c.k === d.owca) && !OW.cols.includes(d.owca)) OW.cols.push(d.owca); owColsReset(); return true; }
+  if (d.owshow) { OW.show = d.owshow; owColsReset(); return true; }
+  if (d.owby) { OW.by = d.owby; return true; }
+  if ('owsave' in d) { OW.saveOpen = true; OW.saveErr = null; OW.clash = false; render(); owFocus('#owname'); return 'done'; }
+  if ('owsavex' in d) { OW.saveOpen = false; OW.saveErr = null; OW.clash = false; return true; }
+  if ('owsavego' in d) { await owSave(false); return 'done'; }
+  if ('owover' in d) { await owSave(true); return 'done'; }
+  if (d.owretry) { delete REPD[d.owretry]; return true; }
+  return false;
+}
+/** The builder's pickers: the data set, a filter, From and Till. */
+function owChange(t, d) {
+  if (!OW) return false;
+  if ('owset' in d) { const S = OWSET[t.value] ? t.value : 'sales'; const P = OW.q ? { q: OW.q } : { from: OW.from, till: OW.till }; const keep = { savedId: OW.savedId, savedName: OW.savedName, nameDraft: OW.nameDraft }; owOpen({ set: S, period: P }); Object.assign(OW, keep); return true; }
+  if (d.owf) { if (t.value) OW.filt[d.owf] = t.value; else delete OW.filt[d.owf]; return true; }
+  if ('owfrom' in d || 'owtill' in d) { if ('owfrom' in d) OW.from = t.value || ''; else OW.till = t.value || ''; const q = OWQ.find(([x]) => { const r = rtRange(x); return r[0] === OW.from && r[1] === OW.till; }); OW.q = q ? q[0] : ''; return true; }
+  return false;
 }
 /* ---------- Price lists ---------- */
 const AUD = { wl: 'White label client (monthly)', dist: 'Distributor and channel partner', dealer: 'Dealer, Sindh', farmer_pb: 'Farmer, Punjab', farmer_sn: 'Farmer, Sindh', farmer_snc: 'Farmer, Sindh credit', web: 'Website', mrp: 'MRP printing list (packing and printer)' };
@@ -3748,6 +4004,9 @@ const GUIDE_JOBS = () => [
   ['See price history', 'Both', 'More, Reports, Price history', 'Client prices: every approved white label price, from and till, Rs per kg and per pack, the change, and the GP it gave at the cost in force on its first day. "In force today" ignores the dates. VAN lists: every approved price on the 5 lists from the first data load; pick a list.'],
   ['Margin by client and brand', 'Both', 'More, Reports, Margin by client and brand', 'Any From and Till. Kind: All, White label or VAN brands. Rows: each client, opened to its brands, or every brand. The totals agree with Margin for the same dates; VAN brands by buyer line, after list freight, each sale against its own price list\'s target (not judged where the list has no target). Against target Rs = GP Rs − target % × sales. Trucks with no approved cost are named under the table.'],
   ['Download a report', 'Both', 'Any report, the bar above its table', 'Pick From and Till or a quick choice (This month, Last month, Last 3 months, This year from 1 July, All), the columns (kept in this browser) and tick rows (the box in the header ticks every row shown). Excel and CSV hold the ticked rows, or every row shown when none is ticked, and only the columns shown, with the report name, dates and who downloaded it on top. PDF opens the print box: pick "Save as PDF".'],
+  ['Make your own report', 'Both', 'More, Reports, Your own report: Make a report', 'Pick the data: Sales (trucks with cost and GP, as Margin), Open POs, Pack cost, Client prices, VAN list prices, Rates (every change to a material, packing, labour, FOH or freight rate) or Kg made (production from O2S with the labour and FOH charged, as Month end). Then the period, the columns (Add; ‹ › to move; ✕ to take out), the filters, and Each row or Totals by group with Group by. The line above the table gives the answer; GP % on a total or a group is its GP ÷ its sales, and a % or a rate is never added. Download through the bar: Excel, CSV or PDF.'],
+  ['Save, open, rename or delete a report', 'Both', 'Your own report: Save as…; Reports, Your own report', 'Save as… with a name keeps the report for you only (its recipe, not its figures). It is listed under Your own report on Reports with when it was saved: Open builds it again on today\'s data; Rename; Delete asks twice. Saving the same name again asks first, then Save over it replaces it. Saving needs migration 013: until IT runs it, Save is off and says so, and a report can still be made and downloaded.'],
+  ['Adjust a report', 'Both', 'Any ready report, Adjust on its bar', 'Opens the report in Your own report on its data, with its dates, filters and the columns it shows: Cost history in Pack cost, Price history in Client prices or VAN list prices, Margin by client and brand and GP bridge in Sales. PO price against approved price, VAN brand PO against its price list and VAN brand list margin have no data set here yet: their Adjust is off and says why.'],
   ['Check VAN brand POs against their price list', 'Both', 'More, Reports, VAN brand PO against its price list', 'Each VAN brand PO since 11 Oct against the list in force on its date: distributors and Punjab dealers the distributor list; Sindh dealers the dealer list; COBO farmer Sindh cash; VGreen farmer Punjab; farmer POs the farmer list of their region (Sindh cash or credit by payment terms). Within 1% is at list price. Off their list opens first; Approvals shows a line when any are. It only marks: no PO is blocked and Margin keeps the O2S price.'],
   ['Find a row in a list', 'Both', 'The Find box above the list', 'Type any part of a name, client, kind or date: the list shows only the rows that match and says how many ("2 of 59"). What you typed stays while you move around C2M.'],
   ['Edit a row', 'Both', 'Edit, in its row (Setup lists; a client product: its page, Edit this product)', 'Edit opens the same form as Add, filled in. Names and words save at once and are logged. A new rate, packing price, labour or FOH Rs or freight Rs is saved as a new dated entry: past trucks keep their cost, and a cost that moves more than the re-approval % waits on Approvals. A size, kg or L, and where a product\'s recipe comes from cannot change.'],
@@ -3806,6 +4065,7 @@ document.addEventListener('click', async e => {
   else if (d.wfpack) wfPack = +d.wfpack;
   else if (d.pkopen) pkOpen[d.pkopen] = !pkOpen[d.pkopen];
   else if ('ptypeedit' in d) ptypeEdit = true;
+  else if (Object.keys(d).some(x => /^ow[a-z]/.test(x))) { const r = await owClick(t, d); if (r !== true) return; } // Your own report (push 5b, D-158)
   else if (d.rep) { rep = d.rep; window.scrollTo(0, 0); }
   else if ('repback' in d) rep = null;
   else if (d.brgrp) brGrp = d.brgrp; else if (d.brmon) brMonth = d.brmon;
@@ -3995,6 +4255,9 @@ document.addEventListener('change', e => { const t = e.target, d = t && t.datase
   if (d.rtfrom != null || d.rtto != null) { const k = d.rtfrom != null ? d.rtfrom : d.rtto; const s = rtS(k); if (d.rtfrom != null) s.from = t.value || ''; else s.till = t.value || ''; const q = RTQ.find(([x]) => { const r = rtRange(x); return r[0] === s.from && r[1] === s.till; }); s.q = q ? q[0] : ''; render(); return; }
   if ('chcl' in d) { chCl = t.value; render(); } else if ('phcl' in d) { phCl = t.value; render(); } });
 document.addEventListener('input', e => { const t = e.target; if (t && t.id === 'chq') { chQ = t.value; render(); } });
+/* Your own report (push 5b): the data set, a filter, From and Till redraw; a name typed is kept without a redraw. */
+document.addEventListener('change', e => { const t = e.target, d = t && t.dataset; if (!d || !Object.keys(d).some(x => /^ow[a-z]/.test(x))) return; if (owChange(t, d)) render(); });
+document.addEventListener('input', e => { const t = e.target; if (!t) return; if (t.id === 'owname' && OW) OW.nameDraft = t.value; else if (t.id === 'owrenv' && owRen) owRen.v = t.value; });
 document.addEventListener('change', e => { const t = e.target; if (!t || !t.dataset || !newRec) return; if (t.dataset.nrk != null || 'nrp' in t.dataset) { newRec.cp = +val('nrp') || null; newRec.note = val('nrn') || ''; newRec.name = val('nrnm') || newRec.name || ''; if (t.dataset.nrk) newRec.kind = t.dataset.nrk; render(); } }); // D-140: which recipe
 document.addEventListener('change', e => { const t = e.target; if (t && t.dataset && 'pcsel' in t.dataset) { prodC = t.value; render(); } });
 document.addEventListener('change', e => { const t = e.target; if (!t || !t.dataset) return; if ('mem' in t.dataset) { meM = t.value; render(); } else if (t.dataset.mesn) { const m = meM; meSeen[m] = meSeen[m] || {}; meSeen[m][t.dataset.mesn] = t.checked; } });

@@ -177,7 +177,9 @@ function lfPickOf(D, cpId, kind, date) { const x = lfLatest(D.lf.P.get(Number(cp
 function lfRateOf(D, kind, name, date) { const x = lfLatest(D.lf.R.get(kind + '|' + name), date || today()); return x ? { id: x.id, name: x.name, label: `${kind === 'labour' ? 'Labour' : 'FOH'} rate ${x.name}`, rsPerKg: x.rsPerKg, validFrom: x.validFrom } : null; }
 /** Labour and FOH for a pack on a date, the same shape as lib.conversionFor: { labour, foh, rsPerKg }. Old rates before migration 011. */
 function conversionOf(D, cp, pack, date) {
-  if (!D.lf) return lib.conversionFor({ clientProductId: cp.id, variantId: (D.ext.get(cp.id) || {}).pvariantId || null, baseProductId: cp.base_product_id, form: cp.form, reprocessed: cp.reprocessed, packSize: Number(pack.pack_size), onDate: date || today() }, D.rules);
+  /* A day before the first Low and High rate (the month before migration 011 ran) takes the old rates, as its trucks were costed (review 4, finding 1, D-154). */
+  const before = D.lf && ![...D.lf.R.values()].some(list => (list || []).some(x => x.validFrom <= (date || today())));
+  if (!D.lf || before) return lib.conversionFor({ clientProductId: cp.id, variantId: (D.ext.get(cp.id) || {}).pvariantId || null, baseProductId: cp.base_product_id, form: cp.form, reprocessed: cp.reprocessed, packSize: Number(pack.pack_size), onDate: date || today() }, D.rules);
   const one = kind => { const r = lfRateOf(D, kind, lfPickOf(D, cp.id, kind, date), date); return r ? { id: r.id, name: r.label, rsPerKg: r.rsPerKg } : null; };
   const labour = one('labour'), foh = one('foh');
   return { labour, foh, rsPerKg: (labour && labour.rsPerKg > 0 ? labour.rsPerKg : 0) + (foh && foh.rsPerKg > 0 ? foh.rsPerKg : 0) };

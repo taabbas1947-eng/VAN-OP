@@ -181,3 +181,11 @@ A pack takes 1 labour rate and 1 FOH rate, each the first match of these levels:
 | F-37 | Price for target, VAN list | (cost + freight) ÷ (1 − list target), × (1 + FED %) on a farmer list, rounded up to the next whole rupee (R41). |
 | B-47 | Which target on a list | The list's target judges every pack on that list (R39); Products shows each product's own standard margin. |
 | B-48 | List target and freight | Set by the CFO with a reason, approved by the COO, the first figures too (R42). Until both are set: GP shown before freight, no pack judged, no price for target. Changed only on the list's page (not Setup, Settings). A pack sold per L: freight per L = the Rs per kg figure. |
+
+## 6 Nov 2026 (D-154)
+| ID | Rule | Detail |
+|---|---|---|
+| F-38 | Labour and FOH charged | Σ kg made × the rate its product is on that day (R43); stock for no brand: the base product's rate, or Low when its products differ. |
+| F-39 | Under or over charged | Actual less charged: more than 0 is under charged (−), less than 0 over charged (+). Margin: company GP after it = (GP − (actual less charged)) ÷ sales, for the month; pack GP unchanged (R44). |
+| F-40 | VAN brand list freight in Margin | Cost per kg of a VAN brand sale + its list's freight Rs per kg (lf_ setting as set today); the list picked by the price check's rule (R46); no list: none, named. |
+| B-49 | Month lock | After actuals, tie to the books and the COO check; COO only; reopen with a reason; a locked month's actuals and checks cannot change; Margin compares today's sales and cost (without list freight) with the lock (R45). |

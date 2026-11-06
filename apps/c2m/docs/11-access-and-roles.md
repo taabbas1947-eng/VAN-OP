@@ -242,3 +242,6 @@ No new action: each list uses the right that adds to it. Delete, Take out of use
 
 ## 11.18 5 Nov 2026 (D-153)
 - No new action. A list's target and freight: sent with settings.edit (the CFO), approved with settings.approve (the COO). New prices on a list: list.revise; approval list.approve.
+
+## 11.19 6 Nov 2026 (D-154)
+- No new action. COO check: actuals.ratecheck and not a rate saver, or the administrator (the COO). Lock and reopen: the administrator (the COO) only. Actuals and tie: as before (the CFO).

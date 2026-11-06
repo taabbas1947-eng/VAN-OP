@@ -817,3 +817,6 @@ c2m_audit actions added: delete (entity material, packing_item, packing_bill, co
 
 ## 4.16 No new table (5 Nov 2026, D-152)
 Urgent prices and list revisions are marked by a c2m_audit row: entity price or list_revision, entity_id the row id, action urgent, why the reason. c2m_price.valid_from and c2m_list_revision.valid_from hold a Monday, or the save day when urgent.
+
+## 4.17 Migration 012: O2S production by day (6 Nov 2026, D-154)
+012_c2m_o2s_production.sql (and its PRODUCTION copy) creates c2m_o2s_production (id from O2S, made_on, base, brand NULL, po NULL, kg, sync_id; key made_on), refilled on every O2S pull. New kinds in c2m_monthly_check, no table change: coo_check (data: seen change ids) and lock (data: sales, cogs, uncosted, focCost, kgMade, labourCharged, fohCharged, actualLabour, actualFoh).

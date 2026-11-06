@@ -81,6 +81,20 @@ async function pullO2S(q, byUser) {
       [s.id, s.lid, s.po, s.dc || null, dt, Number(s.kg) || 0, syncId]);
     nt++;
   }
+  /* O2S production, for Month end (migration 012, R10, R43, D-154): kg made each day with its base, and the PO and brand when
+     O2S records them. Until 012 is run nothing is written. Old entries O2S keeps without an id get one from their own fields. */
+  let np = 0; let hasProd = false; try { const [t] = await q("SHOW TABLES LIKE 'c2m_o2s_production'"); hasProd = t.length > 0; } catch (e) { hasProd = false; }
+  if (hasProd) {
+    const seen = new Map(); const from = (() => { const t = new Date(now.slice(0, 10) + 'T00:00:00Z'); t.setUTCMonth(t.getUTCMonth() - 8); return t.toISOString().slice(0, 8) + '01'; })(); /* the months Month end shows, and 1 more */
+    const rows = [];
+    for (const r of d.productionLog || []) { const kg = Number(r && r.kg) || 0; const day = String((r && r.date) || '').slice(0, 10); if (!(kg > 0) || !/^\d{4}-\d{2}-\d{2}$/.test(day) || day < from) continue;
+      if (r.opening || /opening|reconcile/i.test(String(r.incharge || '') + String(r.by || ''))) continue; /* O2S's own rule: an opening or reconcile entry is not kg made (review 4, finding 2) */
+      let id = r.id ? String(r.id) : `old:${day}:${String(r.base || '').slice(0, 30)}:${kg}`; const n = (seen.get(id) || 0) + 1; seen.set(id, n); if (n > 1) id = `${id}:${n}`;
+      rows.push([id.slice(0, 60), day, String(r.base || '').slice(0, 120), r.brand ? String(r.brand).slice(0, 120) : null, r.po ? String(r.po).slice(0, 60) : null, kg, syncId]); }
+    for (let i = 0; i < rows.length; i += 300) { const B = rows.slice(i, i + 300); /* 300 rows a statement (review 4, finding 6) */
+      await q(`INSERT INTO c2m_o2s_production (id, made_on, base, brand, po, kg, sync_id) VALUES ${B.map(() => '(?,?,?,?,?,?,?)').join(',')} ON DUPLICATE KEY UPDATE made_on=VALUES(made_on), base=VALUES(base), brand=VALUES(brand), po=VALUES(po), kg=VALUES(kg), sync_id=VALUES(sync_id)`, B.flat()); np += B.length; }
+    await q('DELETE FROM c2m_o2s_production WHERE sync_id<>?', [syncId]);
+  }
   await q('DELETE FROM c2m_o2s_truck WHERE sync_id<>?', [syncId]);
   await q('DELETE FROM c2m_o2s_po_line WHERE sync_id<>?', [syncId]);
   // Customers on PO lines that C2M does not know yet
@@ -91,7 +105,7 @@ async function pullO2S(q, byUser) {
   await q('UPDATE c2m_sync_run SET finished_at=?, po_lines=?, trucks=?, issues_json=? WHERE id=?', [fin, nl, nt, JSON.stringify(issues), syncId]);
   await q("UPDATE c2m_source SET last_pull_at=?, last_pull_note=?, status='Read' WHERE system_name='O2S' AND what LIKE 'Customers%'",
     [fin, `${nl} PO lines, ${nt} truck lines, ${issues.length} issues`]);
-  return { syncId, poLines: nl, trucks: nt, issues };
+  return { syncId, poLines: nl, trucks: nt, production: np, issues };
 }
 
 module.exports = { pullO2S, o2sCustomerName, enteredPk, orderRegion };

@@ -327,3 +327,12 @@ Changed in 0.3.0 and 0.3.1: rs_per_kg fixed (1 rate of 1 kind, labour or FOH). A
 | List target | The target GP % of 1 VAN price list | c2m_setting lt_<list> |
 | List freight | Freight Rs per kg for 1 VAN price list | c2m_setting lf_<list> |
 | GP after freight | GP on a list price after the list's freight | worked on the page |
+
+## 10.19 Added on 6 Nov 2026 (owner: Tahir; D-154)
+| Word | Meaning | Where |
+|---|---|---|
+| Kg made | Kg produced in O2S in the month | c2m_o2s_production |
+| Charged | Labour or FOH put into product costs on kg made | worked on Month end |
+| Under or over charged | Actual labour or FOH less charged | Month end, Margin |
+| COO check | The COO's monthly check of top material rates and every cost change | c2m_monthly_check kind coo_check |
+| Lock | A month closed by the COO, its figures kept | c2m_monthly_check kind lock |

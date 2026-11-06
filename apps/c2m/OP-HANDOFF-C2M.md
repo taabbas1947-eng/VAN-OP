@@ -759,3 +759,15 @@ Files: apps/c2m/c2m.html, c2m-routes.js; docs 01, 02, 03, 05, 06, 07, 08, 09, 10
 - VAN Brands: Products and Price lists. 5 cards; a list page with cost, freight, list price, GP after freight, price for target (rounded up), New price (sends that list's revision, Monday cycle). Change target or freight with its effect and why; Tahir approves.
 Tests: 12.21. Independent review: no blocker; all points fixed (12.21).
 Next: push 4, Month end (absorbed on kg made, certificate, COO check, lock; R37 VAN sales freight by list).
+
+
+## 6 Nov 2026 (2) - push 4: Month end (D-154), MODULE: C2M
+Module: C2M. Not pushed. Push 3b delivered to Tahir's folder 6 Nov (14 files, not yet pushed when push 4 was built; push 4 is built on top of it).
+Picture: C2M Month End artifact (R43 to R46 ruled).
+Files: apps/c2m/c2m.html, c2m-routes.js, c2m-o2s.js, migrations/012_c2m_o2s_production(.PRODUCTION).sql; docs 01 to 06, 08 to 12.
+- Costs › Month end in 5 steps; kg made from O2S production; COO check; lock and reopen; Margin list freight, company line, locked month.
+Needs migration 012 (Ahmer), after 010 and 011.
+Also c2m-engine.js: conversionOf takes the old rates on a day before the first Low and High rate (review 4, blocker).
+Tests: 12.22. Independent review: 1 blocker and 15 points, all fixed except 3 left for push 5 (12.22).
+Not yet delivered: Tahir's computer was not reachable at the end.
+Next: push 5, Reports (R28, R30).

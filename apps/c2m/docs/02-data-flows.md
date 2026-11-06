@@ -292,3 +292,8 @@ c2m_list_price (farmer rows, by packId) -> lib.printMrp -> the MRP printing list
 ## 2.30 List target and freight (owner: Tahir; D-153)
 - POST /api/c2m/settings with changes lt_<list> (target GP %) and lf_<list> (freight Rs per kg) for dist, dealer, farmer_pb, farmer_sn, farmer_snc, and why. Always held as a c2m_setting_request; the summary carries "not set" for a first figure and the reason.
 - On approval the c2m_setting row is updated, or inserted when it does not exist yet. The state sends these keys to roles with see.margin. The page works GP from the list rows (c2m_list_price, linked to packs) and each pack's cost today.
+
+## 2.31 Month end (owner: Tahir; D-154)
+- O2S pull: d.productionLog → c2m_o2s_production (id, made_on, base, brand, po, kg), upserted with the pull's id, older rows deleted after; only when migration 012 is run.
+- State (see.margin): monthEnd.months[YYYY-MM] for this month and the 6 before: absorbed (kg, stockKg, splitKg, noRateKg, labour and foh rows by rate name with kg and Rs, products) and changes (c2m_audit rows of lf_rate, lf_pick, freight, packing, cost_pending, conversion_rule and lt_/lf_ settings). Sales rows of VAN brands carry lkey and lfr (list freight Rs per kg) or noList.
+- POST /api/c2m/monthend/coo-check, /lock, /reopen write c2m_monthly_check rows of kind coo_check (seen ids) and lock (the snapshot); reopen deletes the lock row and keeps it in c2m_audit.

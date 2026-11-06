@@ -356,3 +356,10 @@ GET /api/c2m/state adds: m007, outOfUseKeys; on each product defaultName and oth
 ### 5 Nov 2026 (D-153)
 - POST /api/c2m/settings: new keys lt_dist, lt_dealer, lt_farmer_pb, lt_farmer_sn, lt_farmer_snc (target GP %, above 0 and below 100) and lf_ the same (freight Rs per kg, 0 or more); always pending for approval. Optional why (up to 200 characters) is added to the request summary.
 - POST /api/c2m/settings/requests/:id/approve: inserts a list setting row that does not exist yet.
+
+### 6 Nov 2026 (D-154)
+- POST /api/c2m/monthend/coo-check {month, seen: [audit ids]}: COO only; 400 until the rate check is saved and every change of the month is in seen; 400 for a month not ended or locked.
+- POST /api/c2m/monthend/lock {month}: COO only; 400 for a month not ended, already locked, or without actuals, tie to the books and COO check. Returns the snapshot.
+- POST /api/c2m/monthend/reopen {month, why}: COO only; why required.
+- POST /api/c2m/actuals and /checks: 400 for a locked month.
+- GET /api/c2m/state: monthEnd; VAN brand sales rows lkey, lfr or noList.

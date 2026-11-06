@@ -728,3 +728,8 @@ flowchart LR
 - Yawar opens Clients, VAN Brands, Price lists and opens a card. He sees each pack's GP after freight against the list's target, worst first.
 - New price: types it in the row, writes the reason, sends; the revision goes to Tahir and takes effect on Monday (urgent the day approved).
 - Change target or freight: types the new figures and why; the effect (packs below target or cost) shows before sending; Tahir approves on Approvals.
+
+## 1.33 Month end (owner: Tahir and Yawar rule; Yawar steps 1 and 3, Tahir steps 4 and 5; D-154, 6 Nov 2026)
+- After a month ends, Costs › Month end opens on it. Yawar enters actual labour and FOH (step 1). C2M shows labour and FOH charged on kg made in O2S and the under or over (step 2). Yawar ties C2M to the books (step 3).
+- Tahir fills the register rate of the top materials, ticks every labour, FOH, packing and freight change of the month as seen, and presses COO check done (step 4). Then he locks the month (step 5). He can reopen it with a reason.
+- Approvals gives each person the next job and opens Month end.

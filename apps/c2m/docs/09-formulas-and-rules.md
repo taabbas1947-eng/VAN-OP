@@ -185,7 +185,7 @@ A pack takes 1 labour rate and 1 FOH rate, each the first match of these levels:
 ## 6 Nov 2026 (D-154)
 | ID | Rule | Detail |
 |---|---|---|
-| F-38 | Labour and FOH charged | Σ kg made × the rate its product is on that day (R43); stock for no brand: the base product's rate, or Low when its products differ. The base is O2S's base name, matched to C2M products through O2S's product master (D-155). |
+| F-38 | Labour and FOH charged | Σ kg made × the rate its product is on that day (R43); stock for no brand: the base product's rate, or Low when its products differ. The base is O2S's base name, matched to C2M products through O2S's product master (D-155). Before Low and High exist, "Low" is the lowest of its products' rates (D-156). Kg made in the month of the first rate, before its day, is charged at that day's rates (R47, D-156). |
 | F-39 | Under or over charged | Actual less charged: more than 0 is under charged (−), less than 0 over charged (+). Margin: company GP after it = (GP − (actual less charged)) ÷ sales, for the month; pack GP unchanged (R44). |
 | F-40 | VAN brand list freight in Margin | Cost per kg of a VAN brand sale + its list's freight Rs per kg (lf_ setting as set today); the list picked by the price check's rule (R46); no list: none, named. |
 | B-49 | Month lock | After actuals, tie to the books and the COO check; COO only; reopen with a reason; a locked month's actuals and checks cannot change; Margin compares today's sales and cost (without list freight) with the lock (R45). |

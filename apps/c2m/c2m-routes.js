@@ -183,9 +183,13 @@ module.exports = function mountC2mRoutes(app, deps) {
       return m0; })());
     const stockConv = C.stockConv || (C.stockConv = new Map());
     const firstPack = cp => packOf.get(cp.id) || { pack_size: 1 };
-    const out = { kg: 0, stockKg: 0, splitKg: 0, unknownKg: 0, unmatchedKg: 0, noRateKg: 0, labour: {}, foh: {}, products: {} };
+    /* R47 (Tahir, 6 Nov 2026): kg made in the month of the first labour and FOH rate, before that rate's day, is charged at the
+       rates of that first day (October 2026: 1 to 12 Oct at the 13 Oct rates). Month end only; costs and prices keep their days. */
+    const first = 'first' in C ? C.first : (C.first = (D.rules || []).filter(r => Number(r.rsPerKg) > 0 && (r.kind === 'labour' || r.kind === 'foh')) /* active or not: the first day stays fixed if old rates are later switched off (review R47, M2) */.map(r => String(r.validFrom).slice(0, 10)).filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d)).sort()[0] || null);
+    const rateDay = day => first && day < first && day.slice(0, 7) === first.slice(0, 7) ? first : day;
+    const out = { kg: 0, earlyKg: 0, stockKg: 0, splitKg: 0, unknownKg: 0, unmatchedKg: 0, noRateKg: 0, labour: {}, foh: {}, products: {} };
     const add = (kind, r, kg) => { const nm = r && r.name ? r.name : null; if (!nm || !(r.rsPerKg > 0)) return false; const x = out[kind][nm] || (out[kind][nm] = { kg: 0, rs: 0, rates: {} }); x.kg += kg; x.rs += kg * r.rsPerKg; x.rates[r.rsPerKg] = true; return true; };
-    for (const r of prodRows) { const day = String(r.made_on).slice(0, 10); if (day.slice(0, 7) !== month) continue; const kg = Number(r.kg); out.kg += kg;
+    for (const r of prodRows) { const made = String(r.made_on).slice(0, 10); if (made.slice(0, 7) !== month) continue; const kg = Number(r.kg); out.kg += kg; const day = rateDay(made); if (day !== made) out.earlyKg += kg;
       let cp = null, pk = null; if (r.po && r.brand) { const l = byPoBrand.get(String(r.po) + '|' + String(r.brand)); pk = l ? match(l.customer_name, l.brand, l.channel, l.pack) : null; cp = pk ? D.cpById.get(pk.client_product_id) : null; if (!cp) out.unmatchedKg += kg; }
       let conv = null;
       if (cp) { conv = engine.conversionOf(D, cp, pk || firstPack(cp), day); const k = cp.brand + ' · ' + ((D.custById.get(cp.customer_id) || {}).name || ''); const pr = out.products[k] || (out.products[k] = { kg: 0, labour: conv.labour ? conv.labour.name : null, foh: conv.foh ? conv.foh.name : null }); pr.kg += kg; } /* the PO line's own pack (review 4, finding 11) */
@@ -194,12 +198,13 @@ module.exports = function mountC2mRoutes(app, deps) {
           if (!cps.length) v = { kind: 'unknown', conv: null };
           else { const convs = cps.map(c => engine.conversionOf(D, c, firstPack(c), day)); const same = convs.every(c => (c.labour || {}).name === (convs[0].labour || {}).name && (c.foh || {}).name === (convs[0].foh || {}).name);
             if (same) v = { kind: 'same', conv: convs[0] };
-            else { const lo = kind => { const x = D.lf ? engine.lfRateOf(D, kind, 'Low', day) : null; return x ? { name: x.label, rsPerKg: x.rsPerKg } : null; }; const L = { labour: lo('labour'), foh: lo('foh') }; v = { kind: 'split', conv: L.labour || L.foh ? L : convs[0] }; } }
+            else { const lo = kind => { const x = D.lf ? engine.lfRateOf(D, kind, 'Low', day) : null; return x ? { name: x.label, rsPerKg: x.rsPerKg } : null; }; const L = { labour: lo('labour'), foh: lo('foh') }; const has = c => ['labour', 'foh'].filter(k => (c[k] || {}).rsPerKg > 0); const tot = c => has(c).reduce((s0, k) => s0 + c[k].rsPerKg, 0);
+              v = { kind: 'split', conv: L.labour || L.foh ? L : convs.slice().sort((a, b) => has(b).length - has(a).length || tot(a) - tot(b))[0] }; } } /* most rates filled first, then the lowest (review R47, M1) */ /* before Low and High: the lowest of its products' rates, R43's "Low" (fix 4c) */
           stockConv.set(ck, v); }
         const v = stockConv.get(ck); conv = v.conv; if (v.kind === 'split') out.splitKg += kg; if (v.kind === 'unknown') out.unknownKg += kg; } /* a base C2M does not know: not charged, named apart (review 4, finding 8) */
       const okL = conv ? add('labour', conv.labour, kg) : false, okF = conv ? add('foh', conv.foh, kg) : false; if (!okL || !okF) out.noRateKg += kg; }
     const fin = kind => { const rows = Object.entries(out[kind]).map(([name, x]) => ({ name, kg: Math.round(x.kg * 1000) / 1000, rs: Math.round(x.rs), rsPerKg: Object.keys(x.rates).length === 1 ? Number(Object.keys(x.rates)[0]) : null })); return { rows, total: rows.reduce((s0, x) => s0 + x.rs, 0) }; };
-    return { noMap: !bb && out.stockKg > 0, kg: out.kg, stockKg: out.stockKg, splitKg: out.splitKg, unknownKg: out.unknownKg, unmatchedKg: out.unmatchedKg, noRateKg: out.noRateKg, labour: fin('labour'), foh: fin('foh'), products: Object.entries(out.products).map(([name, x]) => ({ name, ...x })).sort((a, b) => b.kg - a.kg) };
+    return { noMap: !bb && out.stockKg > 0, kg: out.kg, earlyKg: out.earlyKg, firstRateDay: out.earlyKg > 0 ? first : null, stockKg: out.stockKg, splitKg: out.splitKg, unknownKg: out.unknownKg, unmatchedKg: out.unmatchedKg, noRateKg: out.noRateKg, labour: fin('labour'), foh: fin('foh'), products: Object.entries(out.products).map(([name, x]) => ({ name, ...x })).sort((a, b) => b.kg - a.kg) };
   }
   /** The labour, FOH, packing and freight changes made in a month, from the change record, for the COO check (R8). */
   async function monthChanges(month, until) {

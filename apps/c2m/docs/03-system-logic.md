@@ -434,3 +434,7 @@ On live the state call is now about 3 seconds. About 15 waits remain in a row (h
 ## 3.36 Stock kg to its products (owner: Tahir rule R43; D-155, 6 Nov 2026)
 - absorbedFor finds a stock entry's products by its O2S base: c2m-o2s.o2sBaseBrands(q) gives base → brands from O2S's product master, masters.products only, as O2S reads it (base, else the brand; catBase; alsoBases), names compared in lower case with double spaces as 1. A C2M product is on that base when a name in its o2s_brand list is 1 of those brands, or, for a VAN brand product, its own brand (as engine.matcher).
 - A base with no C2M product is "base not known" (unknownKg) and not charged, as before. If O2S's data row cannot be read, or has no product list, the last map read is used and the fault is logged; with none, Month end says the product list could not be read (noMap), stock is not charged in that view, and the lock is refused.
+
+## 3.37 Days before the first rate (owner: Tahir rule R47; D-156, 6 Nov 2026)
+- absorbedFor takes the first day of any labour or FOH rate above 0 among the old rules, active or not, so the day stays fixed. A production entry made in that same month before that day is charged as if made on that day; earlyKg and firstRateDay say how much and from when, and Month end names it. Entries in earlier months are not moved (they stay not charged).
+- Stock of a base whose products differ, with no Low and High rate in force: the product with the most of its 2 rates filled, then the lowest labour plus FOH (fix 4c).

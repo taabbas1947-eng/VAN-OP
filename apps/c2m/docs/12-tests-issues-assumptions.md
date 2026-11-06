@@ -681,3 +681,9 @@ Assumptions and points for Tahir (Not confirmed):
 - Live map check (6 Nov): 17 of the 18 bases made since October have C2M products; Liquid Bio Stimulant (1,000 kg in October) has none and stays "not known".
 - Change list: 16 entries, each version later than the one before, newest last (2026-11-06b): checked by reading CHANGELOG from c2m.html.
 - All route tests t3 to t13 and no-011: passed.
+
+## 6 Nov 2026, R47 and fix 4c (D-156)
+- Live after fix 4b: October 407,219 kg; from 13 Oct all 203,700 kg charged (labour Rs 735,150, FOH Rs 3,489,850); the 203,519 kg not charged was exactly the kg made 1 to 12 Oct in O2S, before the old rates began on 13 Oct. No base was "not known" (Liquid Bio Stimulant matched its VAN brand product by name, so the earlier note that it would stay not known was wrong).
+- New t15: an entry made the day before the first rate is charged at that day's rates; split stock with no Low and High at the lowest product rate; nothing left uncharged: 4 passed. Against the code before this change: 3 failed (labour 3,640 charged in place of 7,990).
+- Independent review: no Blocking or Major; 3 Minor fixed (a base whose products each have only 1 of the 2 rates now takes the most rates filled, then the lowest; the first rate day is read from old rates active or not, so it cannot move if they are switched off; the Month end note no longer says only "the day made"). October was not locked when this was built, so no lock is affected.
+- t3 to t15, no-011, p9 to p11: passed after the review fixes.

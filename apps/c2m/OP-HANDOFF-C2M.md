@@ -780,3 +780,10 @@ Also: the in-app CHANGELOG was out of date order (latest taken as 2026-11-05e), 
 Files: apps/c2m/c2m-o2s.js, c2m-routes.js, c2m.html; docs 02, 03, 06, 08, 09, 10, 12.
 Tests: t12 (15), new t14 (9), t3 to t13 and no-011, p9 to p11, pricecheck 64: all passed. Independent review: no blocker, 1 Major and 5 Minor, all fixed.
 Next: after the push, check October on live Month end (stock charged; only Liquid Bio Stimulant not known). Then push 5, Reports (R28, R30), picture first.
+
+
+## 6 Nov 2026 (4) - R47: October charged from its 1st day; fix 4c (D-156), MODULE: C2M
+Module: C2M. Not pushed. Fix 4b pushed (980deb1) and checked live: October stock charged, nothing "not known"; 203,519 kg (1 to 12 Oct) not charged as the old rates start 13 Oct. Tahir ruled (panel): charge at the 13 Oct rates.
+Files: apps/c2m/c2m-routes.js (absorbedFor: rateDay, earlyKg, firstRateDay; split before Low and High at the lowest product rate), c2m.html (Month end line; CHANGELOG 2026-11-06c); docs 03, 06, 08, 09, 12.
+Tests: new t15 (4; 3 fail on the old code), t3 to t14, no-011, p9 to p11 passed.
+Next: after the push, check October live (kg not charged 0). Then push 5, Reports, picture first.

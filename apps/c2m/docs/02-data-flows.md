@@ -288,3 +288,7 @@ c2m_list_price (farmer rows, by packId) -> lib.printMrp -> the MRP printing list
 - The page builds the Clients place from the state it already reads (products, packs, proposals, list revisions, sales, open POs). New in the state: each pack's approvedFrom (the date of its approved cost), and urgent (the reason, or null) on proposals and list revisions, read from c2m_audit rows with action urgent.
 - POST /api/c2m/prices/propose and /lists/revise store valid_from as a Monday, or today when urgent; an urgent save writes an audit row (entity price or list_revision, action urgent, why = the reason).
 - On approval the effective date is worked again: urgent = the approval day; otherwise the first Monday on or after the later of valid_from and today. A list revision's valid_from is moved to that date before it waits or applies.
+
+## 2.30 List target and freight (owner: Tahir; D-153)
+- POST /api/c2m/settings with changes lt_<list> (target GP %) and lf_<list> (freight Rs per kg) for dist, dealer, farmer_pb, farmer_sn, farmer_snc, and why. Always held as a c2m_setting_request; the summary carries "not set" for a first figure and the reason.
+- On approval the c2m_setting row is updated, or inserted when it does not exist yet. The state sends these keys to roles with see.margin. The page works GP from the list rows (c2m_list_price, linked to packs) and each pack's cost today.

@@ -239,3 +239,6 @@ No new action: each list uses the right that adds to it. Delete, Take out of use
 
 ## 11.17 5 Nov 2026 (D-152)
 - No new action. Roles with see.margin (Tahir and Yawar) see Clients in the top bar; Products is under More. Proposing still needs price.propose or list.revise; approving price.approve or list.approve. Other roles' places are unchanged.
+
+## 11.18 5 Nov 2026 (D-153)
+- No new action. A list's target and freight: sent with settings.edit (the CFO), approved with settings.approve (the COO). New prices on a list: list.revise; approval list.approve.

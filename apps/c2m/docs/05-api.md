@@ -352,3 +352,7 @@ GET /api/c2m/state adds: m007, outOfUseKeys; on each product defaultName and oth
 - POST /api/c2m/prices/propose and POST /api/c2m/lists/revise: validFrom optional (default the next Monday, today when today is Monday); a date that is not a Monday answers 400 naming the next Monday. New optional urgent (true) and urgentWhy (required with urgent): saved for today.
 - POST /api/c2m/prices/:id/approve and /lists/revisions/:id/approve: waitsUntil is the Monday it takes effect (the next Monday when its own has passed); urgent goes in that day.
 - GET /api/c2m/state: proposals[].urgent and listRevisions[].urgent (reason or null); products[].packs[].approvedFrom.
+
+### 5 Nov 2026 (D-153)
+- POST /api/c2m/settings: new keys lt_dist, lt_dealer, lt_farmer_pb, lt_farmer_sn, lt_farmer_snc (target GP %, above 0 and below 100) and lf_ the same (freight Rs per kg, 0 or more); always pending for approval. Optional why (up to 200 characters) is added to the request summary.
+- POST /api/c2m/settings/requests/:id/approve: inserts a list setting row that does not exist yet.

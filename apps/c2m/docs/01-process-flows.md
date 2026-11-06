@@ -723,3 +723,8 @@ flowchart LR
 - Yawar types new prices and sends them to Tahir. From is a Monday (the next Monday by default). Urgent: tick and write why.
 - Tahir approves on Approvals. A price or list revision goes in on its Monday; if that Monday has passed, on the next Monday; urgent the day he approves.
 - VAN Brands: Products, Prices by list (the list grid, as before) and Price lists (the builder, as before). The 5 list cards with target margin and freight come in push 3b.
+
+## 1.32 VAN price lists, target and freight (owner: Tahir and Yawar rule; Yawar proposes, Tahir approves; D-153, 5 Nov 2026)
+- Yawar opens Clients, VAN Brands, Price lists and opens a card. He sees each pack's GP after freight against the list's target, worst first.
+- New price: types it in the row, writes the reason, sends; the revision goes to Tahir and takes effect on Monday (urgent the day approved).
+- Change target or freight: types the new figures and why; the effect (packs below target or cost) shows before sending; Tahir approves on Approvals.

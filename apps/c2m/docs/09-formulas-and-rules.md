@@ -173,3 +173,11 @@ A pack takes 1 labour rate and 1 FOH rate, each the first match of these levels:
 | B-46 | Price cycle (R33) | A client price or VAN list revision takes effect on a Monday. Approved after its Monday: the next Monday. Urgent, with a reason, the day Tahir approves it. |
 | F-34 | Projected price (R36) | Cost today ÷ (1 − target GP %), Rs per kg or L, shown with 2 decimals. |
 | F-35 | Brand margin, FY to date | Sales = Σ kg × PO price of trucks since 1 July; GP % = Σ kg × (price − cost) ÷ Σ kg × price over trucks with a cost. |
+
+## 5 Nov 2026 (D-153)
+| ID | Rule | Detail |
+|---|---|---|
+| F-36 | GP after freight, VAN list | (list price without FED − cost per pack − freight per pack) ÷ list price without FED. Freight per pack = the list's Rs per kg × pack size. Dealer, Sindh: NSV before the additional discount (R40). Farmer lists: price ÷ (1 + FED %). |
+| F-37 | Price for target, VAN list | (cost + freight) ÷ (1 − list target), × (1 + FED %) on a farmer list, rounded up to the next whole rupee (R41). |
+| B-47 | Which target on a list | The list's target judges every pack on that list (R39); Products shows each product's own standard margin. |
+| B-48 | List target and freight | Set by the CFO with a reason, approved by the COO, the first figures too (R42). Until both are set: GP shown before freight, no pack judged, no price for target. Changed only on the list's page (not Setup, Settings). A pack sold per L: freight per L = the Rs per kg figure. |

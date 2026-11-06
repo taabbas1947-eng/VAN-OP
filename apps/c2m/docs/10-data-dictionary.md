@@ -320,3 +320,10 @@ Changed in 0.3.0 and 0.3.1: rs_per_kg fixed (1 rate of 1 kind, labour or FOH). A
 | Current price | The approved price in force today | c2m_price |
 | Projected price | The price for the target GP at today's cost | worked on the page |
 | Urgent price | A price or list revision in force the day Tahir approves it | c2m_audit, action urgent |
+
+## 10.18 Added on 5 Nov 2026 (owner: Tahir; D-153)
+| Word | Meaning | Where |
+|---|---|---|
+| List target | The target GP % of 1 VAN price list | c2m_setting lt_<list> |
+| List freight | Freight Rs per kg for 1 VAN price list | c2m_setting lf_<list> |
+| GP after freight | GP on a list price after the list's freight | worked on the page |

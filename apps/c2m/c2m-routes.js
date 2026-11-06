@@ -287,6 +287,11 @@ module.exports = function mountC2mRoutes(app, deps) {
 
   /** A viewer type role (a KAM): sees only the lists and clients granted to him. The same test build() uses. */
   /** The settings the Margin and Approvals maths need, sent to every role that sees margin even without Settings (audit 3 Nov 2026, D-145). */
+  /* Push 3b (R3, R34, D-153): each VAN price list has a target GP % (lt_) and a freight Rs per kg (lf_), held as company settings.
+     The rows are made when first approved, so no migration is needed. Yawar sends, Tahir approves, as every setting. */
+  const LIST_SET = { dist: 'Distributor', dealer: 'Dealer, Sindh', farmer_pb: 'Farmer, Punjab', farmer_sn: 'Farmer, Sindh cash', farmer_snc: 'Farmer, Sindh credit' };
+  const LIST_ROWS = Object.entries(LIST_SET).flatMap(([k, n]) => [{ k: 'lt_' + k, v: '', label: `${n} list, target GP %`, needs_approval: 1 }, { k: 'lf_' + k, v: '', label: `${n} list, freight Rs per kg`, needs_approval: 1 }]);
+  const isListSet = k => /^l[tf]_(dist|dealer|farmer_pb|farmer_sn|farmer_snc)$/.test(k);
   const MARGIN_SETTINGS = ['budget_gp', 'ambition_gp', 'wl_budget_gp', 'red_gap_pts', 'red_share_pct', 'reapprove_pct', 'rate_warn_pct', 'forward_months', 'conv_budget_month', 'fed_pct'];
   const isViewerRole = R => !!(R && R.can.has('see.granted_lists') && !R.can.has('see.products'));
   const meOf = (acc, user) => ({ user, role: acc.role, label: acc.label, admin: acc.admin, actions: acc.actions, nav: acc.nav, more: acc.more || [] });
@@ -368,7 +373,7 @@ module.exports = function mountC2mRoutes(app, deps) {
     });
 
     // Settings (budget and ambition GP, thresholds) go to Yawar and Tahir only (review S9)
-    const out = { m007: D.m007, outOfUseKeys: [...D.outOfUse], variantsReady: D.variantsReady, families: D.families.map(f => ({ id: f.id, name: f.name, variants: D.pvariants.filter(v => v.family_id === f.id).map(v => ({ id: v.id, name: v.name })) })), me: meOf(acc, user), settings: has('see.settings') ? D.settings.rows : has('see.margin') ? D.settings.rows.filter(r => MARGIN_SETTINGS.includes(r.k)).map(r => ({ k: r.k, v: r.v })) : [], fedPct: lib.fedPct(D.settings.values.fed_pct), products, recipes, today: today() };
+    const out = { m007: D.m007, outOfUseKeys: [...D.outOfUse], variantsReady: D.variantsReady, families: D.families.map(f => ({ id: f.id, name: f.name, variants: D.pvariants.filter(v => v.family_id === f.id).map(v => ({ id: v.id, name: v.name })) })), me: meOf(acc, user), settings: has('see.settings') ? D.settings.rows : has('see.margin') ? D.settings.rows.filter(r => MARGIN_SETTINGS.includes(r.k) || isListSet(r.k)).map(r => ({ k: r.k, v: r.v })) : [], fedPct: lib.fedPct(D.settings.values.fed_pct), products, recipes, today: today() };
     if (has('see.materials')) {
       // Material master without rates: Himayat's screen (ruled 16 Oct)
       out.materials = [...D.rates.values()].map(g => ({ gradeId: g.gradeId, materialId: g.materialId, name: g.name, grade: g.grade, unit: g.unit, typeId: g.typeId, type: g.type, role: g.role, fields: g.fields, nutrients: g.nutrients }));
@@ -1620,13 +1625,17 @@ module.exports = function mountC2mRoutes(app, deps) {
   /* ---------- Settings: thresholds need Tahir's approval; budget lines notify Tahir (ruled 14 to 15 Oct) ---------- */
   app.post('/api/c2m/settings', can('settings.edit'), wrap(async (req, res) => {
     const ch = (req.body || {}).changes || {};
-    const [rows] = await q('SELECT k, v, label, needs_approval FROM c2m_setting'); rows.forEach(r => { if (r.k === 'budget_gp') { r.needs_approval = 1; r.label = 'Company GP target, %'; } }); // D-75: waits for Tahir, under the name Setup shows (no SQL needed)
+    const [rows] = await q('SELECT k, v, label, needs_approval FROM c2m_setting'); rows.forEach(r => { if (r.k === 'budget_gp') { r.needs_approval = 1; r.label = 'Company GP target, %'; } if (isListSet(r.k)) r.needs_approval = 1; });
+    for (const L of LIST_ROWS) if (!rows.some(r => r.k === L.k)) rows.push({ ...L }); /* a list's target and freight: not set until first approved (D-153) */
+    for (const [k, v] of Object.entries(ch)) if (/^lt_/.test(k) && isListSet(k) && String(v).trim() !== '' && !(strictNum(v) > 0 && strictNum(v) < 100)) throw bad('A list target is a % above 0 and below 100.'); // D-75: waits for Tahir, under the name Setup shows (no SQL needed)
     const pend = {}, direct = [];
     for (const r of rows) if (ch[r.k] != null && String(ch[r.k]) !== String(r.v)) { if (String(ch[r.k]).trim() === '' || !(strictNum(ch[r.k]) >= 0)) throw bad(`${r.label}: type a number (digits only). An empty box is not saved, since it would count as 0 (audit 4 Nov 2026, fault A3).`); if (r.k === 'fed_pct' && !(Number(ch[r.k]) > 0 && Number(ch[r.k]) < 100)) throw bad(`${r.label}: type a % above 0 and below 100.`); (r.needs_approval ? (pend[r.k] = String(ch[r.k])) : direct.push([r, String(ch[r.k])])); }
     await tx(async () => {
       for (const [r, v] of direct) { await q('UPDATE c2m_setting SET v=?, updated_by=?, updated_at=? WHERE k=?', [v, req.c2m.user, now(), r.k]); await notice('coo', `Setting changed: ${r.label} ${r.v} to ${v}`, req.c2m.user); await audit(req.c2m.user, 'setting', r.k, 'change', r.v, v, null); if (r.k === 'fed_pct') await refedLists(req.c2m.user); }
       if (Object.keys(pend).length) {
-        const summary = rows.filter(r => pend[r.k] != null).map(r => `${r.label} ${r.v} to ${pend[r.k]}`).join('; ');
+        const why = String((req.body || {}).why || '').trim().slice(0, 200); /* a list's target or freight carries why, for Tahir (D-153) */
+        const summary = (rows.filter(r => pend[r.k] != null).map(r => `${r.label} ${String(r.v).trim() === '' ? 'not set' : r.v} to ${pend[r.k]}`).join('; ') + (why ? `. Why: ${why}` : '')).slice(0, 400); /* the column holds 400 (review 3b, finding 6) */
+        if (Object.keys(pend).some(isListSet) && !why) throw bad('Write why the list target or freight changes: the COO reads it before he approves.');
         await q('INSERT INTO c2m_setting_request (changes_json, summary, by_user, at) VALUES (?,?,?,?)', [JSON.stringify(pend), summary, req.c2m.user, now()]);
       }
     });
@@ -1638,7 +1647,8 @@ module.exports = function mountC2mRoutes(app, deps) {
       const [u] = await q("UPDATE c2m_setting_request SET status=?, decided_by=?, decided_at=? WHERE id=? AND status='open'", [req.params.act === 'approve' ? 'approved' : 'refused', req.c2m.user, now(), r.id]); if (!u.affectedRows) throw moved();
       if (req.params.act === 'approve') for (const [k, v] of Object.entries(JSON.parse(r.changes_json))) {
         const [[old]] = await q('SELECT v FROM c2m_setting WHERE k=?', [k]);
-        await q('UPDATE c2m_setting SET v=?, updated_by=?, updated_at=? WHERE k=?', [v, req.c2m.user, now(), k]);
+        if (!old && isListSet(k)) await q('INSERT INTO c2m_setting (k, v, label, needs_approval, updated_by, updated_at) VALUES (?,?,?,1,?,?) ON DUPLICATE KEY UPDATE v=VALUES(v), updated_by=VALUES(updated_by), updated_at=VALUES(updated_at)', [k, v, LIST_ROWS.find(r => r.k === k).label, req.c2m.user, now()]); /* first figure of a list (D-153) */
+        else await q('UPDATE c2m_setting SET v=?, updated_by=?, updated_at=? WHERE k=?', [v, req.c2m.user, now(), k]);
         await audit(req.c2m.user, 'setting', k, 'change', old ? old.v : null, v, 'Approved request ' + r.id);
         if (k === 'fed_pct') await refedLists(req.c2m.user);
       }

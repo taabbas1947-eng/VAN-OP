@@ -750,3 +750,12 @@ Files: apps/c2m/c2m.html, c2m-routes.js, c2m-access.js; docs 01, 02, 03, 04, 05,
 - R33: client prices and list revisions take effect on a Monday; Monday passed while waiting = next Monday; urgent (audit row action urgent, reason) = the approval day.
 Tests: 12.20 (route 18, page 36; earlier suites pass). Independent review: 1 blocker and 10 points; fixed except 2 left for 3b and Tahir's note (12.20).
 Next: push 3b, VAN Brands with the 5 list cards, list target margin and freight (R34, R35), 1 migration. Then push 4 (Month end, with R37 VAN sales freight).
+
+
+## 6 Nov 2026 (1) - push 3b: VAN price lists with target and freight (D-153), MODULE: C2M
+Module: C2M. Not pushed (Tahir pushes). No migration: list target and freight are company settings (lt_ and lf_ keys), rows made on first approval. Push 3a was pushed as 2779501 and checked live.
+Picture: C2M VAN Price Lists artifact (R39 to R42 ruled that night).
+Files: apps/c2m/c2m.html, c2m-routes.js; docs 01, 02, 03, 05, 06, 07, 08, 09, 10, 11, 12.
+- VAN Brands: Products and Price lists. 5 cards; a list page with cost, freight, list price, GP after freight, price for target (rounded up), New price (sends that list's revision, Monday cycle). Change target or freight with its effect and why; Tahir approves.
+Tests: 12.21. Independent review: no blocker; all points fixed (12.21).
+Next: push 4, Month end (absorbed on kg made, certificate, COO check, lock; R37 VAN sales freight by list).

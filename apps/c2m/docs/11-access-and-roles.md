@@ -245,3 +245,6 @@ No new action: each list uses the right that adds to it. Delete, Take out of use
 
 ## 11.19 6 Nov 2026 (D-154)
 - No new action. COO check: actuals.ratecheck and not a rate saver, or the administrator (the COO). Lock and reopen: the administrator (the COO) only. Actuals and tie: as before (the CFO).
+
+## 11.20 6 Nov 2026 (D-157)
+- No new action and no right changed. Reports stays only for the roles that see margin (see.margin: the CFO and the COO); the 2 new routes, GET /api/c2m/reports/costs and /prices, answer 403 to every other role (tested for production, QC, plant and viewer). VAN brand PO against its price list still also needs see.price.

@@ -339,3 +339,16 @@ Changed in 0.3.0 and 0.3.1: rs_per_kg fixed (1 rate of 1 kind, labour or FOH). A
 
 ## 10.20 6 Nov 2026 (D-155)
 - c2m_o2s_production.base: O2S's base name as O2S writes it on the production entry (for example Potassium Humate, NP 6.32), not a C2M production line. Matched to C2M products through O2S's product master (03 §3.36).
+
+## 10.21 6 Nov 2026 (D-157)
+| Word | Meaning | Where |
+|---|---|---|
+| From, Till | The dates a report shows; every report opens on the current month | Reports, the bar |
+| Ticked rows | The rows a download holds; none ticked: every row shown | Reports |
+| Labour + FOH | Labour and FOH (factory overhead) per kg or L in an approved cost, kept together | c2m_cost_version.conversion |
+| Change (cost) | Against the same pack's approved cost before it; "first" for a pack's first cost | Cost history |
+| GP at its start | GP of a client price at the cost in force on its first day | Price history |
+| Against target Rs | GP Rs less the GP the target would give on the same sales | Margin by client and brand |
+| First data load | The start of VAN list history in C2M (11 Oct 2026 for a list revised since) | Price history, VAN lists |
+| lkey, lfr on an open PO row | The list an open VAN brand PO line is priced on, and that list's freight Rs per kg or L (null: not set) | state, open |
+| c2m.rtcols.<report> | The columns a person hid on a report, kept in that browser | localStorage |

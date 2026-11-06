@@ -298,3 +298,11 @@ c2m_list_price (farmer rows, by packId) -> lib.printMrp -> the MRP printing list
 - State (see.margin): monthEnd.months[YYYY-MM] for this month and the 6 before: absorbed (kg, stockKg, splitKg, noRateKg, labour and foh rows by rate name with kg and Rs, products) and changes (c2m_audit rows of lf_rate, lf_pick, freight, packing, cost_pending, conversion_rule and lt_/lf_ settings). Sales rows of VAN brands carry lkey and lfr (list freight Rs per kg) or noList.
 - Stock made for no brand (fix 4b, D-155): its base is O2S's base name. O2S's product master (app_state masters.products, the list O2S itself reads, read only, kept 10 minutes and refreshed on every pull) gives the brands packed from each base; the C2M products of that base are those whose O2S name is 1 of them, or, for a VAN brand product, its own name. The lock snapshot also keeps notChargedKg.
 - POST /api/c2m/monthend/coo-check, /lock, /reopen write c2m_monthly_check rows of kind coo_check (seen ids) and lock (the snapshot); reopen deletes the lock row and keeps it in c2m_audit.
+
+## 2.32 Reports (owner: Tahir; D-157)
+- GET /api/c2m/reports/costs (see.margin) reads c2m_cost_version joined to c2m_client_pack, c2m_client_product and c2m_customer: every approved cost of every pack with its parts, cause, approved_by, and the same pack's previous total (prev, prevFrom). Read only.
+- GET /api/c2m/reports/prices (see.margin) reads c2m_list_price (rows on the lists and taken off them, `<list>_old`) and every approved c2m_list_revision (applied or waiting for its date): items_json gives each item's from and to values. Read only.
+- Price history, client prices: from the state's priceHistory (approved white label prices), with the cost history for GP at its start.
+- Margin by client and brand: from the state's sales rows, as Margin (nmRows, nmCost, nmSum), in the browser.
+- Open PO rows (state, see.margin): a VAN brand line now carries lkey and lfr (its list and that list's freight Rs per kg or L) or noList, picked as for trucks (R46).
+- Downloads are made in the browser (Excel by the page's own .xlsx writer, CSV as UTF-8 text with a byte order mark; PDF through the print box). Nothing is sent to the server. Column choices are kept in the browser (localStorage c2m.rtcols.<report>).

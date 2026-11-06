@@ -787,3 +787,18 @@ Module: C2M. Not pushed. Fix 4b pushed (980deb1) and checked live: October stock
 Files: apps/c2m/c2m-routes.js (absorbedFor: rateDay, earlyKg, firstRateDay; split before Low and High at the lowest product rate), c2m.html (Month end line; CHANGELOG 2026-11-06c); docs 03, 06, 08, 09, 12.
 Tests: new t15 (4; 3 fail on the old code), t3 to t14, no-011, p9 to p11 passed.
 Next: after the push, check October live (kg not charged 0). Then push 5, Reports, picture first.
+
+## 6 Nov 2026 (5) - push 5a: Reports (D-157), MODULE: C2M
+Module: C2M. Not pushed (Tahir pushes). No migration.
+Picture: C2M Reports artifact, version 3 (screens 1 to 6 and 8; R28, R30, R48 to R51).
+Files: apps/c2m/c2m.html, c2m-routes.js; docs 01, 02, 03, 05, 06, 07, 08, 09, 10, 11, 12.
+- 1 tool bar on all 7 reports: From and Till (opens on this month), quick dates, Columns, ticks, Excel, CSV, PDF (print box).
+- New: Cost history, Price history (client prices, VAN lists), Margin by client and brand. Routes GET /api/c2m/reports/costs and /prices (see.margin).
+- List freight: VAN brand list margin after each list's freight on its own target; open VAN brand PO rows (state); Margin drill part.
+Tests: new t16 (19) and p12 (65); t3 to t15, no-011, p9 to p11, pricecheck 64: all passed (12, D-157).
+Open for Tahir: VAN brand target in the new margin report is the ambition GP (Margin uses each product's target); VAN list history start for a revised list is 11 Oct.
+Next: push 5b, Your own report and saved reports (migration 013), with the Adjust button.
+
+Independent review 5a: no Blocking; 2 Major and 5 Minor fixed (CSV formula guard with -, GP at start on a later cost marked, change note corrected, below cost always red, list history Till, escaping); see docs 12. Open for Tahir: VAN brand target in Margin by client and brand (ambition) differs from Margin (product target).
+R55 (Tahir, same evening): each VAN brand sale judged against its own price list's target (saleTgt in nmSum), on Margin and the new report alike; no list or no list target = not judged. Replaces the ambition GP.
+Review of R55: 1 Blocking, 1 Major, 6 Minor, all fixed (direction from GP on judged sales; list margin portfolio on list targets; export, chip, answer, help text, sort, below-cost warning). See docs 12.

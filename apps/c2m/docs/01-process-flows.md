@@ -733,3 +733,9 @@ flowchart LR
 - After a month ends, Costs › Month end opens on it. Yawar enters actual labour and FOH (step 1). C2M shows labour and FOH charged on kg made in O2S and the under or over (step 2). Yawar ties C2M to the books (step 3).
 - Tahir fills the register rate of the top materials, ticks every labour, FOH, packing and freight change of the month as seen, and presses COO check done (step 4). Then he locks the month (step 5). He can reopen it with a reason.
 - Approvals gives each person the next job and opens Month end.
+
+## 1.34 Reports: the tools and 3 new reports (owner: Tahir and Yawar read; Tahir rules; D-157, 6 Nov 2026)
+- More › Reports lists 7 ready reports in 3 groups: Cost (Cost history), Prices (Price history, PO price against approved price, VAN brand PO against its price list, VAN brand list margin), Money (Margin by client and brand, GP bridge). Conversion recovery left "Coming later": Costs › Month end answers it.
+- Every report opens on the current month (R49) with its answer line, then 1 bar: From and Till, quick choices (This month, Last month, Last 3 months, This year from 1 July, All), Columns, a tick box per row and 1 for all rows shown, and Excel, CSV and PDF (R28, R30, R48). GP bridge keeps its own month chips as its dates; VAN brand list margin is a picture of the lists in force today, so it has no dates.
+- Download: the ticked rows that are shown, or every row shown when none is ticked; only the columns shown. Excel and CSV start with the report name, the dates and filters, and "Downloaded by <first name>, <date time>". PDF opens a clean print page in the browser's print box; the person picks "Save as PDF" (R50).
+- Cost history and Price history read their data when opened ("Loading…"; an error line with Try again if the read fails).

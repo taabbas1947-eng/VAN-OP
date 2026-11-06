@@ -323,6 +323,14 @@ h1.topic{font-size:17px;letter-spacing:.04em}
 .clsel{display:none}
 @media (max-width:760px){.pcols{grid-template-columns:minmax(0,1fr)}.cl{display:none}.clsel{display:block;margin:0 0 10px}.clsel select{width:100%;min-height:44px}}
 .cboxes{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px;margin-top:12px}.cbox{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:14px;display:flex;flex-direction:column;gap:4px;min-width:0}.cbox .ct{margin:0;font-size:15px;color:var(--blue)}.cbox .cn{font-weight:600;overflow-wrap:anywhere}.cbox .clast{color:var(--muted);font-size:13px}.cbox .cw{color:var(--late);font-size:13px}.cbox .cp{color:var(--over);font-size:13px}.cbox .cok{color:var(--ok);font-size:13px}.cbox .cb{align-self:flex-start;margin-top:auto}.savedbox{margin:6px 0 10px}.savedbox .acts{display:flex;gap:8px;flex-wrap:wrap}.effect{margin:8px 0}.wk{margin:6px 0}.pklist{display:flex;flex-direction:column;gap:2px;max-height:260px;overflow:auto;margin:6px 0;padding:4px 0}.pklist .chk{display:flex;gap:8px;align-items:center;min-height:32px}.pklist .chk input,.wk .chk input{width:auto;min-height:0;flex:none;margin:0}@media (max-width:760px){.pklist .chk{min-height:44px}}.wk .chk{display:inline-flex;gap:6px;align-items:center;color:var(--ink);align-self:flex-end;min-height:36px}.wkstrip{margin:8px 0 4px}.wkstrip .acts{display:flex;gap:8px;flex-wrap:wrap}.seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}.seg button{font:inherit;font-size:13px;border:0;border-right:1px solid var(--line);background:var(--surface);color:var(--ink);padding:6px 12px;min-height:34px;cursor:pointer}.seg button:last-child{border-right:0}.seg button[aria-pressed="true"]{background:var(--ink);color:var(--surface)}.seg button:disabled{cursor:default}@media (max-width:760px){.seg button{min-height:44px;padding:6px 16px}}.next.warn{border-left-color:var(--late)}.corr{display:inline-flex;gap:8px;align-items:flex-end;flex-wrap:wrap}.corr label{display:flex;flex-direction:column;font-size:13px}.effslot{flex-basis:100%}.effect.ok{border-color:var(--ok);background:color-mix(in srgb,var(--ok) 10%,var(--surface))}tr.sub td{background:var(--bg)}
+/* Report tools (push 5a, D-157) */
+.rtbar{align-items:flex-end;gap:8px 12px}.rtbar .chips{margin:0}.rtd{display:flex;gap:8px;flex-wrap:wrap}.rtd label,.rtsel{display:grid;gap:2px;font-size:12px;color:var(--mute,#4a5a70)}.rtd input{min-width:150px}
+.rtt .rtx{width:30px;text-align:center}.rtt tr.child td{font-size:13px}.colsmenu .box.rtcl{left:0;right:auto;max-height:340px;overflow-y:auto}
+#rtprint{display:none}
+@media print{body.rtp>:not(#rtprint){display:none!important}body.rtp #rtprint{display:block;font:10.5px/1.35 Calibri,Arial,sans-serif;color:#000;background:#fff}
+#rtprint h1{font-size:16px;margin:0 0 2px}#rtprint .rtps{margin:0 0 8px;color:#333}#rtprint table{border-collapse:collapse;width:100%}#rtprint thead{display:table-header-group}#rtprint tr{break-inside:avoid}
+#rtprint th,#rtprint td{border-bottom:1px solid #bbb;padding:3px 5px;text-align:left;vertical-align:top}#rtprint th{border-bottom:1.5px solid #000}#rtprint .r{text-align:right}#rtprint tfoot td{font-weight:700;border-top:1.5px solid #000}
+#rtprint .rtpf{margin-top:10px;font-size:9.5px;color:#333}@page{margin:12mm}}
 </style>
 </head>
 <body>
@@ -648,37 +656,43 @@ const nmPack = id => { const k = packIdx().get(+id); return k ? `${k.product.bra
 const nmRedRs = () => { const t = (ST.sales || []).filter(r => r.grp === 'White label' && nmIn(r)).reduce((s, r) => s + r.kg * r.price, 0); const sh = SET('red_share_pct'); return (sh == null ? 1 : sh) / 100 * t; };
 /** Sum rows: GP % on the totals, never an average of %; target weighted by sales (F-23).
  * Red: below cost, or more than red_gap_pts short of target with Rs short above nmRedRs(); amber: any other short; green: on or above. */
+/** A sale's GP target, % (R55, Tahir 6 Nov 2026): white label, its product's target (else the company GP target); VAN brand, the target of the
+ *  price list it was sold on (each channel has its own target, R39), or null when the sale has no list or its list has no target: not judged. */
+function saleTgt(r) { if (r.grp !== 'VAN brand') return tgtOf(r.target); return r.lkey ? LSET('lt_' + r.lkey) : null; }
 function nmSum(rows) {
-  const o = { kg: 0, L: 0, sales: 0, cost: 0, tRs: 0, rows };
-  rows.forEach(r => { const s = r.kg * r.price; o[nmUnit(r)] += r.kg; o.sales += s; o.cost += r.kg * nmCost(r); o.tRs += tgtOf(r.target) / 100 * s; });
-  o.gp = o.sales - o.cost; o.pct = o.sales ? o.gp / o.sales * 100 : null; o.tgt = o.sales ? o.tRs / o.sales * 100 : null; o.ag = o.gp - o.tRs;
-  const gap = o.tgt - o.pct, red = SET('red_gap_pts') != null ? SET('red_gap_pts') : 2;
+  const o = { kg: 0, L: 0, sales: 0, cost: 0, tRs: 0, jSales: 0, jGp: 0, nj: 0, rows };
+  rows.forEach(r => { const s = r.kg * r.price, c = r.kg * nmCost(r), t = saleTgt(r); o[nmUnit(r)] += r.kg; o.sales += s; o.cost += c;
+    if (t != null) { o.tRs += t / 100 * s; o.jSales += s; o.jGp += s - c; } else o.nj++; });
+  o.gp = o.sales - o.cost; o.pct = o.sales ? o.gp / o.sales * 100 : null; o.tgt = o.jSales ? o.tRs / o.jSales * 100 : null; o.ag = o.jGp - o.tRs; o.jPct = o.jSales ? o.jGp / o.jSales * 100 : null; o.mixed = o.nj > 0 && o.jSales > 0; /* target and against target on judged sales only */
+  const gap = o.tgt - o.jPct, red = SET('red_gap_pts') /* judged GP % against the target on the same sales (review R55, finding 1) */ != null ? SET('red_gap_pts') : 2;
+  if (o.tgt == null) { o.dir = 'none'; o.st = o.pct != null && o.pct < 0 ? 'red' : 'none'; o.ag = 0; return o; } /* no sale in the group judged (VAN brand sales with no list target set, R55) */
   o.dir = gap > 0.05 ? 'short' : gap < -0.05 ? 'above' : 'on'; o.st = (o.pct != null && o.pct < 0) || (gap > red && -o.ag > nmRedRs()) ? 'red' : gap > 0.05 ? 'amber' : 'green';
   return o;
 }
 const nmQty = o => [o.kg ? n0(o.kg) + ' kg' : '', o.L ? n0(o.L) + ' L' : ''].filter(Boolean).join('<br>') || '0';
-const nmAg = o => o.dir === 'on' ? '<span class="ag green">on target</span>' : `<span class="ag ${o.dir === 'above' ? 'green' : o.st}">${o.dir} ${rsM2(Math.abs(o.ag))}${o.dir === 'short' ? ` · ${o.st}` : ''}</span>`; // the word, not only the colour, says red or amber
-const nmSort = L => L.sort((a, b) => a.s.ag - b.s.ag || b.s.sales - a.s.sales); // target and gap: biggest Rs short first
+const nmAg = o => o.dir === 'none' ? `<span class="ag ${o.st === 'red' ? 'red' : ''}">not judged: no target set</span>` : o.dir === 'on' ? '<span class="ag green">on target</span>' : `<span class="ag ${o.dir === 'above' ? 'green' : o.st}">${o.dir} ${rsM2(Math.abs(o.ag))}${o.dir === 'short' ? ` · ${o.st}` : ''}</span>`; // the word, not only the colour, says red or amber
+const nmSort = L => L.sort((a, b) => (a.s.dir === 'none') - (b.s.dir === 'none') || a.s.ag - b.s.ag || b.s.sales - a.s.sales); /* not judged last (review R55) */ // target and gap: biggest Rs short first
 const nmGroup = (rows, f) => { const m = new Map(); rows.forEach(r => { const k = f(r); (m.get(k) || m.set(k, []).get(k)).push(r); }); return [...m].map(([k, rs]) => ({ k, s: nmSum(rs) })); };
-const nmCells = (o, first) => `<td>${first}</td>${nm.cols.qty ? `<td class="r num">${nmQty(o)}</td>` : ''}<td class="r num">${n0(o.sales)}</td>${nm.cols.cost ? `<td class="r num">${n0(o.cost)}</td>` : ''}<td class="r num">${n0(o.gp)}</td><td class="r num">${p1(o.pct)}</td>${nm.cols.tgt ? `<td class="r num">${p1(o.tgt)}</td>` : ''}<td class="r">${nmAg(o)}</td>`;
+const nmCells = (o, first) => `<td>${first}</td>${nm.cols.qty ? `<td class="r num">${nmQty(o)}</td>` : ''}<td class="r num">${n0(o.sales)}</td>${nm.cols.cost ? `<td class="r num">${n0(o.cost)}</td>` : ''}<td class="r num">${n0(o.gp)}</td><td class="r num">${p1(o.pct)}</td>${nm.cols.tgt ? `<td class="r num">${o.tgt != null ? p1(o.tgt) : 'none'}</td>` : ''}<td class="r">${nmAg(o)}</td>`;
 function nmTrend() {
   const rows = nmRows().filter(r => nmGrp(r) && r.date >= fyStart() && r.date <= ST.today);
   const ms = [...new Set(rows.map(r => r.date.slice(0, 7)))].sort(); const pts = ms.map(m => ({ m, ...nmSum(rows.filter(r => r.date.slice(0, 7) === m)) }));
   if (pts.length < 2) return `<div class="ocard"><h3>GP by month</h3><p class="osub">The chart needs 2 months of costed trucks in this group.</p></div>`;
   const first = rows.map(r => r.date).sort()[0]; const full = pts.filter(p => p.m !== ST.today.slice(0, 7) && p.m !== first.slice(0, 7)); // part months (marked *) are not compared in the title (review finding 8)
   const a = full.length >= 2 ? full[0] : pts[0], b = full.length >= 2 ? full[full.length - 1] : pts[pts.length - 1]; const dir = b.pct < a.pct - 0.05 ? 'fell' : b.pct > a.pct + 0.05 ? 'rose' : 'held';
-  const title = `${CATN[nm.grp] || 'All sales'} GP ${dir} from ${a.pct.toFixed(1)}% in ${MON[+a.m.slice(5) - 1]} to ${b.pct.toFixed(1)}% in ${MON[+b.m.slice(5) - 1]}, against a ${b.tgt.toFixed(1)}% target that month`;
-  const sub = `GP % on trucks out each month${nm.hist === 'restated' ? ', restated at today\'s cost' : ', each truck at the cost approved on its date'}. The dashed line is the target, weighted by each month's sales.`;
+  const title = `${CATN[nm.grp] || 'All sales'} GP ${dir} from ${a.pct.toFixed(1)}% in ${MON[+a.m.slice(5) - 1]} to ${b.pct.toFixed(1)}% in ${MON[+b.m.slice(5) - 1]}, ${b.tgt != null ? `${b.mixed ? `${b.jPct.toFixed(1)}% on the sales judged ` : ''}against a ${b.tgt.toFixed(1)}% target that month` : 'with no target set that month'}`;
+  const mixed = pts.some(p => p.mixed); /* some sales not judged (VAN brand on a list with no target): the target line would be read against GP on all sales, so it is not drawn (review R55) */
+  const sub = `GP % on trucks out each month${nm.hist === 'restated' ? ', restated at today\'s cost' : ', each truck at the cost approved on its date'}. ${mixed ? ' The target line is not drawn: some VAN brand sales in this group are not judged (their price list has no target set), so GP on all sales cannot be read against it; the table gives GP on the sales judged.' : ' The dashed line is the target, weighted by each month\'s sales.'}`;
   let body;
-  if (nm.tTab === 'table') body = `<div class="wrapx"><table class="otab"><thead><tr><th>Month</th><th class="r">Sales Rs</th><th class="r">GP Rs</th><th class="r">GP %</th><th class="r">Target %</th></tr></thead><tbody>${pts.map(p => `<tr><td>${MON[+p.m.slice(5) - 1]}${p.m === ST.today.slice(0, 7) ? ` (to ${+ST.today.slice(8)})` : p.m === first.slice(0, 7) ? ` (from ${+first.slice(8)})` : ''}</td><td class="r num">${n0(p.sales)}</td><td class="r num">${n0(p.gp)}</td><td class="r num">${p.pct.toFixed(1)}</td><td class="r num">${p.tgt.toFixed(1)}</td></tr>`).join('')}</tbody></table></div>`;
+  if (nm.tTab === 'table') body = `<div class="wrapx"><table class="otab"><thead><tr><th>Month</th><th class="r">Sales Rs</th><th class="r">GP Rs</th><th class="r">GP %</th>${mixed ? '<th class="r">GP % on sales judged</th>' : ''}<th class="r">Target %</th></tr></thead><tbody>${pts.map(p => `<tr><td>${MON[+p.m.slice(5) - 1]}${p.m === ST.today.slice(0, 7) ? ` (to ${+ST.today.slice(8)})` : p.m === first.slice(0, 7) ? ` (from ${+first.slice(8)})` : ''}</td><td class="r num">${n0(p.sales)}</td><td class="r num">${n0(p.gp)}</td><td class="r num">${p.pct.toFixed(1)}</td>${mixed ? `<td class="r num">${p.jPct != null ? p.jPct.toFixed(1) : 'none'}</td>` : ''}<td class="r num">${p.tgt != null ? p.tgt.toFixed(1) : 'none'}</td></tr>`).join('')}</tbody></table></div>`;
   else {
-    const vals = pts.flatMap(p => [p.pct, p.tgt]); const lo = Math.floor((Math.min(...vals) - 1) / 5) * 5, hi = Math.ceil((Math.max(...vals) + 1) / 5) * 5;
+    const tp = mixed ? [] : pts.map((p, i) => [p, i]).filter(([p]) => p.tgt != null); const vals = pts.flatMap(p => p.tgt != null ? [p.pct, p.tgt] : [p.pct]); const lo = Math.floor((Math.min(...vals) - 1) / 5) * 5, hi = Math.ceil((Math.max(...vals) + 1) / 5) * 5;
     const W = 520, H = 230, L = 36, R = 108, T = 12, B = 26; const x = i => L + (W - L - R) * i / (pts.length - 1), y = v => T + (H - T - B) * (1 - (v - lo) / (hi - lo));
     const grid = []; for (let v = lo; v <= hi + 0.001; v += 5) grid.push(`<line class="og" x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}"/><text class="oa" x="${L - 6}" y="${y(v) + 4}" text-anchor="end">${v}%</text>`);
-    const z = pts[pts.length - 1]; let yg = y(z.pct), yt = y(z.tgt); /* the end labels name the last point drawn */ if (Math.abs(yg - yt) < 14) { const mid = (yg + yt) / 2; if (yg >= yt) { yg = mid + 7; yt = mid - 7; } else { yg = mid - 7; yt = mid + 7; } }
-    body = `<svg class="ochart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(title)}">${grid.join('')}<polyline class="otl" points="${pts.map((p, i) => `${x(i)},${y(p.tgt)}`).join(' ')}"/><polyline class="ogl" points="${pts.map((p, i) => `${x(i)},${y(p.pct)}`).join(' ')}"/>
+    const z = pts[pts.length - 1]; let yg = y(z.pct), yt = z.tgt != null && !mixed ? y(z.tgt) : yg + 1000; /* the end labels name the last point drawn */ if (Math.abs(yg - yt) < 14) { const mid = (yg + yt) / 2; if (yg >= yt) { yg = mid + 7; yt = mid - 7; } else { yg = mid - 7; yt = mid + 7; } }
+    body = `<svg class="ochart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(title)}">${grid.join('')}${tp.length > 1 ? `<polyline class="otl" points="${tp.map(([p, i]) => `${x(i)},${y(p.tgt)}`).join(' ')}"/>` : ''}<polyline class="ogl" points="${pts.map((p, i) => `${x(i)},${y(p.pct)}`).join(' ')}"/>
       ${pts.map((p, i) => `<circle class="ogd" cx="${x(i)}" cy="${y(p.pct)}" r="3.5"/><text class="oa" x="${x(i)}" y="${H - 8}" text-anchor="middle">${MON[+p.m.slice(5) - 1]}${p.m === ST.today.slice(0, 7) || p.m === first.slice(0, 7) ? '*' : ''}</text>`).join('')}
-      <text class="olab g" x="${W - R + 8}" y="${yg + 4}">GP ${z.pct.toFixed(1)}%</text><text class="olab t" x="${W - R + 8}" y="${yt + 4}">Target ${z.tgt.toFixed(1)}%</text></svg>`;
+      <text class="olab g" x="${W - R + 8}" y="${yg + 4}">GP ${z.pct.toFixed(1)}%</text>${z.tgt != null && !mixed ? `<text class="olab t" x="${W - R + 8}" y="${yt + 4}">Target ${z.tgt.toFixed(1)}%</text>` : ''}</svg>`;
   }
   return `<div class="ocard"><h3>${esc(title)}</h3><p class="osub">${sub}</p>${nTabs('nm-t', [['chart', 'Chart'], ['table', 'Table']], nm.tTab)}${body}<p class="ofoot"><b>Source:</b> O2S trucks (read only); C2M approved costs and targets.<br><b>Note:</b> * a part month (the first truck in O2S, or today). Trucks of packs with no approved cost at all are left out.</p></div>`;
 }
@@ -696,7 +710,7 @@ function vMargin2() {
   if (!nm.init) { nm.init = true; const mm = [...new Set((ST.sales || []).map(r => r.date.slice(0, 7)))].sort(); nm.per = mm.includes(ST.today.slice(0, 7)) ? ST.today.slice(0, 7) : (mm[mm.length - 1] || 'fy'); nm.grp = 'all'; } // D-111: opens on the whole company, current month
   const costed = nmRows().filter(r => nmIn(r) && nmGrp(r)); const tot = nmSum(costed);
   const months = [...new Set((ST.sales || []).map(r => r.date.slice(0, 7)))].sort();
-  const basis = `<p class="basis">${nm.hist === 'restated' ? '<b>Restated view:</b> past trucks at today\'s cost, for comparison only; trucks of packs with no cost today are left out, so the trucks counted can differ from the approved view. ' : 'Each truck at the cost approved before its gate pass date: a cost approved today applies from tomorrow\'s trucks; trucks before a pack\'s first approved cost use that first cost. '}Prices without FED; free (FOC) trucks are not sales; trucks of packs with no approved cost at all are left out.${nm.grp !== 'wl' ? ' VAN brand GP is before freight out.' : ''}</p>`;
+  const basis = `<p class="basis">${nm.hist === 'restated' ? '<b>Restated view:</b> past trucks at today\'s cost, for comparison only; trucks of packs with no cost today are left out, so the trucks counted can differ from the approved view. ' : 'Each truck at the cost approved before its gate pass date: a cost approved today applies from tomorrow\'s trucks; trucks before a pack\'s first approved cost use that first cost. '}Prices without FED; free (FOC) trucks are not sales; trucks of packs with no approved cost at all are left out.${nm.grp !== 'wl' ? ' VAN brand GP is after each sale\'s list freight.' : ''}</p>`;
   if (nm.drill) return `${meta([nmPer(), o2sAsOf()])}${nmDrill(costed)}${basis}`;
   /* 1.0.1 (Tahir, 19 Oct 2026, D-83, amends D-79): a client or buyer line with trucks in the period but none costed is named in 1 line, with no figures */
   const unc = (ST.sales || []).filter(r => nmIn(r) && nmGrp(r) && nmCost(r) == null); const inL = new Set(costed.map(r => r.cust));
@@ -721,10 +735,10 @@ function vMargin2() {
     return `<tr class="go r-${x.s.st}" tabindex="0" data-nm-tog="${esc(x.k)}" aria-expanded="${open}">${nmCells(x.s, `<span class="car">${open ? '▾' : '▸'}</span>` + label(x))}</tr>${kids}`;
   }).join('');
   const headRowHtml = `<th>${nm.by === 'client' ? 'Client or buyer line' : nm.by === 'product' ? 'Product line' : 'Client · pack'}</th>${nm.cols.qty ? '<th class="r">Qty</th>' : ''}<th class="r">Sales Rs</th>${nm.cols.cost ? '<th class="r">Cost Rs</th>' : ''}<th class="r">GP Rs</th><th class="r">GP %</th>${nm.cols.tgt ? '<th class="r">Target %</th>' : ''}<th class="r">Against target</th>`;
-  const stCol = s => s === 'red' ? 'var(--over)' : s === 'amber' ? 'var(--late)' : 'var(--ok)';
+  const stCol = s => s === 'red' ? 'var(--over)' : s === 'amber' ? 'var(--late)' : s === 'none' ? 'var(--muted)' : 'var(--ok)';
   const secBtn = (k, label) => `<button class="lnk" data-nm-sec="${k}" aria-expanded="${!!nm.sec[k]}">${label} ${nm.sec[k] ? '▾' : '›'}</button>`;
   const scopeTxt = nm.grp === 'all' ? 'Whole company' : CATN[nm.grp] || 'All sales';
-  const say = !costed.length ? `${scopeTxt}, ${esc(nmPer())}: no costed trucks yet.` : !(tot.tgt > 0) ? `${scopeTxt}, ${esc(nmPer())}: GP ${p1(tot.pct)}%. No target set.` : `${scopeTxt}, ${esc(nmPer())}: GP ${p1(tot.pct)}% against a target of ${p1(tot.tgt)}%${tot.dir === 'on' ? ', on target' : tot.dir === 'short' ? `, ${rsM2(Math.abs(tot.ag))} short` : `, ${rsM2(Math.abs(tot.ag))} above`}.`;
+  const say = !costed.length ? `${scopeTxt}, ${esc(nmPer())}: no costed trucks yet.` : !(tot.tgt > 0) ? `${scopeTxt}, ${esc(nmPer())}: GP ${p1(tot.pct)}%. Not judged: no target set${tot.st === 'red' ? '; below cost' : ''}.` : `${scopeTxt}, ${esc(nmPer())}: GP ${p1(tot.pct)}%${tot.mixed ? `; on the sales judged ${p1(tot.jPct)}%` : ''} against a target of ${p1(tot.tgt)}%${tot.dir === 'on' ? ', on target' : tot.dir === 'short' ? `, ${rsM2(Math.abs(tot.ag))} short` : `, ${rsM2(Math.abs(tot.ag))} above`}.`;
   /* D-111 (Tahir, 23 Oct 2026): the page opens on the whole company and the current month; the group and period are always in the first line */
   const gRows = (nm.grp === 'all' ? nmGroup(costed, r => r.cat || (r.grp === 'White label' ? 'wl' : 'farm')).map(x => ({ ...x, label: CATN[x.k], attr: `data-nm-grp="${esc(x.k)}"` })) : nmGroup(costed, r => r.cust).map(x => ({ ...x, label: x.k, attr: `data-nm-line="${esc(x.k)}"` }))).sort((a, b) => b.s.sales - a.s.sales).slice(0, 8);
   const gmx = Math.max(1, ...gRows.map(x => Math.max(x.s.pct || 0, x.s.tgt || 0))) * 1.1;
@@ -737,7 +751,7 @@ function vMargin2() {
   const attRows = att.map(x => `<button class="mrow att" data-nm-line="${esc(x.k)}"><span class="mn">${esc(x.k)}</span><span class="mt ${x.s.st}">${p1(x.s.pct)}% against ${p1(x.s.tgt)}%${x.s.st === 'red' ? ', red' : ''}</span><span class="mv num">Rs ${rsM2(-x.s.ag).replace(/^Rs /, '')} short</span></button>`).join('');
   const nCut = whole.length + part.length;
   const links = `<div class="mlinks">${secBtn('tbl', 'All buyer lines and search')}${nm.grp === 'wl' || nm.grp === 'all' ? secBtn('stake', 'Rs at stake, white label') : ''}${nCut ? secBtn('out', `Not counted: ${pl(nCut, 'line', 'lines')}`) : ''}${secBtn('how', 'How to read this')}${secBtn('opt', 'Options')}</div>`;
-  const tblSec = `<div class="wtbar"><div class="grpc"><span>Group by</span>${nChips('nm-by', [['client', 'Client'], ['product', 'Product'], ['cxp', 'Client × product']], nm.by)}</div><div class="grpc"><span>Show</span>${nChips('nm-f', [['all', 'All ' + cnt('all')], ['red', 'Red ' + cnt('red')], ['amber', 'Amber ' + cnt('amber')], ['green', 'On or above ' + cnt('green')]], nm.f)}</div></div>
+  const tblSec = `<div class="wtbar"><div class="grpc"><span>Group by</span>${nChips('nm-by', [['client', 'Client'], ['product', 'Product'], ['cxp', 'Client × product']], nm.by)}</div><div class="grpc"><span>Show</span>${nChips('nm-f', [['all', 'All ' + cnt('all')], ['red', 'Red ' + cnt('red')], ['amber', 'Amber ' + cnt('amber')], ['green', 'On or above ' + cnt('green')]].concat(cnt('none') ? [['none', 'Not judged ' + cnt('none')]] : []), nm.f)}</div></div>
   <div class="wtbar"><input type="search" id="nmq" placeholder="Find a client or product" aria-label="Find a client or product" value="${esc(nm.q)}"><span class="sp"></span><button class="btn ghost" data-nm-xls>Export to Excel</button></div>
   <div class="box wrapx"><table class="wt nmt"><thead><tr>${headRowHtml}</tr></thead><tbody>${body || '<tr><td colspan="8">No rows match.</td></tr>'}</tbody>
   <tfoot><tr>${nmCells(nmSum(shown.flatMap(x => x.s.rows)), `${shown.length} of ${list.length} ${unit}`)}</tr></tfoot></table></div>`;
@@ -745,7 +759,7 @@ function vMargin2() {
   <div class="wtbar"><div class="grpc"><span>Group</span>${nChips('nm-grp', [['all', 'Whole company'], ...Object.entries(CATN)], nm.grp)}</div><div class="grpc"><span>Period</span><select data-nm-persel aria-label="Period">${[['fy', 'FY to date']].concat(months.slice().reverse().map(x => [x, MON[+x.slice(5) - 1] + ' ' + x.slice(0, 4) + (x === ST.today.slice(0, 7) ? ' (to ' + +ST.today.slice(8) + ')' : '')])).map(([k, l]) => `<option value="${k}" ${nm.per === k ? 'selected' : ''}>${l}</option>`).join('')}</select></div></div>
   <div class="figs f3"><div class="fig"><div class="l">Sales, trucks out</div><div class="v">${rsM2(tot.sales)}</div><div class="s">${nmQty(tot).replace('<br>', ' and ')}</div></div>
   <div class="fig"><div class="l">Gross profit</div><div class="v">${rsM2(tot.gp)}</div><div class="s">${p1(tot.pct)}% of sales</div></div>
-  <div class="fig"><div class="l">Target</div><div class="v">${tot.tgt > 0 ? p1(tot.tgt) + '%' : 'None set'}</div><div class="s">${costed.length && tot.tgt > 0 ? nmAg(tot) : ''}</div></div></div>
+  <div class="fig"><div class="l">Target</div><div class="v">${tot.tgt > 0 ? p1(tot.tgt) + '%' : 'None set'}</div><div class="s">${costed.length ? nmAg(tot) : ''}${tot.mixed ? `<br>on the sales judged: GP ${p1(tot.jPct)}%` : ''}</div></div></div>
   <div class="cards2 m2"${gRows.length < 2 ? ' style="grid-template-columns:minmax(0,1fr)"' : ''}>${gRows.length < 2 ? '' : `<div class="ocard"><h3>${nm.grp === 'all' ? 'Profit by group' : 'Profit by buyer line'}</h3><p class="osub">Bar is GP %. The line is the target. ${nm.grp === 'all' ? 'Click a group to open it.' : 'Click a line to see its packs.'}</p>${bars || '<p class="osub">No costed trucks.</p>'}</div>`}
   <div class="ocard"><h3>By month</h3><p class="osub">GP % against target. Click a month to open it.</p><div class="mcols">${mcols}</div></div></div>
   ${nmMonthEnd(costed)}
@@ -755,14 +769,15 @@ function vMargin2() {
   ${nm.sec.tbl ? tblSec : ''}
   ${nm.sec.stake ? `<div class="cards2">${nmStake()}</div>` : ''}
   ${nm.sec.out && nCut ? outTxt : ''}
-  ${nm.sec.how ? `${basis}<p class="ans" style="font-size:12.5px">Buyers follow the O2S category on each PO: white label clients, distributors and dealers by name; COBO and VGreen as 1 line each; every farmer pooled into Farmers and other. Each product is judged against its own target (the company target, ${SET('budget_gp')}%, unless changed). A new target applies to every month shown, past ones too. Each truck uses the cost approved on its date; a truck from before a product's first approved cost uses that first cost.</p>` : ''}
+  ${nm.sec.how ? `${basis}<p class="ans" style="font-size:12.5px">Buyers follow the O2S category on each PO: white label clients, distributors and dealers by name; COBO and VGreen as 1 line each; every farmer pooled into Farmers and other. Each white label product is judged against its own target (the company target, ${SET('budget_gp')}%, unless changed); each VAN brand sale against the target of the price list it was sold on, and not judged where that list has no target set or the sale has no list. Where a line has both, target and against target count the judged sales only, and its GP on those sales is shown beside the target. A new target applies to every month shown, past ones too. Each truck uses the cost approved on its date; a truck from before a product's first approved cost uses that first cost.</p>` : ''}
   ${nm.sec.opt ? `<div class="wtbar"><div class="grpc"><span>Past trucks</span>${nChips('nm-hist', [['approved', 'Cost approved on their date'], ['restated', 'Restated at today\'s cost']], nm.hist)}</div><div class="colsmenu"><button class="btn ghost" data-nm-cols aria-expanded="${nm.colsOpen}">Columns</button>${nm.colsOpen ? `<div class="box">${[['qty', 'Qty'], ['cost', 'Cost Rs'], ['tgt', 'Target %']].map(([k, l]) => `<label><input type="checkbox" data-nm-col="${k}" ${nm.cols[k] ? 'checked' : ''}> ${l}</label>`).join('')}</div>` : ''}</div></div>` : ''}`;
 }
 /** Cost parts per unit behind nmCost(r): the version approved on the truck date, or today's cost when the view is restated. */
-const nmParts = r => { if (nm.hist === 'restated') { const k = r.packId ? packIdx().get(r.packId) : null; const c = k && k.cost; return c && c.costed !== false && c.total != null ? [c.materials, c.packing, c.conversion, c.freight].map(Number) : null; } return r.parts || null; };
+const nmParts = r => { const lf = r.grp === 'VAN brand' ? [r.lfr > 0 ? r.lfr : 0] : []; /* push 5a (D-157): a VAN brand sale's list freight is its own part, so the parts add up to the cost used for GP */
+  if (nm.hist === 'restated') { const k = r.packId ? packIdx().get(r.packId) : null; const c = k && k.cost; return c && c.costed !== false && c.total != null ? [c.materials, c.packing, c.conversion, c.freight].map(Number).concat(lf) : null; } return r.parts ? r.parts.map(Number).concat(lf) : null; };
 function nmDrill(costed) {
   const { cl, pid } = nm.drill; const k = packIdx().get(pid); const rows = costed.filter(r => r.cust === cl && r.packId === pid).sort((a, b) => a.date < b.date ? -1 : 1); const o = nmSum(rows); const u = k && k.product.soldPer === 'L' ? 'L' : 'kg';
-  const say = !rows.length ? `No costed trucks for ${esc(cl)} · ${esc(nmPack(pid))} in ${esc(nmPer())}.` : `${esc(cl)} · ${esc(nmPack(pid))}: GP ${o.pct.toFixed(1)}%, Rs ${n0(o.gp)} on ${pl(rows.length, 'truck', 'trucks')}, ${esc(nmPer())}. ${o.dir === 'on' ? 'On target.' : (o.dir === 'short' ? 'Short of' : 'Above') + ' the ' + o.tgt.toFixed(1) + '% target by Rs ' + n0(Math.abs(o.ag)) + '.'}`;
+  const say = !rows.length ? `No costed trucks for ${esc(cl)} · ${esc(nmPack(pid))} in ${esc(nmPer())}.` : `${esc(cl)} · ${esc(nmPack(pid))}: GP ${o.pct.toFixed(1)}%, Rs ${n0(o.gp)} on ${pl(rows.length, 'truck', 'trucks')}, ${esc(nmPer())}. ${o.dir === 'none' ? 'Not judged: no target set.' : o.dir === 'on' ? 'On target.' : (o.dir === 'short' ? 'Short of' : 'Above') + ' the ' + o.tgt.toFixed(1) + '% target by Rs ' + n0(Math.abs(o.ag)) + '.'}`;
   /* The approved price a PO is checked against: the price in force when the PO came in, as the PO price report (review r4, finding 2).
      VAN brand packs are priced on the price lists by channel, not per pack: they have no approved pack price to show (review r4, finding 1). */
   const vanP = !!k && k.product.channel === 'VAN brand';
@@ -777,7 +792,7 @@ function nmDrill(costed) {
   <div class="box wrapx"><table class="wt cards" id="nmtrucks"><thead><tr><th data-key="1">Gate pass date</th><th>PO</th><th class="r">Qty, ${u}</th><th class="r" data-key="2">PO price per ${u}</th>${vanP ? '' : '<th class="r" data-key="3">Approved when the PO came in</th>'}<th class="r">Cost per ${u}${nm.hist === 'restated' ? ', today' : ', on its date'}</th><th class="r">Sales Rs</th><th class="r">GP Rs</th><th class="r" data-key="4">GP %</th></tr></thead>
   <tbody>${rows.map((r, i) => { const s = r.kg * r.price, g = s - r.kg * nmCost(r), a = ap[i], dif = a && Math.abs(r.price - a.price) > 0.005; return `<tr${dif ? ' class="r-red"' : ''}><td class="num nw" data-v="${esc(String(r.date).slice(0, 10))}">${esc(fmtD(r.date))}</td><td class="num nw">${esc(r.po || '')}${r.rcv ? `<span class="sub2">came in ${esc(fmtD(r.rcv))}</span>` : ''}</td><td class="r num">${n0(r.kg)}</td><td class="r num">${n2(r.price)}</td>${vanP ? '' : `<td class="r num">${a ? n2(a.price) + (dif ? `<span class="sub2">PO ${r.price > a.price ? 'above' : 'below'} by ${n2(Math.abs(r.price - a.price))}</span>` : '') : '<span class="sub2">none yet</span>'}</td>`}<td class="r num">${n2(nmCost(r))}</td><td class="r num">${n0(s)}</td><td class="r num">${n0(g)}</td><td class="r num">${s ? (g / s * 100).toFixed(1) : 'n/a'}</td></tr>`; }).join('')}</tbody>
   <tfoot><tr><td colspan="2">${pl(rows.length, 'truck', 'trucks')}</td><td class="r num">${n0(o[u])}</td><td class="r num">${n2(o.sales / o[u])}</td>${vanP ? '' : '<td></td>'}<td class="r num">${n2(o.cost / o[u])}</td><td class="r num">${n0(o.sales)}</td><td class="r num">${n0(o.gp)}</td><td class="r num">${p1(o.pct)}</td></tr></tfoot></table></div>
-  ${pv.length ? `<h2 class="sh" style="margin-top:14px">What the cost is made of, Rs per ${u}</h2><div class="box wrapx"><table class="wt"><thead><tr><th>Trucks</th><th class="r">Materials</th><th class="r">Packing</th><th class="r">Conversion</th><th class="r">Freight</th><th class="r">Cost</th></tr></thead><tbody>${pv.map(g => `<tr><td class="nw">${g.from === g.to ? esc(fmtD(g.from)) : `${esc(fmtD(g.from))} to ${esc(fmtD(g.to))}`}<span class="sub2">${pl(g.n, 'truck', 'trucks')}</span></td>${g.P.map(x => `<td class="r num">${n2(x)}</td>`).join('')}<td class="r num"><b>${n2(g.P.reduce((a, b) => a + b, 0))}</b></td></tr>`).join('')}</tbody></table></div>` : ''}
+  ${pv.length ? `<h2 class="sh" style="margin-top:14px">What the cost is made of, Rs per ${u}</h2><div class="box wrapx"><table class="wt"><thead><tr><th>Trucks</th><th class="r">Materials</th><th class="r">Packing</th><th class="r">Labour and FOH</th><th class="r">Freight</th>${pv.some(g => g.P.length > 4) ? '<th class="r">List freight</th>' : ''}<th class="r">Cost</th></tr></thead><tbody>${pv.map(g => `<tr><td class="nw">${g.from === g.to ? esc(fmtD(g.from)) : `${esc(fmtD(g.from))} to ${esc(fmtD(g.to))}`}<span class="sub2">${pl(g.n, 'truck', 'trucks')}</span></td>${g.P.map(x => `<td class="r num">${n2(x)}</td>`).join('')}<td class="r num"><b>${n2(g.P.reduce((a, b) => a + b, 0))}</b></td></tr>`).join('')}</tbody></table></div>` : ''}
   <p class="ans" style="font-size:12.5px">Source: O2S trucks, read only.${vanP ? '' : ' Approved prices: Price history in C2M, the price in force on the day the PO came in, as in the PO price report.'}${new Set(rows.map(nmCost)).size > 1 ? ' The approved cost changed inside this period; each truck keeps the cost approved on its own date.' : ''}</p>` : ''}`;
 }
 function nmExport() {
@@ -787,7 +802,7 @@ function nmExport() {
   const r2 = v => v != null && isFinite(v) ? +v.toFixed(2) : '';
   const H = [nm.by === 'client' ? 'Client or buyer line' : nm.by === 'product' ? 'Product line' : 'Client · pack'].concat(nm.cols.qty ? ['Kg', 'L'] : [], ['Sales Rs'], nm.cols.cost ? ['Cost Rs'] : [], ['GP Rs', 'GP %'], nm.cols.tgt ? ['Target %'] : [], ['Against target Rs']);
   const name = x => nm.by === 'cxp' ? `${x.k.split('|')[0]} · ${nmPack(x.k.split('|')[1])}` : x.k;
-  saveXlsx('margin', [{ name: 'Margin', rows: [H].concat(L.map(x => [name(x)].concat(nm.cols.qty ? [Math.round(x.s.kg), Math.round(x.s.L)] : [], [Math.round(x.s.sales)], nm.cols.cost ? [Math.round(x.s.cost)] : [], [Math.round(x.s.gp), r2(x.s.pct)], nm.cols.tgt ? [r2(x.s.tgt)] : [], [Math.round(x.s.ag)]))) }]);
+  saveXlsx('margin', [{ name: 'Margin', rows: [H].concat(L.map(x => [name(x)].concat(nm.cols.qty ? [Math.round(x.s.kg), Math.round(x.s.L)] : [], [Math.round(x.s.sales)], nm.cols.cost ? [Math.round(x.s.cost)] : [], [Math.round(x.s.gp), r2(x.s.pct)], nm.cols.tgt ? [x.s.tgt != null ? r2(x.s.tgt) : 'not judged'] : [], [x.s.tgt != null ? Math.round(x.s.ag) : '']))) }]);
 }
 
 /* ---------- Client prices ---------- */
@@ -903,14 +918,18 @@ const vanTabs = () => nTabs('ncp-tab', [['vprod', 'Products'], ['vlists', 'Price
 /** A list's target GP % or freight Rs per kg; null when not set yet (an empty or missing setting is never read as 0). */
 const LSET = k => { const r = (ST.settings || []).find(x => x.k === k); return r && String(r.v).trim() !== '' && isFinite(Number(r.v)) ? Number(r.v) : null; };
 let lst = { open: null, t: '', f: '', why: '', form: false };
+/** GP after a list's freight and its state, for 1 pack on 1 list: the price lists and the VAN brand list margin report judge alike (push 5a, D-157).
+ *  ex: list price per pack without FED; cpp: cost per pack before freight; frp: the list's freight per pack (null: not set); t: the list's target %.
+ *  Nothing is judged until target and freight are both set (review 3b, finding 3); an empty setting is never read as 0. */
+function lcJudge(cpp, ex, frp, t) { const gp = cpp != null ? (ex - cpp - (frp || 0)) / ex * 100 : null;
+  return { gp, st: cpp == null ? 'none' : (gp < 0 && frp != null) || ex - cpp < 0 ? 'cost' : /* below cost before freight is red even with freight not set (review 5a, finding 4) */ t == null ? 'notgt' : frp == null ? 'nofr' : gp < t - 0.05 ? 'below' : 'ok' }; }
 /** The packs on 1 list with cost, freight and GP after freight, per pack (R35, R40 to R41). t, fr: the list's target and freight (or what is being typed). */
 function lcRows(c, G, t, fr) {
   const [list, f, , , basis] = c; const fed = 1 + FEDP() / 100, withFed = list === 'farmer';
   return G.van.map(k => { const cell = G.cells.get(k.id + '|' + list + '|' + f); if (!cell || !(cell.v > 0)) return null;
     const size = Number(k.size); const cpp = k.cost ? (k.cost.total - (k.cost.freight || 0)) * size : null; const frp = fr != null ? fr * size : null;
-    const ex = withFed ? cell.v / fed : cell.v; const gp = cpp != null ? (ex - cpp - (frp || 0)) / ex * 100 : null;
+    const ex = withFed ? cell.v / fed : cell.v; const { gp, st } = lcJudge(cpp, ex, frp, t);
     const tp = cpp != null && t != null && t < 100 && frp != null ? Math.ceil(((cpp + frp) / (1 - t / 100)) * (withFed ? fed : 1) - 1e-9) : null; /* R41: rounded up to the next whole rupee, never below the target; the small step keeps an exact rupee exact (review 3b, finding 5) */
-    const st = cpp == null ? 'none' : gp < 0 && frp != null ? 'cost' : t == null ? 'notgt' : frp == null ? 'nofr' : gp < t - 0.05 ? 'below' : 'ok'; /* nothing judged until target and freight are both set (review 3b, finding 3) */
     return { k, cell, cpp, frp, price: cell.v, ex, gp, tp, st, basis };
   }).filter(Boolean).sort((a, b) => ({ cost: 0, below: 1, none: 2, notgt: 3, nofr: 3, ok: 4 }[a.st] - { cost: 0, below: 1, none: 2, notgt: 3, nofr: 3, ok: 4 }[b.st]) || (a.gp ?? 99) - (b.gp ?? 99) || a.k.product.brand.localeCompare(b.k.product.brand));
 }
@@ -1889,7 +1908,12 @@ const CHANGELOG = [
   { ver: '2026-11-06b', date: '2026-11-06', title: 'Month end: stock kg charged at its products\' rate', items: [
  { t: 'Month end now finds the products of stock made for no brand through O2S\'s own product list (each brand\'s base). Before this, most stock showed as "base not known" and was not charged.', for: ['see.margin'], guide: 'Close the month' }] },
   { ver: '2026-11-06c', date: '2026-11-06', title: 'Month end: October charged from its 1st day', items: [
- { t: 'Kg made in October before the first labour and FOH rates (13 Oct) is now charged at the 13 Oct rates, so the under or over compares the whole month. Month end says how much kg this is.', for: ['see.margin'], guide: 'Close the month' }] }
+ { t: 'Kg made in October before the first labour and FOH rates (13 Oct) is now charged at the 13 Oct rates, so the under or over compares the whole month. Month end says how much kg this is.', for: ['see.margin'], guide: 'Close the month' }] },
+  { ver: '2026-11-06d', date: '2026-11-06', title: 'Reports: 3 new reports; dates, columns, ticks and downloads on all 7', items: [
+ { t: 'Reports: 3 new reports. Cost history (every approved cost of every pack and why it moved), Price history (client prices and the 5 VAN lists, from when to when) and Margin by client and brand (any dates; totals agree with Margin).', for: ['see.margin'], guide: 'Read a report' },
+ { t: 'Every report opens on the current month. Pick the dates, the columns and the rows, and download what is on the screen as Excel, CSV or PDF (the print box: "Save as PDF").', for: ['see.margin'], guide: 'Download a report' },
+ { t: 'VAN brand GP is after list freight in 2 more places: the VAN brand list margin report (judged on each list\'s own target; a list with no freight set is not judged, but a price below cost is always shown) and Margin opened on a VAN brand, where list freight is its own part of the cost.', for: ['see.margin'], guide: 'Margin by client and brand' },
+ { t: 'VAN brand sales are now judged against the target of the price list each was sold on (each channel has its own target), on Margin and on Margin by client and brand. A sale with no list, or on a list with no target set yet, is shown as not judged.', for: ['see.margin'], guide: 'Margin by client and brand' }] }
 ];
 let _wnShown = false, wnGuide = null;
 /** A Guide link only when that row is on this person's Guide (Yawar's rows, Tahir's rows, and Both; D-141). */
@@ -2731,9 +2755,9 @@ function zipStore(files) {
 }
 const xesc = v => String(v).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '');
 const colL = i => { let s = ''; i++; while (i) { const m = (i - 1) % 26; s = String.fromCharCode(65 + m) + s; i = Math.floor((i - 1) / 26); } return s; };
-/** sheets: [{ name, rows: [[header...], [cell...]] }]; numbers stay numbers; the first row is bold. */
+/** sheets: [{ name, rows: [[header...], [cell...]], bold }]; numbers stay numbers; row "bold" (0, the first, unless set) is bold. */
 function xlsxBlob(sheets) {
-  const sx = sheets.map((sh, si) => ({ name: `xl/worksheets/sheet${si + 1}.xml`, text: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>${sh.rows.map((r, ri) => `<row r="${ri + 1}">${r.map((v, ci) => { const ref = colL(ci) + (ri + 1), st = ri === 0 ? ' s="1"' : ''; return v == null || v === '' ? '' : typeof v === 'number' && isFinite(v) ? `<c r="${ref}"${st}><v>${v}</v></c>` : `<c r="${ref}" t="inlineStr"${st}><is><t xml:space="preserve">${xesc(v)}</t></is></c>`; }).join('')}</row>`).join('')}</sheetData></worksheet>` }));
+  const sx = sheets.map((sh, si) => ({ name: `xl/worksheets/sheet${si + 1}.xml`, text: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>${sh.rows.map((r, ri) => `<row r="${ri + 1}">${r.map((v, ci) => { const ref = colL(ci) + (ri + 1), st = ri === (sh.bold != null ? sh.bold : 0) ? ' s="1"' : ''; return v == null || v === '' ? '' : typeof v === 'number' && isFinite(v) ? `<c r="${ref}"${st}><v>${v}</v></c>` : `<c r="${ref}" t="inlineStr"${st}><is><t xml:space="preserve">${xesc(v)}</t></is></c>`; }).join('')}</row>`).join('')}</sheetData></worksheet>` }));
   const files = [{ name: '[Content_Types].xml', text: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>${sheets.map((x, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')}</Types>` },
     { name: '_rels/.rels', text: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>' },
     { name: 'xl/workbook.xml', text: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>${sheets.map((x, i) => `<sheet name="${xesc(String(x.name).replace(/[\\/?*[\]:]/g, ' ').slice(0, 31))}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join('')}</sheets></workbook>` },
@@ -2742,37 +2766,140 @@ function xlsxBlob(sheets) {
   return zipStore(files);
 }
 function saveXlsx(base, sheets) { const url = URL.createObjectURL(xlsxBlob(sheets)); const a = document.createElement('a'); a.href = url; a.download = `C2M ${base} ${ST.today}.xlsx`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 30000); toast('Excel file saved to your downloads.'); }
-/** What each Export to Excel button exports: exactly the rows on the screen. */
-function exportXls(k) {
-  if (k === 'bridge') { const B = bridge(); if (!B.ok) return toast(B.why, true); return saveXlsx('GP bridge', [{ name: 'Bridge', rows: [['Part', 'How it is worked out', 'Rs']].concat(B.parts.map(x => [x.l, x.how, Math.round(x.v)])) }, { name: 'By pack', rows: [['Pack', `Kg or L ${B.a}`, `Kg or L ${B.b}`, `Price ${B.a}`, `Price ${B.b}`, `Cost ${B.a}`, `Cost ${B.b}`, `GP Rs ${B.a}`, `GP Rs ${B.b}`]].concat(B.detail.map(d => [d.name, d.k0, d.k1, d.p0, d.p1, d.c0, d.c1, d.g0 != null ? Math.round(d.g0 * d.k0) : '', d.g1 != null ? Math.round(d.g1 * d.k1) : ''])) }]); }
-  if (k === 'vanmargin') { const V = vanMargin(); const cv2 = c => c ? [Math.round(c.price), c.gp != null ? +c.gp.toFixed(2) : ''] : ['', ''];
-    return saveXlsx('VAN brand list margin', [{ name: 'Packs', rows: [['VAN brand pack', 'Cost today, per pack', 'Target GP %', 'Distributor, ex FED', 'GP %', 'Dealer NSV, ex FED', 'GP %', VMFARM[vmFarm] + ', ex FED', 'GP %', 'State']].concat(V.rows.map(r => [r.name, r.cpp != null ? Math.round(r.cpp) : '', r.A != null ? +Number(r.A).toFixed(2) : ''].concat(cv2(r.L.dist), cv2(r.L.dealer), cv2(r.L.farmer), [r.st[1]]))) }, { name: 'Links', rows: [['List', 'List row', 'C2M pack']].concat(V.items.map(x => [VMLIST[x.list] || x.list, vmRowName(x), V.linked(x) ? packLabel(packIdx().get(V.stored(x))) : x.data.noPack ? 'Not a C2M pack' : V.gone(x) ? 'Pack no longer active' : 'Not linked'])) }]); }
-  if (k === 'listcheck') { const C = listCheck(); return saveXlsx('VAN brand PO against its price list', [{ name: 'PO lines', rows: [['PO', 'PO date', 'Buyer', 'Region', 'Payment terms', 'VAN brand pack', 'Qty', 'Compared with', 'List price per pack', 'PO price per pack', 'Difference %', 'State', 'Why']].concat(C.all.map(x => [x.po, x.received, x.cust, x.region || '', x.terms || '', x.name, Math.round(x.kg), x.colLabel || '', x.listPrice != null ? x.listPrice : '', x.poPrice != null ? x.poPrice : '', x.diffPct != null ? x.diffPct : '', LCSTATE[x.state], x.why || (x.state === 'cost' && x.gp != null ? `GP ${x.gp}% on its cost` : '')])) }]); }
-  if (k === 'pocheck') { const P = poCheck(); return saveXlsx('PO price against approved', [{ name: 'PO lines', rows: [['PO', 'Received', 'Client', 'Client product and pack', 'Qty', 'Approved price', 'Price on PO', 'Below approved, Rs', 'State']].concat(P.list.map(x => [x.po, x.received || '', x.cust, x.name, Math.round(x.kg), x.ap != null ? x.ap : '', x.price, Math.round(x.gap), x.state])) }]); }
+/** The old Export to Excel buttons now go through the report tools: Excel of exactly what is on the screen (push 5a). */
+function exportXls(k) { if (RTDEF[k]) rtDownload(k, 'xlsx'); }
+/* ---------- Report tools (push 5a, R28, R30, R48 to R50, D-157): 1 bar and 1 table for every report ----------
+   From and Till with quick dates (every report opens on the current month, R49; "This year" is the financial year from 1 July);
+   Columns (each report's choice kept in this browser); a tick box per row and 1 for all rows shown; Excel, CSV and PDF of what is
+   on the screen: the ticked rows that are shown, else every row shown, and only the columns shown. PDF is the browser's print box
+   (R50): a clean print page, then "Save as PDF". Tick and column state live here, so they survive every redraw. */
+const RT = {}, RTDEF = {};
+const RTQ = [['month', 'This month'], ['last', 'Last month'], ['m3', 'Last 3 months'], ['year', 'This year'], ['all', 'All']];
+/** The From and Till of a quick choice; All is no limit (''). */
+function rtRange(q) {
+  const t = ST.today, m1 = t.slice(0, 7) + '-01';
+  if (q === 'last') { const e = addDays(m1, -1); return [e.slice(0, 7) + '-01', e]; }
+  if (q === 'm3') { const a = addDays(m1, -1).slice(0, 7) + '-01', b = addDays(a, -1).slice(0, 7) + '-01'; return [b, t]; } // this month and the 2 before it
+  if (q === 'year') return [fyStart(), t];
+  if (q === 'all') return ['', ''];
+  return [m1, t];
+}
+function rtS(k) {
+  if (!RT[k] || RT[k].day !== ST.today) { const [from, till] = rtRange('month'); let hide = null; try { const v = localStorage.getItem('c2m.rtcols.' + k); if (v) hide = JSON.parse(v); } catch (_) {}
+    RT[k] = { from, till, q: 'month', ticks: new Set(), hide: Array.isArray(hide) ? hide : null, colsOpen: false, day: ST.today }; }
+  return RT[k];
+}
+/** A date inside the report's From and Till (both kept). A row with no date shows only under All. */
+const rtIn = (k, d) => { const s = rtS(k), x = d10(d); if (!x) return !s.from && !s.till; return (!s.from || x >= s.from) && (!s.till || x <= s.till); };
+/** The period in words, for the answer line: the quick choice, or the dates typed. */
+const rtPer = k => { const s = rtS(k); const q = RTQ.find(x => x[0] === s.q); if (q) return s.q === 'all' ? 'All dates' : q[1]; return s.from && s.till ? `${fmtD(s.from)} to ${fmtD(s.till)}` : s.from ? `From ${fmtD(s.from)}` : s.till ? `Till ${fmtD(s.till)}` : 'All dates'; };
+const rtDatesTxt = def => { if (def.dated === false) return def.asOf || 'As today'; const s = rtS(def.k); return s.from || s.till ? `From ${s.from ? fmtD(s.from) : 'the first date'} till ${s.till ? fmtD(s.till) : 'today'}` : 'All dates'; };
+const rtCols = (k, cols) => { const s = rtS(k); const hide = s.hide || cols.filter(c => c.off).map(c => c.k); const sh = cols.filter(c => !hide.includes(c.k)); return sh.length ? sh : cols.slice(0, 1); };
+/** Each row's key: its own, made unique when 2 rows would share 1 (the 2nd gets #2). */
+function rtIds(rows, f) { const seen = new Map(); rows.forEach(r => { const b = String(f(r)); const n = (seen.get(b) || 0) + 1; seen.set(b, n); r._id = n > 1 ? b + '#' + n : b; }); return rows; }
+const rtNum = (v, dp) => Number(v).toLocaleString('en-US', { minimumFractionDigits: dp || 0, maximumFractionDigits: dp || 0 });
+/** A cell as text: the column's own words (f), else its value; numbers with the column's decimals. */
+function rtTxt(c, r) { const v = c.f ? c.f(r) : c.x(r); return v == null || v === '' ? '' : typeof v === 'number' ? (isFinite(v) ? rtNum(v, c.dp) : '') : String(v); }
+const rtCell = (c, r) => c.h ? c.h(r) : esc(rtTxt(c, r));
+const pkTime = () => new Date(Date.now() + 5 * 36e5).toISOString().slice(11, 16); // Pakistan time
+const rtWho = () => `${String(ST.me.name || ST.me.user || '').trim().split(/\s+/)[0]}, ${fmtD(ST.today)} ${pkTime()}`;
+/**
+ * The bar and the table of a report. def: { k, name, dated (false: no dates), asOf (words when not dated), cols: [{ k, l, r (right),
+ * dp (decimals), off (hidden until picked), tot (shown in the total row), x (value for Excel and CSV), f (words), h (html) }],
+ * rows (each with _id; _cls, _tr), foot (the total row: its fields, with _lbl), extra (the report's own chips, html), filt (its filters
+ * in words, for the downloads), sheets (more Excel sheets), empty }.
+ */
+function rtView(def) {
+  const s = rtS(def.k); RTDEF[def.k] = def; const ids = new Set(def.rows.map(r => r._id)); [...s.ticks].forEach(i => { if (!ids.has(i)) s.ticks.delete(i); }); // a tick stays only on a row still shown
+  const C = rtCols(def.k, def.cols), nT = s.ticks.size, allT = def.rows.length > 0 && def.rows.every(r => s.ticks.has(r._id)), k = esc(def.k);
+  const dates = def.dated === false ? '' : `<div class="rtd"><label for="rtf-${k}">From<input type="date" id="rtf-${k}" data-rtfrom="${k}" value="${esc(s.from)}"></label><label for="rtt-${k}">Till<input type="date" id="rtt-${k}" data-rtto="${k}" value="${esc(s.till)}"></label></div><div class="chips rtq" aria-label="Quick dates">${RTQ.map(([q, l]) => `<button data-rtk="${k}" data-rtq="${q}" aria-pressed="${s.q === q}">${l}</button>`).join('')}</div>`;
+  const cols = `<div class="colsmenu"><button class="btn ghost" data-rtk="${k}" data-rtcols aria-expanded="${s.colsOpen}">Columns: ${C.length} of ${def.cols.length} shown</button>${s.colsOpen ? `<div class="box rtcl">${def.cols.map((c, i) => `<label><input type="checkbox" id="rtc-${k}-${i}" data-rtk="${k}" data-rtcol="${esc(c.k)}"${C.includes(c) ? ' checked' : ''}> ${esc(c.l)}</label>`).join('')}<span class="ans" style="font-size:12px">Kept as you leave them, in this browser.</span></div>` : ''}</div>`;
+  const tick = nT ? `${pl(nT, 'row ticked', 'rows ticked')}: only ${nT === 1 ? 'it goes' : 'they go'} in a download` : `No row ticked: all ${pl(def.rows.length, 'row', 'rows')} shown go in a download`;
+  const td = (c, inner) => `<td${c.r ? ' class="r num"' : ''}>${inner}</td>`;
+  const foot = def.foot ? `<tfoot><tr><td></td>${C.map((c, i) => td(c, c.tot ? rtCell(c, def.foot) : i === 0 ? esc(def.foot._lbl || 'Total') : '')).join('')}</tr></tfoot>` : '';
+  return `${def.extra ? `<div class="wtbar rtbar">${def.extra}</div>` : ''}${dates ? `<div class="wtbar rtbar">${dates}</div>` : ''}
+  <div class="wtbar rtbar">${cols}<span class="ans" data-rtn>${tick}</span><span class="sp"></span><button class="btn ghost" data-rtk="${k}" data-rtdl="xlsx">Excel</button><button class="btn ghost" data-rtk="${k}" data-rtdl="csv">CSV</button><button class="btn ghost" data-rtk="${k}" data-rtdl="pdf">PDF</button></div>
+  <div class="box wrapx"><table class="wt rtt" data-nosort data-rtt="${k}"><thead><tr><th class="rtx"><input type="checkbox" id="rta-${k}" data-rtk="${k}" data-rtall aria-label="Tick all ${def.rows.length} rows shown"${allT ? ' checked' : ''}></th>${C.map(c => `<th${c.r ? ' class="r"' : ''}>${esc(c.l)}</th>`).join('')}</tr></thead>
+  <tbody>${def.rows.map((r, i) => `<tr${r._cls ? ` class="${r._cls}"` : ''}${r._tr || ''}><td class="rtx"><input type="checkbox" id="rtk-${k}-${i}" data-rtk="${k}" data-rttick="${esc(r._id)}" aria-label="Tick this row"${s.ticks.has(r._id) ? ' checked' : ''}></td>${C.map(c => td(c, rtCell(c, r))).join('')}</tr>`).join('') || `<tr><td colspan="${C.length + 1}">${esc(def.empty || 'No row in these dates.')}</td></tr>`}</tbody>${foot}</table></div>`;
+}
+/** A click on the bar or a tick. true: nothing to redraw (a download). */
+function rtClick(t, d) {
+  const k = d.rtk, s = rtS(k), def = RTDEF[k]; if (!def) return false;
+  if (d.rtq) { s.q = d.rtq; [s.from, s.till] = rtRange(d.rtq); return false; }
+  if ('rtcols' in d) { s.colsOpen = !s.colsOpen; return false; }
+  if (d.rtcol != null) { let hide = s.hide || def.cols.filter(c => c.off).map(c => c.k); hide = t.checked ? hide.filter(x => x !== d.rtcol) : hide.concat(d.rtcol);
+    if (hide.length >= def.cols.length) { toast('Keep at least 1 column.', true); return false; } s.hide = hide; try { localStorage.setItem('c2m.rtcols.' + k, JSON.stringify(hide)); } catch (_) {} return false; }
+  if (d.rttick != null) { if (t.checked) s.ticks.add(d.rttick); else s.ticks.delete(d.rttick); return false; }
+  if ('rtall' in d) { if (t.checked) def.rows.forEach(r => s.ticks.add(r._id)); else s.ticks.clear(); return false; }
+  if (d.rtdl) { rtDownload(k, d.rtdl); return true; }
+  return false;
+}
+/** What a download holds: the ticked rows shown, else every row shown; the columns shown; the total row only with nothing ticked. */
+function rtOut(k) { const def = RTDEF[k], s = rtS(k); const C = rtCols(k, def.cols); const R = s.ticks.size ? def.rows.filter(r => s.ticks.has(r._id)) : def.rows; return { def, C, R, foot: !s.ticks.size && def.foot ? def.foot : null }; }
+const rtRaw = (c, r) => { const v = c.x(r); return typeof v === 'number' ? (isFinite(v) ? (c.dp ? +v.toFixed(c.dp) : v) : '') : v == null ? '' : String(v); };
+/** The rows of a download: name, dates and filters, who and when, an empty row, then the header and the rows (the header is row 5). */
+function rtGrid(o, who) {
+  const top = [[o.def.name], [[rtDatesTxt(o.def), o.def.filt].filter(Boolean).join(' · ')], [`${who} by ${rtWho()}`], []];
+  const foot = o.foot ? [o.C.map((c, i) => c.tot ? rtRaw(c, o.foot) : i === 0 ? (o.foot._lbl || 'Total') : '')] : [];
+  return top.concat([o.C.map(c => c.l)], o.R.map(r => o.C.map(c => rtRaw(c, r))), foot);
+}
+function dlBlob(blob, name, msg) { const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 30000); toast(msg); }
+/** CSV: quotes where a cell needs them; a text cell that a spreadsheet would read as a formula starts with ' (as a typed cell would). */
+const csvCell = v => { if (v == null || v === '') return ''; if (typeof v === 'number') return isFinite(v) ? String(v) : ''; let s = String(v); if (/^[=+\-@\t\r]/.test(s)) s = "'" + s; /* a text cell never starts as a formula (review 5a, finding 1) */ return /[",\r\n]|^\s|\s$/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+const rtCsv = o => '﻿' + rtGrid(o, 'Downloaded').map(r => r.map(csvCell).join(',')).join('\r\n') + '\r\n';
+function rtDownload(k, kind) {
+  const o = rtOut(k); if (!o) return; const base = `C2M ${o.def.name} ${ST.today}`;
+  if (kind === 'csv') return dlBlob(new Blob([rtCsv(o)], { type: 'text/csv;charset=utf-8' }), base + '.csv', 'CSV file saved to your downloads.');
+  if (kind === 'xlsx') return dlBlob(xlsxBlob([{ name: o.def.sheet || 'Report', rows: rtGrid(o, 'Downloaded'), bold: 4 }].concat(o.def.sheets ? o.def.sheets() : [])), base + '.xlsx', 'Excel file saved to your downloads.');
+  if (kind === 'pdf') return rtPrint(o);
+}
+/** PDF (R50): a print-only page of the report as shown; the browser's print box opens, and the person picks "Save as PDF". */
+function rtPrint(o) {
+  const old = $('rtprint'); if (old) old.remove(); const el = document.createElement('div'); el.id = 'rtprint';
+  el.innerHTML = `<h1>${esc(o.def.name)}</h1><p class="rtps">${esc([rtDatesTxt(o.def), o.def.filt, pl(o.R.length, 'row', 'rows')].filter(Boolean).join(' · '))}</p>
+  <table><thead><tr>${o.C.map(c => `<th${c.r ? ' class="r"' : ''}>${esc(c.l)}</th>`).join('')}</tr></thead><tbody>${o.R.map(r => `<tr>${o.C.map(c => `<td${c.r ? ' class="r"' : ''}>${esc(rtTxt(c, r))}</td>`).join('')}</tr>`).join('')}</tbody>
+  ${o.foot ? `<tfoot><tr>${o.C.map((c, i) => `<td${c.r ? ' class="r"' : ''}>${c.tot ? esc(rtTxt(c, o.foot)) : i === 0 ? esc(o.foot._lbl || 'Total') : ''}</td>`).join('')}</tr></tfoot>` : ''}</table>
+  <p class="rtpf">C2M · Vital Agri Nutrients · printed by ${esc(rtWho())} · prices without FED</p>`;
+  document.body.appendChild(el); document.body.classList.add('rtp');
+  const done = () => { el.remove(); document.body.classList.remove('rtp'); window.removeEventListener('afterprint', done); }; window.addEventListener('afterprint', done);
+  window.print();
+}
+/** Data a report reads on opening (cost history, VAN list history), fetched once per load of C2M's data. */
+const REPD = { st: null };
+function repData(kind) {
+  if (REPD.st !== ST) { Object.keys(REPD).forEach(x => delete REPD[x]); REPD.st = ST; }
+  const x = REPD[kind]; if (x) return x;
+  const y = REPD[kind] = { busy: true, data: null, err: null };
+  api('/api/c2m/reports/' + kind).then(j => { y.data = j; }, e => { y.err = e.message || 'C2M could not read the report.'; }).finally(() => { y.busy = false; if (scr === 'reports') render(); });
+  return y;
 }
 
 /* ---------- 0.9.0 Reports (approved pictures E, F, G): 14 cards in 4 groups; GP bridge and PO price against approved price are built,
    the other 12 are drawn for Tahir's approval first and come in 0.9.1 (Tahir, 18 Oct 2026) ---------- */
 const REPORTS = [
+  { k: 'costs', g: 'Cost', t: 'Cost history', q: 'How has each pack\'s approved cost moved, and why?', ready: 1 },
+  { k: 'prices', g: 'Prices', t: 'Price history', q: 'What did each client and each VAN list pay, from when to when?', ready: 1 },
+  { k: 'pocheck', g: 'Prices', t: 'PO price against approved price', q: 'Are O2S POs following approved prices?', ready: 1 }, { k: 'listcheck', g: 'Prices', t: 'VAN brand PO against its price list', q: 'Are VAN brand POs at the price on their list?', ready: 1, need: 'see.price' },
+  { k: 'vanmargin', g: 'Prices', t: 'VAN brand list margin', q: 'Do the list prices cover cost and freight and meet the list\'s target?', ready: 1 },
+  { k: 'margin', g: 'Money', t: 'Margin by client and brand', q: 'Which clients and brands earned what, in any dates?', ready: 1 },
   { k: 'bridge', g: 'Money', t: 'GP bridge, monthly', q: 'Why did GP move against last month and budget?', ready: 1 }, { k: 'custprof', g: 'Money', t: 'Client profitability', q: 'Which clients to push, fix, hold or drop?' },
   { k: 'mix', g: 'Money', t: 'Product and mix', q: 'Which products earn most per kg?' }, { k: 'volume', g: 'Money', t: 'Volume against budget kg', q: 'Are we selling the budgeted kg?', note: 'Ruling 17 set a client budget in sales Rs and GP Rs, not kg: this report is redrawn on that budget.' },
-  { k: 'pocheck', g: 'Prices', t: 'PO price against approved price', q: 'Are O2S POs following approved prices?', ready: 1 }, { k: 'revstatus', g: 'Prices', t: 'Price revision status', q: 'Which prices are due, below target or stuck?' },
-  { k: 'locked', g: 'Prices', t: 'Short of target on open POs', q: 'Which open POs will ship below target, and by how many Rs?' }, { k: 'listcheck', g: 'Prices', t: 'VAN brand PO against its price list', q: 'Are VAN brand POs at the price on their list?', ready: 1, need: 'see.price' }, { k: 'vanmargin', g: 'Prices', t: 'VAN brand list margin', q: 'Do the distributor, dealer and farmer prices cover cost and meet each product\'s GP target?', ready: 1 },
-  { k: 'rateshock', g: 'Cost', t: 'Rate shock and rupee', q: 'If a material or the rupee moves, what happens to GP?', note: 'Needs the share of each material bought in dollars; C2M does not hold it yet.' }, { k: 'convrec', g: 'Cost', t: 'Conversion recovery', q: 'Is labour and FOH under or over recovered?' },
+  { k: 'revstatus', g: 'Prices', t: 'Price revision status', q: 'Which prices are due, below target or stuck?' }, { k: 'locked', g: 'Prices', t: 'Short of target on open POs', q: 'Which open POs will ship below target, and by how many Rs?' },
+  { k: 'rateshock', g: 'Cost', t: 'Rate shock and rupee', q: 'If a material or the rupee moves, what happens to GP?', note: 'Needs the share of each material bought in dollars; C2M does not hold it yet.' },
   { k: 'foc', g: 'Cost', t: 'FOC and samples', q: 'What do free samples cost?', note: 'FOC lines come from O2S; sample issues outside O2S are not in C2M yet.' },
-  { k: 'ageing', g: 'Control', t: 'Approvals ageing', q: 'What waits, with whom, for how long?' }, { k: 'quality', g: 'Control', t: 'Margin data quality', q: 'How much of the GP shown can we trust?' }, { k: 'books', g: 'Control', t: 'Tie to the books', q: 'Do C2M sales and COGS agree with the ERP?' }];
-let rep = null, repQ = '', brMonth = null, brGrp = 'wl', poPer = 'month', poF = 'all', lcF = 'flag';
+  { k: 'ageing', g: 'Control', t: 'Approvals ageing', q: 'What waits, with whom, for how long?' }, { k: 'quality', g: 'Control', t: 'Margin data quality', q: 'How much of the GP shown can we trust?' }, { k: 'books', g: 'Control', t: 'Tie to the books', q: 'Do C2M sales and COGS agree with the ERP?' }]; // push 5a (D-157): Conversion recovery left "Coming later": Costs, Month end answers it
+let rep = null, repQ = '', brMonth = null, brGrp = 'wl', poF = 'all', lcF = 'flag';
 const seenGet = k => { try { return localStorage.getItem('c2m.seen.' + k); } catch (_) { return null; } };
 const seenSet = (k, v) => { try { localStorage.setItem('c2m.seen.' + k, v); } catch (_) {} };
 /** What makes a built report "new since you last looked" (R1): a new closed month, or new PO lines. Kept in this browser only. */
 const repSig = k => k === 'bridge' ? (bridge().b || '') : k === 'pocheck' ? String((ST.poLines || []).length) + '|' + ((ST.poLines || []).map(x => x.received || '').sort().pop() || '') : k === 'listcheck' ? ((ST.listCheck && ST.listCheck.lines) || []).map(x => x.po + ':' + x.state).join(',') : k === 'vanmargin' ? (ST.listItems || []).map(x => x.id + ':' + [x.data.now, x.data.nsv, x.data.disc, x.data.pb, x.data.sn, x.data.snc, x.data.packId].map(v => v ?? '').join('/')).join(',') : '';
 function vReports() {
   const REPS = REPORTS.filter(r => !r.need || CAN(r.need)); // a report only for the roles that receive its data (review 4 Nov, finding 8)
-  if (rep) { const r = REPS.find(x => x.k === rep); if (r) { if (r.ready) seenSet(r.k, repSig(r.k)); return r.k === 'bridge' ? vBridge() : r.k === 'pocheck' ? vPoCheck() : r.k === 'listcheck' ? vListCheck() : r.k === 'vanmargin' ? vVanMargin() : vRepLater(r); } rep = null; }
+  if (rep) { const r = REPS.find(x => x.k === rep); if (r) { if (r.ready) seenSet(r.k, repSig(r.k)); return r.k === 'bridge' ? vBridge() : r.k === 'pocheck' ? vPoCheck() : r.k === 'listcheck' ? vListCheck() : r.k === 'vanmargin' ? vVanMargin() : r.k === 'costs' ? vCostHist() : r.k === 'prices' ? vPriceHist() : r.k === 'margin' ? vMarginRep() : vRepLater(r); } rep = null; }
   const isNew = r => r.ready && seenGet(r.k) !== repSig(r.k); const nNew = REPS.filter(isNew).length; const q = repQ.trim().toLowerCase();
-  return `${head('Reports', `${REPS.filter(r => r.ready).length} reports ready${nNew ? `, ${nNew} with something new since you last looked` : ''}. ${REPS.filter(r => !r.ready).length} more are coming.`, 'Each card names the 1 question its report answers. Every report opens with its answer line and exports to Excel. "New" means the report has data you have not opened yet in this browser.')}
+  return `${head('Reports', `${REPS.filter(r => r.ready).length} reports ready${nNew ? `, ${nNew} with something new since you last looked` : ''}. ${REPS.filter(r => !r.ready).length} more are coming.`, 'Each card names the 1 question its report answers. Every report opens on the current month with its answer line; on each you can pick the dates, the columns and the rows (tick them), and download what is on the screen as Excel, CSV or PDF. "New" means the report has data you have not opened yet in this browser.')}
   <div class="wtbar"><input type="search" id="rq" value="${esc(repQ)}" placeholder="Find a report" aria-label="Find a report"></div>
-  <div class="rgroups">${['Money', 'Prices', 'Cost', 'Control'].filter(g => REPS.some(r => r.g === g && r.ready)).map(g => `<section><h2 class="gh">${g}</h2>${REPS.filter(r => r.g === g && r.ready && (!q || (r.t + ' ' + r.q).toLowerCase().includes(q))).map(r => `<button class="rcard ${r.ready ? 'ready' : 'later'}" data-rep="${r.k}"><b>${esc(r.t)}${isNew(r) ? '<em>new</em>' : r.ready ? '' : '<em>not built yet</em>'}</b><span>${esc(r.q)}</span></button>`).join('') || '<p class="ans">No report matches.</p>'}</section>`).join('')}</div>
+  <div class="rgroups">${['Cost', 'Prices', 'Money', 'Control'].filter(g => REPS.some(r => r.g === g && r.ready)).map(g => `<section><h2 class="gh">${g}</h2>${REPS.filter(r => r.g === g && r.ready && (!q || (r.t + ' ' + r.q).toLowerCase().includes(q))).map(r => `<button class="rcard ${r.ready ? 'ready' : 'later'}" data-rep="${r.k}"><b>${esc(r.t)}${isNew(r) ? '<em>new</em>' : r.ready ? '' : '<em>not built yet</em>'}</b><span>${esc(r.q)}</span></button>`).join('') || '<p class="ans">No report matches.</p>'}</section>`).join('')}</div>
   <details class="how"><summary>Coming later (${REPS.filter(r => !r.ready).length})</summary><div class="rgroups">${REPS.filter(r => !r.ready && (!q || (r.t + ' ' + r.q).toLowerCase().includes(q))).map(r => `<button class="rcard later" data-rep="${r.k}"><b>${esc(r.t)}</b><span>${esc(r.q)}</span></button>`).join('')}</div></details>`;
 }
 const repCrumb = t => `<p class="crumb"><button data-repback>Reports</button> › ${esc(t)}</p>`;
@@ -2832,9 +2959,12 @@ function vBridge() {
   const bars = B.parts.map((x, i) => { const [v0, v1] = vals[i]; const zero = i && i < n - 1 && Math.round(x.v) === 0; const cls = i === 0 || i === n - 1 || zero ? 'wb-total' : x.v >= 0 ? 'wb-up' : 'wb-down'; const xx = L + i * gw + (gw - bw) / 2; const top = Math.min(y(v0), y(v1)), h = Math.max(Math.abs(y(v0) - y(v1)), 1.5); const lab = i === 0 || i === n - 1 ? fmtRsShort(x.v) : zero ? '0' : (x.v >= 0 ? '+' : '-') + fmtRsShort(Math.abs(x.v));
     return `<rect class="${cls}" x="${xx}" y="${top}" width="${bw}" height="${h}"/>${i === 0 || i === n - 1 ? brk(xx) : ''}<text class="lbl" x="${xx + bw / 2}" y="${x.v < 0 && i && i < n - 1 ? top + h + 14 : top - 6}" text-anchor="middle">${lab}</text><text x="${xx + bw / 2}" y="${H - 10}" text-anchor="middle">${esc(x.l.replace(/ \d{4}$/, '').replace('New and lost', 'New/lost'))}</text>`; }).join('');
   return `${repCrumb('GP bridge, monthly')}${meta(`${mon(B.b)} against ${mon(B.a)}`)}${head('GP bridge', ans, 'Price, volume, mix and cost are worked out on packs sold in both months; packs sold in only 1 of the 2 months go to "New and lost". Kg and L are kept apart in volume and mix. Cost compares both months with trucks costed on the CFO\'s 13 Oct sheet restated at today\'s labour and FOH; the difference shows as its own Method bar. Only costed trucks count; the open month is not used until it closes. The parts must add to the change exactly; the report refuses to show if they do not.')}
-  <div class="wtbar">${gch}<span class="sp"></span><button class="btn ghost" data-xls="bridge">Export to Excel</button></div>${mch}
+  <div class="wtbar">${gch}</div>${mch}
   <div class="cards2"><div class="card"><h3>Rs, ${esc(GRPN[brGrp].toLowerCase())}, ${esc(mon(B.a).slice(0, 3))} to ${esc(mon(B.b).slice(0, 3))}</h3><p class="sub">Grey bars are the 2 months; green adds, red takes away. M is Rs million, K is Rs thousand.${cut ? ` The axis starts at Rs ${fmtRsShort(lo)}, not 0, so the moves can be seen.` : ''}</p><svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="GP bridge waterfall">${tick}${bars}</svg></div>
-  <div class="card"><h3>How each bar is worked out</h3><div class="wrapx"><table><tbody>${B.parts.slice(1).map((x, i, A) => `<tr${i === A.length - 1 ? ` style="font-weight:600" data-gpa="${Math.round(B.GP0)}"` : ''}><td>${i === A.length - 1 ? 'Total' : esc(x.l)}</td><td style="font-size:12.5px">${esc(x.how)}</td><td class="r num ${i < A.length - 1 ? (x.v < 0 ? 'over' : x.v > 0 ? 'ok' : '') : ''}">${i < A.length - 1 && x.v > 0 ? '+' : ''}${Math.round(x.v).toLocaleString('en-US')}</td></tr>`).join('')}</tbody></table></div>
+  <div class="card"><h3>How each bar is worked out</h3>${rtView({ k: 'bridge', name: 'GP bridge, monthly', sheet: 'Bridge', dated: false, asOf: `${mon(B.b)} against ${mon(B.a)}, ${GRPN[brGrp].toLowerCase()}`, filt: '', empty: 'No part.',
+    cols: [{ k: 'part', l: 'Part', x: x => x.l }, { k: 'how', l: 'How it is worked out', x: x => x.how, h: x => `<span style="font-size:12.5px">${esc(x.how)}</span>` }, { k: 'rs', l: 'Rs', r: 1, x: x => Math.round(x.v), h: x => `<span class="${x._mid ? (x.v < 0 ? 'over' : x.v > 0 ? 'ok' : '') : ''}">${x._mid && x.v > 0 ? '+' : ''}${Math.round(x.v).toLocaleString('en-US')}</span>` }],
+    rows: rtIds(B.parts.map((x, i, A) => ({ ...x, _mid: i > 0 && i < A.length - 1, _tr: i === A.length - 1 ? ` style="font-weight:600" data-gpa="${Math.round(B.GP0)}"` : '' })), x => x.l),
+    sheets: () => [{ name: 'By pack', rows: [['Pack', `Kg or L ${B.a}`, `Kg or L ${B.b}`, `Price ${B.a}`, `Price ${B.b}`, `Cost ${B.a}`, `Cost ${B.b}`, `GP Rs ${B.a}`, `GP Rs ${B.b}`]].concat(B.detail.map(d => [d.name, d.k0, d.k1, d.p0, d.p1, d.c0, d.c1, d.g0 != null ? Math.round(d.g0 * d.k0) : '', d.g1 != null ? Math.round(d.g1 * d.k1) : ''])) }] })}
   <p class="ans" style="font-size:12.5px">The parts add to the change exactly; each figure is rounded to the rupee, so the rounded parts can differ from the total by a few rupees.${B.unc ? ` Trucks with no cost (${rs(B.unc)} of sales in the 2 months) are left out.` : ''}</p></div></div>`;
 }
 /** The approved price in force for a pack on a date: the same rule as the server (latest start on or before the date, not ended). */
@@ -2852,20 +2982,26 @@ function priceOn(packId, date, enteredAt) {
 }
 /** Every O2S PO line against the approved price on its received date (R3, approved picture G). */
 function poCheck() {
-  const cur = ST.today.slice(0, 7), last = addDays(cur + '-01', -1).slice(0, 7); const inPer = d => !!d && (poPer === 'month' ? d.slice(0, 7) === cur : poPer === 'last' ? d.slice(0, 7) === last : d >= fyStart());
+  const cur = ST.today.slice(0, 7), last = addDays(cur + '-01', -1).slice(0, 7); const inPer = d => !!d && rtIn('pocheck', d); // the report's From and Till (R49: opens on the current month)
   const P = packIdx(); const all = (ST.poLines || []).filter(l => l.grp === 'White label' && !l.foc && inPer(l.received)).map(l => { const k = l.packId ? P.get(l.packId) : null; const ap = l.packId ? priceOn(l.packId, l.received, l.enteredAt || null) : null; const a = ap ? ap.price : null; const diff = a != null ? a - l.price : null;
     return { ...l, k, name: k ? packLabel(k) : `${l.brand} ${l.pack}`, ap: a, gap: diff != null ? Math.max(diff, 0) * l.kg : 0, state: !l.packId ? 'not placed on a pack' : a == null ? 'no approved price' : diff > 0.005 ? 'below approved' : diff < -0.005 ? 'above approved' : 'as approved' }; }).sort((a, b) => b.gap - a.gap || String(b.received).localeCompare(String(a.received)));
   const F = { all: () => true, below: x => x.state === 'below approved', as: x => x.state === 'as approved' || x.state === 'above approved', none: x => x.state === 'no approved price' || x.state === 'not placed on a pack' };
   return { all, F, list: all.filter(F[poF] || F.all), cur, last };
 }
 function vPoCheck() {
-  const P = poCheck(); const below = P.all.filter(P.F.below); const tot = below.reduce((s, x) => s + x.gap, 0); const perN = poPer === 'month' ? MONL[+P.cur.slice(5, 7) - 1] : poPer === 'last' ? MONL[+P.last.slice(5, 7) - 1] : 'FY to date';
+  const P = poCheck(); const below = P.all.filter(P.F.below); const tot = below.reduce((s, x) => s + x.gap, 0); const perN = rtPer('pocheck');
   const LBL = { all: 'All', below: 'Below approved', as: 'As or above approved', none: 'No approved price or pack' };
   const pill = st => st === 'below approved' ? 'p-red' : /^no |^not /.test(st) ? 'p-none' : 'p-green';
-  return `${repCrumb('PO price against approved price')}${meta([perN, o2sAsOf()])}${head('PO price against approved price', P.all.length ? `${below.length} of ${pl(P.all.length, 'PO line was', 'PO lines were')} entered below the approved price: ${rs(tot)} below approved price.` : 'No white label PO line in this period.', 'Approved price = the price in force on the PO\'s received date (time-based clients); for fixed per PO clients the received date is taken as the PO\'s start. Gap per line = the larger of (approved − on PO) and 0, times the quantity, so a line above the approved price never hides one below it. FOC lines (price 0) are left out (ruling 14). A line C2M cannot place on a client pack shows as such; fix its name in Setup, Record and checks, From O2S. VAN brand lines are priced by the channel lists and are not in this report.')}
-  <div class="wtbar"><div class="chips" aria-label="Period">${[['month', 'This month'], ['last', 'Last month'], ['fy', 'FY to date']].map(([k, l]) => `<button data-poper="${k}" aria-pressed="${poPer === k}">${l}</button>`).join('')}</div><div class="chips" aria-label="Lines">${Object.keys(P.F).map(k => `<button data-pof="${k}" aria-pressed="${poF === k}">${LBL[k]} ${P.all.filter(P.F[k]).length}</button>`).join('')}</div><span class="sp"></span><button class="btn ghost" data-xls="pocheck">Export to Excel</button></div>
-  <div class="box wrapx"><table class="wt"><thead><tr><th>PO</th><th>Received</th><th>Pack</th><th class="r">Qty</th><th class="r">Approved</th><th class="r">On PO</th><th class="r">Below approved, Rs</th><th>State</th></tr></thead><tbody>${P.list.map(x => `<tr class="${x.state === 'below approved' ? 'r-red' : /^no |^not /.test(x.state) ? 'r-none' : 'r-green'}"><td class="mono">${esc(x.po)}</td><td class="mono">${esc(fmtShort(x.received))}</td><td><i class="fam" style="background:${(x.k && x.k.product.fam) || '#8796A5'}"></i>${esc(x.cust)} · ${esc(x.name)}</td><td class="r num">${Math.round(x.kg).toLocaleString('en-US')} ${x.k && x.k.product.soldPer === 'L' ? 'L' : 'kg'}</td><td class="r num">${x.ap != null ? x.ap.toFixed(2) : 'n/a'}</td><td class="r num">${x.price.toFixed(2)}</td><td class="r num ${x.gap > 0 ? 'over' : ''}">${Math.round(x.gap).toLocaleString('en-US')}</td><td><span class="pill ${pill(x.state)}">${x.state}</span></td></tr>`).join('') || '<tr><td colspan="8">No line in this view.</td></tr>'}</tbody>
-  <tfoot><tr><td colspan="6">${pl(P.list.length, 'line', 'lines')}</td><td class="r num">${Math.round(P.list.reduce((s, x) => s + x.gap, 0)).toLocaleString('en-US')}</td><td></td></tr></tfoot></table></div>`;
+  const unitOfL = x => x.k && x.k.product.soldPer === 'L' ? 'L' : 'kg';
+  const rows = rtIds(P.list.map(x => ({ ...x, _cls: x.state === 'below approved' ? 'r-red' : /^no |^not /.test(x.state) ? 'r-none' : 'r-green' })), x => `${x.po}|${x.cust}|${x.name}|${x.received}`);
+  const cols = [{ k: 'po', l: 'PO', x: x => x.po, h: x => `<span class="mono">${esc(x.po)}</span>` }, { k: 'rcv', l: 'Received', x: x => x.received || '', f: x => fmtShort(x.received) },
+    { k: 'pack', l: 'Client · pack', x: x => `${x.cust} · ${x.name}`, h: x => `<i class="fam" style="background:${(x.k && x.k.product.fam) || '#8796A5'}"></i>${esc(x.cust)} · ${esc(x.name)}` },
+    { k: 'qty', l: 'Qty, kg or L', r: 1, x: x => Math.round(x.kg), f: x => `${n0(x.kg)} ${unitOfL(x)}` }, { k: 'ap', l: 'Approved', r: 1, dp: 2, x: x => x.ap, f: x => x.ap != null ? n2(x.ap) : 'n/a' },
+    { k: 'on', l: 'On PO', r: 1, dp: 2, x: x => x.price }, { k: 'gap', l: 'Below approved, Rs', r: 1, tot: 1, x: x => Math.round(x.gap), h: x => `<span class="${x.gap > 0 ? 'over' : ''}">${n0(x.gap)}</span>` },
+    { k: 'st', l: 'State', x: x => x.state, h: x => `<span class="pill ${pill(x.state)}">${x.state}</span>` }];
+  const extra = `<div class="chips" aria-label="Lines">${Object.keys(P.F).map(k => `<button data-pof="${k}" aria-pressed="${poF === k}">${LBL[k]} ${P.all.filter(P.F[k]).length}</button>`).join('')}</div>`;
+  return `${repCrumb('PO price against approved price')}${meta([perN, o2sAsOf()])}${head('PO price against approved price', P.all.length ? `${perN}: ${below.length} of ${pl(P.all.length, 'PO line was', 'PO lines were')} entered below the approved price: ${rs(tot)} below approved price.` : `${perN}: no white label PO line.`, 'Approved price = the price in force on the PO\'s received date (time-based clients); for fixed per PO clients the received date is taken as the PO\'s start. Gap per line = the larger of (approved − on PO) and 0, times the quantity, so a line above the approved price never hides one below it. FOC lines (price 0) are left out (ruling 14). A line C2M cannot place on a client pack shows as such; fix its name in Setup, Record and checks, From O2S. VAN brand lines are priced by the channel lists and are not in this report. The dates are the PO\'s received date; C2M keeps PO lines from 1 July, the start of this financial year.')}
+  ${rtView({ k: 'pocheck', name: 'PO price against approved price', sheet: 'PO lines', cols, rows, extra, filt: LBL[poF] !== 'All' ? 'Lines: ' + LBL[poF] : '', foot: { _lbl: pl(rows.length, 'line', 'lines'), gap: rows.reduce((s, x) => s + x.gap, 0) }, empty: 'No line in this view.' })}`;
 }
 
 /* ---------- VAN brand PO against its price list (Tahir, 4 Nov 2026, D-146; F-32) ----------
@@ -2875,23 +3011,33 @@ const LCSTATE = { at: 'At list price', above: 'Above list', below: 'Below list',
 const LCPILL = { at: 'p-green', above: 'p-amber', below: 'p-red', off: 'p-amber', cost: 'p-none', none: 'p-none' };
 const LCROW = { at: 'r-green', above: 'r-amber', below: 'r-red', off: 'r-amber', cost: 'r-none', none: 'r-none' };
 /** The marked lines and their counts. Flagged = above, below or not on its list (what the CFO and COO act on). */
-function listCheck() {
+function listCheck(k) { // k: a report's dates (the report); none: every line since the first list (the mark on Approvals)
   const L = ST.listCheck || { lines: [] }; const P = packIdx();
-  const all = (L.lines || []).map(x => { const k = x.packId ? P.get(x.packId) : null; return { ...x, k, name: k ? packLabel(k) : `${x.brand} ${x.pack}` }; })
+  const all = (L.lines || []).filter(x => !k || rtIn(k, x.received)).map(x => { const k = x.packId ? P.get(x.packId) : null; return { ...x, k, name: k ? packLabel(k) : `${x.brand} ${x.pack}` }; })
     .sort((a, b) => ['below', 'above', 'off', 'none', 'cost', 'at'].indexOf(a.state) - ['below', 'above', 'off', 'none', 'cost', 'at'].indexOf(b.state) || Math.abs(b.diffPct || 0) - Math.abs(a.diffPct || 0) || String(b.received).localeCompare(String(a.received)));
   const F = { flag: x => ['above', 'below', 'off'].includes(x.state), all: () => true, at: x => x.state === 'at', above: x => x.state === 'above', below: x => x.state === 'below', off: x => x.state === 'off', cost: x => x.state === 'cost', none: x => x.state === 'none' };
   const n = k => all.filter(F[k]).length;
   return { L, all, F, n, list: all.filter(F[lcF] || F.flag) };
 }
 function vListCheck() {
-  const C = listCheck(); const L = C.L; const tot = C.all.length;
+  const C = listCheck('listcheck'); const L = C.L; const tot = C.all.length; const perN = rtPer('listcheck');
   const LBL = { flag: 'Off their list', all: 'All', at: 'At list price', above: 'Above list', below: 'Below list', off: 'Not on its list', cost: 'Cost only', none: 'Not checked' };
-  const ans = !ST.listCheck ? 'Your role does not see this report.' : !tot ? `No VAN brand PO line since ${fmtShort(L.first)}.` : `${C.n('flag')} of ${pl(tot, 'VAN brand PO line', 'VAN brand PO lines')} since ${fmtShort(L.first)} are off their list: ${C.n('below')} below, ${C.n('above')} above, ${C.n('off')} not on its list. ${C.n('at')} at list price.`;
-  const howTxt = `Each VAN brand PO line is compared with the price list in force on the PO's date. Distributor, and Punjab dealer: the distributor list, ex FED. Sindh dealer: the dealer list, net price ex FED. COBO: the farmer list, Sindh cash. VGreen: the farmer list, Punjab. Farmer PO: the farmer list for its region; in Sindh, cash or credit by the PO's payment terms (Advance or COD is cash). The farmer list includes FED, so the PO price is taken with FED. Within ${L.tol || 1}% of the list price counts as at list price. A client's own pack is checked against its cost only. POs dated before ${fmtShort(L.first || '2026-10-11')} are not checked${L.before ? ` (${L.before} this FY)` : ''}. FOC lines are left out. This report marks only: it never blocks a PO and Margin keeps the price O2S entered (ruled 4 Nov 2026).${L.regionRead === false ? ' The PO region column (migration 009) is not in the database yet: a dealer\'s region is read from his C2M customer record, and farmer POs show as region not known until 009 is run and O2S is pulled again.' : L.regionPulled === false ? ' The PO region column is ready but no pull has filled it yet: press Pull now (Setup, From O2S), or wait for the morning pull.' : ''} A farmer list price includes FED: a PO that charges FED is taken with FED; a PO that charges none (FED None in O2S) is taken as entered.`;
-  return `${repCrumb('VAN brand PO against its price list')}${meta(['Since ' + fmtShort(L.first || '2026-10-11'), o2sAsOf()])}${head('VAN brand PO against its price list', ans, howTxt)}
-  <div class="wtbar"><div class="chips" aria-label="Lines">${Object.keys(LBL).map(k => `<button data-lcf="${k}" aria-pressed="${lcF === k}">${LBL[k]} ${C.n(k)}</button>`).join('')}</div><span class="sp"></span><button class="btn ghost" data-xls="listcheck">Export to Excel</button></div>
-  <div class="box wrapx"><table class="wt"><thead><tr><th>PO</th><th>PO date</th><th>Buyer and pack</th><th class="r">Qty</th><th>Compared with</th><th class="r">List, per pack</th><th class="r">On PO, per pack</th><th class="r">Difference</th><th>State</th></tr></thead><tbody>${C.list.map(x => `<tr class="${LCROW[x.state]}"><td class="mono">${esc(x.po)}</td><td class="mono">${esc(fmtShort(x.received))}</td><td><i class="fam" style="background:${(x.k && x.k.product.fam) || '#8796A5'}"></i>${esc(x.cust)}${x.region ? ', ' + esc(x.region) : ''} · ${esc(x.name)}</td><td class="r num">${Math.round(x.kg).toLocaleString('en-US')} ${x.k && x.k.product.soldPer === 'L' ? 'L' : 'kg'}</td><td>${esc(x.colLabel || '')}${x.why ? `<div class="ans" style="font-size:12px">${esc(x.why)}</div>` : ''}${x.state === 'cost' && x.gp != null ? `<div class="ans" style="font-size:12px">GP ${x.gp}% on its cost on the PO date</div>` : ''}</td><td class="r num">${x.listPrice != null ? Math.round(x.listPrice).toLocaleString('en-US') : ''}</td><td class="r num">${x.poPrice != null ? Math.round(x.poPrice).toLocaleString('en-US') : ''}</td><td class="r num ${x.state === 'below' ? 'over' : ''}">${x.diffPct != null ? (x.diffPct > 0 ? '+' : '') + x.diffPct + '%' : ''}</td><td><span class="pill ${LCPILL[x.state]}">${LCSTATE[x.state]}</span></td></tr>`).join('') || '<tr><td colspan="9">No line in this view.</td></tr>'}</tbody>
-  <tfoot><tr><td colspan="9">${pl(C.list.length, 'line', 'lines')}. Prices in Rs per pack.</td></tr></tfoot></table></div>`;
+  const ans = !ST.listCheck ? 'Your role does not see this report.' : !tot ? `${perN}: no VAN brand PO line.` : `${perN}: ${C.n('flag')} of ${pl(tot, 'VAN brand PO line is', 'VAN brand PO lines are')} off their list: ${C.n('below')} below, ${C.n('above')} above, ${C.n('off')} not on its list. ${C.n('at')} at list price.`;
+  const howTxt = `Each VAN brand PO line is compared with the price list in force on the PO's date. Distributor, and Punjab dealer: the distributor list, ex FED. Sindh dealer: the dealer list, net price ex FED. COBO: the farmer list, Sindh cash. VGreen: the farmer list, Punjab. Farmer PO: the farmer list for its region; in Sindh, cash or credit by the PO's payment terms (Advance or COD is cash). The farmer list includes FED, so the PO price is taken with FED. Within ${L.tol || 1}% of the list price counts as at list price. A client's own pack is checked against its cost only. POs dated before ${fmtShort(L.first || '2026-10-11')} are not checked${L.before ? ` (${L.before} this FY)` : ''}. FOC lines are left out. The dates are the PO date. This report marks only: it never blocks a PO and Margin keeps the price O2S entered (ruled 4 Nov 2026).${L.regionRead === false ? ' The PO region column (migration 009) is not in the database yet: a dealer\'s region is read from his C2M customer record, and farmer POs show as region not known until 009 is run and O2S is pulled again.' : L.regionPulled === false ? ' The PO region column is ready but no pull has filled it yet: press Pull now (Setup, From O2S), or wait for the morning pull.' : ''} A farmer list price includes FED: a PO that charges FED is taken with FED; a PO that charges none (FED None in O2S) is taken as entered.`;
+  const u = x => x.k && x.k.product.soldPer === 'L' ? 'L' : 'kg';
+  const rows = rtIds(C.list.map(x => ({ ...x, _cls: LCROW[x.state] })), x => `${x.po}|${x.name}|${x.received}`);
+  const why = x => x.why || (x.state === 'cost' && x.gp != null ? `GP ${x.gp}% on its cost on the PO date` : '');
+  const cols = [{ k: 'po', l: 'PO', x: x => x.po, h: x => `<span class="mono">${esc(x.po)}</span>` }, { k: 'date', l: 'PO date', x: x => x.received, f: x => fmtShort(x.received) },
+    { k: 'buyer', l: 'Buyer and pack', x: x => `${x.cust}${x.region ? ', ' + x.region : ''} · ${x.name}`, h: x => `<i class="fam" style="background:${(x.k && x.k.product.fam) || '#8796A5'}"></i>${esc(x.cust)}${x.region ? ', ' + esc(x.region) : ''} · ${esc(x.name)}` },
+    { k: 'region', l: 'Region', off: 1, x: x => x.region || '' }, { k: 'terms', l: 'Payment terms', off: 1, x: x => x.terms || '' },
+    { k: 'qty', l: 'Qty, kg or L', r: 1, x: x => Math.round(x.kg), f: x => `${n0(x.kg)} ${u(x)}` },
+    { k: 'with', l: 'Compared with', x: x => x.colLabel || '', h: x => `${esc(x.colLabel || '')}${why(x) ? `<div class="ans" style="font-size:12px">${esc(why(x))}</div>` : ''}` }, { k: 'why', l: 'Why', off: 1, x: why },
+    { k: 'list', l: 'List, per pack', r: 1, x: x => x.listPrice != null ? x.listPrice : '' }, { k: 'on', l: 'On PO, per pack', r: 1, x: x => x.poPrice != null ? x.poPrice : '' },
+    { k: 'diff', l: 'Difference %', r: 1, x: x => x.diffPct != null ? x.diffPct : '', h: x => `<span class="${x.state === 'below' ? 'over' : ''}">${x.diffPct != null ? (x.diffPct > 0 ? '+' : '') + x.diffPct + '%' : ''}</span>` },
+    { k: 'st', l: 'State', x: x => LCSTATE[x.state], h: x => `<span class="pill ${LCPILL[x.state]}">${LCSTATE[x.state]}</span>` }];
+  const extra = `<div class="chips" aria-label="Lines">${Object.keys(LBL).map(k => `<button data-lcf="${k}" aria-pressed="${lcF === k}">${LBL[k]} ${C.n(k)}</button>`).join('')}</div>`;
+  return `${repCrumb('VAN brand PO against its price list')}${meta([perN, 'Checked since ' + fmtShort(L.first || '2026-10-11'), o2sAsOf()])}${head('VAN brand PO against its price list', ans, howTxt)}
+  ${rtView({ k: 'listcheck', name: 'VAN brand PO against its price list', sheet: 'PO lines', cols, rows, extra, filt: 'Lines: ' + LBL[lcF], foot: { _lbl: pl(rows.length, 'line', 'lines') + '. Prices in Rs per pack.' }, empty: 'No line in this view.' })}`;
 }
 /** The mark on Approvals (D-146): a line for the CFO and COO when VAN brand POs are off their list. No approval; nothing is blocked. */
 function listCheckMark() {
@@ -2905,7 +3051,7 @@ function listCheckMark() {
    additional discount, farmer price / (1 + FED %). Each row against its product's GP target (1.0.1, I-41, D-81; was the ambition GP, D-73);
    the portfolio against those targets weighted by sales. A row marked "not a C2M pack" is left out. */
 let vmFarm = 'pb', vmOpen = false; const vmPick = {}, vmWas = {};
-const VMFARM = { pb: 'Farmer Punjab', sn: 'Farmer Sindh', snc: 'Farmer Sindh credit' };
+const VMFARM = { pb: 'Farmer Punjab', sn: 'Farmer Sindh cash', snc: 'Farmer Sindh credit' };
 const VMLIST = { dist: 'Distributor', dealer: 'Dealer', farmer: 'Farmer' };
 const VMSIZE = /(\d+(?:\.\d+)?)\s*-?\s*(kgs?|liters?|litres?|ltrs?|l|ml|gms?|grams?|g)\b/i; // as lib LSIZE
 const vmNorm = s => String(s || '').toLowerCase().replace(/[^a-z0-9.]+/g, ' ').replace(/\b0+(\d)/g, '$1').trim();
@@ -2934,29 +3080,36 @@ function vanMargin() {
   const by = new Map();
   for (const x of items) { if (!linked(x) || !VMLIST[x.list]) continue; const pid = stored(x); if (!by.has(pid)) by.set(pid, { k: P.get(pid), dist: [], dealer: [], farmer: [] }); by.get(pid)[x.list].push(x.data); }
   const NAME = { dist: 'distributor', dealer: 'dealer', farmer: VMFARM[vmFarm].toLowerCase() };
-  const cell = (price, cpp, A) => { if (!(price > 0)) return null; const gp = vmGp(price, cpp); return { price, gp, c: gp == null ? '' : gp < 0 ? 'over' : A != null && gp < A - 0.05 ? 'late' : A != null ? 'ok' : '' }; };
+  const KEY = { dist: 'dist', dealer: 'dealer', farmer: 'farmer_' + vmFarm }; // each list's own target and freight (lt_, lf_; R39, R40)
+  /* GP after the list's freight, judged on the list's own target, as Clients, VAN Brands, Price lists (lcJudge; push 5a, D-157). */
+  const cell = (price, cpp, l, size) => { if (!(price > 0)) return null; const t = LSET('lt_' + KEY[l]), fr = LSET('lf_' + KEY[l]); const frp = fr != null ? fr * size : null; const J = lcJudge(cpp, price, frp, t);
+    return { price, frp, t, gp: J.gp, st: J.st, c: J.st === 'cost' ? 'over' : J.st === 'below' ? 'late' : J.st === 'ok' ? 'ok' : '' }; };
   const first = (arr, f) => { const r = arr.find(d => Number(f(d)) > 0); return r ? Number(f(r)) : null; }; // the first row of the list with a price
   const rows = [...by.values()].map(g => {
-    const k = g.k; const cpp = k.cost ? (k.cost.total - (k.cost.freight || 0)) * Number(k.size) : null; // before freight (F-22)
-    const A0 = tgtOf(k.product.target), A = A0 > 0 ? A0 : null; // the product's own GP target, else the company GP target; 0 or none: no target set
+    const k = g.k; const size = Number(k.size); const cpp = k.cost ? (k.cost.total - (k.cost.freight || 0)) * size : null; // cost before freight; the list's freight is its own part
     const fp = first(g.farmer, d => d[vmFarm]);
-    const L = { dist: cell(first(g.dist, d => d.now), cpp, A), dealer: cell(first(g.dealer, d => d.nsv), cpp, A), farmer: cell(fp != null ? fp / (1 + fed / 100) : null, cpp, A) };
-    const priced = Object.entries(L).filter(([, v]) => v); let st, wl = null;
+    const L = { dist: cell(first(g.dist, d => d.now), cpp, 'dist', size), dealer: cell(first(g.dealer, d => d.nsv), cpp, 'dealer', size), farmer: cell(fp != null ? fp / (1 + fed / 100) : null, cpp, 'farmer', size) };
+    const priced = Object.entries(L).filter(([, v]) => v); const judged = priced.filter(([, v]) => ['cost', 'below', 'ok'].includes(v.st)); const nj = priced.length - judged.length;
+    const worst = st => judged.filter(([, v]) => v.st === st).sort((a, b) => (a[1].gp - a[1].t) - (b[1].gp - b[1].t) || a[1].gp - b[1].gp)[0];
+    let st, wl = null; const nt = nj ? `; ${pl(nj, 'list', 'lists')} not judged` : '';
     if (cpp == null) st = ['p-none', 'not costed'];
     else if (!priced.length) st = ['p-none', 'no list price'];
-    else { const [l, w] = priced.slice().sort((a, b) => a[1].gp - b[1].gp)[0]; wl = NAME[l];
-      st = w.gp < 0 ? ['p-red', 'below cost: ' + wl] : A == null ? ['p-none', 'no target set'] : w.gp < A - 0.05 ? ['p-amber', 'below target: ' + wl] : ['p-green', 'at or above target']; }
+    else if (worst('cost')) { wl = NAME[worst('cost')[0]]; st = ['p-red', 'below cost: ' + wl + nt]; }
+    else if (worst('below')) { wl = NAME[worst('below')[0]]; st = ['p-amber', 'below target: ' + wl + nt]; }
+    else if (judged.length) st = ['p-green', 'at or above target' + nt];
+    else st = ['p-none', 'freight or target not set'];
     const dup = Math.max(g.dist.length, g.dealer.length, g.farmer.length);
-    const wgp = priced.length && cpp != null ? Math.min(...priced.map(([, v]) => v.gp)) : null;
-    return { k, name: packLabel(k), cpp, L, st, wl, dup, wgp, A };
+    const wgp = judged.length ? Math.min(...judged.map(([, v]) => v.gp)) : null;
+    return { k, name: packLabel(k), cpp, L, st, wl, dup, wgp };
   }).sort((a, b) => (STRANK[a.st[0]] - STRANK[b.st[0]]) || ((a.wgp ?? Infinity) - (b.wgp ?? Infinity)) || a.name.localeCompare(b.name)); // worst state, then worst GP
-  // Portfolio GP: VAN brand trucks this FY at the approved cost on each truck's date (as Margin before any restating)
+  // Portfolio GP: VAN brand trucks this FY at the approved cost on each truck's date, after each sale's list freight (as Margin, R46)
   const vs = (ST.sales || []).filter(r => r.grp === 'VAN brand' && r.date >= fyStart());
-  const sold = grp(vs, () => 'v')[0] || null;
   const cs = vs.filter(r => r.cost != null), sRs = cs.reduce((t, r) => t + r.kg * r.price, 0); // portfolio target: each product's target weighted by sales (as Margin, F-23)
-  const A1 = sRs ? cs.reduce((t, r) => t + tgtOf(r.target) * r.kg * r.price, 0) / sRs : null; const A = A1 > 0 ? A1 : null;
+  const gRs = cs.reduce((t, r) => t + r.kg * (r.price - r.cost - (r.lfr > 0 ? r.lfr : 0)), 0); const sold = vs.length ? { gp: sRs ? gRs / sRs * 100 : null } : null;
+  const js = cs.filter(r => saleTgt(r) != null), jRs = js.reduce((t, r) => t + r.kg * r.price, 0); /* judged as Margin (R55): each sale on its list's target */
+  const A1 = jRs ? js.reduce((t, r) => t + saleTgt(r) * r.kg * r.price, 0) / jRs : null; const A = A1 > 0 ? A1 : null; if (sold && jRs) sold.jgp = js.reduce((t, r) => t + r.kg * (r.price - r.cost - (r.lfr > 0 ? r.lfr : 0)), 0) / jRs * 100; if (sold) sold.mixed = jRs > 0 && jRs < sRs;
   const marked = items.filter(x => !linked(x) && x.data.noPack); // marked not a C2M pack
-  return { rows, items, unlinked: items.filter(x => !linked(x) && !x.data.noPack), marked, gone, van, A, fed, sold, linked, stored };
+  return { rows, items, unlinked: items.filter(x => !linked(x) && !x.data.noPack), marked, gone, van, A, fed, sold, linked, stored, KEY };
 }
 /** What each row's select shows: Yawar's pick, else the stored link, else a suggestion (only for a row with no link). */
 function vmCurrent(x, V) {
@@ -2970,24 +3123,166 @@ function vmChanges(V = vanMargin()) { const out = []; for (const x of V.items) {
 function vVanMargin() {
   const V = vanMargin(), yw = CAN('lists.mark'), lk = CAN('lists.link'), P = packIdx(); // lk: Tahir links too (1.0.2, D-85); the mark stays Yawar's
   const below = V.rows.filter(r => r.st[0] === 'p-red' || r.st[0] === 'p-amber').length, red = V.rows.filter(r => r.st[0] === 'p-red').length, w0 = V.rows[0];
-  const port = V.sold && V.sold.gp != null ? `VAN brand portfolio GP ${pc(V.sold.gp)} on what was sold, FY to date, against ${V.A != null ? 'a ' + pc(V.A) + ' target (each product\'s target, weighted by sales)' : 'no target'}.` : 'No VAN brand sales read from O2S this FY.';
-  const worst = w0 && w0.st[0] === 'p-red' ? ` ${w0.name} is below cost on the ${w0.wl} list${red > 1 ? `; ${red} packs are below cost` : ''}.` : w0 && w0.st[0] === 'p-amber' ? ` Furthest below: ${w0.name} on the ${w0.wl} list.` : '';
-  const ans = !V.rows.length ? `${port} No list row is linked to its C2M pack yet.` : `${port} ${below} of ${V.rows.length} VAN brand packs below their target on at least 1 list.${worst}`;
-  const gl = (c, l) => c ? `<td data-l="${l}" class="r num">${Math.round(c.price).toLocaleString('en-US')}</td><td data-l="GP" class="r num ${c.c}">${pc(c.gp)}</td>` : `<td data-l="${l}" class="r num">none</td><td data-l="GP" class="r num"></td>`;
+  const port = V.sold && V.sold.gp != null ? `VAN brand portfolio GP ${pc(V.sold.gp)} on what was sold, FY to date, after list freight${V.A != null ? `${V.sold.mixed ? `; ${pc(V.sold.jgp)} on the sales judged` : ''}, against a ${pc(V.A)} target (each sale\'s price list target, weighted by sales)` : '; not judged: no price list has a target set yet'}.` : 'No VAN brand sales read from O2S this FY.';
+  const worst = w0 && w0.st[0] === 'p-red' ? ` ${esc(w0.name)} is below cost on the ${w0.wl} list${red > 1 ? `; ${red} packs are below cost` : ''}.` : w0 && w0.st[0] === 'p-amber' ? ` Furthest below: ${esc(w0.name)} on the ${w0.wl} list.` : '';
+  const ans = !V.rows.length ? `${port} No list row is linked to its C2M pack yet.` : `${port} ${below} of ${V.rows.length} VAN brand packs below their list's target after freight on at least 1 list.${worst}`;
+  const LL = { dist: 'Distributor, ex FED', dealer: 'Dealer NSV, ex FED', farmer: VMFARM[vmFarm] + ', ex FED' };
+  const gpTxt = c => !c ? '' : c.st === 'nofr' ? 'freight not set' : c.st === 'none' ? 'not costed' : pc(c.gp) + (c.st === 'notgt' ? ', no target' : '');
+  const cols = [{ k: 'pack', l: 'VAN brand pack', x: r => r.name, h: r => `<span class="nw">${esc(r.name)}</span>${r.dup > 1 ? ` <span class="pill p-none" data-vmdup title="${r.dup} rows of 1 list are linked to this pack: the first with a price is used">${r.dup} rows</span>` : ''}` },
+    { k: 'cpp', l: 'Cost today, per pack, before freight', r: 1, x: r => r.cpp != null ? Math.round(r.cpp) : '', f: r => r.cpp != null ? n0(r.cpp) : 'not costed' }]
+    .concat(...['dist', 'dealer', 'farmer'].map(l => [{ k: l, l: LL[l], r: 1, x: r => r.L[l] ? Math.round(r.L[l].price) : '', f: r => r.L[l] ? n0(r.L[l].price) : 'none' },
+      { k: l + 'fr', l: 'Freight per pack', r: 1, off: 1, x: r => r.L[l] && r.L[l].frp != null ? +r.L[l].frp.toFixed(2) : '', f: r => r.L[l] ? (r.L[l].frp != null ? n2(r.L[l].frp) : 'not set') : '' },
+      { k: l + 't', l: 'Target %', r: 1, off: 1, x: r => r.L[l] && r.L[l].t != null ? r.L[l].t : '', f: r => r.L[l] ? (r.L[l].t != null ? pc(r.L[l].t) : 'not set') : '' },
+      { k: l + 'gp', l: 'GP after freight', r: 1, x: r => r.L[l] && r.L[l].gp != null && !['nofr', 'none'].includes(r.L[l].st) ? +r.L[l].gp.toFixed(2) : gpTxt(r.L[l]), f: r => gpTxt(r.L[l]), h: r => `<span class="${r.L[l] ? r.L[l].c : ''}">${esc(gpTxt(r.L[l]))}</span>` }]),
+    [{ k: 'st', l: 'State', x: r => r.st[1], h: r => `<span class="pill ${r.st[0]}" data-vmst>${esc(r.st[1])}</span>` }]);
+  const rows = rtIds(V.rows.map(r => ({ ...r, _cls: STRIPE[r.st[0]] || 'r-none', _tr: ` data-vmpack="${r.k.id}"` })), r => 'p' + r.k.id);
+  const setTxt = ['dist', 'dealer', 'farmer'].map(l => { const t = LSET('lt_' + V.KEY[l]), f = LSET('lf_' + V.KEY[l]); return `${LL[l].replace(', ex FED', '').replace(' NSV', '')}: target ${t != null ? pc(t) : 'not set'}, freight ${f != null ? 'Rs ' + n2(f) + ' per kg or L' : 'not set'}`; }).join('; ');
+  const extra = `<div class="chips" aria-label="Farmer list">${Object.entries(VMFARM).map(([k, l]) => `<button data-vmfarm="${k}" aria-pressed="${vmFarm === k}">${l}</button>`).join('')}</div>`;
+  const sheets = () => [{ name: 'Links', rows: [['List', 'List row', 'C2M pack']].concat(V.items.map(x => [VMLIST[x.list] || x.list, vmRowName(x), V.linked(x) ? packLabel(packIdx().get(V.stored(x))) : x.data.noPack ? 'Not a C2M pack' : V.gone(x) ? 'Pack no longer active' : 'Not linked'])) }];
   const ch = lk ? vmChanges(V) : []; const nSug = ch.filter(c => c.how === 'suggested').length;
   const sel = x => { const c = vmCurrent(x, V); const s0 = V.stored(x); const extra = s0 != null && !V.linked(x) ? `<option value="${s0}"${c.v === s0 ? ' selected' : ''}>Pack no longer active (${s0})</option>` : '';
     return `<select data-vmlink="${x.id}" aria-label="C2M pack for ${esc(vmRowName(x))}">${lmDone() ? '' : `<option value=""${c.v == null ? ' selected' : ''}>Not linked</option>`}${extra}${V.van.filter(k => k.id === c.v || k.id === s0 || fitsRow(x, k)).map(k => { const held = k.id !== c.v && V.items.some(y => y !== x && y.list === x.list && vmCurrent(y, V).v === k.id); /* a pack another row of the list is on: only as a swap, both moved in 1 save (review 1.0.3) */ return `<option value="${k.id}"${c.v === k.id ? ' selected' : ''}>${esc(packLabel(k))}${held ? ' · on this list now: move that row too' : ''}</option>`; }).join('')}</select>${c.how === 'suggested' ? ' <span class="pill p-amber" data-vmsug>suggested: check</span>' : c.how === 'picked' && c.v !== s0 ? ' <span class="pill p-none">changed</span>' : ''}`; };
   const shown = vmOpen ? V.items : V.unlinked.concat(V.marked); const nGone = V.items.filter(V.gone).length; const nNone = V.unlinked.length - nGone;
   const mkTxt = V.marked.length ? ` ${pl(V.marked.length, 'row is marked not a C2M pack: left out of this report; it no longer stops', 'rows are marked not a C2M pack: left out of this report; they no longer stop')} a new pack being added to its list.` : '';
   const linkTxt = (V.unlinked.length ? `${nNone ? pl(nNone, 'list row has', 'list rows have') + ' no pack' : ''}${nNone && nGone ? '; ' : ''}${nGone ? pl(nGone, 'row is', 'rows are') + ' linked to a pack no longer active' : ''}: left out of the table above.` : `All ${V.items.length - V.marked.length} list rows to be costed are linked.`) + mkTxt;
-  return `${repCrumb('VAN brand list margin')}${meta(['Lists in force today', 'FED ' + V.fed + '%', o2sAsOf()])}${head('VAN brand list margin', ans, 'GP = (list price per pack without FED − cost today per pack) ÷ list price per pack without FED, before freight, on every list. Distributor: price ex FED. Dealer: NSV ex FED, before the additional discount. Farmer: the farmer price ÷ (1 + FED %). Cost per pack = cost today per kg or L, before freight, × pack size. Colour: red below cost, amber more than 0.05 points below the product\'s GP target (its own, else the company GP target), green at or above it; the state names the worst list shown. Portfolio: against each product\'s target, weighted by sales. Each list row reads its cost through the C2M pack the CFO linked it to, never through names or O2S; if 2 rows of a list are linked to 1 pack, the first with a price is used. Portfolio GP: VAN brand trucks this FY at the approved cost on each truck\'s date.')}
-  <div class="wtbar"><div class="chips" aria-label="Farmer list">${Object.entries(VMFARM).map(([k, l]) => `<button data-vmfarm="${k}" aria-pressed="${vmFarm === k}">${l}</button>`).join('')}</div><span class="sp"></span><button class="btn ghost" data-xls="vanmargin">Export to Excel</button></div>
-  <div class="box wrapx"><table class="wt cards" id="vmt"><thead><tr><th>VAN brand pack</th><th class="r">Cost today, per pack</th><th class="r">Target %</th><th class="r">Distributor, ex FED</th><th class="r">GP</th><th class="r">Dealer NSV, ex FED</th><th class="r">GP</th><th class="r">${VMFARM[vmFarm]}, ex FED</th><th class="r">GP</th><th>State</th></tr></thead><tbody>
-  ${V.rows.map(r => `<tr class="${STRIPE[r.st[0]] || 'r-none'}" data-vmpack="${r.k.id}"><td data-l="VAN pack"><span class="nw">${esc(r.name)}</span>${r.dup > 1 ? ` <span class="pill p-none" data-vmdup title="${r.dup} rows of 1 list are linked to this pack: the first with a price is used">${r.dup} rows</span>` : ''}</td><td data-l="Cost today, per pack" class="r num">${r.cpp != null ? Math.round(r.cpp).toLocaleString('en-US') : 'not costed'}</td><td data-l="Target %" class="r num">${r.A != null ? pc(r.A) : 'none'}</td>${gl(r.L.dist, 'Distributor, ex FED')}${gl(r.L.dealer, 'Dealer NSV, ex FED')}${gl(r.L.farmer, VMFARM[vmFarm] + ', ex FED')}<td data-l="State"><span class="pill ${r.st[0]}" data-vmst>${esc(r.st[1])}</span></td></tr>`).join('') || '<tr><td colspan="10">No list row is linked to its C2M pack yet.</td></tr>'}</tbody></table></div>
+  return `${repCrumb('VAN brand list margin')}${meta(['Lists in force today', 'FED ' + V.fed + '%', o2sAsOf()])}${head('VAN brand list margin', ans, 'GP after freight = (list price per pack without FED − cost today per pack − the list\'s freight per pack) ÷ list price per pack without FED, on every list, as on Clients, VAN Brands, Price lists. Distributor: price ex FED. Dealer: NSV ex FED, before the additional discount. Farmer: the farmer price ÷ (1 + FED %). Cost per pack = cost today per kg or L, before freight, × pack size; freight per pack = the list\'s freight Rs per kg or L × pack size. Each list is judged on its own target: red below cost after freight, amber more than 0.05 points below the list\'s target, green at or above it; the state names the worst list shown. A list with no freight set says "freight not set" and is not judged; one with no target shows its GP and is not judged. Each list row reads its cost through the C2M pack the CFO linked it to, never through names or O2S; if 2 rows of a list are linked to 1 pack, the first with a price is used. Portfolio GP: VAN brand trucks this FY at the approved cost on each truck\'s date, after each sale\'s list freight, against each product\'s target weighted by sales.')}
+  <p class="ans" style="font-size:12.5px" data-vmset>${esc(setTxt)}.</p>
+  ${rtView({ k: 'vanmargin', name: 'VAN brand list margin', sheet: 'Packs', dated: false, asOf: 'Lists in force today, ' + fmtD(ST.today), cols, rows, extra, filt: VMFARM[vmFarm], sheets, empty: 'No list row is linked to its C2M pack yet.' })}
   ${!lmDone() ? `<div class="box"><b>Links: each list row to its C2M pack</b><p class="ans" id="vmltxt" style="margin:4px 0 8px">${linkTxt} ${lk ? 'The rows are carried into the master once, on 1 screen (1.0.3): then every list row belongs to its VAN brand pack and nothing is linked row by row. <button class="btn ghost" data-lm-open>Carry into the master</button>' : 'the COO or the CFO carries the lists into the master.'}</p></div>`
   : `<div class="box"><b>Each list row and its master pack</b><p class="ans" id="vmltxt" style="margin:4px 0 8px">The lists are carried into the master: every list price belongs to a VAN brand pack. ${lk ? 'If a price sits on the wrong pack, move it here to a pack of the same size, then Save: the row prints under that pack\'s name at once, and the other of the COO and the CFO is told (no approval, ruling of 20 Oct 2026). To swap 2 rows, move both, then Save once. A pack no longer sold is taken off its list on Clients, VAN Brands, Price lists, See all 5 side by side.' : 'The COO or the CFO moves a price that sits on the wrong pack.'}</p>
   <div class="wtbar"><button class="btn ghost" data-vmopen aria-pressed="${vmOpen}">${vmOpen ? 'Hide the rows' : `Show all ${V.items.length} rows`}</button>${lk ? `<span class="sp"></span><button class="btn" data-vmsave${ch.length ? '' : ' disabled'}>Save ${pl(ch.length, 'move', 'moves')}</button>` : ''}</div>
   ${vmOpen ? `<div class="wrapx"><table class="wt cards" id="vml"><thead><tr><th>List</th><th>List row</th><th>Master pack</th></tr></thead><tbody>${V.items.map(x => `<tr><td data-l="List">${VMLIST[x.list] || esc(x.list)}</td><td data-l="List row">${esc(vmRowName(x))}</td><td data-l="Master pack">${lk ? sel(x) : V.linked(x) ? esc(packLabel(P.get(V.stored(x)))) : 'Pack no longer active'}</td></tr>`).join('')}</tbody></table></div>` : ''}</div>`}`;
+}
+/* ---------- Cost history (push 5a, R28, R51: pack cost only; D-157) ----------
+   Every approved cost of every pack (c2m_cost_version), with its parts, its change against the same pack's cost before it, why and who.
+   "Last per pack": each pack's newest cost in the dates, with its change from the cost before the dates. Each rate's own history stays
+   on its History in Costs. */
+let chM = 'all', chCl = '', chQ = '';
+const chPack = r => `${r.cust} · ${r.brand} · ${r.size != null ? packTxt(r.size, r.soldPer) : 'pack'}`;
+const chg = (a, b) => b ? (a - b) / b * 100 : null;
+const chgTxt = v => v == null ? 'first' : (v > 0.0005 ? '+' : v < -0.0005 ? '−' : '') + Math.abs(v).toFixed(1) + '%';
+/** The rows of the report: in the dates and filters, every approval or the last per pack. */
+function costHist(all) {
+  const q = chQ.trim().toLowerCase(); const hit = r => (!chCl || r.cust === chCl) && (!q || (r.brand + ' ' + r.cust).toLowerCase().includes(q));
+  const inD = all.filter(r => rtIn('costs', r.from) && hit(r));
+  let rows = inD.map(r => ({ ...r, base: r.prev, chg: r.prev != null ? chg(r.total, r.prev) : null }));
+  if (chM === 'last') { const by = new Map(); inD.forEach(r => { const g = by.get(r.packId) || []; g.push(r); by.set(r.packId, g); });
+    rows = [...by.values()].map(g => { g.sort((a, b) => a.from.localeCompare(b.from) || a.id - b.id); const n = g[g.length - 1], e = g[0]; return { ...n, base: e.prev, chg: e.prev != null ? chg(n.total, e.prev) : null, n: g.length }; }); }
+  rows.sort((a, b) => b.from.localeCompare(a.from) || b.id - a.id);
+  return rtIds(rows, r => 'v' + r.id);
+}
+function vCostHist() {
+  const R = repData('costs'); const crumb = repCrumb('Cost history');
+  if (R.busy) return `${crumb}${head('Cost history', 'Loading…', '')}`;
+  if (R.err) return `${crumb}${head('Cost history', 'The cost history could not be read: ' + esc(R.err), '')}<p><button class="btn ghost" data-rep-retry="costs">Try again</button></p>`;
+  const all = (R.data && R.data.rows) || []; const rows = costHist(all); const per = rtPer('costs');
+  const packs = new Set(rows.map(r => r.packId)).size; const mv = rows.filter(r => r.chg != null).sort((a, b) => Math.abs(b.chg) - Math.abs(a.chg))[0];
+  const ans = !rows.length ? `${per}: no pack had a new approved cost.` : `${per}: ${pl(packs, 'pack', 'packs')} had a new approved cost.${mv && Math.abs(mv.chg) >= 0.05 ? ` ${esc(mv.brand)} ${esc(packTxt(mv.size, mv.soldPer))} for ${esc(mv.cust)} moved most: ${mv.chg > 0 ? 'up' : 'down'} ${Math.abs(mv.chg).toFixed(1)}%, from Rs ${n2(mv.base)} to Rs ${n2(mv.total)} per ${mv.soldPer}.` : ''}`;
+  const custs = [...new Set(all.map(r => r.cust))].sort((a, b) => a.localeCompare(b));
+  const cols = [{ k: 'from', l: 'From', x: r => d10(r.from), f: r => fmtD(r.from) }, { k: 'pack', l: 'Client · brand · pack', x: chPack },
+    { k: 'mat', l: 'Materials', r: 1, dp: 2, x: r => r.materials }, { k: 'pk', l: 'Packing', r: 1, dp: 2, x: r => r.packing }, { k: 'lf', l: 'Labour + FOH', r: 1, dp: 2, x: r => r.conversion }, { k: 'fr', l: 'Freight', r: 1, dp: 2, x: r => r.freight },
+    { k: 'tot', l: 'Total, Rs per kg or L', r: 1, dp: 2, x: r => r.total, h: r => `<b>${n2(r.total)}</b>` }, { k: 'was', l: 'Was', r: 1, dp: 2, off: 1, x: r => r.base },
+    { k: 'chg', l: 'Change', r: 1, x: r => r.chg != null ? +r.chg.toFixed(2) : 'first', f: r => chgTxt(r.chg), h: r => `<span class="${r.chg > 0.05 ? 'late' : ''}">${chgTxt(r.chg)}</span>` },
+    { k: 'why', l: 'Why', x: r => r.cause }, { k: 'who', l: 'Approved by', x: r => personName(r.by) }];
+  const extra = `<label class="rtsel">Client <select data-chcl aria-label="Client"><option value="">All clients</option>${custs.map(c => `<option${c === chCl ? ' selected' : ''}>${esc(c)}</option>`).join('')}</select></label><input type="search" id="chq" value="${esc(chQ)}" placeholder="Find a brand" aria-label="Find a brand"><div class="chips" aria-label="Show">${[['all', 'Every approval'], ['last', 'Last per pack']].map(([k, l]) => `<button data-chm="${k}" aria-pressed="${chM === k}">${l}</button>`).join('')}</div>`;
+  return `${crumb}${meta([per, 'Pack cost only'])}${head('Cost history', ans, 'Every approved cost of every pack, with its parts in Rs per kg or L: materials, packing, labour and FOH (factory overhead) together as each approved cost keeps them, and freight. Change compares with the same pack\'s approved cost before it; "first" is a pack\'s first approved cost. "Last per pack" shows each pack\'s newest cost in the dates, with its change from the cost before the dates. A cost applies to trucks from the day after it is approved. Each rate\'s own history stays on its History in Costs.')}
+  ${rtView({ k: 'costs', name: 'Cost history', sheet: 'Pack cost', cols, rows, extra, filt: [chCl ? 'Client: ' + chCl : '', chQ.trim() ? 'Brand: ' + chQ.trim() : '', chM === 'last' ? 'Last per pack' : 'Every approval'].filter(Boolean).join(' · '), empty: 'No approved cost in these dates.' })}`;
+}
+/** The approved cost of a pack in force on a date, from the cost history: from the day after its approval; before the first, the first (as Margin). */
+function costOnDay(all, packId, day) { let pick = null, first = null; for (const r of all) { if (r.packId !== packId) continue; if (!first || r.from < first.from || (r.from === first.from && r.id < first.id)) first = r; if (d10(r.from) < day && (!pick || r.from > pick.from || (r.from === pick.from && r.id > pick.id))) pick = r; } return pick || (first ? { ...first, later: true } : null); } /* none before the day: the first cost, as Margin does for trucks before a pack's first cost, marked as approved later (review 5a, finding 2) */
+
+/* ---------- Price history (push 5a, R28, R30; D-157): 2 tabs ----------
+   Client prices: every approved white label price, from when to when, with the GP it gave at the cost in force on its first day.
+   VAN lists: every approved list price on the 5 lists, from the first data load (GET /api/c2m/reports/prices). */
+let phTab = 'wl', phCl = '', phShow = 'all', phList = 'all';
+const PHLIST = { dist: 'Distributor', dealer: 'Dealer, Sindh', farmer_pb: 'Farmer, Punjab', farmer_sn: 'Farmer, Sindh cash', farmer_snc: 'Farmer, Sindh credit' };
+function vPriceHist() {
+  const C = repData('costs'), L = repData('prices'); const crumb = repCrumb('Price history');
+  const tabs = nTabs('phtab', [['wl', 'Client prices'], ['van', 'VAN lists']], phTab);
+  if (C.busy || L.busy) return `${crumb}${head('Price history', 'Loading…', '')}${tabs}`;
+  if (C.err || L.err) return `${crumb}${head('Price history', 'The price history could not be read: ' + esc(C.err || L.err), '')}${tabs}<p><button class="btn ghost" data-rep-retry="prices">Try again</button></p>`;
+  return phTab === 'van' ? vPhVan(L.data || { rows: [] }, crumb, tabs) : vPhWl((C.data && C.data.rows) || [], crumb, tabs);
+}
+function vPhWl(costs, crumb, tabs) {
+  const P = packIdx(); const now = ST.today; const inForce = p => p.from <= now && (!p.to || p.to >= now);
+  const base = (ST.priceHistory || []).map(p => { const k = P.get(p.packId); if (k && k.product.grp !== 'White label') return null; const c = costOnDay(costs, p.packId, p.from); const gp = c && p.price > 0 ? (p.price - c.total) / p.price * 100 : null; const later = !!(c && c.later);
+    return { ...p, k, cust: k ? k.product.customer : 'Pack no longer active', name: k ? `${k.product.customer} · ${k.product.brand} · ${szTxt(k)}` : 'A pack no longer active', size: k ? Number(k.size) : null, u: k && k.product.soldPer === 'L' ? 'L' : 'kg', gp, later, tgt: k ? tgtOf(k.product.target) : null, chg: p.prev ? chg(p.price, p.prev) : null }; }).filter(Boolean);
+  const custs = [...new Set(base.map(r => r.cust))].sort((a, b) => a.localeCompare(b));
+  const rows = rtIds(base.filter(r => (!phCl || r.cust === phCl) && (phShow === 'now' ? inForce(r) : rtIn('prices', r.from))).sort((a, b) => b.from.localeCompare(a.from) || b.id - a.id), r => 'p' + r.id);
+  const low = r => r.gp != null && r.tgt != null && r.gp < r.tgt - 0.05; const nLow = rows.filter(low).length; const per = phShow === 'now' ? 'In force today' : rtPer('prices');
+  const ans = !rows.length ? (phShow === 'now' ? 'No client price is in force today.' : `${per}: no client price changed.`) : phShow === 'now' ? `In force today: ${pl(rows.length, 'client price', 'client prices')}; ${nLow ? `${nLow} went in below target GP, each with its reason.` : 'none went in below target GP.'}` : `${per}: ${pl(rows.length, 'client price', 'client prices')} changed. ${nLow ? `${nLow} went in below target GP, each with its reason.` : 'None went in below target GP.'}`;
+  const tillTxt = r => r.to ? fmtD(r.to) : r.from > now ? 'not yet in force' : 'in force';
+  const cols = [{ k: 'pack', l: 'Client · brand · pack', x: r => r.name }, { k: 'from', l: 'From', x: r => r.from, f: r => fmtD(r.from) }, { k: 'till', l: 'Till', x: r => r.to || tillTxt(r), f: tillTxt },
+    { k: 'kg', l: 'Rs per kg or L', r: 1, dp: 2, x: r => r.price }, { k: 'pk', l: 'Rs per pack', r: 1, x: r => r.size != null ? Math.round(r.price * r.size * 100) / 100 : '', f: r => r.size != null ? n0(r.price * r.size) : '' },
+    { k: 'was', l: 'Was', r: 1, dp: 2, x: r => r.prev, f: r => r.prev != null ? n2(r.prev) : 'first' }, { k: 'chg', l: 'Change', r: 1, x: r => r.chg != null ? +r.chg.toFixed(2) : 'first', f: r => chgTxt(r.chg) },
+    { k: 'gp', l: 'GP at its start', r: 1, x: r => r.gp != null ? +r.gp.toFixed(2) : 'no cost then', f: r => r.gp != null ? pc(r.gp) + (r.later ? ' (on its first cost, approved later)' : '') : 'no cost then', h: r => `<span class="${low(r) ? 'late' : ''}">${r.gp != null ? pc(r.gp) : 'no cost then'}</span>${r.later && r.gp != null ? '<small>on its first cost, approved later</small>' : ''}` },
+    { k: 'tgt', l: 'Target', r: 1, off: 1, x: r => r.tgt, f: r => r.tgt != null ? pc(r.tgt) : '' },
+    { k: 'why', l: 'Reason · approved by', x: r => [r.reason || '', r.decidedBy ? `${personName(r.decidedBy)}${r.decidedAt ? ', ' + fmtShort(r.decidedAt) : ''}` : ''].filter(Boolean).join(' · ') }];
+  const extra = `<label class="rtsel">Client <select data-phcl aria-label="Client"><option value="">All clients</option>${custs.map(c => `<option${c === phCl ? ' selected' : ''}>${esc(c)}</option>`).join('')}</select></label><div class="chips" aria-label="Show">${[['all', 'Every price'], ['now', 'In force today']].map(([k, l]) => `<button data-phshow="${k}" aria-pressed="${phShow === k}">${l}</button>`).join('')}</div>`;
+  return `${crumb}${meta([per, 'Client prices'])}${head('Price history', ans, 'Every approved white label price, from when to when. Rs per pack = Rs per kg or L × the pack size. GP at its start = (price − the pack\'s approved cost in force on the price\'s first day) ÷ price; a cost applies from the day after its approval, and before a pack\'s first approved cost its first cost is used, as in Margin. Below target: more than 0.05 points under the product\'s target. "In force today" ignores the dates. Prices are without FED.')}${tabs}
+  ${rtView({ k: 'prices', name: 'Price history, client prices', sheet: 'Client prices', dated: phShow !== 'now', asOf: 'In force today, ' + fmtD(now), cols, rows, extra, filt: [phCl ? 'Client: ' + phCl : '', phShow === 'now' ? 'In force today' : 'Every price'].filter(Boolean).join(' · '), empty: 'No client price in this view.' })}`;
+}
+function vPhVan(D, crumb, tabs) {
+  const P = packIdx(); const nameOf = r => { const k = r.packId != null ? P.get(r.packId) : null; return k ? packLabel(k) : `${r.product}${r.pack ? ' ' + r.pack : ''}`; };
+  const rows = rtIds((D.rows || []).filter(r => (phList === 'all' || r.list === phList) && rtIn('vanp', r.from)).map(r => ({ ...r, name: nameOf(r), chg: r.was ? chg(r.price, r.was) : null })).sort((a, b) => b.from.localeCompare(a.from) || (PHLIST[a.list] || '').localeCompare(PHLIST[b.list] || '') || a.name.localeCompare(b.name)), r => `${r.list}|${r.product}|${r.pack}|${r.from}`);
+  const per = rtPer('vanp'); const nRev = rows.filter(r => !r.first).length;
+  const ans = !rows.length ? `${per}: no VAN list price took effect${phList !== 'all' ? ' on the ' + PHLIST[phList] + ' list' : ''}.` : `${per}: ${pl(rows.length, 'VAN list price', 'VAN list prices')} took effect${phList !== 'all' ? ' on the ' + PHLIST[phList] + ' list' : ' on the 5 lists'}; ${nRev ? `${nRev} by an approved revision` : 'none by a revision'}${rows.length - nRev ? `, ${rows.length - nRev} from the first data load` : ''}.`;
+  const tillTxt = r => r.till ? fmtD(r.till) : r.from > ST.today ? 'not yet in force' : r.off ? 'taken off the list' : 'in force';
+  const cols = [{ k: 'list', l: 'List', x: r => PHLIST[r.list] || r.list }, { k: 'pack', l: 'Product · pack', x: r => r.name }, { k: 'from', l: 'From', x: r => r.from, f: r => fmtD(r.from) }, { k: 'till', l: 'Till', x: r => r.till || tillTxt(r), f: tillTxt },
+    { k: 'price', l: 'Price per pack', r: 1, x: r => r.price, f: r => n0(r.price) }, { k: 'was', l: 'Was', r: 1, x: r => r.was != null ? r.was : '', f: r => r.was != null ? n0(r.was) : '—' },
+    { k: 'chg', l: 'Change', r: 1, x: r => r.chg != null ? +r.chg.toFixed(2) : 'first', f: r => chgTxt(r.chg) },
+    { k: 'why', l: 'Reason · approved by', x: r => r.first ? 'From the first data load' : [r.reason || '', r.by ? `${personName(r.by)}${r.at ? ', ' + fmtShort(r.at) : ''}` : ''].filter(Boolean).join(' · ') }];
+  const extra = `<div class="chips" aria-label="List">${[['all', 'All 5']].concat(Object.entries(PHLIST)).map(([k, l]) => `<button data-phlist="${k}" aria-pressed="${phList === k}">${l}</button>`).join('')}</div>`;
+  return `${crumb}${meta([per, 'VAN lists'])}${head('Price history', ans, 'Every approved price on the 5 VAN brand lists, from when to when: the distributor price ex FED, the dealer price before discount (NSV) ex FED, and the farmer prices with FED, as printed on each list. Was and Change compare with the same row\'s price before.')}${tabs}
+  <p class="ans" style="font-size:12.5px" data-phfirst>VAN list history starts at the first data load (${esc(fmtD(D.first))}); every approved revision since then is shown.</p>
+  ${rtView({ k: 'vanp', name: 'Price history, VAN lists', sheet: 'VAN lists', cols, rows, extra, filt: phList === 'all' ? 'All 5 lists' : PHLIST[phList], empty: 'No list price took effect in these dates.' })}`;
+}
+
+/* ---------- Margin by client and brand (push 5a, R30; D-157) ----------
+   The same sales rows and cost rules as Margin (nmRows, nmCost, nmSum, each truck at the cost approved before its gate pass, VAN brand
+   sales by buyer line after each sale's list freight), for any dates. So the totals agree with Margin for the same dates. Target: each
+   product's target GP for white label; for VAN brands the target of the list each sale was on (R55, 6 Nov; was the company ambition GP). Labour and FOH under
+   or over charged stays a company line (Month end, Margin); it is not spread to clients. */
+let mbKind = 'all', mbRows = 'cl'; const mbOpen = new Set();
+/** Sums of 1 group of trucks: kg, L, sales, cost, GP and GP % exactly as nmSum; the report's target and against target on top. */
+function mbSum(rows) { const o = nmSum(rows); return { kg: o.kg, L: o.L, sales: o.sales, cost: o.cost, gp: o.gp, pct: o.pct, tgt: o.tgt, ag: o.ag, nj: o.nj, jPct: o.jPct, mixed: o.mixed, n: rows.length }; } /* the same target as Margin (R55) */
+function mbData() {
+  const keep = nm.hist; nm.hist = 'approved'; // the approved view, as Margin opens; the sums are worked out here, inside this view
+  try {
+    const kind = r => mbKind === 'all' || (mbKind === 'wl' ? r.grp === 'White label' : r.grp === 'VAN brand');
+    const inD = (ST.sales || []).filter(r => rtIn('margin', r.date) && kind(r)); const costed = inD.filter(r => nmCost(r) != null), unc = inD.filter(r => nmCost(r) == null);
+    const tot = mbSum(costed); const by = new Map(); costed.forEach(r => { const g = by.get(r.cust) || []; g.push(r); by.set(r.cust, g); });
+    const cl = [...by].map(([c, rs]) => { const kids = new Map(); rs.forEach(r => { const g = kids.get(r.packId) || []; g.push(r); kids.set(r.packId, g); });
+      return { cust: c, s: mbSum(rs), kids: [...kids].map(([pid, g]) => ({ pid, s: mbSum(g) })).sort((a, b) => b.s.sales - a.s.sales) }; }).sort((a, b) => b.s.sales - a.s.sales || a.cust.localeCompare(b.cust));
+    return { tot, cl, unc, costed };
+  } finally { nm.hist = keep; }
+}
+const rsM1 = v => Math.abs(v) >= 1e6 ? 'Rs ' + (v / 1e6).toFixed(1) + 'M' : 'Rs ' + n0(v);
+function vMarginRep() {
+  const M = mbData(); const per = rtPer('margin'); const T = M.tot;
+  const best = M.cl.slice().sort((a, b) => b.s.gp - a.s.gp)[0], short = M.cl.filter(x => x.s.ag < -0.5).sort((a, b) => a.s.ag - b.s.ag)[0];
+  const ans = !M.costed.length ? `${per}: no costed trucks.` : `${per}: GP ${rsM1(T.gp)}, ${p1(T.pct)}% on ${rsM1(T.sales)} sales${T.mixed ? `; on the sales judged ${p1(T.jPct)}% against a ${p1(T.tgt)}% target` : ''}.${best ? ` ${esc(best.cust)} earned the most (${rsM1(best.s.gp)})` : ''}${short ? `; ${esc(short.cust)} was furthest below target (${rsM1(-short.s.ag)} short).` : best ? (T.tgt == null ? '; nothing judged: no target set.' : '; no client below target.') : ''}`;
+  const qty = s => [s.kg ? n0(s.kg) + ' kg' : '', s.L ? n0(s.L) + ' L' : ''].filter(Boolean).join(' + ') || '0';
+  const row = (lbl, s, x) => ({ lbl, ...s, ...x });
+  let rows;
+  if (mbRows === 'br') rows = M.cl.flatMap(c => c.kids.map(y => row(`${c.cust} · ${nmPack(y.pid)}`, y.s, { _id0: 'b:' + c.cust + '|' + y.pid })));
+  else rows = M.cl.flatMap(c => { const open = mbOpen.has(c.cust); return [row(c.cust, c.s, { _id0: 'c:' + c.cust, cust: c.cust, open, _cls: 'mbcl' })].concat(open ? c.kids.map(y => row(nmPack(y.pid), y.s, { _id0: 'b:' + c.cust + '|' + y.pid, kid: 1, full: `${c.cust} · ${nmPack(y.pid)}`, _cls: 'child' })) : []); });
+  rtIds(rows, r => r._id0);
+  const cols = [{ k: 'name', l: mbRows === 'br' ? 'Client · brand' : 'Client · brand', x: r => r.full || r.lbl, h: r => r.cust != null ? `<button class="lnk" data-mbtog="${esc(r.cust)}" aria-expanded="${r.open}">${r.open ? '▾' : '▸'} <b>${esc(r.lbl)}</b></button>` : r.kid ? `<span style="padding-left:18px">${esc(r.lbl)}</span>` : esc(r.lbl) },
+    { k: 'qty', l: 'Kg or L', r: 1, tot: 1, x: r => r.L && !r.kg ? Math.round(r.L) : r.kg && !r.L ? Math.round(r.kg) : qty(r), f: qty },
+    { k: 'sales', l: 'Sales Rs', r: 1, tot: 1, x: r => Math.round(r.sales) }, { k: 'cost', l: 'Cost Rs', r: 1, tot: 1, x: r => Math.round(r.cost) }, { k: 'gp', l: 'GP Rs', r: 1, tot: 1, x: r => Math.round(r.gp) },
+    { k: 'pct', l: 'GP %', r: 1, tot: 1, dp: 1, x: r => r.pct, f: r => r.pct != null ? p1(r.pct) + '%' : '' }, { k: 'tgt', l: 'Target', r: 1, tot: 1, dp: 1, x: r => r.tgt != null ? r.tgt : 'not judged', f: r => r.tgt != null ? p1(r.tgt) + '%' : 'not judged' },
+    { k: 'ag', l: 'Against target Rs', r: 1, tot: 1, x: r => r.tgt != null ? Math.round(r.ag) : '', f: r => r.tgt == null ? '' : (r.ag > 0.5 ? '+' : r.ag < -0.5 ? '−' : '') + n0(Math.abs(r.ag)), h: r => r.tgt == null ? '' : `<span class="${r.ag < -0.5 ? 'over' : r.ag > 0.5 ? 'ok' : ''}">${(r.ag > 0.5 ? '+' : r.ag < -0.5 ? '−' : '') + n0(Math.abs(r.ag))}</span>` }];
+  const KN = { all: 'All', wl: 'White label', van: 'VAN brands' };
+  const extra = `<div class="grpc"><span>Kind</span>${nChips('mbkind', Object.entries(KN), mbKind)}</div><div class="grpc"><span>Rows</span>${nChips('mbrows', [['cl', 'Clients, open to brands'], ['br', 'Every brand']], mbRows)}</div>${mbRows === 'cl' && M.cl.length ? `<button class="lnk" data-mball>${mbOpen.size ? 'Close every client' : 'Open every client'}</button>` : ''}`;
+  const uc = new Map(); M.unc.forEach(r => uc.set(r.cust, (uc.get(r.cust) || 0) + 1));
+  const outTxt = uc.size ? `<p class="ans" data-mbout>Trucks with no approved cost on their date are left out: ${[...uc].sort((a, b) => a[0].localeCompare(b[0])).map(([c, n]) => `${esc(c)} (${pl(n, 'truck', 'trucks')})`).join(', ')}.</p>` : '';
+  const LN = { dist: 'Distributor', dealer: 'Dealer, Sindh', farmer_pb: 'Farmer, Punjab', farmer_sn: 'Farmer, Sindh cash', farmer_snc: 'Farmer, Sindh credit' };
+  const nj = M.costed.filter(r => saleTgt(r) == null); const njL = [...new Set(nj.filter(r => r.lkey).map(r => LN[r.lkey] || r.lkey))]; const njN = nj.filter(r => !r.lkey).length;
+  const njTxt = nj.length ? `<p class="ans" data-mbnj>${pl(nj.length, 'VAN brand sale is', 'VAN brand sales are')} not judged against a target (${rsM1(nj.reduce((a, r) => a + r.kg * r.price, 0))} of sales): ${[njL.length ? 'no target set yet on ' + esc(njL.join(', ')) : '', njN ? pl(njN, 'sale has', 'sales have') + ' no list' : ''].filter(Boolean).join('; ')}.</p>` : '';
+  return `${repCrumb('Margin by client and brand')}${meta([per, KN[mbKind], o2sAsOf()])}${head('Margin by client and brand', ans, `Cost: each truck at the cost approved before its gate pass date, as in Margin; VAN brand sales show by buyer line, after each sale's list freight. Target: each product's target GP for white label; for VAN brands the target of the price list each sale was sold on, as each channel has its own (a sale with no list, or on a list with no target set, is not judged). Target and against target count judged sales only. Against target Rs = GP Rs − target % × sales Rs. GP % on a total is total GP ÷ total sales, never an average of the rows. Labour and FOH (factory overhead) under or over charged is a company line on Month end and Margin; it is not spread to clients. Prices without FED; free (FOC) trucks are not sales.`)}
+  ${rtView({ k: 'margin', name: 'Margin by client and brand', sheet: 'Margin', cols, rows, extra, filt: [KN[mbKind], mbRows === 'br' ? 'Every brand' : 'Clients, open to brands'].join(' · '), foot: { _lbl: 'All clients', ...T }, empty: 'No costed truck in these dates.' })}
+  ${njTxt}${outTxt}`;
 }
 /* ---------- Price lists ---------- */
 const AUD = { wl: 'White label client (monthly)', dist: 'Distributor and channel partner', dealer: 'Dealer, Sindh', farmer_pb: 'Farmer, Punjab', farmer_sn: 'Farmer, Sindh', farmer_snc: 'Farmer, Sindh credit', web: 'Website', mrp: 'MRP printing list (packing and printer)' };
@@ -3448,7 +3743,11 @@ const GUIDE_JOBS = () => [
   ['Change a setting', 'Both', 'Setup, Settings', 'A threshold or the company GP target from the CFO waits for the COO on Approvals.'],
   ['Close the month', 'Both', 'Costs, Month end: pick the month; the 5 steps are in order', '1 the CFO enters actual labour and FOH; 2 C2M shows labour and FOH charged on kg made in O2S, and the under or over; 3 the CFO types ERP sales and COGS to tie the month to the books; 4 the COO types the register rate of the top materials, ticks every labour, FOH, packing and freight change as seen, and presses COO check done; 5 the COO locks the month. A locked month cannot change; only the COO reopens it, with a reason.'],
   ['Find who changed something', 'Both', 'Setup, Record and checks, Change record', 'Filter by person, kind, dates, or search a product, client or reason. It searches the newest 5,000 changes for the person, kind and dates picked; pick dates for older ones.'],
-  ['Read a report', 'Both', 'More, Reports', 'GP bridge, PO price against approved, VAN brand PO against its price list, VAN brand list margin.'],
+  ['Read a report', 'Both', 'More, Reports', '7 reports: Cost history; Price history, PO price against approved, VAN brand PO against its price list, VAN brand list margin; Margin by client and brand, GP bridge. Each opens on the current month with its answer line.'],
+  ['See cost history', 'Both', 'More, Reports, Cost history', 'Every approved cost of every pack: from, materials, packing, labour and FOH, freight, total per kg or L, the change against the pack\'s cost before, why and who approved it. Pick Client or type a brand; "Last per pack" shows each pack\'s newest cost in the dates with its change from before them. A rate\'s own history stays on its History in Costs.'],
+  ['See price history', 'Both', 'More, Reports, Price history', 'Client prices: every approved white label price, from and till, Rs per kg and per pack, the change, and the GP it gave at the cost in force on its first day. "In force today" ignores the dates. VAN lists: every approved price on the 5 lists from the first data load; pick a list.'],
+  ['Margin by client and brand', 'Both', 'More, Reports, Margin by client and brand', 'Any From and Till. Kind: All, White label or VAN brands. Rows: each client, opened to its brands, or every brand. The totals agree with Margin for the same dates; VAN brands by buyer line, after list freight, each sale against its own price list\'s target (not judged where the list has no target). Against target Rs = GP Rs − target % × sales. Trucks with no approved cost are named under the table.'],
+  ['Download a report', 'Both', 'Any report, the bar above its table', 'Pick From and Till or a quick choice (This month, Last month, Last 3 months, This year from 1 July, All), the columns (kept in this browser) and tick rows (the box in the header ticks every row shown). Excel and CSV hold the ticked rows, or every row shown when none is ticked, and only the columns shown, with the report name, dates and who downloaded it on top. PDF opens the print box: pick "Save as PDF".'],
   ['Check VAN brand POs against their price list', 'Both', 'More, Reports, VAN brand PO against its price list', 'Each VAN brand PO since 11 Oct against the list in force on its date: distributors and Punjab dealers the distributor list; Sindh dealers the dealer list; COBO farmer Sindh cash; VGreen farmer Punjab; farmer POs the farmer list of their region (Sindh cash or credit by payment terms). Within 1% is at list price. Off their list opens first; Approvals shows a line when any are. It only marks: no PO is blocked and Margin keeps the O2S price.'],
   ['Find a row in a list', 'Both', 'The Find box above the list', 'Type any part of a name, client, kind or date: the list shows only the rows that match and says how many ("2 of 59"). What you typed stays while you move around C2M.'],
   ['Edit a row', 'Both', 'Edit, in its row (Setup lists; a client product: its page, Edit this product)', 'Edit opens the same form as Add, filled in. Names and words save at once and are logged. A new rate, packing price, labour or FOH Rs or freight Rs is saved as a new dated entry: past trucks keep their cost, and a cost that moves more than the re-approval % waits on Approvals. A size, kg or L, and where a product\'s recipe comes from cannot change.'],
@@ -3499,13 +3798,18 @@ document.addEventListener('click', async e => {
   else if ('more' in d) moreOpen = !moreOpen;
   else if ('moreclose' in d) { moreOpen = false; render(); refocus('[data-more]'); return; }
   else if (d.xls) { exportXls(d.xls); return; }
+  else if (d.rtk) { if (rtClick(t, d)) return; } // the report tools (push 5a, D-157)
+  else if (d.repRetry) { delete REPD[d.repRetry]; if (d.repRetry === 'prices') delete REPD.costs; }
+  else if (d.chm) chM = d.chm; else if (d.phtab) phTab = d.phtab; else if (d.phshow) phShow = d.phshow; else if (d.phlist) phList = d.phlist;
+  else if (d.mbkind) mbKind = d.mbkind; else if (d.mbrows) mbRows = d.mbrows; else if (d.mbtog != null) { if (mbOpen.has(d.mbtog)) mbOpen.delete(d.mbtog); else mbOpen.add(d.mbtog); }
+  else if ('mball' in d) { if (mbOpen.size) mbOpen.clear(); else mbData().cl.forEach(c => mbOpen.add(c.cust)); }
   else if (d.wfpack) wfPack = +d.wfpack;
   else if (d.pkopen) pkOpen[d.pkopen] = !pkOpen[d.pkopen];
   else if ('ptypeedit' in d) ptypeEdit = true;
   else if (d.rep) { rep = d.rep; window.scrollTo(0, 0); }
   else if ('repback' in d) rep = null;
   else if (d.brgrp) brGrp = d.brgrp; else if (d.brmon) brMonth = d.brmon;
-  else if (d.poper) poPer = d.poper; else if (d.pof) poF = d.pof; else if (d.lcf) lcF = d.lcf;
+  else if (d.pof) poF = d.pof; else if (d.lcf) lcF = d.lcf;
   else if (d.vmfarm) vmFarm = d.vmfarm; else if ('vmopen' in d) vmOpen = !vmOpen;
   else if ('vmsave' in d) { const L = vmChanges().map(c => ({ id: c.id, packId: c.packId, wasPack: c.was })); if (!L.length) return toast('No link changed.'); const j = await act('/api/c2m/lists/links', { links: L }, j => `${pl(j.changed, 'link', 'links')} saved; a linked row takes the product name on the next list, an unlinked row its own name back.`); if (j === false) return; Object.keys(vmPick).forEach(k => delete vmPick[k]); Object.keys(vmWas).forEach(k => delete vmWas[k]); render(); return; } // saved or refused (not sent while another save runs), the picks go: a refused save shows the links as they are now
   else if (d.scr) { closePanel(); panReturn = null; moreOpen = false; finder = null; rep = null; if (d.scr !== scr && typeof p3 === 'object' && p3) p3 = { client: null, prod: null, vform: null, tag: null }; /* a form belongs to its place (review F10) */ scr = d.scr; if (d.scr === 'costs') cpart = null; if (d.scr === 'clients') cl = { kind: null, brand: null, last: cl.last }; lst.open = null; saved = null; dryKey = null; drill = { cust: null, prod: null }; openRec = null; openProd = null; sub = null; trial = null; ptrial = null; boDoc = null; newRec = null; billEdit = null; costPend = null; window.scrollTo(0, 0); }
@@ -3686,6 +3990,11 @@ document.addEventListener('input', e => {
   if (t.dataset && t.dataset.lf != null) { LFQ[t.dataset.lf] = t.value; lfApply(t.dataset.lf); } // list search: no redraw, the cursor stays (D-138)
 });
 document.addEventListener('change', e => { const t = e.target; if (t && t.dataset && 'nmPersel' in t.dataset) { nm.per = t.value; render(); } });
+/* Report tools (push 5a): From and Till; a date typed that matches a quick choice lights it. The client pickers of the history reports. */
+document.addEventListener('change', e => { const t = e.target, d = t && t.dataset; if (!d) return;
+  if (d.rtfrom != null || d.rtto != null) { const k = d.rtfrom != null ? d.rtfrom : d.rtto; const s = rtS(k); if (d.rtfrom != null) s.from = t.value || ''; else s.till = t.value || ''; const q = RTQ.find(([x]) => { const r = rtRange(x); return r[0] === s.from && r[1] === s.till; }); s.q = q ? q[0] : ''; render(); return; }
+  if ('chcl' in d) { chCl = t.value; render(); } else if ('phcl' in d) { phCl = t.value; render(); } });
+document.addEventListener('input', e => { const t = e.target; if (t && t.id === 'chq') { chQ = t.value; render(); } });
 document.addEventListener('change', e => { const t = e.target; if (!t || !t.dataset || !newRec) return; if (t.dataset.nrk != null || 'nrp' in t.dataset) { newRec.cp = +val('nrp') || null; newRec.note = val('nrn') || ''; newRec.name = val('nrnm') || newRec.name || ''; if (t.dataset.nrk) newRec.kind = t.dataset.nrk; render(); } }); // D-140: which recipe
 document.addEventListener('change', e => { const t = e.target; if (t && t.dataset && 'pcsel' in t.dataset) { prodC = t.value; render(); } });
 document.addEventListener('change', e => { const t = e.target; if (!t || !t.dataset) return; if ('mem' in t.dataset) { meM = t.value; render(); } else if (t.dataset.mesn) { const m = meM; meSeen[m] = meSeen[m] || {}; meSeen[m][t.dataset.mesn] = t.checked; } });

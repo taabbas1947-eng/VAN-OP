@@ -363,3 +363,8 @@ GET /api/c2m/state adds: m007, outOfUseKeys; on each product defaultName and oth
 - POST /api/c2m/monthend/reopen {month, why}: COO only; why required.
 - POST /api/c2m/actuals and /checks: 400 for a locked month.
 - GET /api/c2m/state: monthEnd; VAN brand sales rows lkey, lfr or noList.
+
+### 6 Nov 2026 (D-157)
+- GET /api/c2m/reports/costs (right see.margin; 403 otherwise): `{ rows: [{ id, packId, productId, cust ("VAN brand" for a VAN brand pack), brand, ch, size, soldPer, from (valid_from, YYYY-MM-DD HH:MM:SS), materials, packing, conversion (labour and FOH), freight, total, cause, by (approved_by), prev (the same pack's previous total, or null), prevFrom }] }`, ordered by pack then date.
+- GET /api/c2m/reports/prices (right see.margin; 403 otherwise): `{ first (the first data load date), rows: [{ list (dist, dealer, farmer_pb, farmer_sn, farmer_snc), product, pack, packId, from, till (null: in force or waiting), price (per pack: distributor ex FED, dealer NSV ex FED, farmer with FED), was, reason, by, at, first (true: from the first data load), off (true: the row was taken off the list) }] }`. If c2m_list_revision cannot be read, only the first-load rows are returned and the fault is logged.
+- GET /api/c2m/state: open PO rows of VAN brands carry lkey and lfr, or noList (as sales rows).

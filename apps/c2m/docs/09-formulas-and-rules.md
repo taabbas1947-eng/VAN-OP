@@ -189,3 +189,12 @@ A pack takes 1 labour rate and 1 FOH rate, each the first match of these levels:
 | F-39 | Under or over charged | Actual less charged: more than 0 is under charged (−), less than 0 over charged (+). Margin: company GP after it = (GP − (actual less charged)) ÷ sales, for the month; pack GP unchanged (R44). |
 | F-40 | VAN brand list freight in Margin | Cost per kg of a VAN brand sale + its list's freight Rs per kg (lf_ setting as set today); the list picked by the price check's rule (R46); no list: none, named. |
 | B-49 | Month lock | After actuals, tie to the books and the COO check; COO only; reopen with a reason; a locked month's actuals and checks cannot change; Margin compares today's sales and cost (without list freight) with the lock (R45). |
+
+## 6 Nov 2026 (D-157)
+| ID | Rule | Detail |
+|---|---|---|
+| F-41 | Against target Rs (Margin by client and brand) | GP Rs − target % × sales Rs, summed over the trucks that are judged; target per truck (R55, also on the Margin page): white label, its product's target GP (else the company target); VAN brand, the target of the price list the sale was on (lt_ setting of its list); a VAN brand sale with no list, or on a list with no target set, is not judged and is left out of target and against target. Target % of a group = target Rs ÷ judged sales. GP % on a total = total GP ÷ total sales. |
+| F-42 | GP at its start (Price history) | (price − the pack's approved cost in force on the price's first day) ÷ price × 100; the cost in force is the newest approved before that day, else the pack's first approved cost (as Margin), marked "on its first cost, approved later". Below target: more than 0.05 points under the product's target. |
+| F-43 | Last per pack (Cost history) | Each pack's newest approved cost in the dates; change = (that total − the cost before the dates) ÷ the cost before the dates, where the cost before the dates is the previous cost of the pack's earliest approval in the dates. |
+| F-44 | VAN brand list margin after freight | GP = (list price per pack without FED − cost per pack before freight − the list's freight Rs per kg or L × pack size) ÷ list price per pack without FED; judged on the list's own target (lt_ setting); freight not set: not judged; the same function as the price lists (lcJudge). Replaces F-22's "before freight". |
+| B-50 | Report downloads | The ticked rows shown, else every row shown; only the columns shown; the total row only when nothing is ticked. Every report opens on the current month (R49); "This year" is the financial year from 1 July. |

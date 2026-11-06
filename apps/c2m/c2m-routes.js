@@ -465,6 +465,9 @@ module.exports = function mountC2mRoutes(app, deps) {
       const [sales] = await q(`SELECT t.id, t.truck_date, t.kg, t.po, t.dc, p.line_id, p.received, p.customer_name, p.channel, p.brand, p.pack, p.net_price FROM c2m_o2s_truck t JOIN c2m_o2s_po_line p ON p.line_id=t.line_id ORDER BY t.truck_date`);
       /* R46 (push 4, D-154): each VAN brand sale takes its list's freight, the list picked as the price check picks it; no list: no freight, named. */
       const lineInfo = new Map(poLines.map(l => [l.line_id, l])); const lfOf = k => { const r = D.settings.rows.find(x => x.k === 'lf_' + k); return r && String(r.v).trim() !== '' && isFinite(Number(r.v)) ? Number(r.v) : null; };
+      /** The list a VAN brand line is priced on, and that list's freight Rs per kg or L: the price check's own region rule (review 4, finding 4); no list: named, no freight. Trucks and open POs alike (R46; push 5a, D-157). */
+      const listFr = (channel, region, cust, terms) => { const pick = PC.listFor(channel, PC.regionOf(region) || PC.regionOf(cust && cust.region), terms); if (!pick || !pick.list) return { noList: pick && pick.none ? pick.none : 'No list' };
+        const key = pick.list === 'farmer' ? 'farmer_' + pick.col : pick.list; return { lkey: key, lfr: lfOf(key) }; };
       const custOf = name => { const k = String(name == null ? '' : name).trim().toLowerCase(); return k ? D.customers.find(c => String(c.o2s_names).split('|').some(n => n.trim() && n.trim().toLowerCase() === k)) : null; }; // an empty name never matches (the VAN brand owner row has none)
       /* FOC (free) lines are not sales: they carry cost against Rs 0 and would pull GP down. They are kept out of sales,
          GP and exposure and shown on their own (ruling 14b; cost review 18 Oct 2026, D-62). */
@@ -485,8 +488,7 @@ module.exports = function mountC2mRoutes(app, deps) {
         return { date: s.truck_date, cust: bl.line, cat: bl.cat, grp, ch, region: cust && bl.cat !== 'farm' ? cust.region || null : null, brand: s.brand, pack: Number(s.pack),
           packId: p ? p.id : null, po: s.po, dc: s.dc, kg: Number(s.kg), price: Number(s.net_price), cost, costBands, parts: v ? [v.materials, v.packing, v.conversion, v.freight].map(Number) : null, rcv: s.received ? String(s.received).slice(0, 10) : null, rcvAt: enteredAt.get(s.line_id) || null, // parts: the approved cost on the truck date, for the Margin drill-down (D-124)
            target: cp && cp.target_gp != null ? Number(cp.target_gp) : null, budget: cp && cp.budget_gp != null ? Number(cp.budget_gp) : null,
-           ...(() => { if (grp !== 'VAN brand') return {}; const li = lineInfo.get(s.line_id) || {}; const pick = PC.listFor(s.channel, PC.regionOf(li.region) || PC.regionOf(cust && cust.region), li.payment_terms); /* the price check's own region rule (review 4, finding 4) */ if (!pick || !pick.list) return { noList: pick && pick.none ? pick.none : 'No list' };
-             const key = pick.list === 'farmer' ? 'farmer_' + pick.col : pick.list; const f = lfOf(key); return { lkey: key, lfr: f }; })() };
+           ...(() => { if (grp !== 'VAN brand') return {}; const li = lineInfo.get(s.line_id) || {}; return listFr(s.channel, li.region, cust, li.payment_terms); })() };
       });
       const um = new Map();
       for (const x of out.sales) if (!x.packId) { const k = `${x.cust}|${x.brand}|${x.pack}`; const u = um.get(k) || { cust: x.cust, brand: x.brand, pack: x.pack, grp: x.grp, kg: 0, rs: 0 }; u.kg += x.kg; u.rs += x.kg * x.price; um.set(k, u); }
@@ -496,7 +498,8 @@ module.exports = function mountC2mRoutes(app, deps) {
         const c = p ? engine.packCost(D, p) : null;
         const ogrp = l.channel === 'White Label' ? 'White label' : 'VAN brand', obl = lib.buyerLine(ogrp, cp && !engine.isVanBrand(cp) ? cp.channel : (engine.CHANNEL_NAME[l.channel] || l.channel), cust ? cust.name : l.customer_name);
         return { cust: obl.line, cat: obl.cat, grp: ogrp, brand: l.brand, pack: Number(l.pack), packId: p ? p.id : null, po: l.po, received: l.received,
-          kg: Number(l.open_kg), price: Number(l.net_price), cost: c && c.costed ? c.total : null, target: cp && cp.target_gp != null ? Number(cp.target_gp) : null };
+          kg: Number(l.open_kg), price: Number(l.net_price), cost: c && c.costed ? c.total : null, target: cp && cp.target_gp != null ? Number(cp.target_gp) : null,
+          ...(ogrp === 'VAN brand' ? listFr(l.channel, l.region, cust, l.payment_terms) : {}) }; // push 5a (D-157): an open VAN brand PO line carries its list's freight, picked as for trucks
       });
       let urgRows = []; try { [urgRows] = await pq("SELECT entity, entity_id, why FROM c2m_audit WHERE action='urgent' AND entity IN ('price','list_revision')"); } catch (_) {} // R33
       const urgOf = (e, id) => { const u = urgRows.filter(x => x.entity === e && String(x.entity_id) === String(id)).pop(); return u ? u.why : null; };
@@ -2843,6 +2846,52 @@ module.exports = function mountC2mRoutes(app, deps) {
   const isoWords = t => String(t == null ? '' : t).replace(/\b(20\d\d)-(\d\d)-(\d\d)\b/g, (m, y, mo, d) => `${+d} ${MON3[+mo - 1]} ${y}`);
   const audWhy = t => isoWords(String(t || '').replace(/\s*\((?:D-\d+[^)]*|ruling[^)]*|review[^)]*|R\d+[^)]*)\)/gi, '').replace(/\s*\bD-\d+\b,?/g, '').replace(/\s{2,}/g, ' ').trim());
   const AUDIT_CAP = 5000;
+  /* ---------- Reports (push 5a, R28, R30, R51, D-157): read only, for the roles that see margin (Reports is theirs) ---------- */
+  /** Cost history (R51, pack cost only): every approved cost of every pack, with its parts and the same pack's cost before it. */
+  app.get('/api/c2m/reports/costs', can('see.margin'), wrap(async (req, res) => {
+    const [rows] = await q(`SELECT v.id, v.client_pack_id, v.valid_from, v.materials, v.packing, v.conversion, v.freight, v.total, v.cause, v.approved_by, k.pack_size, k.client_product_id, c.brand, c.channel, c.sold_per, u.name AS customer
+      FROM c2m_cost_version v LEFT JOIN c2m_client_pack k ON k.id=v.client_pack_id LEFT JOIN c2m_client_product c ON c.id=k.client_product_id LEFT JOIN c2m_customer u ON u.id=c.customer_id ORDER BY v.client_pack_id, v.valid_from, v.id`);
+    const last = new Map(); const N = v => (v == null ? null : Number(v));
+    const out = rows.map(r => { const pid = Number(r.client_pack_id); const p = last.get(pid) || null; last.set(pid, r);
+      return { id: Number(r.id), packId: pid, productId: r.client_product_id == null ? null : Number(r.client_product_id), cust: r.channel === 'VAN brand' ? 'VAN brand' : (r.customer || 'Client not known'), brand: r.brand || 'Product no longer in C2M', ch: r.channel || null,
+        size: N(r.pack_size), soldPer: r.sold_per === 'L' ? 'L' : 'kg', from: String(r.valid_from).slice(0, 19), materials: N(r.materials), packing: N(r.packing), conversion: N(r.conversion), freight: N(r.freight), total: N(r.total),
+        cause: r.cause || '', by: r.approved_by || '', prev: p ? N(p.total) : null, prevFrom: p ? String(p.valid_from).slice(0, 19) : null }; });
+    res.json({ rows: out });
+  }));
+  /** VAN list price history: every approved price on the 5 lists, from the first data load (c2m_list_price, its issued date) through every
+   *  approved revision (items_json: each item's from and to values). A list never revised starts on its rows' issued date; a list revised
+   *  since (each applied revision moves issued) starts on the first list date, PC.FIRST_LIST. */
+  const LH_COLS = { dist: ['now'], dealer: ['nsv'], farmer: ['pb', 'sn', 'snc'] };
+  function listHistory(lp, revs, first0) {
+    const day = v => (v == null ? '' : String(v).slice(0, 10)); const num = v => (v == null || v === '' || !isFinite(Number(v)) ? null : Number(v));
+    const dayBefore = d => { const t = new Date(d + 'T00:00:00Z'); t.setUTCDate(t.getUTCDate() - 1); return t.toISOString().slice(0, 10); };
+    const out = []; let firstAll = null;
+    for (const L of Object.keys(LH_COLS)) {
+      const R = revs.filter(r => r.list_name === L).map(r => { let items = []; try { items = JSON.parse(r.items_json) || []; } catch (_) {} return { ...r, items: Array.isArray(items) ? items : [], from: day(r.valid_from), till: day(r.valid_till) || null }; })
+        .sort((a, b) => a.from.localeCompare(b.from) || Number(a.id) - Number(b.id));
+      const rows = []; for (const x of lp) { const m = /^(dist|dealer|farmer)(_old)?$/.exec(x.list_name); if (!m || m[1] !== L) continue; let d; try { d = JSON.parse(x.data_json); } catch (_) { continue; } if (!d || (d.left && d.left.dup)) continue; rows.push({ id: Number(x.id), d, old: !!m[2], issued: day(x.issued) }); }
+      const firstL = R.some(r => Number(r.applied)) ? first0 : (rows.filter(w => !w.old).map(w => w.issued).filter(Boolean).sort()[0] || first0);
+      if (rows.length && (!firstAll || firstL < firstAll)) firstAll = firstL;
+      R.forEach(r => r.items.forEach(it => { if (it && it.id == null && it.added && it.packId != null && !rows.some(w => Number(w.d.packId) === Number(it.packId))) rows.push({ id: null, d: { p: it.product || '', pack: it.pack || '', packId: it.packId }, virt: true }); })); // approved for a later date, not on the list yet
+      for (const w of rows) for (const f of LH_COLS[L]) {
+        const ev = []; for (const r of R) for (const it of r.items) { if (!it || !it.to || !(f in it.to)) continue; const mine = it.id != null ? Number(it.id) === w.id : !!it.added && w.d.packId != null && Number(it.packId) === Number(w.d.packId); if (!mine) continue;
+          ev.push({ from: r.from, endAt: r.till, v: num(it.to[f]), was: it.from ? num(it.from[f]) : null, added: it.id == null, reason: r.reason || '', by: r.decided_by || '', at: r.decided_at ? String(r.decided_at).slice(0, 19) : null }); }
+        const segs = []; const v0 = ev.length ? (ev[0].added ? null : ev[0].was) : num(w.d[f]);
+        if (v0 != null && !w.virt) segs.push({ from: firstL, v: v0, first: true });
+        ev.forEach(e => { if (e.v == null) return; segs.push({ ...e, was: segs.length ? segs[segs.length - 1].v : e.was }); });
+        const left = w.d.left ? day(w.d.left.ts || w.d.left.at) || null : null;
+        segs.forEach((g, i) => { const nx = segs[i + 1]; let till = nx ? dayBefore(nx.from) : left; /* a revision's Till is not used: the price check keeps a list price until the next one (rowsOnDate), so the history does too (review 5a, finding 5) */ if (till && till < g.from) return; // replaced on its own first day
+          out.push({ list: L === 'farmer' ? 'farmer_' + f : L, product: String(w.d.p || ''), pack: String(w.d.pack || ''), packId: w.d.packId != null ? Number(w.d.packId) : null, from: g.from, till: till || null, price: g.v, was: g.first ? null : g.was,
+            reason: g.first ? null : g.reason, by: g.first ? null : g.by, at: g.first ? null : g.at, first: !!g.first, off: !!w.old }); });
+      }
+    }
+    return { first: firstAll || first0, rows: out };
+  }
+  app.get('/api/c2m/reports/prices', can('see.margin'), wrap(async (req, res) => {
+    const [lp] = await q('SELECT id, list_name, data_json, issued, valid_till FROM c2m_list_price ORDER BY id');
+    let revs = []; try { [revs] = await q("SELECT id, list_name, items_json, reason, valid_from, valid_till, decided_by, decided_at, applied FROM c2m_list_revision WHERE status='approved' ORDER BY valid_from, id"); } catch (e) { console.error('[c2m] price history: list revisions not read: ' + (e.code || e.message)); }
+    res.json(listHistory(lp, revs, PC.FIRST_LIST));
+  }));
   app.get('/api/c2m/audit', can('see.margin'), wrap(async (req, res) => {
     const Q = req.query || {}; const dt = v => /^\d{4}-\d{2}-\d{2}$/.test(String(v || '')) ? String(v) : null;
     const from = dt(Q.from), to = dt(Q.to), who = String(Q.who || '').trim().slice(0, 64), kind = has0(AUDIT_KIND, String(Q.kind || '')) ? String(Q.kind) : '', text = String(Q.q || '').trim().slice(0, 80);

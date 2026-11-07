@@ -216,7 +216,8 @@ Buyer line (D-74), decision table, read on every PO line, truck, FOC truck and o
 | channel Dealer | Dealers | the dealer's name |
 | channel COBO | COBO | "COBO" (1 line) |
 | channel VGreen | VGreen | "VGreen" (1 line) |
-| any other channel, or none (farmers and others) | Farmers and other | "Farmers and other" (1 line, never named, no region) |
+| farmer | Farmer list, Punjab / Sindh cash / Sindh credit (D-159; was "Farmers and other") | the farmer list the sale was picked on, never named; no region read: Farmer list, Punjab, marked (R59) |
+| any other channel, or none | Other sales | "Other sales" (D-159) |
 
 Target (D-75): a product's own GP target if set, else the company GP target (setting budget_gp). Used by Margin, Client prices, the VAN brand grid and the price proposal check. A target of 0 is a target.
 
@@ -461,3 +462,10 @@ On live the state call is now about 3 seconds. About 15 waits remain in a row (h
 - Rates (route): per item, oldest first; was = the same item's rate before; change % = (now − was) ÷ was, 2 decimals; a Low or High rate not filled (NULL) is skipped and does not break the chain; rows newest first.
 - Saved reports (routes): owner = the signed-in person (req.c2m.user), never sent by the page. Save: name trimmed, inner spaces closed, 1 to 120 letters; spec under 20 KB, must read as an object with a known set and at least 1 column (text) or it is refused; the same name for the same person is refused (409) unless overwrite is exactly true, which replaces the recipe and keeps the id; 2 saves at once: the unique key turns the second into the same 409. Rename: refused if the person already has that name. Rename and delete find the row by id and owner, so another person's report is "not yours, or no longer there" (404). Before migration 013 (SHOW TABLES, rechecked each time until found, then kept) every saved report route answers 409 "needs migration 013" (the list: 200, ready false) and the page shows Save off with the reason; never a 500.
 - Adjust: rtView shows Adjust when OWADJ has the report (it maps the report's dates, filters and shown columns into a recipe and opens it), off with the reason when OWNOADJ has it. The tool bar's own hidden columns for Your own report are cleared on every change of set, columns or show, so a column picked in the builder is never hidden by the bar.
+
+## 3.40 Words, messages, farmer list lines (owner: Tahir rules R26, R56, R59; D-159, 7 Nov 2026)
+- lib.buyerLine(grp, ch, name, lkey): white label: wl and the client's name; Distributor, Dealer: dist or dealer and the name; COBO, VGreen: 1 line each; channel Farmer: cat farm and FARMER_LINE[lkey] (Farmer list, Punjab when lkey is not a farmer list); any other channel: cat oth, Other sales. CATS: farm is "Farmer lists", oth is "Other sales".
+- PC.listFor: a Farmer PO with no region returns { list: farmer, col: pb, dflt: true } (R59), where it returned "The farmer's region is not known" before; check() passes dflt on. A Dealer PO with no region still returns none (not checked).
+- listFr in the state route adds lkeyDefault: true when the pick was the default. Margin (nmDefaultNote) counts sales in the view with lkeyDefault; saleTgt reads lt_farmer_pb for them, so they are judged on the Punjab list's target.
+- Server messages: "not found" is "This X is no longer in C2M. Press Refresh; if it is still missing, it was deleted." (status 400 or 404 as before); "Nothing changed." is "Nothing to save: nothing was changed. Change a field first, then save."; the 500 answer is "Something went wrong and nothing was saved. Press Refresh and try again; if it happens again, tell IT the time." A missing migration says "… is not switched on yet: IT has 1 step to run." Audit and notice texts no longer carry decision numbers.
+- Money: rs2 on the page and lib.fmtRs2 on the server write Rs with thousands commas and 2 decimals; templates that printed a raw number after Rs use n2 or n0. Number inputs, Excel and CSV values are not changed.

@@ -17,6 +17,15 @@ Changed in 0.6.0: entry 0.6.0 added.
 Changed in 0.5.0: entry 0.5.0 added; real figures removed from earlier entries (public repo).
 Format: Keep a Changelog, semantic versions. Live: 1.0.0 (pushed 19 Oct about 22:09, checked live by Claude as Tahir the same evening; Yawar's view checked in the cloud copy only); 0.9.3 pushed 19 Oct 14:38, checked live; 0.9.2 pushed 19 Oct 12:43, checked live; first data load 19 Oct 2026 about 13:17, checked live. Before: 0.9.1 (pushed 19 Oct 09:39, checked live). apps/c2m first pushed by Tahir on 17 Oct and the live migration run the same day (39 empty c2m_ tables); 0.6.0 and 0.7.0 pushed on 18 Oct (17:29), 0.8.0 (20:16) and 0.9.0 (22:03), each checked live by Claude. The folder tabs (D-59) were built after the 0.9.0 push and ship in 0.9.1. No data loaded yet: the first data load runs on Monday 19 Oct 2026.
 
+## [Next version, push 6a: words, messages, farmer list lines] · 7 Nov 2026 · D-159 · Who: Tahir ruled (R26, R56, R59); Claude built and tested; not pushed · No migration
+### Changed
+- Margin, Margin by client and brand, and Your own report: farmers are not clients (R56). Farmer sales show under the farmer price list each sale was picked on: Farmer list, Punjab; Farmer list, Sindh cash; Farmer list, Sindh credit, each with its own GP and judged on that list's target. White label clients, distributors, dealers, COBO and VGreen stay client lines. Farmers and other is gone; a sale with no O2S category C2M knows shows as Other sales.
+- A farmer sale or open PO line with no region in O2S is taken as on the Farmer list, Punjab (R59): its list freight, target and the VAN brand PO price check follow that list; Margin and the price check report say how many. A dealer with no region is unchanged.
+- Words on every screen and in every server message (R26): client and client line; From and Till; Take out of use, Out of use, Put back in use; Labour and FOH; Sync setting and Price setting; Costs and Clients for the old place names; Labour rate Low, FOH rate High; no decision numbers, ruling numbers, R-codes, version numbers or migration numbers on screen ("This part is not switched on yet: IT has 1 step to run.").
+- Messages give the next step: a row no longer in C2M (about 42 server messages), Nothing to save, and the unexpected error (Press Refresh and try again; tell IT the time). Status codes unchanged.
+- Rupees show thousands commas (Rs 1,250.00) on screen and in server messages.
+- In-app change list entry 2026-11-07a.
+
 ## [Next version, push 5b: Your own report] · 6 Nov 2026 · D-158 · Who: Tahir ruled (R52 to R54); Claude built and tested; not pushed · Needs migration 013 (Ahmer)
 ### Added
 - Reports: Your own report, first on the page. Pick the data (Sales, Open POs, Pack cost, Client prices, VAN list prices, Rates, Kg made), the period, the columns in your order, the filters, and each row or totals by group; download as Excel, CSV or PDF. Sales totals agree with Margin; Kg made agrees with Month end.

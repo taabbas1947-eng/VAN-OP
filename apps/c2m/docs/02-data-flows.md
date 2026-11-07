@@ -188,7 +188,7 @@ Nothing is written. Export to Excel is made in the browser.
 flowchart LR
   O[(c2m_o2s_po_line: customer_name, channel)] -->|customer, channel on each PO| BL[c2m-lib buyerLine · D-74]
   T[(c2m_o2s_truck)] -->|kg, gate pass date| S
-  BL -->|cat and line: named for white label, distributors, dealers; COBO; VGreen; Farmers and other| S[GET /api/c2m/state: sales, foc, open, poLines carry cust and cat]
+  BL -->|cat and line: named for white label, distributors, dealers; COBO; VGreen; farmers under their farmer list (Farmer list, Punjab / Sindh cash / Sindh credit, D-159; was Farmers and other); Other sales| S[GET /api/c2m/state: sales, foc, open, poLines carry cust and cat]
   S --> M[Margin chips and lines · D-79]
   S --> C[Client prices, client chips by FY sales · D-78]
   G[Client prices, VAN brand prices: a price for a pack not on a list] -->|items {id null, packId, values}| R[(c2m_list_revision.items_json: added 1)]
@@ -314,3 +314,8 @@ c2m_list_price (farmer rows, by packId) -> lib.printMrp -> the MRP printing list
 - Kg made: new GET /api/c2m/reports/made?from&till (see.margin), read only: c2m_o2s_production in the dates, charged by Month end's own absorbedFor (each entry collected as it is charged), with Month end's sums per month. Before migration 012 it answers ready false with the reason.
 - Saved reports: c2m_saved_report (migration 013). The state call carries savedReports {ready, rows} for a person who sees margin (their own rows only); GET /api/c2m/reports/saved gives the same. POST save, rename and delete write the row and a c2m_audit row (entity saved_report); each answer returns the person's list, so the page does not reload. Only the recipe (spec_json) is kept, never the figures.
 - Downloads of Your own report are made in the browser, as every report (2.32).
+
+## 2.34 Farmer list lines and the Punjab default (owner: Tahir R56, R59; D-159, 7 Nov 2026)
+- State call (see.margin): each VAN brand sale, FOC line, open PO line and PO price report line (poLines) now picks its list first (listFr: PC.listFor on the PO's region, else the C2M client record's region, and the payment terms), then its client line: lib.buyerLine(grp, channel, name, lkey). A farmer's line is the name of its list (Farmer list, Punjab; Sindh cash; Sindh credit); any other unknown channel is Other sales (cat oth).
+- A farmer with no region (no region column yet, or none on the O2S customer) is picked on the Farmer list, Punjab: lkey farmer_pb, lfr = lf_farmer_pb, and lkeyDefault true. Price check lines (listCheck.lines) carry dflt true for the same case, and their client line from the list they were checked on.
+- Nothing new is stored: lkey, lkeyDefault and the client line are worked out on each state call from O2S's PO lines as before.

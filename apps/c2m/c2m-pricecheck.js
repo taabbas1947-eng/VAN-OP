@@ -18,7 +18,8 @@
  *   POs dated before the first list (11 Oct 2026) get no check.
  * Ruled 4 Nov 2026 (after the first build): a dealer or farmer outside Punjab and Sindh is checked as Punjab; a Sindh farmer
  * PO with no payment terms against Sindh cash; a PO with FED None is taken as entered (no FED charged).
- * Marked "not checked": a dealer or farmer whose region C2M cannot read.
+ * Marked "not checked": a dealer whose region C2M cannot read. A farmer whose region C2M cannot read is taken as on the Farmer list,
+ * Punjab, and marked dflt (R59, Tahir 7 Nov 2026, D-159).
  * Docs: docs/09-formulas-and-rules.md (F-32), docs/06-decisions.md (D-146).
  * ==========================================================================*/
 'use strict';
@@ -49,7 +50,7 @@ function isCash(terms) {
 }
 
 /** The list and column a VAN brand PO line is compared with, or { none } with the reason it is not compared. channel: O2S words. */
-function listFor(channel, region, terms) {
+function listFor(channel, region, terms, opts) {
   const ch = String(channel || '').trim().toLowerCase(), reg = regionOf(region);
   if (ch === 'distributor') return { list: 'dist', col: 'now' };
   if (ch === 'dealer') {
@@ -62,7 +63,7 @@ function listFor(channel, region, terms) {
   if (ch === 'farmer') {
     if (reg === 'Punjab') return { list: 'farmer', col: 'pb' };
     if (reg === 'Sindh') return { list: 'farmer', col: isCash(terms) === false ? 'snc' : 'sn' }; // no payment terms: Sindh cash (Tahir, 4 Nov 2026)
-    return reg ? { list: 'farmer', col: 'pb' } : { none: 'The farmer\'s region is not known' }; // outside Punjab and Sindh: as Punjab (Tahir, 4 Nov 2026)
+    return reg ? { list: 'farmer', col: 'pb' } : opts && opts.noDefault ? { none: 'The farmer\'s region has not been read from O2S yet: press Pull now' } : { list: 'farmer', col: 'pb', dflt: true }; /* the Punjab default only once regions are read from O2S (review 6a, finding 1) */ // outside Punjab and Sindh: as Punjab (Tahir, 4 Nov 2026); no region known: taken as on the Farmer list, Punjab (R59, 7 Nov 2026, D-159)
   }
   return { none: `No list is ruled for the channel ${channel || '(none)'}` };
 }
@@ -124,11 +125,11 @@ function check(l, ctx) {
   if (!D || D < FIRST_LIST) return { state: 'none', why: 'PO dated before the first price list (11 Oct 2026)' };
   if (l.packId == null) return { state: 'none', why: 'C2M cannot place this product on a pack' };
   if (l.own) return { state: 'cost', why: 'A client\'s own pack: checked against its cost on Margin, never against a price list' };
-  const pick = listFor(l.channel, l.region, l.terms);
+  const pick = listFor(l.channel, l.region, l.terms, { noDefault: !!ctx.noDefault });
   if (pick.none) return { state: 'none', why: pick.none };
   const rows = ctx.listsOn(pick.list, D, l.enteredAt);
   const row = rowFor(pick.list, rows, l.packId, ctx.packNames(l.packId), l.size, ctx.soldPer(l.packId));
-  const base = { list: pick.list, col: pick.col, colLabel: COL_LABEL[pick.col] };
+  const base = { list: pick.list, col: pick.col, colLabel: COL_LABEL[pick.col], ...(pick.dflt ? { dflt: true } : {}) }; // dflt: a farmer with no region, taken as Punjab (R59)
   const lp = row && row[pick.col] != null && Number(row[pick.col]) > 0 ? Number(row[pick.col]) : null;
   if (lp == null) return { ...base, state: 'off', why: row ? `On the list with no price in its ${COL_LABEL[pick.col].replace(/^.*?, /, '')} column` : `Not on the ${COL_LABEL[pick.col].toLowerCase()}` };
   const po = poPackPrice(l.net, l.size, pick.col, ctx.fedPct, l.fedMode);

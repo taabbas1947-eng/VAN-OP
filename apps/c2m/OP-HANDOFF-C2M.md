@@ -813,3 +813,14 @@ Files: apps/c2m/c2m.html, c2m-routes.js, migrations/013_c2m_saved_report(.PRODUC
 Tests: new t17 (55) and p13 (75); t3 to t16, no-011, p9 to p12, pricecheck 64: all passed (docs 12, D-158).
 Next: push 6 (words, Guide, Find and phone).
 Independent review 5b: no Blocking or Major; 5 Minor fixed or stated (Kg made rounding note, filter option values, saved name case, raw material rates need see.materials, Kg made per month, 50 saved reports a person). See docs 12.
+
+## 7 Nov 2026 (1) - push 6a: words, farmer list lines (D-159), MODULE: C2M
+Module: C2M. Not pushed (Tahir pushes). No migration. Picture: C2M Push 6 plan, section Push 6a and the rulings at its foot (R56, R59).
+Files: apps/c2m/c2m.html, c2m-routes.js, c2m-lib.js, c2m-pricecheck.js, c2m-o2s.js; docs 01, 02, 03, 06, 07, 08, 09, 10, 12.
+- R26 words on every screen and server message: client and client line; From and Till; Take out of use, Out of use; Labour and FOH, Sync setting, Price setting; no D-nn, ruling or version numbers; "not switched on yet: IT has 1 step to run" in place of migration numbers. Audit word scan: 141 lines before, 8 after (2 hidden Find words, 6 the QC and Production place still named Inputs).
+- Next steps in messages: 42 "not found" server messages, "Nothing changed", the 500 answer. Rupees with thousands commas (rs2, lib.fmtRs2, raw Rs templates).
+- R56: farmer sales under Farmer list, Punjab, Sindh cash, Sindh credit, each with its GP and its list's target; any unknown channel is Other sales. R59: a farmer with no region is on the Farmer list, Punjab (lkeyDefault; dflt in the price check); Margin and the price check count them. Dealers with no region unchanged.
+- CHANGELOG 2026-11-07a.
+Tests: new t18 (23) and p14 (18); t3 to t17, no-011, p9 to p13, pricecheck 64: all passed (assertions changed for the new words are listed in docs 12).
+Next: push 6b (Guide rows with steps and Start; Find anything), then 6c (phone and Back).
+Independent review 6a: no Blocking; 2 Major fixed (Punjab default only once regions are read from O2S; price check client line from the list itself) and Minor (migration number in the change record filter, docs). See docs 12. Before go-live check that migration 009 is on production and Pull now has run (a PO line carries a region).

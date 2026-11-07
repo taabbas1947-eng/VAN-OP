@@ -55,7 +55,7 @@ async function o2sBaseBrands(q) {
 /** Pull O2S now. Returns {syncId, poLines, trucks, issues}. */
 async function pullO2S(q, byUser) {
   const [[row]] = await q('SELECT data FROM app_state WHERE id=1');
-  if (!row) throw new Error('O2S data not found (app_state row 1 is missing).');
+  if (!row) throw new Error('O2S data cannot be read: O2S has not saved any data yet. Open O2S once, then press Pull now again; if it still fails, tell IT the time.');
   const d = JSON.parse(row.data);
   BB.map = baseBrandsOf(d); BB.at = Date.now(); /* fix 4b */
   const now = lib.pkNow();

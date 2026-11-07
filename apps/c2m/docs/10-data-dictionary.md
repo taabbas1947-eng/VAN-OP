@@ -182,7 +182,7 @@ Changed in 0.3.0 and 0.3.1: rs_per_kg fixed (1 rate of 1 kind, labour or FOH). A
 | Word or field | Meaning here | Allowed values or unit | Rule |
 |---|---|---|---|
 | cat (on sales, foc, open, poLines) | The buyer category from O2S on the PO | wl, dist, dealer, cobo, vg, farm | D-74 |
-| Buyer line (cust) | The name C2M shows for a buyer: the client, distributor or dealer name; or COBO, VGreen, Farmers and other | text | D-74 |
+| Buyer line (cust) | The name C2M shows for a buyer: the client, distributor or dealer name; or COBO, VGreen; farmers by their farmer list (D-159; was Farmers and other); Other sales | text | D-74, D-159 |
 | Farmers and other | Every farmer and other buyer, pooled, never named | 1 line | D-74 |
 | Company GP target | Setting budget_gp: the target of any product with none of its own | % | D-75 |
 | Against target | GP Rs less the GP the target asks for on the same sales (F-23) | Rs; "short Rs", "above Rs" or "on target" | D-79 |
@@ -365,3 +365,12 @@ Changed in 0.3.0 and 0.3.1: rs_per_kg fixed (1 rate of 1 kind, labour or FOH). A
 | spec_json | The recipe: set (sales, open, costs, wlp for client prices, vanp for VAN list prices, rates, made), period ({q: month, last, m3, year or all} or {from, till}), cols (column keys in order), filters ({key: value}), show (rows or group), groupBy (a group key) | c2m_saved_report |
 | saved_report (audit) | entity of the change record for save, rename and delete; old and new hold the name and the recipe | c2m_audit |
 | c2m.rtcols.own | The columns hidden on Your own report's bar; cleared when the builder changes | localStorage |
+
+## 10.23 7 Nov 2026 (D-159)
+| Field | Meaning | Where |
+|---|---|---|
+| lkeyDefault | true when a farmer sale, FOC line or open PO line had no region in O2S and is taken as on the Farmer list, Punjab (R59); absent otherwise | state: sales, foc, open |
+| dflt | true on a price check line of a farmer with no region, checked against the Farmer list, Punjab (R59) | state: listCheck.lines; c2m-pricecheck listFor and check |
+| cust (farmer sale) | The farmer price list the sale was picked on: Farmer list, Punjab; Farmer list, Sindh cash; Farmer list, Sindh credit (R56); was Farmers and other | state: sales, foc, open, poLines, listCheck.lines |
+| cat oth | A sale whose O2S channel is empty or not 1 of O2S's 6: the line Other sales | state: sales, foc, open, poLines |
+| cat farm | Now Farmer lists (the 3 farmer list lines); was Farmers and other | page CATN, CAT1; lib CATS |

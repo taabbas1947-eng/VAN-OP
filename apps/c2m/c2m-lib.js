@@ -233,12 +233,17 @@ function pkParts(d = new Date()) {
 function pkToday(d) { const o = pkParts(d); return `${o.year}-${o.month}-${o.day}`; }
 function pkNow(d) { const o = pkParts(d); return `${o.year}-${o.month}-${o.day} ${o.hour}:${o.minute}:${o.second}`; }
 
-/** Buyer line of a sale (Tahir, 19 Oct 2026, D-74): C2M names only white label clients, distributors and dealers, as O2S marks
- *  them on the PO. COBO and VGreen are 1 line each (they buy on price lists); every farmer, and any other buyer, is pooled
- *  into 1 line, "Farmers and other". grp is 'White label' or 'VAN brand'; ch is the O2S channel as C2M names it. */
-const CATS = { wl: 'White label', dist: 'Distributors', dealer: 'Dealers', cobo: 'COBO', vg: 'VGreen', farm: 'Farmers and other' };
-function buyerLine(grp, ch, name) {
-  const cat = grp === 'White label' ? 'wl' : ({ Distributor: 'dist', Dealer: 'dealer', COBO: 'cobo', Cobo: 'cobo', VGreen: 'vg', Vgreen: 'vg' }[String(ch || '').trim()] || 'farm');
+/** Client line of a sale (Tahir, 19 Oct 2026, D-74; R56 and R59, 7 Nov 2026, D-159): C2M names only white label clients, distributors and
+ *  dealers, as O2S marks them on the PO. COBO and VGreen are 1 line each (they buy on price lists). Farmers are not clients (R56):
+ *  a farmer sale (O2S channel Farmer) shows under the farmer price list it was picked on, lkey farmer_pb, farmer_sn or farmer_snc;
+ *  with no list known it is taken as on the Farmer list, Punjab (R59). A sale with any other channel (empty or not one of O2S's 6)
+ *  is 1 line, "Other sales". grp is 'White label' or 'VAN brand'; ch is the O2S channel as C2M names it; lkey the sale's list. */
+const CATS = { wl: 'White label', dist: 'Distributors', dealer: 'Dealers', cobo: 'COBO', vg: 'VGreen', farm: 'Farmer lists', oth: 'Other sales' };
+const FARMER_LINE = { farmer_pb: 'Farmer list, Punjab', farmer_sn: 'Farmer list, Sindh cash', farmer_snc: 'Farmer list, Sindh credit' };
+function buyerLine(grp, ch, name, lkey) {
+  const c = String(ch || '').trim();
+  const cat = grp === 'White label' ? 'wl' : ({ Distributor: 'dist', Dealer: 'dealer', COBO: 'cobo', Cobo: 'cobo', VGreen: 'vg', Vgreen: 'vg' }[c] || (/^farmer$/i.test(c) ? 'farm' : 'oth'));
+  if (cat === 'farm') return { cat, line: FARMER_LINE[lkey] || FARMER_LINE.farmer_pb };
   return { cat, line: ['wl', 'dist', 'dealer'].includes(cat) ? String(name || '') : CATS[cat] };
 }
 /** A product's GP target (Tahir, 19 Oct 2026, D-75): its own target if one is set, else the company GP target (budget_gp). */
@@ -258,6 +263,8 @@ function sameRegion(a, b) { const k = v => String(v == null ? '' : v).trim().rep
 
 /** Pakistani number format with digits, e.g. 1,234,567. */
 function fmtInt(x) { return x == null ? '' : Math.round(x).toLocaleString('en-US'); }
+/** Rupees with thousands commas and 2 decimals, for messages people read: 1,250.00 (R26, push 6a). */
+function fmtRs2(x) { const n = Number(x); return x == null || !isFinite(n) ? String(x) : n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 
 /* A VAN brand list row names a pack when its name (size taken out), size and unit (kg or L) agree: the B-18 rule the page uses
    for suggestions (vmSuggest), here for the server's checks on the "not a C2M pack" mark (1.0.1, D-80, review finding 1). */
@@ -329,5 +336,5 @@ module.exports = {
   listRowIs, listRowSize, officialRow, officialPack, restoreRow,
   round, rateWarning, materialCost, recipeTotal, packingPerUnit, buyOf, buyNote, sourceText, piecePrice, printMrp, mrpIssues, mrpMissing, pickConversionRule, conversionFor, costBreakdown,
   marginPct, targetPrice, contributionFloor, fedPct, netPoPrice, needsReapproval, exposure, flag,
-  RECIPE_FLOW, RECIPE_WHO, fmtInt, pkToday, pkNow, FAMILY_COLOURS, familyColour, CATS, buyerLine, targetOr, priceCountsForPo, REAPPROVE_DEFAULT,
+  RECIPE_FLOW, RECIPE_WHO, fmtInt, fmtRs2, pkToday, pkNow, FAMILY_COLOURS, familyColour, CATS, FARMER_LINE, buyerLine, targetOr, priceCountsForPo, REAPPROVE_DEFAULT,
 };

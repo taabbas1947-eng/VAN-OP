@@ -85,14 +85,14 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .two{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:12px}
 .sev .h{padding:8px 10px;border-bottom:1px solid var(--line)}.sev .h b{display:block}.sev .h span{font-size:12px;color:var(--muted)}
 /* Folder tabs (Tahir, 18 Oct 2026, 22:21: "do these look like tabs?"): each view is a bordered tab; the open one is light, marked in blue and joined to the line */
-.subnav{display:flex;flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;align-items:flex-end;gap:3px;border-bottom:1px solid var(--tabline);margin:4px 0 16px;padding:3px 2px 0;scrollbar-width:thin}.subnav button{flex:0 0 auto}
-.subnav button{font:inherit;font-size:13px;display:inline-flex;align-items:center;gap:6px;background:var(--tabbg);border:1px solid var(--tabline);border-bottom:0;border-radius:6px 6px 0 0;padding:7px 11px;margin-bottom:-1px;color:var(--ink);cursor:pointer;white-space:nowrap}
-.subnav button:hover{background:var(--surface)}
-.subnav.grouped{flex-wrap:wrap;overflow:visible;gap:10px 24px;align-items:flex-start;padding:0 0 12px}.subnav.grouped .sg{display:flex;flex-wrap:wrap;gap:4px;align-items:center}.subnav.grouped .sgl{flex:1 0 100%;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}.subnav.grouped button{border-bottom:1px solid var(--tabline);border-radius:6px;margin-bottom:0}
-
-.subnav button[aria-current="true"],.subnav button[aria-selected="true"]{background:var(--surface);border-top:3px solid var(--blue);padding-top:5px;font-weight:600;box-shadow:0 1px 0 var(--surface);position:relative;z-index:1}
+.subnav{display:flex;flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;align-items:flex-end;gap:2px;border-bottom:1px solid var(--line);margin:4px 0 14px;padding:0;scrollbar-width:thin}
+/* The 1 tab style (push 6c, D-161, R58): tabs switch between places and parts of a page; chips only filter what a table shows */
+.subnav button{flex:0 0 auto;font:inherit;font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:6px;background:none;border:0;border-bottom:3px solid transparent;border-radius:0;padding:8px 12px 7px;margin-bottom:-1px;color:var(--muted);cursor:pointer;white-space:nowrap}
+.subnav button:hover{color:var(--ink)}.subnav button:focus-visible{outline:2px solid var(--blue);outline-offset:-2px}
+.subnav button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--blue);font-weight:700}
 .subnav .tc{font-family:var(--mono);font-size:11px;font-weight:500;line-height:1;background:var(--line);color:var(--ink);border-radius:9px;padding:3px 7px}
-.subnav button[aria-current="true"] .tc{background:var(--blue);color:var(--surface)}
+.subnav button[aria-selected="true"] .tc{background:var(--blue);color:var(--surface)}
+.subnav+.subnav{margin-top:-6px}
 @media (max-width:600px){.subnav{flex-wrap:nowrap;overflow-x:auto}.subnav button{flex:0 0 auto}}
 .toast.err{background:var(--over)}.ask{border-left:3px solid var(--late)}
 .form{display:grid;gap:8px;padding:12px;align-content:start}label .req{color:var(--late);font-size:11px;font-weight:600}.bad{outline:2px solid var(--late);outline-offset:1px}.ferr{display:block;color:var(--late);font-size:12px;margin-top:2px}th.srt{cursor:pointer;user-select:none}th.srt:hover{text-decoration:underline}th.srt[aria-sort=ascending]::after{content:' ▲';font-size:9px}th.srt[aria-sort=descending]::after{content:' ▼';font-size:9px}.wrapx.tall{max-height:72vh;overflow:auto}.wrapx.tall thead th,.wrapx.tall tr:first-child>th{position:sticky;top:0;z-index:2;background:var(--surface)}.lnk{white-space:normal;background:none;border:0;padding:0;color:var(--blue);font:inherit;font-size:12px;text-decoration:underline;cursor:pointer}.tline{margin:8px 0 6px;font-size:13px;color:var(--muted)}.tline b{color:var(--ink)}.q1{border:1px solid var(--line);border-radius:6px;padding:8px 12px;margin:0;display:grid;gap:6px}.form .q1 label{display:flex;gap:8px;align-items:center;font-size:14px;color:var(--ink)}.form label{font-size:12px;color:var(--muted);display:grid;gap:3px}
@@ -203,7 +203,6 @@ details.how{margin:0 0 12px;color:var(--muted);font-size:13px;max-width:90ch}det
 .chart .grid{stroke:var(--line);stroke-width:1}.chart .line{fill:none;stroke:var(--blue);stroke-width:2.5}.chart .dot{fill:var(--surface);stroke:var(--blue);stroke-width:2.5}.chart .dot.last{fill:var(--blue)}.chart .line.part{stroke-dasharray:5 5}
 .chart .bud{stroke:var(--kraft);stroke-width:2;stroke-dasharray:6 5;fill:none}.chart .budl{fill:var(--kraft)}
 .chart .wb-total{fill:#8796A5}.chart .brk{stroke:var(--surface);stroke-width:3;fill:none}.chart .wb-up{fill:var(--ok)}.chart .wb-down{fill:var(--over)}.chart .wb-mat{fill:#6E8BA6}.chart .wb-cost{fill:var(--wbcost)}
-.tabs3{display:inline-flex;border:1px solid var(--line);border-radius:4px;overflow:hidden;margin:0 0 8px}.tabs3 button{font:inherit;font-size:12.5px;background:var(--surface);border:0;border-right:1px solid var(--line);padding:4px 10px;cursor:pointer;color:var(--ink)}.tabs3 button:last-child{border-right:0}.tabs3 button[aria-pressed="true"]{background:var(--blue);color:var(--surface)}
 .rank{display:grid;gap:0}.rank .r{font:inherit;color:inherit;background:none;border:0;width:100%;text-align:left;display:grid;grid-template-columns:22px minmax(0,1fr) auto;gap:8px;padding:8px 0;border-top:1px solid var(--line);align-items:baseline;cursor:pointer}.rank .r:first-child{border-top:0}.rank .r:hover b{color:var(--blue)}
 .rank .r .m{font-size:12px;color:var(--muted)}.rank .r .v{font-family:var(--mono);color:var(--over);font-weight:500}
 .wtbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 8px}.wtbar input[type=search]{min-width:200px;flex:0 1 260px}.wtbar .chips{margin:0}.wtbar .sp{flex:1 1 auto}
@@ -234,12 +233,9 @@ details.how{margin:0 0 12px;color:var(--muted);font-size:13px;max-width:90ch}det
 /* 1.0.0 places */
 @media (min-width:761px){.sheet button.far{display:none}.hdr .more.desk{display:flex;align-items:center;gap:9px;width:100%;background:none;border:0;border-radius:5px;padding:7px 8px;margin-top:6px;color:var(--railink);cursor:pointer;text-align:left;font:inherit;font-size:14px;opacity:.85}.hdr .more.desk svg{width:18px;height:18px}.hdr .more.desk:hover{opacity:1}.has-more .foot [data-signout]{display:inline}}
 
-.otabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin:4px 0 8px;flex-wrap:wrap}
-.otabs button{font:inherit;font-size:13px;background:none;border:0;border-bottom:2px solid transparent;padding:6px 12px;color:var(--muted);cursor:pointer}
-.otabs button[aria-pressed="true"]{color:var(--ink);border-bottom-color:var(--blue);font-weight:500}
 .ocard{background:var(--surface);border:1px solid var(--line);border-radius:3px;padding:14px 16px 10px;display:flex;flex-direction:column;gap:6px;min-width:0}
 .ocard h3{margin:0;font-size:16px;font-weight:600;line-height:1.3}.osub{margin:0;font-size:12.5px;color:var(--muted)}
-.ocard .otabs{margin:2px 0 4px}.ocard .chips{margin:0}
+.ocard .subnav{margin:2px 0 6px}.ocard .chips{margin:0}
 .ochart{width:100%;height:auto;display:block}.og{stroke:var(--line);stroke-dasharray:3 3}.oa{fill:var(--muted);font-size:11px;font-family:var(--sans)}
 .ogl{fill:none;stroke:var(--blue);stroke-width:2.5}.ogd{fill:var(--blue)}.otl{fill:none;stroke:var(--kraft);stroke-width:1.5;stroke-dasharray:5 4}
 .olab{font-size:12px;font-family:var(--sans);font-weight:600}.olab.g{fill:var(--blue)}.olab.t{fill:var(--kraft)}
@@ -255,9 +251,8 @@ details.how{margin:0 0 12px;color:var(--muted);font-size:13px;max-width:90ch}det
 input.np{width:90px;text-align:right;font-family:var(--mono);padding:3px 6px}input.np.on{border-color:var(--blue);background:var(--latebg)}
 .sendbar{position:static;}.sendbar.on{position:sticky;bottom:0;}@media (max-width:760px){.sendbar.on{bottom:calc(56px + env(safe-area-inset-bottom));max-height:42vh;overflow-y:auto}.sendbar label{flex:1 1 100%}}.doc-key{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:11px;color:#4a5a70;margin:8px 0 0}.doc-key .fam{margin-right:5px}
 .sendbar{z-index:3;background:var(--surface);border:1px solid var(--blue);border-radius:3px;padding:10px 12px;margin-top:10px;display:flex;flex-wrap:wrap;gap:8px 14px;align-items:flex-start}.sendbar>b{flex:1 0 100%}.sendbar>.btn{align-self:flex-start;margin-top:18px}@media (max-width:760px){.sendbar>.btn{margin-top:0;flex:1 1 100%}}
-.sendbar label{display:grid;gap:2px;font-size:12px;color:var(--muted)}.sendbar input[type=text],.sendbar input:not([type]){min-width:240px}.sendbar .sp{flex:1}.wl2{--soft:color-mix(in srgb,var(--ink) 4%,var(--surface));font-variant-numeric:tabular-nums}.wl2 .wlh{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px 18px;margin:0 0 14px}.wl2 .wlh .l,.wl2 .wlk .l{display:block;font-size:12px;color:var(--muted);margin-bottom:3px}.wl2 .wlh select{font:inherit;font-size:14px;min-height:38px;padding:6px 10px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink);min-width:240px;max-width:100%}.wl2 .wlh .topic{margin:0 0 6px}.wl2 .wlh .sp{flex:1}.wl2 .wlks{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin:0 0 16px}.wl2 .wlk{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 14px;min-width:0}.wl2 .wlk .v{display:block;font-size:22px;font-weight:600;color:var(--ink);line-height:1.2}.wl2 .wlk .s{display:block;font-size:11.5px;color:var(--muted)}.wl2 .wlk.t-bad .v{color:var(--over)}.wl2 .wlk.t-warn .v{color:var(--late)}.wl2 .wlbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;justify-content:space-between;margin:0 0 8px;color:var(--muted);font-size:13px}.wl2 .wlbar .find{margin:0}.wl2 .wltab{border-radius:8px;overflow:hidden;padding:0}.wl2 table{font-family:inherit;font-size:14px}.wl2 th{font-size:12px;font-weight:600;color:var(--muted);background:var(--soft);padding:10px 14px;border-bottom:1px solid var(--line)}.wl2 td{padding:12px 14px;vertical-align:middle;border-bottom:1px solid var(--line);font-family:inherit}.wl2 tr:last-child td{border-bottom:0}.wl2 td.r{white-space:nowrap}.wl2 tbody tr:hover td{background:var(--soft)}.wl2 .mute{color:var(--muted)}.wl2 .wlb{all:unset;cursor:pointer;display:flex;align-items:center;gap:10px;width:100%;box-sizing:border-box;min-height:36px}.wl2 .wlb b{display:block;font-weight:600;color:var(--ink)}.wl2 .wlb small{display:block;color:var(--muted);font-size:12px}.wl2 .wlb:focus-visible{outline:2px solid var(--blue);outline-offset:3px;border-radius:4px}.wl2 .wlb:hover b{color:var(--blue)}.wl2 .wlchev{margin-left:auto;color:var(--muted);font-size:20px;line-height:1}.wl2 .wldot{width:8px;height:8px;border-radius:50%;flex:none;background:var(--line)}.wl2 .wldot.t-bad{background:var(--over)}.wl2 .wldot.t-good{background:var(--ok)}.wl2 .wldot.t-info{background:var(--blue)}.wl2 .wlgp b{font-size:15px}.wl2 .wlgp small,.wl2 td small{display:block;font-size:11.5px;color:var(--muted);font-weight:400}.wl2 b.t-bad,.wl2 small.t-bad{color:var(--over)}.wl2 b.t-good,.wl2 small.t-good{color:var(--ok)}.wl2 .wledit{all:unset;cursor:pointer;display:inline-flex;vertical-align:middle;margin-left:4px;color:var(--muted);padding:2px}.wl2 .wledit svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2}.wl2 .wledit:hover{color:var(--blue)}.wl2 .wlnt{display:flex;flex-direction:column;align-items:flex-end;gap:2px;margin-top:4px}.wl2 .wlnt input{width:72px}.wl2 .wltag{display:inline-block;font-size:12px;font-weight:500;padding:2px 9px;border-radius:999px;white-space:nowrap;background:color-mix(in srgb,var(--muted) 14%,transparent);color:var(--muted)}.wl2 .wltag.t-bad{background:color-mix(in srgb,var(--over) 13%,transparent);color:var(--over)}.wl2 .wltag.t-good{background:color-mix(in srgb,var(--ok) 14%,transparent);color:var(--ok)}.wl2 .wltag.t-info{background:color-mix(in srgb,var(--blue) 13%,transparent);color:var(--blue)}.wl2 .wltag.t-warn{background:color-mix(in srgb,var(--late) 15%,transparent);color:var(--late)}.wl2 .wlnotes{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:6px 0 0 18px}.wl2 .wlin{width:96px;text-align:right;font:inherit;font-size:14px;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink)}.wl2 .wlin.on{border-color:var(--blue);box-shadow:0 0 0 2px color-mix(in srgb,var(--blue) 18%,transparent)}.wl2 .wlhint{color:var(--muted);font-size:13px;margin:10px 2px}.wl2 .btn.sm{min-height:28px;padding:2px 8px;font-size:12px}@media (max-width:900px){.wl2 .wlks{grid-template-columns:repeat(3,minmax(0,1fr))}}@media (max-width:760px){.wl2 .wlks{grid-template-columns:repeat(2,minmax(0,1fr))}.wl2 .wlh select{min-width:0;width:100%}.wl2 .wlpick{flex:1 1 100%}.wl2 td{padding:4px 0}.wl2 tr{padding:10px 12px}.wl2 .wlin{width:110px}}.wl2 .wlh .topic{margin:0}.wl2 .wlpick{display:flex;align-items:center;gap:8px}.wl2 .wlpick .l{margin:0}@media (max-width:760px){.wl2 table.cards td:first-child::before,.wl2 table.cards td:first-child::after{display:none!important;content:none!important}.wl2 table.cards .wlgpv{display:flex;align-items:baseline;gap:10px}.wl2 table.cards .wlgpv small{display:inline}.wl2 table.cards td.wlgp{align-items:center}.wl2 .wlk:last-child:nth-child(odd){grid-column:1/-1}.wl2 table.cards tr{padding:12px 14px}.wl2 .wlnotes{margin-left:0}}.wl2 .wlsub{margin:4px 0 0;color:var(--muted);font-size:13px}.wl2 .crumbs .lnk{text-decoration:none}.wl2 .crumbs{font-size:13px}.wl2 .wlh2{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:18px 0 8px}.wl2 .wlrec{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 14px}.wl2 .wlrec .l{font-size:12px;color:var(--muted);font-weight:600}.wl2 .wlrec .btn{margin-left:auto}.wl2 .wlmx td:first-child{color:var(--ink)}.wl2 .wlmx td:first-child small{display:block}.wl2 .wlmx td.r small{display:block}.wl2 .wlmx tr.grp td{background:var(--soft);font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;padding:7px 14px}.wl2 .wlmx tr.tot td{font-weight:600}.wl2 .wlmx tr.act td{background:none}.wl2 .wlmx td{padding:9px 14px}.wl2 .wlmx th.r,.wl2 .wlmx td.r{min-width:130px}.wl2 .wlks:has(.wlk:nth-child(4):last-child){grid-template-columns:repeat(4,minmax(0,1fr))}@media (max-width:760px){.wl2 .wlks:has(.wlk:nth-child(4):last-child){grid-template-columns:repeat(2,minmax(0,1fr))}.wl2 .wlmx th.r,.wl2 .wlmx td.r{min-width:96px}}.lcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(205px,1fr));gap:12px}.lcard{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:6px;min-width:0}.lcard .t{font-weight:700;font-size:15px;color:var(--ink)}.lcard .k{display:flex;gap:16px}.lcard .k div{display:flex;flex-direction:column}.lcard .k b{font-size:20px;line-height:1.2;color:var(--ink)}.lcard .k b.mute{color:var(--muted);font-size:17px}.lcard .k small,.lcard .m{color:var(--muted);font-size:12px}.lcard .st{font-size:12.5px}.lcard .st.t-bad{color:var(--over)}.lcard .st.t-good{color:var(--ok)}.lcard .st.t-warn{color:var(--late)}.lcard .btn{align-self:flex-start;margin-top:auto}.wl2 .wlk.t-warn .v{color:var(--late)}.lstf{margin:0 0 14px}.msteps{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin:0 0 14px}.mstep{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 12px;min-width:0}.mstep b{display:block;font-size:13px;color:var(--ink)}.mstep span{font-size:12px;color:var(--muted)}.mstep.done{border-color:var(--ok)}.mstep.done span{color:var(--ok)}.mstep.now{border:2px solid var(--blue)}.mstep i{font-style:normal;display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;background:var(--bg);font-size:11px;font-weight:700;margin-right:6px}.mstep.done i{background:var(--ok);color:#fff}.mstep.now i{background:var(--blue);color:#fff}.wl2 .msec{margin:0 0 6px}.wl2 tr.tot td{font-weight:600}.wl2 td small{display:block}.wl2 .banner{background:color-mix(in srgb,var(--ok) 12%,var(--surface));border:1px solid var(--ok);border-radius:8px;padding:12px 14px;margin:0 0 10px}.wl2 .wlh select{min-width:180px}@media (max-width:760px){.msteps{grid-template-columns:repeat(2,minmax(0,1fr))}}.clsw.seg{border:0;border-bottom:1px solid var(--line);border-radius:0;background:none;gap:4px;width:100%;margin:0 0 16px}.clsw.seg button{background:none;border:0;border-bottom:3px solid transparent;border-radius:0;color:var(--muted);padding:8px 14px 9px;margin-bottom:-1px;min-height:0}.clsw.seg button[aria-pressed="true"]{background:none;color:var(--ink);border-bottom-color:var(--blue)}.clsw.seg button:hover{color:var(--ink)}.btns{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 14px}.crumbs{margin:0 0 4px}.clsw{margin:0 0 12px;display:flex}.clsw button{display:flex;flex-direction:column;align-items:flex-start;gap:1px;padding:7px 16px;font-weight:600}.clsw small{font-weight:400;font-size:12px;opacity:.8}@media (max-width:760px){.clsw{width:100%}.clsw button{flex:1 1 0;align-items:center;text-align:center}}.crumbs .lnk{padding:6px 0}label.urgl{display:flex!important;flex-direction:row;align-items:center;gap:6px;align-self:end;min-height:34px}
-.clientchips{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}.clientchips button{font:inherit;font-size:12.5px;border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:4px 10px;border-radius:14px;cursor:pointer}
-.clientchips button[aria-pressed="true"]{background:var(--ink);color:var(--surface);border-color:var(--ink)}.clientchips .c{font-family:var(--mono);font-size:11px;opacity:.75;margin-left:4px}
+.sendbar label{display:grid;gap:2px;font-size:12px;color:var(--muted)}.sendbar input[type=text],.sendbar input:not([type]){min-width:240px}.sendbar .sp{flex:1}.wl2{--soft:color-mix(in srgb,var(--ink) 4%,var(--surface));font-variant-numeric:tabular-nums}.wl2 .wlh{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px 18px;margin:0 0 14px}.wl2 .wlh .l,.wl2 .wlk .l{display:block;font-size:12px;color:var(--muted);margin-bottom:3px}.wl2 .wlh select{font:inherit;font-size:14px;min-height:38px;padding:6px 10px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink);min-width:240px;max-width:100%}.wl2 .wlh .topic{margin:0 0 6px}.wl2 .wlh .sp{flex:1}.wl2 .wlks{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin:0 0 16px}.wl2 .wlk{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 14px;min-width:0}.wl2 .wlk .v{display:block;font-size:22px;font-weight:600;color:var(--ink);line-height:1.2}.wl2 .wlk .s{display:block;font-size:11.5px;color:var(--muted)}.wl2 .wlk.t-bad .v{color:var(--over)}.wl2 .wlk.t-warn .v{color:var(--late)}.wl2 .wlbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;justify-content:space-between;margin:0 0 8px;color:var(--muted);font-size:13px}.wl2 .wlbar .find{margin:0}.wl2 .wltab{border-radius:8px;overflow:hidden;padding:0}.wl2 table{font-family:inherit;font-size:14px}.wl2 th{font-size:12px;font-weight:600;color:var(--muted);background:var(--soft);padding:10px 14px;border-bottom:1px solid var(--line)}.wl2 td{padding:12px 14px;vertical-align:middle;border-bottom:1px solid var(--line);font-family:inherit}.wl2 tr:last-child td{border-bottom:0}.wl2 td.r{white-space:nowrap}.wl2 tbody tr:hover td{background:var(--soft)}.wl2 .mute{color:var(--muted)}.wl2 .wlb{all:unset;cursor:pointer;display:flex;align-items:center;gap:10px;width:100%;box-sizing:border-box;min-height:36px}.wl2 .wlb b{display:block;font-weight:600;color:var(--ink)}.wl2 .wlb small{display:block;color:var(--muted);font-size:12px}.wl2 .wlb:focus-visible{outline:2px solid var(--blue);outline-offset:3px;border-radius:4px}.wl2 .wlb:hover b{color:var(--blue)}.wl2 .wlchev{margin-left:auto;color:var(--muted);font-size:20px;line-height:1}.wl2 .wldot{width:8px;height:8px;border-radius:50%;flex:none;background:var(--line)}.wl2 .wldot.t-bad{background:var(--over)}.wl2 .wldot.t-good{background:var(--ok)}.wl2 .wldot.t-info{background:var(--blue)}.wl2 .wlgp b{font-size:15px}.wl2 .wlgp small,.wl2 td small{display:block;font-size:11.5px;color:var(--muted);font-weight:400}.wl2 b.t-bad,.wl2 small.t-bad{color:var(--over)}.wl2 b.t-good,.wl2 small.t-good{color:var(--ok)}.wl2 .wledit{all:unset;cursor:pointer;display:inline-flex;vertical-align:middle;margin-left:4px;color:var(--muted);padding:2px}.wl2 .wledit svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2}.wl2 .wledit:hover{color:var(--blue)}.wl2 .wlnt{display:flex;flex-direction:column;align-items:flex-end;gap:2px;margin-top:4px}.wl2 .wlnt input{width:72px}.wl2 .wltag{display:inline-block;font-size:12px;font-weight:500;padding:2px 9px;border-radius:999px;white-space:nowrap;background:color-mix(in srgb,var(--muted) 14%,transparent);color:var(--muted)}.wl2 .wltag.t-bad{background:color-mix(in srgb,var(--over) 13%,transparent);color:var(--over)}.wl2 .wltag.t-good{background:color-mix(in srgb,var(--ok) 14%,transparent);color:var(--ok)}.wl2 .wltag.t-info{background:color-mix(in srgb,var(--blue) 13%,transparent);color:var(--blue)}.wl2 .wltag.t-warn{background:color-mix(in srgb,var(--late) 15%,transparent);color:var(--late)}.wl2 .wlnotes{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:6px 0 0 18px}.wl2 .wlin{width:96px;text-align:right;font:inherit;font-size:14px;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink)}.wl2 .wlin.on{border-color:var(--blue);box-shadow:0 0 0 2px color-mix(in srgb,var(--blue) 18%,transparent)}.wl2 .wlhint{color:var(--muted);font-size:13px;margin:10px 2px}.wl2 .btn.sm{min-height:28px;padding:2px 8px;font-size:12px}@media (max-width:900px){.wl2 .wlks{grid-template-columns:repeat(3,minmax(0,1fr))}}@media (max-width:760px){.wl2 .wlks{grid-template-columns:repeat(2,minmax(0,1fr))}.wl2 .wlh select{min-width:0;width:100%}.wl2 .wlpick{flex:1 1 100%}.wl2 td{padding:4px 0}.wl2 tr{padding:10px 12px}.wl2 .wlin{width:110px}}.wl2 .wlh .topic{margin:0}.wl2 .wlpick{display:flex;align-items:center;gap:8px}.wl2 .wlpick .l{margin:0}@media (max-width:760px){.wl2 table.cards td:first-child::before,.wl2 table.cards td:first-child::after{display:none!important;content:none!important}.wl2 table.cards .wlgpv{display:flex;align-items:baseline;gap:10px}.wl2 table.cards .wlgpv small{display:inline}.wl2 table.cards td.wlgp{align-items:center}.wl2 .wlk:last-child:nth-child(odd){grid-column:1/-1}.wl2 table.cards tr{padding:12px 14px}.wl2 .wlnotes{margin-left:0}}.wl2 .wlsub{margin:4px 0 0;color:var(--muted);font-size:13px}.wl2 .crumbs .lnk{text-decoration:none}.wl2 .crumbs{font-size:13px}.wl2 .wlh2{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:18px 0 8px}.wl2 .wlrec{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 14px}.wl2 .wlrec .l{font-size:12px;color:var(--muted);font-weight:600}.wl2 .wlrec .btn{margin-left:auto}.wl2 .wlmx td:first-child{color:var(--ink)}.wl2 .wlmx td:first-child small{display:block}.wl2 .wlmx td.r small{display:block}.wl2 .wlmx tr.grp td{background:var(--soft);font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;padding:7px 14px}.wl2 .wlmx tr.tot td{font-weight:600}.wl2 .wlmx tr.act td{background:none}.wl2 .wlmx td{padding:9px 14px}.wl2 .wlmx th.r,.wl2 .wlmx td.r{min-width:130px}.wl2 .wlks:has(.wlk:nth-child(4):last-child){grid-template-columns:repeat(4,minmax(0,1fr))}@media (max-width:760px){.wl2 .wlks:has(.wlk:nth-child(4):last-child){grid-template-columns:repeat(2,minmax(0,1fr))}.wl2 .wlmx th.r,.wl2 .wlmx td.r{min-width:96px}}.lcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(205px,1fr));gap:12px}.lcard{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:6px;min-width:0}.lcard .t{font-weight:700;font-size:15px;color:var(--ink)}.lcard .k{display:flex;gap:16px}.lcard .k div{display:flex;flex-direction:column}.lcard .k b{font-size:20px;line-height:1.2;color:var(--ink)}.lcard .k b.mute{color:var(--muted);font-size:17px}.lcard .k small,.lcard .m{color:var(--muted);font-size:12px}.lcard .st{font-size:12.5px}.lcard .st.t-bad{color:var(--over)}.lcard .st.t-good{color:var(--ok)}.lcard .st.t-warn{color:var(--late)}.lcard .btn{align-self:flex-start;margin-top:auto}.wl2 .wlk.t-warn .v{color:var(--late)}.lstf{margin:0 0 14px}.msteps{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin:0 0 14px}.mstep{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 12px;min-width:0}.mstep b{display:block;font-size:13px;color:var(--ink)}.mstep span{font-size:12px;color:var(--muted)}.mstep.done{border-color:var(--ok)}.mstep.done span{color:var(--ok)}.mstep.now{border:2px solid var(--blue)}.mstep i{font-style:normal;display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;background:var(--bg);font-size:11px;font-weight:700;margin-right:6px}.mstep.done i{background:var(--ok);color:#fff}.mstep.now i{background:var(--blue);color:#fff}.wl2 .msec{margin:0 0 6px}.wl2 tr.tot td{font-weight:600}.wl2 td small{display:block}.wl2 .banner{background:color-mix(in srgb,var(--ok) 12%,var(--surface));border:1px solid var(--ok);border-radius:8px;padding:12px 14px;margin:0 0 10px}.wl2 .wlh select{min-width:180px}@media (max-width:760px){.msteps{grid-template-columns:repeat(2,minmax(0,1fr))}}.btns{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 14px}.crumbs{margin:0 0 4px}.subnav.clsw{margin:0 0 16px}.subnav.clsw button{flex-direction:column;align-items:flex-start;gap:1px;padding:8px 16px 7px;font-size:14px}.clsw small{font-weight:400;font-size:12px;opacity:.8}@media (max-width:760px){.subnav.clsw button{flex:1 1 0;align-items:center;text-align:center;white-space:normal}}.crumbs .lnk{padding:6px 0}label.urgl{display:flex!important;flex-direction:row;align-items:center;gap:6px;align-self:end;min-height:34px}
+.chips .c{font-family:var(--mono);font-size:11px;opacity:.75;margin-left:4px}
 
 /* ---------- Piece 4, the new look ---------- */
 .skins{display:inline-flex;gap:5px;align-items:center}.skins button{width:24px;height:24px;padding:0;border-radius:50%;border:2px solid rgba(255,255,255,.55);cursor:pointer}.skins button[aria-pressed="true"]{border-color:#fff;box-shadow:0 0 0 2px var(--blue)}
@@ -286,7 +281,6 @@ input.np{width:90px;text-align:right;font-family:var(--mono);padding:3px 6px}inp
 @media (min-width:761px) and (max-width:900px){.hdr .foot b{display:none}}
 /* thin dim table lines, text left, numbers right, bolder tabs, smaller product headings */
 th,td{border-bottom:1px solid var(--line)}th{font-weight:600}
-.subnav button{font-weight:600}.subnav button[aria-current="true"],.subnav button[aria-selected="true"]{font-weight:700}
 h1.topic{font-size:17px;letter-spacing:.04em}
 .csq{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:7px;vertical-align:baseline;flex:none}
 /* Home (D-99 B, D-100): verdict left, jobs right */
@@ -341,6 +335,24 @@ h1.topic{font-size:17px;letter-spacing:.04em}
 #rtprint h1{font-size:16px;margin:0 0 2px}#rtprint .rtps{margin:0 0 8px;color:#333}#rtprint table{border-collapse:collapse;width:100%}#rtprint thead{display:table-header-group}#rtprint tr{break-inside:avoid}
 #rtprint th,#rtprint td{border-bottom:1px solid #bbb;padding:3px 5px;text-align:left;vertical-align:top}#rtprint th{border-bottom:1.5px solid #000}#rtprint .r{text-align:right}#rtprint tfoot td{font-weight:700;border-top:1.5px solid #000}
 #rtprint .rtpf{margin-top:10px;font-size:9.5px;color:#333}@page{margin:12mm}}
+/* Push 6c (D-161, R21): on a phone every control on a page or in a panel is at least 40 px to tap; a tick's whole line is its tap target.
+   The laptop keeps the compact look. Wide tables for entering rates and price lists still scroll inside their own box. */
+@media (max-width:760px){
+  main :is(button,select,summary,a[href],textarea,input:not([type=checkbox]):not([type=radio]):not([type=hidden])),aside.panel :is(button,select,summary,a[href],textarea,input:not([type=checkbox]):not([type=radio]):not([type=hidden])){min-height:40px}
+  main button,aside.panel button{min-width:40px}
+  main .lnk,aside.panel .lnk,main a[href],aside.panel a[href]{display:inline-flex;align-items:center;vertical-align:middle}
+  .crumb button,.crumbs .lnk{padding:0 4px}
+  .chips button,.subnav button{min-height:40px}
+  main label:has(>input[type=checkbox]),main label:has(>input[type=radio]),aside.panel label:has(>input[type=checkbox]),aside.panel label:has(>input[type=radio]){display:flex;align-items:center;gap:10px;min-height:40px;cursor:pointer}
+  main input[type=checkbox],main input[type=radio],aside.panel input[type=checkbox],aside.panel input[type=radio]{width:20px;height:20px;flex:none;margin:0}
+  .wl2 .wledit{display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;margin:0 0 0 2px}.wl2 .wledit svg{width:16px;height:16px}
+  .wl2 .wlb{min-height:44px}.wl2 .btn.sm,.btn.sm{min-height:40px}
+  details.how summary,details>summary{display:list-item;min-height:40px;padding-top:9px;padding-bottom:9px;box-sizing:border-box}
+}
+/* Back with typed text not saved: asked on the page, Stay or Leave (push 6c) */
+.navask{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(72px + env(safe-area-inset-bottom));z-index:60;width:min(440px,calc(100vw - 24px));background:var(--surface);color:var(--ink);border:1px solid var(--blue);border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,.25);padding:12px 14px;display:grid;gap:10px}
+.navask p{margin:0;font-size:14px}.navask div{display:flex;gap:8px}.navask .btn{flex:1 1 0;min-height:44px;font-size:15px}
+@media (min-width:761px){.navask{bottom:24px}}
 </style>
 </head>
 <body>
@@ -447,11 +459,13 @@ async function savePdf(id) {
   setTimeout(() => URL.revokeObjectURL(url), 30000);
 }
 async function load() { ST = await api('/api/c2m/state' + (PV ? '?as=' + encodeURIComponent(PV) : '')); const B = SET('budget_gp'); if (B != null) { (ST.products || []).forEach(p => { if (p.target == null || Number(p.target) <= 0) { p.target = B > 0 ? B : null; p.targetDefault = B > 0; } }); (ST.sales || []).forEach(r => { if (r.target == null || Number(r.target) <= 0) r.target = B > 0 ? B : 0; }); (ST.open || []).forEach(r => { if (r.target == null || Number(r.target) <= 0) r.target = B > 0 ? B : 0; }); } // D-75: no target set = the company GP target
-  if (!ST.me.nav.concat(ST.me.more || []).includes(scr)) scr = ST.me.nav[0]; render(); checkWhatsNew(); if (lm.open && !lmDone()) lmLoad(); } // the carry-over plan follows every change made meanwhile (a rename in Product names; review 1.0.3 re-check, finding 5)
+  if (navAfter) { const s = navAfter; navAfter = null; navLand(s); } /* Back out of a preview: the step is put back with this person's own rights (review 6c, M1) */
+  if (!ST.me.nav.concat(ST.me.more || []).includes(scr)) scr = ST.me.nav[0]; if (navI < 0 && location.hash.length > 1) navFromHash(location.hash); /* an address with #place opens that place, if this person can (push 6c) */ render(); checkWhatsNew(); if (lm.open && !lmDone()) lmLoad(); } // the carry-over plan follows every change made meanwhile (a rename in Product names; review 1.0.3 re-check, finding 5)
 let actBusy = false;
 async function once(fn) { if (actBusy) { toast('Wait: the last save is still running.'); return false; } actBusy = true; try { return await fn(); } finally { actBusy = false; } }
 async function act(path, body, okMsg) { return once(() => act0(path, body, okMsg)); } // a double click sends 1 save (review 1.0.2 re-check, finding 5)
 async function act0(path, body, okMsg) { { const pn = document.querySelector('aside.panel'); panAt = pn && pn.contains(document.activeElement) ? panItems(pn).indexOf(document.activeElement) : null; if (panAt < 0) panAt = null; } let j; try { j = await api(path, body); } catch (e) { toast(e.message, true); return null; }
+  NAVTYPED.clear(); /* saved: Back no longer asks about what was typed (push 6c; review 6c, m1: only a real save clears it, never a try or a preview) */
   { const m = okMsg ? (typeof okMsg === 'function' ? okMsg(j) : okMsg) : ''; if (j && j.pending) { const t = (j.urgent ? `Saved as urgent: it waits for Tahir's approval. If he does not approve it, it goes in on Monday ${fmtShort(j.applyOn)}.` : `Saved for Monday ${fmtShort(j.applyOn)}.`) + (j.gaveNow ? ` ${pl(j.gaveNow, 'pack with no bill got', 'packs with no bill got')} the bill now.` : ''); if (scr === 'costs' && !pan) { saved = { t, re: 0, pending: true, urgent: !!j.urgent, n: j.effectCount || 0 }; $('toast').hidden = true; } else toast(t); }
     else if (m) { if (scr === 'costs' && !pan) { const re = j && Number(j.reapproval) > 0 ? Number(j.reapproval) : 0; const b0 = { ...(body || {}) }; delete b0.correct; delete b0.urgent; delete b0.reason; saved = { t: re ? String(m).split('. ')[0].replace(/\.?$/, '.') : m, re, path: CORR[path] ? path : null, body: b0, at: Date.now() }; corrOpen = null; $('toast').hidden = true; } else toast(m); } } // on Costs the result stays in the Saved box (R16, push 2a)
   if (pan) panFocus = true; aud.data = null;
@@ -633,7 +647,8 @@ const packTxt = (size, unit) => { const z = Number(size), u = unit || 'kg'; retu
 const szTxt = k => packTxt(k.size, k.product.soldPer);
 /** A product's name, with its packs when another product of the same client shares the name (trade names shared across pack sizes, Tahir 20 Oct 2026). */
 const prodNm = (id, brand) => { const P = ST.products || []; const p = P.find(x => x.id === id); if (!p) return brand; const k = s => String(s || '').replace(/\s+/g, ' ').trim().toLowerCase(); return P.some(x => x.id !== id && x.customerId === p.customerId && k(x.brand) === k(p.brand)) ? `${brand} (${(p.packs || []).map(z => packTxt(z.size, p.soldPer)).join(', ')})` : brand; };
-const nTabs = (attr, opts, cur) => `<div class="otabs" role="group">${opts.map(([k, l]) => `<button data-${attr}="${k}" aria-pressed="${cur === k}">${l}</button>`).join('')}</div>`;
+/** The 1 tab style (push 6c, D-161, R58): a place's parts. Filters use nChips. */
+const nTabs = (attr, opts, cur, label) => `<div class="subnav" role="tablist"${label ? ` aria-label="${esc(label)}"` : ''}>${opts.map(([k, l]) => `<button role="tab" data-${attr}="${k}" aria-selected="${cur === k}">${l}</button>`).join('')}</div>`;
 const nChips = (attr, opts, cur) => `<div class="chips">${opts.map(([k, l]) => `<button data-${attr}="${esc(k)}" aria-pressed="${cur === k}">${l}</button>`).join('')}</div>`;
 
 /* ---------- Margin (picture approved 19 Oct, D-79) ---------- */
@@ -706,7 +721,7 @@ function nmTrend() {
       ${pts.map((p, i) => `<circle class="ogd" cx="${x(i)}" cy="${y(p.pct)}" r="3.5"/><text class="oa" x="${x(i)}" y="${H - 8}" text-anchor="middle">${MON[+p.m.slice(5) - 1]}${p.m === ST.today.slice(0, 7) || p.m === first.slice(0, 7) ? '*' : ''}</text>`).join('')}
       <text class="olab g" x="${W - R + 8}" y="${yg + 4}">GP ${z.pct.toFixed(1)}%</text>${z.tgt != null && !mixed ? `<text class="olab t" x="${W - R + 8}" y="${yt + 4}">Target ${z.tgt.toFixed(1)}%</text>` : ''}</svg>`;
   }
-  return `<div class="ocard"><h3>${esc(title)}</h3><p class="osub">${sub}</p>${nTabs('nm-t', [['chart', 'Chart'], ['table', 'Table']], nm.tTab)}${body}<p class="ofoot"><b>Source:</b> O2S trucks (read only); C2M approved costs and targets.<br><b>Note:</b> * a part month (the first truck in O2S, or today). Trucks of packs with no approved cost at all are left out.</p></div>`;
+  return `<div class="ocard"><h3>${esc(title)}</h3><p class="osub">${sub}</p>${nTabs('nm-t', [['chart', 'Chart'], ['table', 'Table']], nm.tTab, 'Chart or table')}${body}<p class="ofoot"><b>Source:</b> O2S trucks (read only); C2M approved costs and targets.<br><b>Note:</b> * a part month (the first truck in O2S, or today). Trucks of packs with no approved cost at all are left out.</p></div>`;
 }
 function nmStake() {
   const ex = exposure().filter(x => x.fwd > 0).sort((a, b) => b.fwd - a.fwd); const tot = ex.reduce((s, x) => s + x.fwd, 0);
@@ -715,7 +730,7 @@ function nmStake() {
   let body;
   if (nm.sTab === 'table') body = `<div class="wrapx"><table class="otab"><thead><tr><th>Client · pack</th><th class="r">Price</th><th class="r">Cost today</th><th class="r">Price for target</th><th class="r">Expected</th><th class="r">Rs at stake</th></tr></thead><tbody>${ex.map(x => `<tr><td>${esc(x.cust)} · ${esc(x.prod)}</td><td class="r num">${n2(x.price)}</td><td class="r num">${n2(x.c)}</td><td class="r num">${n2(x.tp)}</td><td class="r num">${n0(x.kg3)} ${x.unit}</td><td class="r num">${n0(x.fwd)}</td></tr>`).join('')}</tbody></table></div>`;
   else { const mx = ex.length ? ex[0].fwd : 1; body = `<div class="obars">${ex.slice(0, 7).map(x => `<button class="obar" data-nm-dc="${esc(x.cust)}" data-nm-dp="${x.id}"><span class="on">${esc(x.cust)} · ${esc(x.prod)}</span><span class="ot"><i style="width:${(x.fwd / mx * 100).toFixed(1)}%"></i><b>Rs ${n0(x.fwd)}</b></span></button>`).join('') || '<p class="osub">None.</p>'}</div>`; }
-  return `<div class="ocard"><h3>${esc(title)}</h3><p class="osub">${sub}</p>${nTabs('nm-s', [['chart', 'Chart'], ['table', 'Table']], nm.sTab)}${basisChips()}${body}<p class="ofoot"><b>Source:</b> C2M cost today, client price and target; kg from O2S trucks and open POs.<br><b>Note:</b> Price for target = cost today ÷ (1 − target %). A price approved for a later date counts from its date.</p></div>`;
+  return `<div class="ocard"><h3>${esc(title)}</h3><p class="osub">${sub}</p>${nTabs('nm-s', [['chart', 'Chart'], ['table', 'Table']], nm.sTab, 'Chart or table')}${basisChips()}${body}<p class="ofoot"><b>Source:</b> C2M cost today, client price and target; kg from O2S trucks and open POs.<br><b>Note:</b> Price for target = cost today ÷ (1 − target %). A price approved for a later date counts from its date.</p></div>`;
 }
 function vMargin2() {
   if (!(ST.sales || []).length) return `${meta(o2sAsOf())}${head('Margin', 'No trucks in C2M yet: margin shows after the first O2S pull (Setup, Record and checks, From O2S).', '')}`;
@@ -872,7 +887,7 @@ function clSwitch() {
   const lWait = (ST.listRevisions || []).filter(r => r.status === 'proposed').length;
   const note = (a, b) => [a, b].filter(Boolean).join(', ');
   const w = note(wWait ? pl(wWait, 'waits', 'wait') + ' for Tahir' : '', below ? below + ' below target' : ''), v = lWait ? pl(lWait, 'list revision waits', 'list revisions wait') + ' for Tahir' : '';
-  return `<div class="clsw seg" role="group" aria-label="Kind of client"><button data-clkind="wl" aria-pressed="${cl.kind === 'wl'}">White Label${w ? `<small>${esc(w)}</small>` : ''}</button><button data-clkind="van" aria-pressed="${cl.kind === 'van'}">VAN Brands${v ? `<small>${esc(v)}</small>` : ''}</button></div>`;
+  return `<div class="subnav clsw" role="tablist" aria-label="Kind of client"><button role="tab" data-clkind="wl" aria-selected="${cl.kind === 'wl'}">White Label${w ? `<small>${esc(w)}</small>` : ''}</button><button role="tab" data-clkind="van" aria-selected="${cl.kind === 'van'}">VAN Brands${v ? `<small>${esc(v)}</small>` : ''}</button></div>`;
 }
 /** VAN Brands, Products (R2): each VAN brand product with its recipe, cost and standard margin; a row opens its product page. */
 function vVanProducts() {
@@ -926,7 +941,7 @@ function vBrand(p) {
 }
 /* ---------- VAN Brands, Price lists (push 3b, R3, R34, R35, R39 to R42, D-153): 5 cards, each list with its own target GP and freight ---------- */
 const LCARD = [['dist', 'now', 'dist', 'Distributor', 'ex FED'], ['dealer', 'nsv', 'dealer', 'Dealer, Sindh', 'NSV ex FED, before the additional discount'], ['farmer', 'pb', 'farmer_pb', 'Farmer, Punjab', 'with FED'], ['farmer', 'sn', 'farmer_sn', 'Farmer, Sindh cash', 'with FED'], ['farmer', 'snc', 'farmer_snc', 'Farmer, Sindh credit', 'with FED']];
-const vanTabs = () => nTabs('ncp-tab', [['vprod', 'Products'], ['vlists', 'Price lists']], ncp.tab === 'vprod' ? 'vprod' : 'vlists');
+const vanTabs = () => nTabs('ncp-tab', [['vprod', 'Products'], ['vlists', 'Price lists']], ncp.tab === 'vprod' ? 'vprod' : 'vlists', 'VAN Brands');
 /** A list's target GP % or freight Rs per kg; null when not set yet (an empty or missing setting is never read as 0). */
 const LSET = k => { const r = (ST.settings || []).find(x => x.k === k); return r && String(r.v).trim() !== '' && isFinite(Number(r.v)) ? Number(r.v) : null; };
 let lst = { open: null, t: '', f: '', why: '', form: false };
@@ -1013,7 +1028,7 @@ function wlClient(o) {
 function vPrices2() {
   if (!loaded()) return head('Clients', 'No client prices in C2M yet: they come with the load of the CFO\'s sheets.', '');
   const inCl = scr === 'clients'; /* push 3a: shown inside Clients, White Label or VAN Brands (D-152) */
-  const T = inCl ? (ncp.tab === 'wl' ? '' : vanTabs() + `<p class="crumbs ans"><button class="lnk" data-ncp-tab="vlists">Price lists</button> › <b>${ncp.tab === 'lists' ? 'Make a price list PDF' : 'All 5 side by side'}</b></p>`) : nTabs('ncp-tab', [['wl', 'White label clients'], ['van', 'VAN brand prices'], ['lists', 'Price lists']], ncp.tab);
+  const T = inCl ? (ncp.tab === 'wl' ? '' : vanTabs() + `<p class="crumbs ans"><button class="lnk" data-ncp-tab="vlists">Price lists</button> › <b>${ncp.tab === 'lists' ? 'Make a price list PDF' : 'All 5 side by side'}</b></p>`) : nTabs('ncp-tab', [['wl', 'White label clients'], ['van', 'VAN brand prices'], ['lists', 'Price lists']], ncp.tab, 'Prices');
   if (ncp.tab === 'lists') return `${head(inCl ? 'Price list PDF' : 'Clients', 'Price lists: build, check and send.', '1 builder for every audience. Pick who it is for, pick the fields, check the document, then create the PDF. Cost and margin can never be printed.')}${T}${vListsBuilder()}`;
   if (ncp.tab === 'van') return lm.open && !lmDone() ? vCarry(T) : ncpVan(T);
   const cs = ncpClients(); if (!cs.length) return head(inCl ? 'White Label' : 'Clients', 'No white label client in C2M yet.', '') + T;
@@ -1036,7 +1051,7 @@ function vPrices2() {
 `;
   if (inCl) return wlClient({ cs, rows, yw, coo, wgp, wq, below, nopr, ch, tch, sendBar });
   return `${head(inCl ? ncp.cl : 'Clients', `${esc(ncp.cl)}: ${pl(rows.length, 'pack', 'packs')}. ${nopr ? `${nopr} with no price yet. ` : ''}${below ? `${below} below target. ` : (rows.length - nopr ? 'None below target. ' : '')}${above ? `${above} more than ${ABOVE_PTS} points above. ` : ''}${wgp != null && wq ? `GP at today's cost ${p1(wgp)}%, weighted by expected kg.` : wgp != null ? `GP at today's cost ${p1(wgp)}%.` : ''}`, `GP here is at cost today. Price for target = cost today ÷ (1 − target %). "Above: check" is a price more than ${ABOVE_PTS} points over its target, which may be higher than it needs to be. Expected kg and the Rs a new price moves follow the Rs at stake basis (budget kg or the last 3 months).`)}${T}
-  <p class="ans" style="margin:4px 0">Client chips: sales FY to date.</p><div class="clientchips" role="group" aria-label="Client, with sales FY to date">${cs.map(x => `<button data-ncp-cl="${esc(x.c)}" aria-pressed="${x.c === ncp.cl}">${esc(x.c)}<span class="c">${x.rs ? 'Rs ' + (x.rs / 1e6).toFixed(1) + 'M' : '–'}</span></button>`).join('')}</div>
+  <p class="ans" style="margin:4px 0">Client chips: sales FY to date.</p><div class="chips" role="group" aria-label="Client, with sales FY to date">${cs.map(x => `<button data-ncp-cl="${esc(x.c)}" aria-pressed="${x.c === ncp.cl}">${esc(x.c)}<span class="c">${x.rs ? 'Rs ' + (x.rs / 1e6).toFixed(1) + 'M' : '–'}</span></button>`).join('')}</div>
   <p class="tline"><b>${esc(ncp.cl)}</b> · prices in force today · Rs per kg or L · GP at today's cost · expected kg over the next ${SET('forward_months')} months</p>
   ${findBox('cprices', 'Find a product or pack')}<div class="box wrapx"><table class="wt cards" data-lft="cprices"><thead><tr><th data-key="1">Pack</th><th class="r" data-key="2">Price now</th><th class="r">Cost today</th><th class="r" data-key="3">GP %</th><th class="r">Target %</th><th class="r">Price for target</th><th>State</th>${yw ? '<th class="r">New price</th><th class="r" data-key="4">New GP %</th>' : ''}<th class="r">Expected, ${SET('forward_months')} months</th></tr></thead><tbody>
   ${rows.map(r => `<tr class="r-${r.st === 'above' ? 'none' : r.st}"><td>${inCl ? `<button class="lnk" data-clbrand="${r.p.id}" title="Open the brand page"><b>${esc(r.p.brand)} · ${esc(szTxt(r.k))}</b></button>` : `<b>${esc(r.p.brand)} · ${esc(szTxt(r.k))}</b>`}${r.k.priceFrom ? `<span class="sub2">price from ${esc(fmtShort(r.k.priceFrom))}</span>` : ''}${r.nx ? `<span class="sub2"><span class="pill p-blue">Rs ${n2(r.nx.price)} approved from ${esc(fmtShort(r.nx.from))}</span></span>` : ''}${r.wait ? `<span class="sub2"><span class="pill p-amber">Rs ${n2(r.wait.price)} with the COO</span>${yw && r.wait.by === ST.me.user ? ` <button class="btn ghost" data-pretract="${r.wait.id}" data-confirm="Confirm: take back Rs ${n2(r.wait.price)}">Take back</button>` : ''}</span>` : ''}${r.back && !r.wait ? `<span class="sub2"><span class="pill p-red">Rs ${n2(r.back.price)} sent back</span> ${esc(r.back.backReason || '')}${r.back.to ? `; its Till date ${esc(fmtShort(r.back.to))} is kept on a new price if the new From is on or before that date` : ''}</span>` : ''}</td><td class="r num" data-l="Price now">${r.pr > 0 ? n2(r.pr) : 'none'}</td><td class="r num" data-l="Cost today">${n2(r.c)}</td><td class="r num" data-l="GP %">${r.gp == null ? '–' : p1(r.gp)}</td><td class="r num" data-l="Target %">${r.t > 0 ? p1(r.t) : 'none'}${r.p.targetDefault ? '<span class="sub2">company</span>' : ''}${r.tw ? `<span class="sub2"><span class="pill p-amber">${Number(r.tw.to_gp) > 0 ? p1(Number(r.tw.to_gp)) + '%' : 'company'} with the COO</span>${r.tw.by_user === ST.me.user ? ` <button class="btn ghost" data-tretract="${r.tw.id}" data-confirm="Confirm: take back">Take back</button>` : ''}</span>` : ''}${CAN('targets.propose') && !r.tw && r.nt == null && !ncp.ntOpen[r.p.id] ? `<span class="sub2"><button class="lnk" data-ncp-nto="${r.p.id}">change</button></span>` : ''}${CAN('targets.propose') && !r.tw && (r.nt != null || ncp.ntOpen[r.p.id]) ? `<span class="sub2"><input class="np nt ${r.nt != null ? 'on' : ''}" id="nct-${r.k.id}" data-ncp-nt="${r.p.id}" inputmode="decimal" aria-label="New target for ${esc(r.p.brand)}" value="${esc(r.nt === 'company' ? 'company' : ncp.nt[r.p.id] ?? '')}" placeholder="new %" style="width:64px">${!r.p.targetDefault && r.nt !== 'company' ? `<br><button class="lnk" data-ncp-ntc="${r.p.id}" title="Go back to the company target, ${SET('budget_gp')}%">use company ${p1(SET('budget_gp'))}%</button>` : ''}</span>` : ''}</td><td class="r num" data-l="Price for target">${r.t > 0 ? n2(r.tp) : '–'}</td><td data-l="State"><span class="pill ${r.st === 'red' ? 'p-red' : r.st === 'green' ? 'p-green' : r.st === 'above' ? 'p-blue' : 'p-none'}">${r.c != null && !r.pr ? 'no price' : NCP_ST[r.st]}</span>${coo && r.wait ? `<div style="margin-top:4px"><button class="btn ghost" data-panprop="${r.wait.id}">Open to approve</button></div>` : ''}</td>
@@ -1184,7 +1199,8 @@ async function ncpMxSend0(only) { /* only: the list sent from its own page (revi
   if (!cycGate('nmx')) return; const cyc = cycBody('nmx'); /* R33 */
   const done = [], fail = [];
   for (const list of lists) { const back = (ST.listRevisions || []).filter(r => r.list_name === list && r.status === 'sent_back').sort((a, b) => b.id - a.id)[0]; /* replaces the sent-back revision of this list (finding 4) */
-    try { const j = await api('/api/c2m/lists/revise', { list, items: Object.values(by[list]), reason: ncp.mxReason, ...cyc, validTill: ncp.mxTill || null, replaceId: back ? back.id : undefined }); done.push(`${LISTNAME[list]} (${pl(j.rows, 'price', 'prices')})`); Object.keys(ncp.mx).filter(k => k.split('|')[1] === list).forEach(k => delete ncp.mx[k]); } catch (e) { fail.push(`${LISTNAME[list]}: ${e.message}`); } }
+    try { const j = await api('/api/c2m/lists/revise', { list, items: Object.values(by[list]), reason: ncp.mxReason, ...cyc, validTill: ncp.mxTill || null, replaceId: back ? back.id : undefined }); done.push(`${LISTNAME[list]} (${pl(j.rows, 'price', 'prices')})`); Object.keys(ncp.mx).filter(k => k.split('|')[1] === list).forEach(k => { const [pk, , f] = k.split('|'); NAVTYPED.delete(`nmx-${pk}-${f}`); delete ncp.mx[k]; }); } catch (e) { fail.push(`${LISTNAME[list]}: ${e.message}`); } }
+  if (done.length && !fail.length) NAVTYPED.clear(); /* all sent; a list not sent keeps its typed prices on record, so Back still asks (review 6c, m1) */
   if (done.length) toast(`Sent to the COO: ${done.join(', ')}.${fail.length ? ' Not sent: ' + fail.join(' ') : ''}`, !!fail.length); else toast('Not sent: ' + fail.join(' '), true);
   try { await load(); } catch (e) { toast('Sent. The screen could not refresh: press Refresh or open C2M again.', true); } // the send went through (review 4 Nov)
 }
@@ -1204,17 +1220,17 @@ async function ncpSend0() {
     if (rows.some(r => r.ngp != null && r.t != null && r.ngp < r.t) && !String(ncp.below || '').trim()) return needOne('ncpb', 'Write why the price is below target first.'); }
   if (rows.length && !cycGate('ncp')) return; /* the Monday check before anything is sent (review 3a, finding 2) */
   const tOk = [], tBad = [];
-  for (const r of tch) { try { await api('/api/c2m/targets/request', { clientProductId: r.p.id, toGp: r.nt === 'company' ? 'company' : r.nt, reason: ncp.tWhy }); tOk.push(r.p.brand); delete ncp.nt[r.p.id]; } catch (e) { tBad.push(`${r.p.brand}: ${e.message}`); } }
+  for (const r of tch) { try { await api('/api/c2m/targets/request', { clientProductId: r.p.id, toGp: r.nt === 'company' ? 'company' : r.nt, reason: ncp.tWhy }); tOk.push(r.p.brand); r.p.packs.forEach(k => NAVTYPED.delete('nct-' + k.id)); delete ncp.nt[r.p.id]; } catch (e) { tBad.push(`${r.p.brand}: ${e.message}`); } }
   if (tOk.length) ncp.tWhy = '';
-  if (!rows.length) { toast(tOk.length ? `Sent to the COO: ${pl(tOk.length, 'target', 'targets')}.${tBad.length ? ' Not sent: ' + tBad.join(' ') : ''}` : 'Not sent: ' + tBad.join(' '), !!tBad.length); await load(); return; }
+  if (!rows.length) { if (tOk.length && !tBad.length) NAVTYPED.clear(); toast(tOk.length ? `Sent to the COO: ${pl(tOk.length, 'target', 'targets')}.${tBad.length ? ' Not sent: ' + tBad.join(' ') : ''}` : 'Not sent: ' + tBad.join(' '), !!tBad.length); await load(); return; }
   { const pa = rows.find(r => Math.abs(Number(r.np) - Math.round(Number(r.np))) > 1e-9); if (pa) return toast(`A client price is a whole rupee: ${pa.p.brand} ${szTxt(pa.k)} has ${pa.np}. Type ${Math.ceil(Number(pa.np))} or another whole number.`); } // Tahir, 22 Oct 2026
   if (!String(ncp.reason || '').trim()) return needOne('ncpr', 'Write the reason the client will read first.');
   if (rows.some(r => r.ngp != null && r.t != null && r.ngp < r.t) && !String(ncp.below || '').trim()) return needOne('ncpb', 'Write why the price is below target first.');
   if (!cycGate('ncp')) return; const cyc = cycBody('ncp'); const from1 = cyc.validFrom || ST.today; /* R33 */
   const ok = [], bad = [], dropped = [];
   for (const r of rows) { const back = r.back; /* a sent-back price for this pack is replaced by the new one; its valid-till date is carried (review 19 Oct) */ const till = back && back.to && String(back.to).slice(0, 10) >= from1 ? String(back.to).slice(0, 10) : undefined; if (back && back.to && !till) dropped.push(`${r.p.brand} ${szTxt(r.k)}`);
-    try { await api('/api/c2m/prices/propose', { packId: r.k.id, price: r.np, reason: ncp.reason, belowReason: r.ngp < r.t ? ncp.below : null, ...cyc, validTo: till, replaceId: back ? back.id : undefined }); ok.push(r.k.id); delete ncp.np[r.k.id]; } catch (e) { bad.push(`${r.p.brand} ${szTxt(r.k)}: ${e.message}`); } }
-  ncp.cx = false; if (ok.length) { ncp.urg = false; ncp.urgWhy = ''; } if (tBad.length) bad.push(...tBad);
+    try { await api('/api/c2m/prices/propose', { packId: r.k.id, price: r.np, reason: ncp.reason, belowReason: r.ngp < r.t ? ncp.below : null, ...cyc, validTo: till, replaceId: back ? back.id : undefined }); ok.push(r.k.id); NAVTYPED.delete('ncp-' + r.k.id); delete ncp.np[r.k.id]; } catch (e) { bad.push(`${r.p.brand} ${szTxt(r.k)}: ${e.message}`); } }
+  ncp.cx = false; if (ok.length) { ncp.urg = false; ncp.urgWhy = ''; } if (tBad.length) bad.push(...tBad); if (!bad.length) NAVTYPED.clear(); /* a price not sent keeps its record (review 6c, m1) */
   toast(ok.length || tOk.length ? `Sent to the COO: ${[ok.length ? pl(ok.length, 'price', 'prices') : '', tOk.length ? pl(tOk.length, 'target', 'targets') : ''].filter(Boolean).join(' and ')}.${dropped.length ? ` No Till date on ${dropped.join(', ')}: the sent-back date was before the new From.` : ''}${bad.length ? ' Not sent: ' + bad.join(' ') : ''}` : 'Not sent: ' + bad.join(' '), !!bad.length);
   try { await load(); } catch (e) { toast('Sent. The screen could not refresh: press Refresh or open C2M again.', true); } // the send went through (review 4 Nov)
 }
@@ -1260,7 +1276,7 @@ function nsuO2s() {
    Tahir or Yawar; every change logged. C2M never changes O2S: a spelling keeps an O2S name flowing until O2S is corrected. */
 let pn = { edit: null, pick: {}, o2s: {}, b: null, s: null, conf: null, use: null };
 /** Save a product's description on the price lists, against the one the page showed. */
-async function pnSpec(id, dsc, afterNames) { try { await api(`/api/c2m/names/product/${id}/spec`, { spec: dsc, was: (pn.was && pn.was.spec) || '' }); return true; } catch (er) { toast(afterNames ? `The names were saved. The description was not saved: ${String(er.message).replace(/\s*Nothing was saved\.?\s*$/, '').replace(/\.\s*$/, '')}. The description you typed: "${dsc}". Open the product again to save it.` : er.message, true); return false; } } // no "Nothing was saved" after names that were saved; the typed words are not lost (review 1.0.3, fourth check)
+async function pnSpec(id, dsc, afterNames) { try { await api(`/api/c2m/names/product/${id}/spec`, { spec: dsc, was: (pn.was && pn.was.spec) || '' }); NAVTYPED.clear(); return true; } catch (er) { toast(afterNames ? `The names were saved. The description was not saved: ${String(er.message).replace(/\s*Nothing was saved\.?\s*$/, '').replace(/\.\s*$/, '')}. The description you typed: "${dsc}". Open the product again to save it.` : er.message, true); return false; } } // no "Nothing was saved" after names that were saved; the typed words are not lost (review 1.0.3, fourth check)
 const pnKey = s => String(s == null ? '' : s).replace(/\s+/g, ' ').trim().toLowerCase(); // as the server's matcher reads names: case and spaces only (review 1.0.2, design finding 12)
 const pnSize = z => Number(z).toLocaleString('en-US', { maximumFractionDigits: 3 }); // 0.5 stays 0.5 (review 1.0.2, design finding 11)
 const pnWords = s => vmNorm(s).split(' ').filter(w => w.length >= 3 && !/^\d/.test(w));
@@ -1435,7 +1451,7 @@ function vLF(kind) {
   <div class="box wrapx"><table class="wt cards"><tr><th>Rate</th><th class="r">Rs per kg or L</th><th>From</th><th class="r">Products</th><th></th></tr>${rows}</table></div>
   ${yw ? `<details class="box form"><summary>Add a named rate (e.g. Average)</summary><div class="row"><label for="lfn-n">Name<input id="lfn-n" maxlength="40" placeholder="Average"></label><label for="lfn-v">Rs per kg or L<input id="lfn-v" type="number" step="0.01"></label><label for="lfn-s" style="flex:1 1 200px">Source or note<input id="lfn-s"></label><button class="btn" data-lfadd="${kind}">Add</button></div><p class="ans" style="margin:0">A new rate has no products until you move them to it.</p></details>` : ''}
   <h2>Which products are on which rate</h2>
-  <div class="clientchips" role="group" aria-label="Show">${Object.entries(F).map(([k, l]) => `<button data-lff="${k}" aria-pressed="${lfFilter === k}">${l}</button>`).join('')}</div>
+  <div class="chips" role="group" aria-label="Show">${Object.entries(F).map(([k, l]) => `<button data-lff="${k}" aria-pressed="${lfFilter === k}">${l}</button>`).join('')}</div>
   <div id="eff-pick"></div>
   <div class="box wrapx"><table class="wt cards" data-lft="lfp"><tr><th>Product</th><th>Client</th><th>Labour</th><th>FOH</th></tr>${shown.map(x => `<tr><td data-l="Product">${esc(prod(x.id).brand)}<br><span class="ans">${esc([prod(x.id).form, prod(x.id).soldPer].filter(Boolean).join(' · '))}</span></td><td data-l="Client">${esc(prod(x.id).customer || '')}</td><td data-l="Labour">${seg(x, 'labour')}</td><td data-l="FOH">${seg(x, 'foh')}</td></tr>`).join('') || '<tr><td colspan="4" class="ans">No product here.</td></tr>'}</table></div>`;
 }
@@ -1502,11 +1518,11 @@ function vSetup2() {
     ['record', 'Record and checks', [['audit', 'Change record'], ['checks', 'Monthly checks'], ['o2s', 'From O2S'], ['sheet', 'Sheet items'], ['docs', 'System documentation']]]];
   if (NSU_OLD[nsu]) { const [tab, part] = NSU_OLD[nsu]; nsuPart[tab] = part; nsu = tab; }
   if (!G.some(g => g[0] === nsu)) nsu = 'clients';
-  const g = G.find(x => x[0] === nsu); const part = g[2].some(x => x[0] === nsuPart[nsu]) ? nsuPart[nsu] : g[2][0][0];
+  const g = G.find(x => x[0] === nsu); const part = g[2].some(x => x[0] === nsuPart[nsu]) ? nsuPart[nsu] : g[2][0][0]; nsuPart[nsu] = part; /* the part shown is the part kept, so Back counts it once (push 6c) */
   const B = nsuB();
   return `${head('Setup', 'Clients, products and variants, settings, and the record of every change.', 'Costs (materials, packing, labour, FOH, freight, month end) have their own place, Costs. The company GP target and thresholds wait for the COO; a change to the ambition GP saves at once and the COO is told.')}
-  <nav class="subnav" aria-label="Setup">${G.map(([k, l]) => `<button data-nsu="${k}" aria-current="${k === nsu}">${l}</button>`).join('')}</nav>
-  ${g[2].length > 1 ? `<div class="chips" role="group" aria-label="${esc(g[1])}" style="margin:8px 0 4px">${g[2].map(([k, l]) => `<button data-nsupart="${k}" aria-pressed="${k === part}">${l}</button>`).join('')}</div>` : ''}<div>${B[part]()}</div>`;
+  <div class="subnav" role="tablist" aria-label="Setup">${G.map(([k, l]) => `<button role="tab" data-nsu="${k}" aria-selected="${k === nsu}">${l}</button>`).join('')}</div>
+  ${g[2].length > 1 ? `<div class="subnav" role="tablist" aria-label="${esc(g[1])}">${g[2].map(([k, l]) => `<button role="tab" data-nsupart="${k}" aria-selected="${k === part}">${l}</button>`).join('')}</div>` : ''}<div>${B[part]()}</div>`;
 }
 
 /* ---------- Piece 3 (Tahir, 21 Oct 2026; D-94, D-95, D-98): add client, add a product with packs, variants, follows ----------
@@ -1935,7 +1951,13 @@ const CHANGELOG = [
  { t: 'New jobs in the Guide: packs not costed, packs costed with no price, items from your sheets, a price or list revision sent back (revise and resend), a VAN brand pack with no printed MRP, a recipe that is stuck, and approving the cost of a product that follows another\'s recipe.', for: ['see.margin'], guide: 'Fix packs that are not costed' },
  { t: 'The Production Manager, the QC Head, the Plant Manager and KAMs now have job rows with steps and Start too, in place of the short lists.', for: ['see.products', 'see.granted_lists'], guide: null },
  { t: 'Find anything finds more: a client from the client list (also one with no sales yet), opening it on Clients with its Margin as the next result; the 5 VAN price lists and Make a price list PDF (type distributor list, dealer list, farmer list, MRP or PDF); KAM lists, settings, the change record, month end and lock, re-approvals, Your own report, and the Guide\'s jobs. Reports not built yet are not offered.', for: ['see.margin'], guide: 'Find anything' },
- { t: 'Find anything: a packing item such as Bag 25 opens Packing cost with its list already filtered to that item; a VAN brand product opens on Clients, VAN Brands, Products; choosing Reports opens the Reports page, not the last report you read.', for: ['see.margin'], guide: 'Find anything' }] }
+ { t: 'Find anything: a packing item such as Bag 25 opens Packing cost with its list already filtered to that item; a VAN brand product opens on Clients, VAN Brands, Products; choosing Reports opens the Reports page, not the last report you read.', for: ['see.margin'], guide: 'Find anything' }] },
+  { ver: '2026-11-07c', date: '2026-11-07', title: 'On a phone: bigger buttons, and Back stays in C2M', items: [
+ { t: 'On a phone every button, tick, tab, chip and box on Approvals, Clients and the brand pages is at least 40 px to tap. A re-approve tick: tap anywhere on its line. The pencil that changes a target is a full-size button. Entering rates and price lists stays laptop work; their wide tables still scroll inside their own box.', for: ['see.margin'], guide: null },
+ { t: 'The phone Back button now goes back 1 step inside C2M: from a part of a place to the place, then to the place before. An open panel, Find or More closes first. If you typed something and did not save it, Back first asks "Leave without saving?" with Stay and Leave. A reload opens the place you were on.', for: ['all', 'see.granted_lists'], guide: null },
+ { t: 'On Clients and Reports, Back goes from a brand page to its client, from a client to Clients as it opened, and from a report to Reports.', for: ['see.margin'], guide: null },
+ { t: 'Tabs look the same everywhere: a line under the one you are on. Chips are only for filters, such as status and dates.', for: ['all', 'see.granted_lists'], guide: null },
+ { t: 'The tabs with a line under them: White Label and VAN Brands, Products and Price lists, the parts of Setup, Price history and the product page.', for: ['see.margin'], guide: null }] }
 ];
 let _wnShown = false, wnGuide = null;
 /** A Guide link only when that row is on this person's Guide (Yawar's rows, Tahir's rows, and Both; D-141). */
@@ -2004,7 +2026,9 @@ document.addEventListener('click', e => { const th = e.target.closest && e.targe
   const td = e.target.closest && e.target.closest('table.cards.short td'); if (td && window.matchMedia('(max-width:600px)').matches && !e.target.closest('input,select,button,a,textarea,label')) { const tr = td.parentElement; tr.classList.toggle('open'); } });
 document.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.classList && e.target.classList.contains('srt')) { e.preventDefault(); e.target.click(); } });
 document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target && e.target.id === 'audq') { e.preventDefault(); aud.q = e.target.value; aud.data = null; audLoad(); } });
-function render() {
+/** Draw the page, then record the move for the phone Back button (push 6c, D-161). */
+function render() { renderPage(); navSync(); }
+function renderPage() {
   if (scr !== 'guide') wnGuide = null; // the Guide row mark lasts while the Guide is open (D-141)
   const M = ST.me; const J = jobs();
   const app = $('app');
@@ -2046,6 +2070,7 @@ const pth = k => ((ST.me.more || []).includes(k) ? 'More › ' : '') + NAV[k];
 const LKEYS = { dist: 'Distributor', dealer: 'Dealer, Sindh', farmer_pb: 'Farmer, Punjab', farmer_sn: 'Farmer, Sindh cash', farmer_snc: 'Farmer, Sindh credit' };
 const LNAMES = { dist: 'Distributor list', dealer: 'Dealer list, Sindh', farmer_pb: 'Farmer list, Punjab', farmer_sn: 'Farmer list, Sindh cash', farmer_snc: 'Farmer list, Sindh credit' };
 const SETUPT = { clients: 'Clients', van: 'Products and variants', set: 'Settings', record: 'Record and checks', lines: '', variants: '', settings: 'Company settings', people: 'KAM lists', audit: 'Change record', checks: 'Monthly checks', o2s: 'From O2S', sheet: 'Sheet items', docs: 'System documentation' };
+const VTABS = ['vprod', 'vlists', 'van', 'lists']; /* the VAN Brands parts: Products, Price lists, all 5 side by side, Make a price list PDF */
 const clVan = () => { cl = { kind: 'van', brand: null, last: 'van' }; scr = 'clients'; };
 const repOk = v => !v || v === 'own' || REPORTS.some(r => r.k === v && r.ready && (!r.need || CAN(r.need)));
 const GOTO = {
@@ -2061,7 +2086,7 @@ const GOTO = {
   sclient: { can: () => navHas('setup'), t: v => pth('setup') + ' › Clients' + (v ? ' › ' + v : ''), go: v => { scr = 'setup'; nsu = 'clients'; lfSet('clients', v); } },
   vprod: { can: () => navHas('clients'), t: v => 'Clients › VAN Brands › Products' + (v ? ' › ' + v : ''), go: v => { clVan(); ncp.tab = 'vprod'; lfSet('vprod', v); } },
   vlist: { can: () => navHas('clients'), t: v => 'Clients › VAN Brands › Price lists' + (LKEYS[v] ? ' › ' + LKEYS[v] : ''), go: v => { clVan(); ncp.tab = 'vlists'; lst = { open: LKEYS[v] ? v : null, t: '', f: '', why: '', form: false }; } },
-  vtab: { can: () => navHas('clients'), t: v => 'Clients › VAN Brands › ' + ({ vprod: 'Products', vlists: 'Price lists', van: 'Price lists › See all 5 side by side', lists: 'Price lists › Make a price list PDF' }[v] || 'Price lists'), go: v => { clVan(); ncp.tab = v || 'vlists'; } },
+  vtab: { can: () => navHas('clients'), t: v => 'Clients › VAN Brands › ' + ({ vprod: 'Products', vlists: 'Price lists', van: 'Price lists › See all 5 side by side', lists: 'Price lists › Make a price list PDF' }[v] || 'Price lists'), go: v => { clVan(); ncp.tab = VTABS.includes(v) ? v : 'vlists'; } }, /* only a real VAN Brands tab; anything else opens Price lists (review 6c, m3) */
   cust: { can: () => navHas('margin'), t: v => 'Margin' + (v ? ' › ' + v : ''), go: v => { scr = 'margin'; nm.drill = null; nm.grp = 'all'; nm.by = 'client'; nm.q = v; if (v) LFSET.add('#nm'); } },
   rep: { can: v => navHas('reports') && repOk(v), t: v => pth('reports') + (v === 'own' ? ' › Your own report' : v ? ' › ' + ((REPORTS.find(r => r.k === v) || {}).t || '') : ''), go: v => { scr = 'reports'; rep = v || null; } },
   setup: { can: () => navHas('setup'), t: v => { const [g, p] = String(v).split('.'); return [pth('setup'), SETUPT[g], SETUPT[p]].filter(Boolean).join(' › '); }, go: v => { const [g, p] = String(v).split('.'); scr = 'setup'; nsu = g || 'clients'; if (p) nsuPart[nsu] = p; } },
@@ -2159,6 +2184,132 @@ function finderGo(go) {
   saved = null; dryKey = null; trial = null; ptrial = null; boDoc = null; newRec = null; billEdit = null; costPend = null; lst.open = null; if (p3) p3 = { client: null, prod: null, vform: null, tag: null }; window.scrollTo(0, 0);
   lfClear(); const g = GOTO[k]; if (g && g.can(v)) g.go(v);
 }
+
+/* ---------- The phone Back button stays inside C2M (push 6c, D-161, R21).
+   Each move to a place, a part of a page (a tab), a client, a brand, a report, or an open panel, Find or More is 1 step in the
+   browser history; filters, chips and typing are not. Back goes 1 step back, and an open panel, Find or More closes first.
+   Text typed and not saved yet: Back first asks on the page, Stay or Leave. The address carries #kind:value from the map of
+   where each job opens (GOTO), so a reload or a shared address opens the same place, if this person can open it. ---------- */
+const NAVT = Math.random().toString(36).slice(2); /* this page load: steps from before a reload are opened from their address */
+let NAVH = [], navI = -1, navSkip = null, navAskTo = null, navPop = 0, navAfter = null; const NAVTYPED = new Set();
+/* navPop: above 0 while a Back or Forward is being drawn; then a step is fixed in place, never added (review 6c, B1).
+   navAfter: the step to put back once the preview has ended and this person's own state is loaded (review 6c, M1). */
+const NAVOK = new Set(['scr', 'appr', 'cost', 'brand', 'client', 'vprod', 'vlist', 'vtab', 'rep', 'setup', 'prod', 'rec', 'cust', 'klist', 'pack', 'mat']);
+try { history.scrollRestoration = 'manual'; } catch (_) {}
+function navSnap() { return { scr, sub, cpart, rep, openProd, ptab, openRec, nsu, nsuP: nsuPart[nsu] || null, inp, cl: { ...cl }, ncpTab: ncp.tab, ncpCl: ncp.cl, lstOpen: lst.open, nmDrill: nm.drill ? { ...nm.drill } : null, phTab, listSel, boDoc, pan, finder: !!finder, moreOpen, pv: PV || null }; }
+/** What makes 2 steps the same place: only what the person moved to, never a filter. */
+function navBase(s) {
+  const b = [s.scr === 'today' ? 'approvals' : s.scr === 'backoffice' ? 'setup' : s.scr];
+  if (s.scr === 'clients') { b.push(s.cl.kind, s.cl.brand); if (s.cl.brand == null) { if (s.cl.kind === 'van') b.push(s.ncpTab, s.ncpTab === 'vlists' ? s.lstOpen : null); else b.push(s.ncpCl); } }
+  else if (s.scr === 'prices') b.push(s.sub, s.ncpTab, s.ncpCl);
+  else if (s.scr === 'costs') b.push(s.cpart);
+  else if (s.scr === 'reports') b.push(s.rep, s.rep === 'prices' ? s.phTab : null);
+  else if (s.scr === 'products') b.push(s.openProd, s.openProd != null ? s.ptab : null);
+  else if (s.scr === 'recipes') b.push(s.openRec);
+  else if (s.scr === 'setup' || s.scr === 'backoffice') b.push(s.nsu, s.nsuP, s.boDoc ? s.boDoc.f : null);
+  else if (s.scr === 'guide') b.push(s.boDoc ? s.boDoc.f : null);
+  else if (s.scr === 'inputs') b.push(s.inp);
+  else if (s.scr === 'margin') b.push(s.nmDrill ? s.nmDrill.cl + '|' + s.nmDrill.pid : null);
+  else if (s.scr === 'lists') b.push(s.listSel);
+  if (s.pv) b.push('preview:' + s.pv); /* a preview of a KAM's screen is its own step */
+  return JSON.stringify(b);
+}
+const navOv = s => s.pan ? 'P' + s.pan.k + ':' + (s.pan.id != null ? s.pan.id : '') : s.finder ? 'F' : s.moreOpen ? 'M' : '';
+const navKey = s => navBase(s) + '#' + navOv(s);
+/** The address of a step: #kind:value, the same keys Find anything and the Guide's Start use. */
+function navHash(s) {
+  const k = s.scr === 'clients' ? (s.cl.brand != null ? 'brand:' + s.cl.brand : s.cl.kind === 'van' ? (s.ncpTab === 'vlists' && s.lstOpen ? 'vlist:' + s.lstOpen : 'vtab:' + (s.ncpTab || '')) : 'client:' + (s.ncpCl || ''))
+    : s.scr === 'costs' ? 'cost:' + (s.cpart || '') : s.scr === 'reports' ? 'rep:' + (s.rep || '') : s.scr === 'products' && s.openProd != null ? 'prod:' + s.openProd
+    : s.scr === 'setup' || s.scr === 'backoffice' ? 'setup:' + s.nsu + (s.nsuP ? '.' + s.nsuP : '') : s.scr === 'today' || s.scr === 'approvals' ? 'appr:' : 'scr:' + s.scr;
+  const i = k.indexOf(':'); return '#' + k.slice(0, i + 1) + encodeURIComponent(k.slice(i + 1));
+}
+/** Open the place an address names, if this person can; otherwise Approvals (or the person's first place). */
+function navFromHash(h) {
+  let go = ''; try { go = decodeURIComponent(String(h || '').replace(/^#/, '')); } catch (_) {}
+  const [k, v] = goSplit(go);
+  if (k === 'brand') { const P = (ST.products || []).find(p => p.id === +v); go = !P ? '' : P.channel === 'VAN brand' ? 'vprod:' + P.brand : go; } /* a brand page is a white label brand; a VAN brand product opens on VAN Brands, Products (review 6c, m4) */
+  if (go && NAVOK.has(goSplit(go)[0]) && canGo(go)) { finderGo(go); return true; }
+  finderGo(canGo('appr:') ? 'appr:' : 'scr:' + ST.me.nav[0]); return false;
+}
+/** What the browser keeps for a step: its number, this page load, and whether it was an open panel, Find or More. */
+const navSt = (i, s) => ({ c2m: i, t: NAVT, o: navOv(s) ? 1 : 0 });
+/** Can this person open the place of a step? (Back and Forward check it as an address does; review 6c, M1.) */
+function navOk(s) { if (!navHas(s.scr)) return false; let go = ''; try { go = decodeURIComponent(navHash(s).slice(1)); } catch (_) { return false; } return canGo(go); }
+/** Put a step back; a place this person cannot open goes where an address to it would (Approvals or their first place). */
+function navLand(s) { navRestore(s); const n = navSnap(); if (!navOk(n)) navFromHash(navHash(n)); }
+/** After every drawing: a new place is a new step; the same place is not. */
+function navSync() {
+  if (!ST || !ST.me) return; const s = navSnap(), k = navKey(s), h = navHash(s);
+  if (navI < 0) { const o = history.state; navI = o && Number.isInteger(o.c2m) && o.c2m >= 0 ? o.c2m : 0; NAVH = []; NAVH[navI] = { k, s, y: 0 }; try { history.replaceState(navSt(navI, s), '', h); } catch (_) {} return; } // after a reload this entry keeps its number, so the entries before and after it still line up (review 6c, m2)
+  const c = NAVH[navI];
+  if (navPop || !c) { if (!c || k !== c.k) { NAVH[navI] = { k, s, y: c ? c.y : 0 }; try { history.replaceState(navSt(navI, s), '', h); } catch (_) {} } else c.s = s; return; } // drawn by Back or Forward: the step is fixed where it is (an item deleted meanwhile, a place this person cannot open); never a new step (review 6c, B1)
+  if (k === c.k) { c.s = s; return; }
+  const prev = NAVH[navI - 1];
+  try {
+    if (navOv(c.s) && !navOv(s) && prev && prev.k === k) { prev.s = s; navI--; navSkip = navI; history.back(); return; } // a panel, Find or More closed by its own button: back to the step under it, no new step
+    if (navOv(c.s) && navBase(c.s) !== navBase(s)) { NAVH[navI] = { k, s, y: 0 }; NAVH.length = navI + 1; history.replaceState(navSt(navI, s), '', h); return; } // left from Find, More or a panel to another place: that place takes its step
+    NAVH.length = navI + 1; NAVH.push({ k, s, y: 0 }); navI++; history.pushState(navSt(navI, s), '', h);
+  } catch (_) {}
+}
+/** Put a step back as it was. */
+function navRestore(s) {
+  if (s.scr !== scr) { saved = null; dryKey = null; trial = null; ptrial = null; billEdit = null; costPend = null; newRec = null; drill = { cust: null, prod: null }; if (p3) p3 = { client: null, prod: null, vform: null, tag: null }; lfClear(); }
+  if (pan && (!s.pan || navOv(s) !== navOv({ pan }))) closePanel(); panReturn = null;
+  scr = s.scr; sub = s.sub; cpart = s.cpart; rep = s.rep; openProd = s.openProd; ptab = s.ptab; openRec = s.openRec; nsu = s.nsu; if (s.nsuP) nsuPart[s.nsu] = s.nsuP; inp = s.inp;
+  cl = { ...s.cl }; ncp.tab = s.ncpTab; ncp.cl = s.ncpCl; if (lst.open !== s.lstOpen) lst = { open: s.lstOpen, t: '', f: '', why: '', form: false };
+  nm.drill = s.nmDrill ? { ...s.nmDrill } : null; phTab = s.phTab; listSel = s.listSel; boDoc = s.boDoc;
+  if (s.pan && !pan && s.pan.k !== 'propose') openPanel(s.pan); finder = s.finder ? { q: '', i: 0 } : null; moreOpen = !!s.moreOpen;
+}
+/** Is there text typed here and not saved? (Find boxes and filters do not count.) */
+const navFid = x => x.id || Object.entries(x.dataset || {}).map(([k, v]) => k + '=' + v).join('&') || x.name || '';
+function navDirty() {
+  if (!NAVTYPED.size) return false;
+  return [...document.querySelectorAll('main input, main textarea, aside.panel input, aside.panel textarea')].some(x => NAVTYPED.has(navFid(x)) && String(x.value || '').trim() !== '' && (x.checkVisibility ? x.checkVisibility() : !!x.offsetParent));
+}
+document.addEventListener('input', e => { const t = e.target; if (!t || !/^(INPUT|TEXTAREA)$/.test(t.tagName)) return; const ty = t.tagName === 'TEXTAREA' ? 'text' : String(t.getAttribute('type') || 'text').toLowerCase();
+  if (!['text', 'number', 'tel', 'email', 'url'].includes(ty) || 'lf' in t.dataset || /^(fq|mq|crq|blpk-q|audq|chq|rq|pq|nmq)$/.test(t.id) || t.closest('.finder, .find')) return;
+  const f = navFid(t); if (f) NAVTYPED.add(f); }, true);
+['click', 'change'].forEach(ev => document.addEventListener(ev, () => { if (navI >= 0 && NAVH[navI]) NAVH[navI].y = scrollY; }, true)); // where the person was, so Back returns there
+function navAskHide() { const a = $('navask'); if (a) a.remove(); navAskTo = null; }
+/** Leave without saving? On the page (no browser dialog): Stay keeps the text, Leave goes back. */
+function navAsk(to) {
+  navAskHide(); navAskTo = to; const d = document.createElement('div'); d.id = 'navask'; d.className = 'navask'; d.setAttribute('role', 'alertdialog'); d.setAttribute('aria-labelledby', 'navaskt');
+  d.innerHTML = '<p id="navaskt"><b>Leave without saving?</b> What you typed here is not saved yet.</p><div><button class="btn" data-navstay>Stay</button><button class="btn ghost" data-navleave>Leave</button></div>';
+  d.addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; e.stopPropagation(); const go = navAskTo; navAskHide();
+    if ('navleave' in b.dataset && go != null && go !== navI) { NAVTYPED.clear(); history.go(go - navI); } });
+  d.addEventListener('keydown', e => { if (e.key === 'Escape') { e.stopPropagation(); navAskHide(); } });
+  document.body.appendChild(d); d.querySelector('[data-navstay]').focus();
+}
+addEventListener('popstate', e => {
+  const st = e.state; if (!ST || !ST.me) return;
+  if (st && st.t === NAVT && navSkip != null && st.c2m === navSkip) { navSkip = null; return; }
+  navSkip = null;
+  const to = st && Number.isInteger(st.c2m) && st.c2m >= 0 ? st.c2m : navI + 1; /* no number: an address typed in the bar, a new step after this one */
+  const own = st && st.t === NAVT && NAVH[to] ? NAVH[to] : null; if (own && to === navI) return;
+  if (navDirty()) { navSkip = navI; history.go(navI - to); navAsk(to); return; } // stay on this step until the person picks Stay or Leave
+  navAskHide(); const from = navI, fk = NAVH[from] ? NAVH[from].k : null, dir = to < from ? -1 : 1;
+  if (!st || !Number.isInteger(st.c2m)) NAVH.length = Math.max(0, to);
+  navI = to; navPop++;
+  try {
+    if (own && PV && own.s.pv !== PV) { navPvEnd(own.s); return; } // Back out of a KAM preview ends the preview and puts back the step as it was, with this person's own rights (review 6c, M1)
+    if (own) navLand(own.s); else navFromHash(location.hash); // a step from before a reload: open what its address names, if this person can (review 6c, m2)
+    render();
+  } finally { navPop--; }
+  window.scrollTo(0, own ? own.y || 0 : 0);
+  /* A step that is now the same place as the one just left (its item was deleted, or a panel, Find or More from before a reload)
+     is passed over, so every Back press shows a change and Back always reaches the first step (review 6c, B1 and m2). */
+  if (fk && NAVH[navI] && NAVH[navI].k === fk && (dir > 0 || navI > 0)) history.go(dir);
+});
+/** End a KAM preview from Back or Forward: load this person's own state, then put back the step (navAfter, in load). */
+function navPvEnd(s) { PV = null; PVBACK = null; navAfter = s; navPop++; load().catch(err => { toast(err.message, true); location.reload(); }).finally(() => { navPop--; }); }
+/* Tabs: the arrow keys, Home and End move along a tab row (role tablist). */
+document.addEventListener('keydown', e => {
+  const t = e.target; if (!t || t.getAttribute('role') !== 'tab' || !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;
+  const L = [...t.closest('[role=tablist]').querySelectorAll('[role=tab]')]; const i = L.indexOf(t);
+  const n = L[e.key === 'Home' ? 0 : e.key === 'End' ? L.length - 1 : (i + (e.key === 'ArrowRight' ? 1 : -1) + L.length) % L.length]; if (!n || n === t) return;
+  e.preventDefault(); const a = Object.keys(n.dataset)[0]; const sel = a ? `[role=tab][data-${a.replace(/[A-Z]/g, c => '-' + c.toLowerCase())}="${CSS.escape(n.dataset[a])}"]` : null;
+  n.click(); setTimeout(() => { const z = sel && document.querySelector(sel); if (z) z.focus(); }, 30);
+});
 
 /* ---------- Today (0.9.0, approved picture A: the next move first, then groups; every line says why and how long) ---------- */
 const WDAY = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -2701,7 +2852,7 @@ function vProduct(p) {
   ${chipV && ptab !== 'recipe' ? stepChips(chipV) : ''}
   <div class="next"><span>${esc(p.typeName || 'No product type')} · ${p.grp === 'White label' ? 'White label' : 'VAN brand'} · sold per ${p.soldPer}${p.spec ? ' · ' + esc(p.spec) : ''}${chipV ? ' · recipe version ' + chipV.version : ''}${p3ProdLine(p)}</span>${CAN('recipe.start') && !p.followsId ? `<button class="btn ghost" data-newrec="${p.id}">Write a new recipe version</button>` : ''}${p3Ready() && CAN('variant.add') && p.channel === 'VAN brand' && !p.followsId ? `<button class="btn ghost" data-p3vopen="${p.id}">Add a variant</button>` : ''}${p.followsId && CAN('recipe.step.cost') && p3FollowPending(p) ? `<button class="btn" data-p3appr="${p.id}">Approve cost</button>` : ''}${canProp(k0) ? `<button class="btn" data-propose="${k0.id}">Propose a price</button>` : ''}</div>${CAN('recipe.start') ? newRecForm() : ''}${p3.vform && String(p3.vform.from) === String(p.id) ? p3VarForm() : ''}
   ${CAN('targets.propose') && p.grp === 'White label' ? `<div class="next"><span>Target GP: ${p.target > 0 ? pc(p.target) + (p.targetDefault ? ' (the company target)' : '') : 'none set'}. Targets change on Clients, White Label, in the Target column, sent to the COO with prices.</span><button class="btn ghost" data-gotgt="${esc(p.customer)}">Change on Clients</button></div>` : CAN('targets.propose') ? `<details class="how"><summary>Target GP: ${p.target > 0 ? pc(p.target) + (p.targetDefault ? ' (the company target)' : '') : 'none set'}. Change it</summary><div class="box form" style="margin:6px 0 10px"><span class="ans">Margin judges this product against its target.</span><div class="row"><label for="tg-${p.id}">New target, %<input type="number" step="0.1" id="tg-${p.id}" style="width:90px"></label><label for="tr-${p.id}" style="flex:1 1 220px">Why<input id="tr-${p.id}" placeholder="the reason the COO will read"></label><button class="btn ghost" data-treq="${p.id}">Send to the COO</button></div><span class="ans" style="font-size:12px">The COO approves it on Approvals. Until then the target does not change.</span></div></details>` : ''}
-  <nav class="subnav" aria-label="Product page">${T.map(([k, l]) => `<button data-ptab="${k}" aria-current="${ptab === k}">${l}</button>`).join('')}</nav>${b}${correctBox(p)}`;
+  <div class="subnav" role="tablist" aria-label="Product page">${T.map(([k, l]) => `<button role="tab" data-ptab="${k}" aria-selected="${ptab === k}">${l}</button>`).join('')}</div>${b}${correctBox(p)}`;
 }
 
 /* ---------- 0.8.0: Inputs, 1 materials table for Himayat and Yawar (ruling 4) ---------- */
@@ -2718,7 +2869,7 @@ function vInputs(only) {
     ${yp ? `<div class="box form" style="margin-top:10px"><b>Add a packing item</b><div class="row"><label for="pin">Name<input id="pin"></label><label for="pik">Kind<input id="pik" placeholder="bag, label, carton"></label>${buyFields('pi', pinBuy)}<label for="pis">Source (required)<input id="pis" placeholder="PO number or quote"></label><button class="btn" data-pinew>Add</button></div><p class="ans" id="pi-work" style="margin:4px 0 0">${buyWork('pi')}</p></div>` : ''}`;
   else b = `${billEdit ? billEditor() : ''}${yp ? '<div class="next"><span>A bill is given to a pack on the product page, Cost by pack.</span><button class="btn ghost" data-billnew>New packing bill</button></div>' : ''}${findBox('bills', 'Find a packing bill, item or pack')}<div class="box wrapx"><table data-lft="bills"><tr><th>Bill</th><th>Lines</th><th>Used by</th>${yp ? '<th></th>' : ''}</tr>${(ST.packingBills || []).map(x => { const used = []; (ST.products || []).forEach(p => p.packs.forEach(k => { if (k.billId === x.id) used.push(`${p.brand} ${k.size} ${p.soldPer}`); })); return `<tr><td>${esc(x.name)}${outPill('bill', x.id)}</td><td>${x.lines.map(l => `${l.level === 'secondary' ? 'Secondary: ' : ''}${esc(l.item)} x ${l.pieces}${l.level === 'secondary' ? ' per ' + l.packsPerOuter + ' packs' : ''} (${rs2(l.price)})`).join('<br>')}</td><td>${used.length ? esc(used.slice(0, 4).join(', ')) + (used.length > 4 ? ` and ${used.length - 4} more` : '') : '<span class="ans">no pack</span>'}</td>${yp ? `<td><div class="acts"><button class="btn ghost" data-billedit="${x.id}">Edit</button>${rowBtns('bill', x.id, { edit: false })}</div></td>` : ''}</tr>${rowExtra('bill', x.id, yp ? 4 : 3)}`; }).join('') || '<tr><td colspan="4">No packing bill yet.</td></tr>'}</table></div>`;
   if (only) return b;
-  return `${head('Inputs', ans, h)}${subs.length > 1 ? `<nav class="subnav" aria-label="Inputs">${subs.map(([k, l]) => `<button data-inp="${k}" aria-current="${inp === k}">${l}</button>`).join('')}</nav>` : ''}${b}`;
+  return `${head('Inputs', ans, h)}${subs.length > 1 ? `<div class="subnav" role="tablist" aria-label="Inputs">${subs.map(([k, l]) => `<button role="tab" data-inp="${k}" aria-selected="${inp === k}">${l}</button>`).join('')}</div>` : ''}${b}`;
 }
 /** 1 materials table: class and nutrient % (Himayat and Yawar edit), and for Yawar and Tahir the rate, its date and source. */
 /** A material's last costs, newest first (R28: the full history and downloads come in Reports). */
@@ -2816,7 +2967,7 @@ const whyPill = x => x.why.map(w => w === 'below target' ? `<span class="pill p-
 function vPrices() {
   const s = sub || 'change'; const R = ST.me.role;
   const nW = (ST.proposals || []).filter(p => p.status === 'proposed').length; const nD = [...packIdx().values()].filter(k => k.nextPrice).length; const ALL = toChange();
-  const tabs = `<nav class="subnav" aria-label="Prices">${[['change', 'To change', ALL.length], ['proposals', 'With the COO', nW], ['waiting', 'Waiting for date', nD], ['client', 'By client'], ['lists', 'Price lists'], ['vanlists', 'VAN brand lists']].map(([k, l, n]) => `<button data-sub="${k}" aria-current="${s === k}">${l}${n != null ? ` <span class="tc">${n}</span>` : ''}</button>`).join('')}</nav>`;
+  const tabs = `<div class="subnav" role="tablist" aria-label="Prices">${[['change', 'To change', ALL.length], ['proposals', 'With the COO', nW], ['waiting', 'Waiting for date', nD], ['client', 'By client'], ['lists', 'Price lists'], ['vanlists', 'VAN brand lists']].map(([k, l, n]) => `<button role="tab" data-sub="${k}" aria-selected="${s === k}">${l}${n != null ? ` <span class="tc">${n}</span>` : ''}</button>`).join('')}</div>`;
   if (s === 'lists') return head('Prices', 'Price lists: build, check and send.', '1 builder for every audience. Pick who it is for, pick the fields, check the document, then create the PDF. Cost and margin can never be printed. C2M numbers each document (VAN/PL/year/number) and keeps the rows exactly as issued.') + tabs + vListsBuilder();
   if (s === 'vanlists') { const w = (ST.listRevisions || []).filter(r => r.status === 'proposed').length; return head('Prices', `VAN brand lists: ${pl(w, 'revision waits', 'revisions wait')} for the COO.`, 'The CFO proposes new list prices with a reason and dates; the COO approves or sends back on his Today. A revision dated today changes the list on approval; one dated ahead waits for its date (a PDF dated on or after it already shows the new prices).') + tabs + revBox(false); }
   if (s === 'waiting') return head('Prices', nD ? `${pl(nD, 'price is', 'prices are')} approved and waiting for ${nD === 1 ? 'its' : 'their'} date.` : 'No approved price is waiting for a later date.', 'A price approved with a later start date waits here; today\'s price stays in force until then. The COO can withdraw a waiting price before its date.') + tabs + (waitingPrices() || '<div class="box jobs"><div class="job"><div><div class="t">Nothing is waiting.</div></div></div></div>');
@@ -3330,7 +3481,7 @@ let phTab = 'wl', phCl = '', phShow = 'all', phList = 'all';
 const PHLIST = { dist: 'Distributor', dealer: 'Dealer, Sindh', farmer_pb: 'Farmer, Punjab', farmer_sn: 'Farmer, Sindh cash', farmer_snc: 'Farmer, Sindh credit' };
 function vPriceHist() {
   const C = repData('costs'), L = repData('prices'); const crumb = repCrumb('Price history');
-  const tabs = nTabs('phtab', [['wl', 'Client prices'], ['van', 'VAN lists']], phTab);
+  const tabs = nTabs('phtab', [['wl', 'Client prices'], ['van', 'VAN lists']], phTab, 'Price history');
   if (C.busy || L.busy) return `${crumb}${head('Price history', 'Loading…', '')}${tabs}`;
   if (C.err || L.err) return `${crumb}${head('Price history', 'The price history could not be read: ' + esc(C.err || L.err), '')}${tabs}<p><button class="btn ghost" data-rep-retry="prices">Try again</button></p>`;
   return phTab === 'van' ? vPhVan(L.data || { rows: [] }, crumb, tabs) : vPhWl((C.data && C.data.rows) || [], crumb, tabs);
@@ -3624,10 +3775,10 @@ async function owSave(over) {
   const nmv = String(($('owname') || {}).value || OW.nameDraft || '').replace(/\s+/g, ' ').trim(); OW.nameDraft = nmv;
   if (!nmv) { OW.saveErr = 'Name the report.'; OW.clash = false; render(); owFocus('#owname'); return; }
   const j = await once(async () => { try { return await api('/api/c2m/reports/saved', { name: nmv, spec: owSpec(), overwrite: !!over }); } catch (e) { OW.saveErr = e.message; OW.clash = /already have a report/.test(e.message); return null; } });
-  if (j && j.ok) { ST.savedReports = { ready: j.ready, rows: j.rows }; Object.assign(OW, { savedId: j.id, savedName: nmv, saveOpen: false, saveErr: null, clash: false }); toast(`Saved as "${nmv}". It is listed under Your own report on Reports.`); }
+  if (j && j.ok) { NAVTYPED.clear(); ST.savedReports = { ready: j.ready, rows: j.rows }; Object.assign(OW, { savedId: j.id, savedName: nmv, saveOpen: false, saveErr: null, clash: false }); toast(`Saved as "${nmv}". It is listed under Your own report on Reports.`); }
   render(); if (OW.saveOpen) owFocus('#owname');
 }
-async function owSavedAct(path, body, msg) { const j = await once(async () => { try { return await api(path, body); } catch (e) { return { err: e.message }; } }); if (!j) return null; if (j.err) { toast(j.err, true); return j; } ST.savedReports = { ready: j.ready, rows: j.rows }; toast(msg); return j; }
+async function owSavedAct(path, body, msg) { const j = await once(async () => { try { return await api(path, body); } catch (e) { return { err: e.message }; } }); if (!j) return null; if (j.err) { toast(j.err, true); return j; } NAVTYPED.clear(); ST.savedReports = { ready: j.ready, rows: j.rows }; toast(msg); return j; }
 /** The builder's clicks. true: handled. */
 async function owClick(t, d) {
   if ('owmake' in d) { owOpen({ set: OW ? OW.set : 'sales' }); OW.savedId = null; OW.savedName = null; OW.nameDraft = ''; return true; }
@@ -3783,7 +3934,7 @@ function vLists() {
     const a = sel.startsWith('wl:') ? 'wl' : sel; const cl = a === 'wl' ? sel.slice(3) : PLB.client;
     if (PLB.aud !== a || PLB.client !== cl) { PLB.effSet = PLB.tillSet = false; } PLB.aud = a; PLB.client = cl; plDates(); // the KAM never sets dates
     const label = s => s.startsWith('wl:') ? s.slice(3) + ' monthly list' : AUD[s];
-    return `${head('Price lists', `${mine.length} you can see.`, 'Approved prices only, in the same document every manager receives.')}<div class="chips">${mine.map(s => `<button data-list="${esc(s)}" aria-pressed="${s === sel}">${esc(label(s))}</button>`).join('')}</div><div class="next"><button class="btn" data-mkpdf>Download ${esc(label(sel))} as PDF</button></div>${plDoc(a)}`;
+    return `${head('Price lists', `${mine.length} you can see.`, 'Approved prices only, in the same document every manager receives.')}<div class="subnav" role="tablist" aria-label="Your price lists">${mine.map(s => `<button role="tab" data-list="${esc(s)}" aria-selected="${s === sel}">${esc(label(s))}</button>`).join('')}</div><div class="next"><button class="btn" data-mkpdf>Download ${esc(label(sel))} as PDF</button></div>${plDoc(a)}`;
   }
   return vListsBuilder();
 }
@@ -4060,7 +4211,7 @@ function boAudit() {
 }
 function boDocs() {
   return `<details class="how"><summary>How this works</summary><div>The system documentation, kept with every change: process and data flows, logic, database, API, decisions, guide, release notes, formulas, data dictionary, access and tests.</div></details>
-  <div class="chips">${(ST.docs || []).map(d => `<button data-doc="${esc(d)}" aria-pressed="${boDoc && boDoc.f === d}">${esc(d.replace(/^\d+-/, '').replace(/-/g, ' ').replace('.md', ''))}</button>`).join('')}</div>
+  <div class="subnav" role="tablist" aria-label="Documents">${(ST.docs || []).map(d => `<button role="tab" data-doc="${esc(d)}" aria-selected="${!!(boDoc && boDoc.f === d)}">${esc(d.replace(/^\d+-/, '').replace(/-/g, ' ').replace('.md', ''))}</button>`).join('')}</div>
   ${boDoc ? `<div class="md"><pre>${esc(boDoc.text)}</pre></div>` : (ST.docs || []).length ? '<p class="ans">Pick a document.</p>' : '<p class="ans">No document was found on the server.</p>'}`;
 }
 
@@ -4192,7 +4343,7 @@ function vGuide() {
   <div class="box form" style="margin-top:14px"><b>How C2M works</b><ol style="margin:0;padding-left:20px"><li>Each client product has its own recipe: the Production Manager writes, the QC Head reviews, the Plant Manager endorses, the CFO approves cost. A product can keep another recipe beside it (the Production Manager writes, the CFO approves); only the Default sets cost.</li><li>A variant is the form of a product (Powder, Pellets); a size such as 1 L or 25 kg is a pack.</li><li>The CFO keeps rates current; C2M recosts every recipe.</li><li>The CFO proposes prices; the COO approves; managers see the approved lists.</li><li>A product can have variants (Humi Grow: Powder, Pellets); a variant's recipe starts as a copy.</li><li>KAMs see only the lists and clients the CFO or the COO give them. Cost and margin never reach them.</li><li>Every change is dated and logged.</li></ol></div>
   ${skinRow}
   <h2>Who does what</h2>${whoBox}
-  ${ST.docs && ST.docs.length && !CAN('guide.all') ? `<h2>Read more</h2><div class="chips">${ST.docs.map(d => `<button data-gdoc="${esc(d)}">${esc(d.replace(/^\d+-/, '').replace(/-/g, ' ').replace('.md', ''))}</button>`).join('')}</div>${boDoc ? `<div class="md"><pre>${esc(boDoc.text)}</pre></div>` : ''}` : ''}`;
+  ${ST.docs && ST.docs.length && !CAN('guide.all') ? `<h2>Read more</h2><div class="subnav" role="tablist" aria-label="Documents">${ST.docs.map(d => `<button role="tab" data-gdoc="${esc(d)}" aria-selected="${!!(boDoc && boDoc.f === d)}">${esc(d.replace(/^\d+-/, '').replace(/-/g, ' ').replace('.md', ''))}</button>`).join('')}</div>${boDoc ? `<div class="md"><pre>${esc(boDoc.text)}</pre></div>` : ''}` : ''}`;
 }
 
 /** Open the propose panel for a pack, pre-filled with the price for target (or today's price). */
@@ -4341,7 +4492,7 @@ document.addEventListener('click', async e => {
   else if (d.aud) { PLB.aud = d.aud; PLB.effSet = PLB.tillSet = false; }
   else if (d.plf) { PLB.pick[PLB.aud][d.plf] = t.checked; }
   else if (d.list) { listSel = d.list; }
-  else if ('mkpdf' in d) { const a = PLB.aud; const pick = PLB.pick[a] || Object.fromEntries(fieldsFor(a).map(f => [f[0], !!f[2]])); await once(async () => { try { const j = await api('/api/c2m/pricedocs', { audience: a, client: PLB.client, fields: fieldsFor(a).map(f => f[0]).filter(k => pick[k]), eff: PLB.effSet ? PLB.eff : undefined, till: PLB.tillSet ? PLB.till : undefined, note: PLB.note, reasons: PLB.reasons }); await savePdf(j.id); toast('PDF created: ' + (j.ref || 'see your downloads')); } catch (err) { toast(err.message, true); } try { await load(); } catch (_) {} }); return; } // a double click makes 1 document (D-145)
+  else if ('mkpdf' in d) { const a = PLB.aud; const pick = PLB.pick[a] || Object.fromEntries(fieldsFor(a).map(f => [f[0], !!f[2]])); await once(async () => { try { const j = await api('/api/c2m/pricedocs', { audience: a, client: PLB.client, fields: fieldsFor(a).map(f => f[0]).filter(k => pick[k]), eff: PLB.effSet ? PLB.eff : undefined, till: PLB.tillSet ? PLB.till : undefined, note: PLB.note, reasons: PLB.reasons }); NAVTYPED.clear(); await savePdf(j.id); toast('PDF created: ' + (j.ref || 'see your downloads')); } catch (err) { toast(err.message, true); } try { await load(); } catch (_) {} }); return; } // a double click makes 1 document (D-145)
   else if (d.imp) { await act(`/api/c2m/import/${d.imp}/accept`, {}, 'Accepted under your name'); return; }
   else if (d.impc) corr = +d.impc; else if ('impcancel' in d) corr = null;
   else if (d.impsave) { const r = await act(`/api/c2m/import/${d.impsave}/correct`, { value: val('cv'), why: val('cw'), confirmed: !!($('cconf') && $('cconf').checked) }, j => j.reapproval ? `Saved. ${pl(j.reapproval, 'pack', 'packs')} to re-approve.` : j.kind === 'note' ? 'Recorded. Nothing in C2M changes from a note; make the change on its screen.' : 'Saved into C2M'); if (r) { corr = null; render(); } return; }

@@ -330,8 +330,82 @@ function newMaterialClass(name, role, fieldsText, known) {
   if (fields.join('|').length > 200) throw new Error('The fields are too long together: shorten their names.');
   return { name: nm, role, fields };
 }
+/* ---------- Push 7a (Tahir, 9 Nov 2026, R60 to R62, D-162): 1 nutrient list, nutrients per material, declared grade ---------- */
+/** The nutrient a class field stands for: the field without its % sign ("N%" is N, "Amino acid %" is Amino acid). */
+const fieldLabel = f => String(f == null ? '' : f).replace(/\s+/g, ' ').replace(/\s*%\s*$/, '').trim();
+const MEASURES = ['w/w', 'w/v'];
+/** A nutrient as typed on the Nutrients tab: { name, label, basis, measure }. Throws a message the person can act on.
+ *  label is what it is shown as and what a recipe's analysis adds up by, so 2 nutrients never share it (any letters' case). */
+function cleanNutrient(b, taken) {
+  const one = v => String(v == null ? '' : v).replace(/\s+/g, ' ').trim();
+  const label = fieldLabel(one(b && b.label)), name = one(b && b.name) || label, basis = one(b && b.basis), measure = one(b && b.measure) || 'w/w';
+  if (!/^[A-Za-z][A-Za-z0-9 ()+\/.₀-₉-]{0,23}$/.test(label)) throw new Error('"Shown as" starts with a letter and has up to 24 letters or digits, for example N, K2O, Amino acids.');
+  if (name.length > 60 || basis.length > 60) throw new Error('Keep the name and the basis under 60 letters each.');
+  if (/\|/.test(name + basis)) throw new Error('The sign | cannot be used.');
+  if (!MEASURES.includes(measure)) throw new Error('Pick % weight in weight (w/w) or % weight in volume (w/v).');
+  const t = (taken || []).find(x => String(x).toLowerCase() === label.toLowerCase());
+  if (t) throw new Error(`${t} is already in the nutrient list. Use it, or give this one another "shown as" (for example K2O and K are 2 nutrients).`);
+  return { name, label, basis, measure };
+}
+/** A copied class field as a nutrient's "shown as": the field without %, only the signs a "shown as" may hold, at most 24 letters,
+ *  starting with a letter (review 7a, M2: 1 odd field must never stop the copy). */
+function safeLabel(f) {
+  let l = fieldLabel(f).replace(/[^A-Za-z0-9 ()+\/.₀-₉-]/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!/^[A-Za-z]/.test(l)) l = ('Nutrient ' + l).trim();
+  return l.slice(0, 24).trim();
+}
+/** The first copy of the old data into the new tables (run once by C2M after migration 014).
+ *  types: c2m_material_type rows; grades: [{ id, typeId, json }] (json = nutrients_json); taken: "shown as" names already in the list.
+ *  Every class field becomes a nutrient (first spelling wins, any letters' case; a name already in the list is reused). Each grade
+ *  of a nutrient class carries only the values of its class's own fields, as the old screen counted them (review 7a, M1): a value
+ *  left from an earlier class is not made live; it is listed in skipped for the change record. A grade with every class field
+ *  entered is taken as checked, as the old screen showed it "complete". Returns { labels (new to the list), map, rows, checked, skipped }. */
+function nutrientBackfill(types, grades, taken) {
+  const shown = new Map((taken || []).map(t => [String(t).toLowerCase(), String(t)])); // lower-case "shown as" to its spelling
+  const origin = new Map((taken || []).map(t => [String(t).toLowerCase(), String(t).toLowerCase()])); // which field each one stands for
+  const byField = new Map(), labels = [];
+  const add = f => { const k = fieldLabel(f).toLowerCase(); if (!k) return null; if (byField.has(k)) return byField.get(k);
+    const base = safeLabel(f); let l = base, i = 2;
+    while (shown.has(l.toLowerCase()) && origin.get(l.toLowerCase()) !== k) l = base.slice(0, 21).trim() + ' ' + i++; // cut short to the same name as another field: numbered
+    if (!shown.has(l.toLowerCase())) { shown.set(l.toLowerCase(), l); origin.set(l.toLowerCase(), k); labels.push(l); }
+    const out = shown.get(l.toLowerCase()); byField.set(k, out); return out; };
+  const T = new Map((types || []).map(t => [Number(t.id), t]));
+  (types || []).forEach(t => String(t.nutrient_fields || '').split('|').filter(Boolean).forEach(add));
+  const rows = [], checked = [], skipped = [];
+  for (const g of grades || []) {
+    let j = null; try { j = g.json ? JSON.parse(g.json) : null; } catch (e) { j = null; }
+    if (!j || typeof j !== 'object' || Array.isArray(j)) { if (g.json) skipped.push({ gradeId: Number(g.id), why: 'not readable', value: String(g.json).slice(0, 120) }); continue; }
+    const t = T.get(Number(g.typeId)); if (!t || t.nutrient_role !== 'nutrient') { if (Object.keys(j).length) skipped.push({ gradeId: Number(g.id), why: 'class adds no nutrients', value: j }); continue; }
+    const fields = String(t.nutrient_fields || '').split('|').filter(Boolean); const own = new Map(fields.map(f => [fieldLabel(f).toLowerCase(), f]));
+    const seen = new Set();
+    for (const [k, v] of Object.entries(j)) {
+      const n = Number(v); const f = own.get(fieldLabel(k).toLowerCase());
+      if (!f) { skipped.push({ gradeId: Number(g.id), why: 'not a field of its class now', value: { [k]: v } }); continue; }
+      if (v == null || v === '' || typeof v === 'object' || !isFinite(n) || n < 0 || n > 100) { skipped.push({ gradeId: Number(g.id), why: 'not a % from 0 to 100', value: { [k]: v } }); continue; }
+      const l = add(f); if (!l || seen.has(l)) continue; seen.add(l); rows.push({ gradeId: Number(g.id), label: l, pct: n });
+    }
+    if (fields.length && fields.every(f => { const v = Object.entries(j).find(([k]) => fieldLabel(k).toLowerCase() === fieldLabel(f).toLowerCase()); return v && v[1] != null && v[1] !== '' && typeof v[1] !== 'object' && isFinite(Number(v[1])); })) checked.push(Number(g.id));
+  }
+  return { labels, map: Object.fromEntries(byField), rows, checked, skipped };
+}
+/** A product's declared grade against a recipe's analysis (R62). declared: [{ label, pct, tol }]; N: engine.nutrients().
+ *  Each row: meets (got >= label - tolerance), below (by how much), or unknown (the analysis is not complete, or the
+ *  nutrient cannot be worked out yet). A nutrient no material in the recipe carries is 0 when the analysis is complete. */
+function gradeCheck(declared, N) {
+  const F = new Map(((N && N.fields) || []).map(f => [String(f.field).toLowerCase(), f]));
+  const rows = (declared || []).map(d => {
+    const f = F.get(String(d.label).toLowerCase()); const pct = Number(d.pct), tol = Number(d.tol) || 0;
+    let got = null; if (f && !f.missing.length && f.pct != null) got = f.pct; else if (!f && N && N.complete) got = 0;
+    /* Review 7a, M3: while the analysis is not complete a material not entered yet may still add to it, so a low figure is unknown,
+       not below. A figure already at the label stays meets: no material takes a nutrient away. */
+    if (got != null && !(N && N.complete) && got < pct - tol - 1e-9) got = null;
+    const state = got == null ? 'unknown' : got >= pct - tol - 1e-9 ? 'meets' : 'below';
+    return { label: d.label, pct, tol, got, state, by: state === 'below' ? round(pct - got, 2) : 0 };
+  });
+  return { rows, state: !rows.length ? 'none' : rows.some(r => r.state === 'below') ? 'below' : rows.some(r => r.state === 'unknown') ? 'unknown' : 'meets' };
+}
 module.exports = {
-  newMaterialClass,
+  newMaterialClass, fieldLabel, safeLabel, MEASURES, cleanNutrient, nutrientBackfill, gradeCheck,
   rowNameKey, looseKey, rowSize, masterCmp, sameRegion,
   listRowIs, listRowSize, officialRow, officialPack, restoreRow,
   round, rateWarning, materialCost, recipeTotal, packingPerUnit, buyOf, buyNote, sourceText, piecePrice, printMrp, mrpIssues, mrpMissing, pickConversionRule, conversionFor, costBreakdown,

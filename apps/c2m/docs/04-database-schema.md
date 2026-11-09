@@ -823,3 +823,12 @@ Urgent prices and list revisions are marked by a c2m_audit row: entity price or 
 
 ## 4.18 Migration 013: saved reports (6 Nov 2026, D-158)
 013_c2m_saved_report.sql (and its PRODUCTION copy) creates c2m_saved_report (id INT auto increment, owner VARCHAR(60) the platform username, name VARCHAR(120), spec_json TEXT the recipe, created_at, updated_at; unique key owner, name) and changes nothing else. Safe to run twice (CREATE TABLE IF NOT EXISTS). Until it runs, Your own report works without Save.
+
+## 4.19 Migration 014: nutrients (9 Nov 2026, D-162)
+014_c2m_nutrients.sql (and its PRODUCTION copy) creates 4 tables and changes no other table:
+- c2m_nutrient (id INT auto increment, name VARCHAR(60), label VARCHAR(24) unique, basis VARCHAR(60) default '', measure VARCHAR(4) w/w or w/v, hidden TINYINT, created_by, created_at).
+- c2m_grade_nutrient (grade_id, nutrient_id, pct DECIMAL(9,4), cert VARCHAR(120) NULL, cert_date DATE NULL, by_user, at; key grade_id, nutrient_id).
+- c2m_grade_check (grade_id key, by_user, at): the QC Head has saved this grade's nutrients.
+- c2m_declared_grade (client_product_id, nutrient_id, pct DECIMAL(9,4), tol DECIMAL(7,4) default 0, by_user, at; key client_product_id, nutrient_id).
+- Role rows (c2m_role.actions_json): qc gains nutrient.list, grade.declare, material.add; production gains material.add and see.materials; cfo gains material.add; coo gains the 3 when its actions are ticked one by one. Each update adds an action only when it is missing, so running it twice changes nothing.
+- c2m_material_type.nutrient_fields now holds the nutrients a class suggests (their "shown as" names; old rows keep N% style names, read the same). c2m_material_grade.nutrients_json is no longer written after 014; it is kept as it was.

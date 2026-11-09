@@ -57,8 +57,8 @@ Roles: cfo = Yawar, coo = Tahir, production = Majid, qc = Himayat, plant = Fahim
 | POST | /api/c2m/rules/conversion/:id/retire | cfo | {why} | {ok, reapproval}; refused if any pack would have no labour or FOH rate | D-25 | yes |
 | POST | /api/c2m/products/:id/type | cfo | {typeId} or {newType: name} | {ok, reapproval} | D-25, A-16 | |
 | POST | /api/c2m/products/:id/reprocessed | cfo | {on: true or false} | {ok, reapproval} | D-04, D-25 | |
-| POST | /api/c2m/materials | cfo | {name, typeId, unit: kg or L, grade, rate, source} | {gradeId} | D-10, D-23 | |
-| POST | /api/c2m/material-types | cfo (action material.save; the administrator holds every action) | {name, role: nutrient or none, fields: "N%, Amino acid%"} | {id, name, fields}; a field typed in other letters takes the spelling in use (n% → N%); a class name already in use (any letters) is refused; role none prefixes "Non-nutrient: " and asks no field | D-144 | |
+| POST | /api/c2m/materials | cfo; from 9 Nov 2026 also qc and production without a rate (material.add; 5.19) | {name, typeId, unit: kg or L, grade, rate, source} | {gradeId} | D-10, D-23, D-162 | |
+| POST | /api/c2m/material-types | cfo (action material.save; the administrator holds every action); from 9 Nov 2026 also qc (nutrient.list), and after migration 014 the body is {name, role, nutrientIds} (5.19) | {name, role: nutrient or none, fields: "N%, Amino acid%"} | {id, name, fields}; a field typed in other letters takes the spelling in use (n% → N%); a class name already in use (any letters) is refused; role none prefixes "Non-nutrient: " and asks no field | D-144 | |
 | POST | /api/c2m/materials/:id/type | cfo, qc | {typeId} (the class) | {ok}; a non-nutrient class clears the grade's nutrient values (old values in the change record) | D-23 | |
 | POST | /api/c2m/grades/:id/nutrients | cfo, qc | {values: {"K%": 56}} (0 to 100) | {ok}; 400 for a class with no nutrient fields | D-23 | |
 | POST | /api/c2m/customers/:id | cfo | {priceRule: time, po or list, cycle, region, o2sNames: "a\|b"} | {ok} | R-5 client price rule | |
@@ -379,3 +379,16 @@ All below: right see.margin (403 otherwise), registered after the C2M access che
 - POST /api/c2m/reports/saved/:id/delete: `{ ok, ready, rows }`. 404: not the person's, or gone; 409 before migration 013.
 - GET /api/c2m/state: savedReports {ready, message, rows} for a role with see.margin (their own only).
 - 7 Nov 2026 (push 6a, D-159): GET /api/c2m/state sales, foc, open and price check rows carry cust and cat by farmer list for farmers (cat farm), cat oth for other channels; lkeyDefault true on a farmer sale taken as on the Farmer list, Punjab because O2S has no region for it (R59); price check rows carry dflt the same way. The Punjab default is used only once regions have been read from O2S (a PO line with a region); before that a farmer with no region gets no list and the price check says to press Pull now.
+
+## 5.19 Nutrients, classes, material cards, declared grades, a material with no rate (9 Nov 2026; owner: Tahir; D-162)
+| Route | Right | Body | Answer |
+|---|---|---|---|
+| POST /api/c2m/nutrients | nutrient.list | {label, name, basis, measure} | {id, name, label, basis, measure}; 409 before migration 014; the CFO gets a notice when someone else adds it |
+| POST /api/c2m/nutrients/:id | nutrient.list | {name, label, basis, measure, hidden} (any of them) | {id, ..., hidden}; a new label is written into every class that suggests the old one |
+| POST /api/c2m/material-types | material.save or nutrient.list | after 014: {name, role nutrient or none, nutrientIds}; before: {name, role, fields} (CFO only) | {id, name, fields} |
+| POST /api/c2m/material-types/:id | material.save or nutrient.list | {name, nutrientIds} | {id, name, fields}; To classify cannot be changed |
+| POST /api/c2m/grades/:id/nutrients | nutrient.edit | after 014: {rows: [{nutrientId, pct, cert, certDate}]}; before: {values} as before | {ok, rows}; replaces the rows and marks the grade checked |
+| POST /api/c2m/products/:id/declared | grade.declare | {rows: [{nutrientId, pct, tol}]} (empty clears) | {ok, rows} |
+| POST /api/c2m/materials | material.save or material.add | {name, typeId, unit, grade, rate, source}; rate only with material.save; no rate: source is the supplier or why | {gradeId}; no rate and not the CFO: notice to the CFO |
+| POST /api/c2m/materials/:id/type | nutrient.edit | {typeId} | {ok}; to a class that adds no nutrients also clears the grade's nutrient rows and check (logged) |
+- GET /api/c2m/state adds m014; nutrientList and declared (see.products or see.materials); materials gain suggest, nutRows, checked, checkedBy, checkedAt, notEntered, noRate; recipes' nutrients gain notEntered.

@@ -65,7 +65,7 @@ async function loadRecipes(q) {
 async function loadAll(q) {
   // Speed: these reads do not depend on each other, so they run together (one wait instead of 16 in a row).
   const soft = async sql => { try { return (await q(sql))[0]; } catch (e) { if (e && (e.code === 'ER_NO_SUCH_TABLE' || e.errno === 1146)) return null; throw e; } };
-  const [settings, rates, packing, recipes, [customers], [cps], [packs], [rules], [ruleProducts], [types], [freight], [versions], fam, pvs, exts, pexts, rvs, rnames, rdefs, ooUse, lfRates, lfPicks] = await Promise.all([
+  const [settings, rates, packing, recipes, [customers], [cps], [packs], [rules], [ruleProducts], [types], [freight], [versions], fam, pvs, exts, pexts, rvs, rnames, rdefs, ooUse, lfRates, lfPicks, nuts, gnuts, gchecks, decl] = await Promise.all([
     loadSettings(q), loadRates(q), loadPacking(q), loadRecipes(q),
     q('SELECT * FROM c2m_customer ORDER BY grp DESC, name'),
     q('SELECT * FROM c2m_client_product WHERE active=1 ORDER BY customer_id, brand'),
@@ -81,7 +81,13 @@ async function loadAll(q) {
     // Migration 007 (D-139, D-140): recipe names, the default recipe of each product, and items out of use. Until it is run they read as empty.
     soft('SELECT recipe_version_id, recipe_name FROM c2m_recipe_name'), soft('SELECT client_product_id, recipe_name FROM c2m_recipe_default'), soft('SELECT entity, entity_id FROM c2m_out_of_use'),
     // Migration 011 (D-150): labour and FOH as named rates, Low and High, and each product's pick. Until it is run C2M uses the old rates.
-    soft('SELECT * FROM c2m_lf_rate ORDER BY kind, name, valid_from, id'), soft('SELECT * FROM c2m_lf_pick ORDER BY client_product_id, kind, valid_from, id')]);
+    soft('SELECT * FROM c2m_lf_rate ORDER BY kind, name, valid_from, id'), soft('SELECT * FROM c2m_lf_pick ORDER BY client_product_id, kind, valid_from, id'),
+    // Migration 014 (push 7a, D-162): the nutrient list, nutrients per material grade, checked grades, declared grades. Until it is run the class fields apply as before.
+    soft('SELECT * FROM c2m_nutrient ORDER BY label'), soft('SELECT * FROM c2m_grade_nutrient'), soft('SELECT * FROM c2m_grade_check'), soft('SELECT * FROM c2m_declared_grade')]);
+  const m014 = nuts != null && gnuts != null && gchecks != null && decl != null;
+  const nutrientList = m014 ? nuts.map(n => ({ id: Number(n.id), name: n.name, label: n.label, basis: n.basis || '', measure: n.measure || 'w/w', hidden: !!Number(n.hidden) })) : [];
+  if (m014) nutrientMode(rates, nutrientList, gnuts, gchecks);
+  const declared = new Map(); if (m014) { const nb = new Map(nutrientList.map(n => [n.id, n])); for (const d of decl) { const n = nb.get(Number(d.nutrient_id)); if (!n) continue; const k = Number(d.client_product_id); if (!declared.has(k)) declared.set(k, []); declared.get(k).push({ nutrientId: n.id, label: n.label, pct: Number(d.pct), tol: Number(d.tol) || 0, by: d.by_user, at: d.at }); } }
   const variantsReady = fam != null && pvs != null && exts != null && pexts != null && rvs != null;
   const m007 = rnames != null && rdefs != null && ooUse != null;
   const rn = new Map((rnames || []).map(r => [Number(r.recipe_version_id), r.recipe_name]));
@@ -98,7 +104,26 @@ async function loadAll(q) {
   const ruleObjs = rules.map(r => ({ id: r.id, name: r.name, kind: r.kind, isBase: r.is_base, products: ruleProducts.filter(x => x.rule_id === r.id).map(x => x.client_product_id), scopePvariantId: ruleVar.has(r.id) ? ruleVar.get(r.id) : null, rsPerKg: Number(r.rs_per_kg), scopeClientProductId: r.scope_client_product_id, scopeBaseProductId: r.scope_base_product_id,
     scopeForm: r.scope_form, scopeReprocessed: r.scope_reprocessed, scopePackMin: r.scope_pack_min, scopePackMax: r.scope_pack_max, validFrom: r.valid_from, active: r.active, source: r.source }));
   const lf = lfRates != null && lfPicks != null ? lfIndex(lfRates, lfPicks) : null; // null: before migration 011, the old rates apply
-  return { lf, settings, rates, packing, recipes, customers, custById, cps, cpById, packs, rules: ruleObjs, productTypes: types, freight, verByPack, families: fam || [], pvariants: pvs || [], ext, packExt, variantsReady, m007, recDefault, outOfUse };
+  return { lf, settings, rates, packing, recipes, customers, custById, cps, cpById, packs, rules: ruleObjs, productTypes: types, freight, verByPack, families: fam || [], pvariants: pvs || [], ext, packExt, variantsReady, m007, recDefault, outOfUse, m014, nutrientList, declared };
+}
+
+/** Push 7a (R60, R61, D-162): after migration 014 a material grade's nutrients come from the nutrient list, not its class.
+ *  nutrients: { label: % }; fields: the nutrients the grade has, plus, until the QC Head has saved it (checked), the ones its class
+ *  suggests, so a suggested one not typed yet shows as missing. A checked grade's unlisted nutrients count as 0. A grade that
+ *  carries nutrients and is not checked is notEntered: a recipe using it is not complete, as its other nutrients are not known yet. */
+function nutrientMode(rates, list, gnuts, gchecks) {
+  const byId = new Map(list.map(n => [n.id, n])), byLow = new Map(list.map(n => [n.label.toLowerCase(), n.label]));
+  const chk = new Map(gchecks.map(c => [Number(c.grade_id), { by: c.by_user, at: c.at }])); const rows = new Map();
+  for (const r of gnuts) { const n = byId.get(Number(r.nutrient_id)); if (!n) continue; const k = Number(r.grade_id); if (!rows.has(k)) rows.set(k, []); rows.get(k).push({ nutrientId: n.id, label: n.label, pct: Number(r.pct), cert: r.cert || '', certDate: r.cert_date ? String(r.cert_date).slice(0, 10) : null }); }
+  for (const g of rates.values()) {
+    const R = (rows.get(Number(g.gradeId)) || []).sort((a, b) => a.label.localeCompare(b.label)); const c = chk.get(Number(g.gradeId));
+    g.suggest = g.fields.map(f => byLow.get(lib.fieldLabel(f).toLowerCase()) || lib.fieldLabel(f)).filter(Boolean); // the class's fields, as nutrients
+    g.nutRows = R; g.checked = !!c; g.checkedBy = c ? c.by : null; g.checkedAt = c ? String(c.at).slice(0, 19) : null;
+    g.nutrients = Object.fromEntries(R.map(r => [r.label, r.pct]));
+    if (g.role !== 'nutrient') { g.fields = []; g.nutrients = {}; g.notEntered = false; continue; }
+    const f = R.map(r => r.label); if (!g.checked) for (const s2 of g.suggest) if (!f.some(x => x.toLowerCase() === s2.toLowerCase())) f.push(s2);
+    g.fields = f; g.notEntered = !g.checked;
+  }
 }
 
 /** The product whose recipe a product uses: itself, or the VAN product it follows (D-98: material cost only; packing, labour and overhead stay its own). */
@@ -121,7 +146,7 @@ function latestVersion(D, cpId) { const list = D.recipes.byCp.get(recipeOwner(D,
 function priceRecipe(D, ver, rateOverride) {
   if (!ver) return null;
   const lines = ver.lines.map(l => { const g = D.rates.get(l.gradeId) || {}; const rate = rateOverride && rateOverride.gradeId === l.gradeId ? rateOverride.rate : g.rate;
-    return { gradeId: l.gradeId, name: g.name || '?', grade: g.grade, qty: l.qty, rate, date: g.date, cost: rate == null ? null : l.qty * rate, nutrients: g.nutrients || {}, fields: g.fields || [], role: g.role || 'unclassified', type: g.type }; });
+    return { gradeId: l.gradeId, name: g.name || '?', grade: g.grade, qty: l.qty, rate, date: g.date, cost: rate == null ? null : l.qty * rate, nutrients: g.nutrients || {}, fields: g.fields || [], role: g.role || 'unclassified', type: g.type, checked: g.checked, notEntered: !!g.notEntered }; });
   const missing = lines.some(l => l.rate == null || !(Number(l.rate) > 0)); // a Rs 0 rate is a missing rate (review of 0.6.0)
   return { lines, materials: missing ? null : lib.materialCost(lines), kgTotal: lib.recipeTotal(lines), missingRate: missing };
 }
@@ -131,16 +156,17 @@ function priceRecipe(D, ver, rateOverride) {
  * wetting agent, colour, pH adjuster) count in the weight and add 0. A nutrient input with a field left
  * blank makes that field incomplete; an unclassified input is listed for Himayat to classify. */
 function nutrients(priced) {
-  const out = {}, fields = new Set(), missing = new Map(), carriers = [], unclassified = [];
+  const out = {}, fields = new Set(), missing = new Map(), carriers = [], unclassified = [], notEntered = [];
   for (const l of priced.lines) {
     if (l.role === 'none') { carriers.push({ name: l.name, type: l.type, qty: l.qty }); continue; }
     if (l.role !== 'nutrient') { unclassified.push(l.name); continue; }
+    if (l.notEntered) notEntered.push(l.name); // push 7a: carries nutrients, not saved by the QC Head yet; its values so far still add up
     for (const f of l.fields) { fields.add(f); const v = (l.nutrients || {})[f]; if (v == null) { if (!missing.has(f)) missing.set(f, []); missing.get(f).push(l.name); } else out[f] = (out[f] || 0) + l.qty * Number(v); }
   }
   return {
     fields: [...fields].map(f => ({ field: f, pct: out[f] == null ? null : out[f], missing: missing.get(f) || [] })),
-    carriers, carrierKg: carriers.reduce((s, c) => s + c.qty, 0), unclassified,
-    complete: !unclassified.length && ![...missing.values()].some(x => x.length),
+    carriers, carrierKg: carriers.reduce((s, c) => s + c.qty, 0), unclassified, notEntered,
+    complete: !unclassified.length && !notEntered.length && ![...missing.values()].some(x => x.length),
   };
 }
 

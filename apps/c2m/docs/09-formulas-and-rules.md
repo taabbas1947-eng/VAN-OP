@@ -212,3 +212,12 @@ A pack takes 1 labour rate and 1 FOH rate, each the first match of these levels:
 |---|---|---|
 | B-52 | Farmer list lines (R56) | Farmers are not clients. A farmer sale (O2S channel Farmer) is grouped under the farmer price list it was picked on: Farmer list, Punjab (lkey farmer_pb); Farmer list, Sindh cash (farmer_sn); Farmer list, Sindh credit (farmer_snc). Each line's GP = sales − cost after its list's freight; target = that list's target (lt_farmer_pb, lt_farmer_sn, lt_farmer_snc; R55); not judged where the list has no target. White label clients, distributors, dealers, COBO and VGreen stay client lines; any other channel is 1 line, Other sales. |
 | B-53 | Punjab default for farmers (R59) | A farmer sale or open PO line whose region O2S does not have is taken as on the Farmer list, Punjab, for its Margin line, list freight (lf_farmer_pb), target and the VAN brand PO price check, and marked; Margin says how many. A dealer with no region keeps the old rule: no list, not checked. A farmer outside Punjab and Sindh is on the Punjab column as before (4 Nov 2026). |
+
+
+## 9 Nov 2026 (D-162)
+| ID | Rule | Detail |
+|---|---|---|
+| B-54 | 1 nutrient, 1 basis (R60) | The analysis adds up by "shown as". K2O and K, P2O5 and P are different nutrients and never add up together; no conversion is made. 1 "shown as" once, in any letters' case. |
+| B-55 | A saved material is complete (R61) | % in product of a nutrient = sum over the lines of kg per kg x % in the material. A material the QC Head has saved counts 0 for any nutrient not on its card. A material not saved yet makes the analysis not complete (its typed values still add up). |
+| B-56 | Declared grade check (R62) | Meets when the Default recipe's % >= label % - tolerance; below by label % - recipe % (2 decimals); unknown when the analysis is not complete. A warning only. |
+| B-57 | A material with no rate (R66) | No rate is not Rs 0: the pack is not costed and the recipe cannot pass the cost step until the CFO saves its rate. |

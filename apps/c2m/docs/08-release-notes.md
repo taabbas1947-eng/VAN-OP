@@ -17,6 +17,19 @@ Changed in 0.6.0: entry 0.6.0 added.
 Changed in 0.5.0: entry 0.5.0 added; real figures removed from earlier entries (public repo).
 Format: Keep a Changelog, semantic versions. Live: 1.0.0 (pushed 19 Oct about 22:09, checked live by Claude as Tahir the same evening; Yawar's view checked in the cloud copy only); 0.9.3 pushed 19 Oct 14:38, checked live; 0.9.2 pushed 19 Oct 12:43, checked live; first data load 19 Oct 2026 about 13:17, checked live. Before: 0.9.1 (pushed 19 Oct 09:39, checked live). apps/c2m first pushed by Tahir on 17 Oct and the live migration run the same day (39 empty c2m_ tables); 0.6.0 and 0.7.0 pushed on 18 Oct (17:29), 0.8.0 (20:16) and 0.9.0 (22:03), each checked live by Claude. The folder tabs (D-59) were built after the 0.9.0 push and ship in 0.9.1. No data loaded yet: the first data load runs on Monday 19 Oct 2026.
 
+## [Next version, push 7a: nutrient list, material cards, declared grades, a material with no rate] · 9 Nov 2026 · D-162 · Who: Tahir ruled (R60, R61, R62, R66); Claude built and tested; not pushed · Migration 014 (Ahmer runs it first)
+### Added
+- 1 nutrient list kept by the QC Head (Nutrients tab): each nutrient with how it is shown, its full name, its basis (K2O, not K) and % w/w or w/v. C2M stops a second one shown the same way; a nutrient is hidden, never deleted; the CFO is told of a new one.
+- A card per material (Open): every nutrient it carries with its %, certificate and date; any nutrient from the list can be added whatever the class, or a new one added to the list from the card. The amino acid case is now 1 screen, with no message to the CFO.
+- Declared grades tab: what each product's label promises, nutrient by nutrient, with a tolerance; the Default recipe is checked against it (meets, or below by how much). A warning only.
+- A material can be added with no rate by the QC Head or the Production Manager (supplier or why required); the CFO is told and sees "… materials wait for your rate" on Approvals.
+- The Production Manager now has Inputs (read only, plus Add a material).
+### Changed
+- A class (Classes tab) only suggests nutrients; the QC Head may add and edit classes too. A material saved by the QC Head is complete; a nutrient not on it counts as 0 (replaces the "Blank fields are 0" tick).
+- Changing a material between 2 nutrient classes keeps its values, all on the card (before, values of fields the new class lacked were kept out of sight).
+- Every class field and % already entered is copied into the new tables by C2M the first time it runs after migration 014.
+- In-app change list entry 2026-11-09a, by role; Guide rows: Enter a material's nutrients (was Class a material and enter its nutrient %), Add a nutrient to the list, Enter a product's declared grade, Add a material that is not in the list, Add the rate of a new material; Add a material class rewritten.
+
 ## [Next version, push 6c: phone tap targets, Back, 1 tab style] · 7 Nov 2026 · D-161 · Who: Tahir ruled (R21, R58); Claude built and tested; not pushed · No migration
 ### Changed
 - On a phone every control on Approvals, Clients and the brand pages is at least 40 px to tap (R21): re-approve ticks (the whole line), the target pencil, Open to approve, Open recipe, New price, chips, the Costs back links, the With others fold, Find boxes and path links. COO and CFO at 390 px: 265 and 272 small controls there before, 0 after. The laptop look is unchanged; rates and price list grids stay laptop work.

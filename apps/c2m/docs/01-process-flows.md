@@ -151,7 +151,7 @@ flowchart LR
     D2 -- yes --> D3[Nutrient values cleared, old values kept in the change record · D-23]
     D2 -- no --> E
     C -- yes --> E{Nutrient source? · R-5i 4a}
-    E -- yes --> F[Enter % per field, 'Blank fields are 0' ticked by default · R-5i 4] --> G([Complete])
+    E -- yes --> F[Enter % per field; 'Blank fields are 0' starts unticked, tick it only when the certificate shows none · R-5i 4; corrected 9 Nov 2026, the code never ticked it. After migration 014 replaced by the material card, 1.39] --> G([Complete])
     E -- no --> G2([Adds no nutrients: nothing to enter · R-5i 4a])
     D3 --> G2
   end
@@ -767,3 +767,34 @@ Built 7 Nov 2026, not pushed. No migration.
 - Typed and not saved: if a box on the page or panel holds text the person typed and has not saved, Back first asks on the page "Leave without saving?" with Stay (keeps the text and the place) and Leave (goes back 1 step). No browser dialog.
 - The address names the place (#kind:value, the keys of Find anything and the Guide's Start, e.g. #brand:30, #cost:packing, #rep:costs). A reload, or an address sent to someone, opens that place if the person can open it; otherwise Approvals (Today for Production, QC and the Plant Manager; a KAM's first place).
 - Tabs (R58): 1 tab style for switching between places and parts of a page: White Label and VAN Brands; Products and Price lists; Setup and its parts; the product page; Inputs; Prices; Price history; Chart and Table on Margin; a KAM's lists; System documentation. Chips only filter what a table shows (status, client, kind, period and quick dates, group, show).
+
+## 1.39 Materials and nutrients: 1 nutrient list, a card per material, declared grades, a material with no rate (owner: Tahir rules R60, R61, R62, R66; Claude built; D-162, 9 Nov 2026)
+Built 9 Nov 2026, not pushed. Needs migration 014 (Ahmer runs it); until then Inputs works as before (1.x above).
+
+```mermaid
+flowchart TD
+  subgraph QC [Himayat, QC Head]
+    N1[Nutrients tab: Add a nutrient · shown as, full name, basis, w/w or w/v] --> N2{Shown as already in the list, any letters' case?}
+    N2 -- yes --> N3([Stopped: use the one in the list])
+    N2 -- no --> N4([In the list; the CFO is told · R60])
+    M1[Materials: find the material; set its class if wrong] --> M2[Open: the material card]
+    M2 --> M3[Add a nutrient from the list, or Not in the list: add it there and then]
+    M3 --> M4[Type %, certificate, date for each row]
+    M4 --> M5{Every row has a % from 0 to 100?}
+    M5 -- no --> M6([Stopped: type it, or Remove the row])
+    M5 -- yes --> M7([Saved and checked: a nutrient not on the card counts as 0 · R61])
+    G1[Declared grades: Enter or Edit for a product] --> G2[Each nutrient on the label: % and tolerance below it]
+    G2 --> G3([Saved: Check column compares the Default recipe · meets, or below by how much; a warning, never a block · R62])
+  end
+  subgraph PM [Majid, Production Manager]
+    A1[Inputs, Materials: not in the list] --> A2[Add a material: name, grade, class or To classify, unit, supplier or why]
+  end
+  A2 --> A3([Added with no rate; the CFO is told · R66])
+  QC -.-> A2
+  subgraph CFO [Yawar, CFO]
+    A3 --> R1[Approvals: N materials wait for your rate · Open materials, filtered]
+    R1 --> R2[Change cost: rate and source] --> R3([Costed; a recipe using it can now pass the cost step])
+  end
+```
+- A class (Nitrogen source, Amino acid source, Binder) only suggests nutrients: on a material that has not been saved yet, each suggested nutrient not typed shows as "to enter". The QC Head or the CFO adds and edits classes (Classes tab). Changing a material between 2 nutrient classes keeps its nutrients, all shown on its card; changing it to a class that adds no nutrients clears them (kept in the change record).
+- The first time C2M runs after migration 014 it copies every class field (N% becomes the nutrient N) and every % already entered into the new tables, once; a material whose class fields were all entered starts as saved (checked).

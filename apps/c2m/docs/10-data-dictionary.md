@@ -374,3 +374,18 @@ Changed in 0.3.0 and 0.3.1: rs_per_kg fixed (1 rate of 1 kind, labour or FOH). A
 | cust (farmer sale) | The farmer price list the sale was picked on: Farmer list, Punjab; Farmer list, Sindh cash; Farmer list, Sindh credit (R56); was Farmers and other | state: sales, foc, open, poLines, listCheck.lines |
 | cat oth | A sale whose O2S channel is empty or not 1 of O2S's 6: the line Other sales | state: sales, foc, open, poLines |
 | cat farm | Now Farmer lists (the 3 farmer list lines); was Farmers and other | page CATN, CAT1; lib CATS |
+
+## 10.24 9 Nov 2026 (D-162)
+| Term | Meaning | Where |
+|---|---|---|
+| Nutrient | 1 row of the nutrient list: shown as (label), full name, basis, measured as (% w/w or % w/v), hidden | c2m_nutrient; state nutrientList |
+| Shown as (label) | How a nutrient is written everywhere and the key a recipe's analysis adds up by, e.g. N, K2O, Amino acids | c2m_nutrient.label |
+| Basis | What the % is of: Total N, as K2O, free amino acids; empty when not stated | c2m_nutrient.basis |
+| Checked | The QC Head has saved the material's nutrients; a nutrient not on its card counts as 0 | c2m_grade_check; state materials[].checked |
+| Suggested nutrients | The nutrients a class proposes for its materials; they lock nothing | c2m_material_type.nutrient_fields; materials[].suggest |
+| nutRows | A material's nutrients with %, certificate and its date | c2m_grade_nutrient; materials[].nutRows |
+| notEntered | A material that carries nutrients and is not checked yet; on a recipe, the list of such materials | materials[].notEntered; recipes[].nutrients.notEntered |
+| Declared grade | What a product's label promises, nutrient by nutrient, and the tolerance below it | c2m_declared_grade; state declared |
+| Tolerance | Points below the label still taken as meeting it (0 = none) | c2m_declared_grade.tol |
+| noRate | A material added with no rate, waiting for the CFO | materials[].noRate |
+| m014 | true once migration 014's tables can be read | state m014 |

@@ -27,6 +27,9 @@ const CATALOGUE = [
     ['rate.save', 'Save a material rate'],
     ['material.save', 'Add or change a material'],
     ['nutrient.edit', 'Edit nutrient percentages and material class'],
+    ['nutrient.list', 'Keep the nutrient list and the material classes'],
+    ['grade.declare', 'Enter a product\'s declared grade (what its label promises)'],
+    ['material.add', 'Add a material without a rate (the CFO adds the rate)'],
     ['packing.manage', 'Packing items and packing bills'],
     ['labour.manage', 'Labour and overhead rates'],
     ['product.classify', 'Set a product type or mark a product reprocessed'],
@@ -69,7 +72,7 @@ const CATALOGUE = [
 const ALL_KEYS = CATALOGUE.flatMap(g => g.items.map(i => i[0]));
 const LABEL = Object.fromEntries(CATALOGUE.flatMap(g => g.items));
 
-const CFO = ['price.propose', 'list.revise', 'pricedoc.all', 'recipe.start', 'recipe.step.cost', 'reapproval.decide', 'rate.save', 'material.save', 'nutrient.edit',
+const CFO = ['price.propose', 'list.revise', 'pricedoc.all', 'recipe.start', 'recipe.step.cost', 'reapproval.decide', 'rate.save', 'material.save', 'material.add', 'nutrient.edit',
   'packing.manage', 'labour.manage', 'product.classify', 'settings.edit', 'targets.propose', 'customer.edit', 'client.add', 'variant.add', 'freight.edit', 'grants.give', 'lists.link', 'lists.mark',
   'lists.carry', 'lists.remove', 'o2s.sync', 'import.decide', 'actuals.enter', 'actuals.tiebooks', 'notices.see',
   'see.products', 'see.cost', 'see.price', 'see.margin', 'see.settings', 'see.materials', 'guide.all'];
@@ -79,8 +82,8 @@ const CFO = ['price.propose', 'list.revise', 'pricedoc.all', 'recipe.start', 're
 const SEED = {
   cfo: { label: 'CFO', admin: false, actions: CFO },
   coo: { label: 'COO', admin: true, actions: ALL_KEYS },
-  production: { label: 'Production Manager', admin: false, actions: ['recipe.start', 'variant.add', 'recipe.edit', 'recipe.step.draft', 'see.products', 'see.cost'] },
-  qc: { label: 'QC Head', admin: false, actions: ['nutrient.edit', 'recipe.step.review', 'see.products', 'see.materials'] },
+  production: { label: 'Production Manager', admin: false, actions: ['recipe.start', 'material.add', 'variant.add', 'recipe.edit', 'recipe.step.draft', 'see.products', 'see.cost', 'see.materials'] }, // material.add and see.materials: push 7a (R66, D-162)
+  qc: { label: 'QC Head', admin: false, actions: ['nutrient.edit', 'nutrient.list', 'grade.declare', 'material.add', 'recipe.step.review', 'see.products', 'see.materials'] }, // nutrient.list, grade.declare, material.add: push 7a (R60 to R62, R66, D-162)
   plant: { label: 'Plant Manager', admin: false, actions: ['recipe.step.endorse', 'see.products', 'see.cost'] },
   viewer: { label: 'Price list viewer', admin: false, actions: ['pricedoc.granted', 'see.granted_lists'] },
 };

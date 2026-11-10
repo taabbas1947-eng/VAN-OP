@@ -414,3 +414,10 @@ All below: right see.margin (403 otherwise), registered after the C2M access che
 |---|---|---|---|
 | POST /api/c2m/signoff | any C2M person; the COO is skipped | {page: production, qc, plant, cfo, viewer or custom; version 1 to 99} | {ok, page} or {ok, skipped}; 400 an unknown page or version, or a page that is not the caller's role's page |
 - GET /api/c2m/state: signed ([{page: "page:version", role}]); signoffs for the COO ({rows: [{user, page, role, at}], people: [{user, name, role, label, admin, page}]}).
+
+## 5.23 Push 7f (10 Nov 2026; owner: Tahir; D-167)
+| Route | Right | Body | Answer |
+|---|---|---|---|
+| POST /api/c2m/notices/read | any C2M person | {upto: the newest notice id shown} | {ok, upto}; 400 when upto is not a whole number above 0 |
+- GET /api/c2m/state: noticesReadUpto; notices now for every step whose right the role holds (30 days, up to 30).
+- Push 7g (D-168): GET /api/c2m/state adds issuer {name, role}, the price list issuer from c2m-pricelist.js ISSUER, the same one the PDF prints.

@@ -29,7 +29,7 @@ Roles live in user_module_roles, module 'c2m' (who holds which role). What each 
 | Recipes | no (the product page) | no (the product page) | yes, with cost; his step opens in a panel | yes, no cost; his step opens in a panel | yes, with cost; his step opens in a panel | no | D-08, D-46, D-47 |
 | Prices: To change, With Tahir, Waiting for date, By customer, Price lists, VAN brand lists | propose; build lists; propose list revisions | approve (in a panel); build lists; withdraw a price or revision waiting for its date | no | no | no | no | D-06, D-14, D-28, D-34, D-46 |
 | Price lists | in Prices | in Prices | no | no | no | granted lists only | D-14 |
-| Inputs: Materials | edit: class, nutrient %, rate (try and save), add a material | view, with rates | after migration 014: view materials and nutrients (no rate columns), add a material with no rate; before: no | edit: class and nutrient %; after migration 014 also the nutrient list, classes, declared grades, add a material with no rate; no rates or cost | no | no | D-10, D-23, D-48, D-162 |
+| Inputs: Materials | edit: rate (try and save), add a material; class and nutrient % read only since push 7f (D-167) | view, with rates | after migration 014: view materials and nutrients (no rate columns), add a material with no rate; before: no | edit: class and nutrient %; after migration 014 also the nutrient list, classes, declared grades, add a material with no rate; no rates or cost | no | no | D-10, D-23, D-48, D-162 |
 | Inputs: Packing items, Packing bills | edit | view | no | no | no | no | D-10, D-48 |
 | Setup | edit (see 11.2) | view; Pull O2S; approvals open in a panel | no | no | no | no | R-2, D-49 |
 | Guide | yes | yes | yes | yes | yes | yes | D-20 |
@@ -62,7 +62,7 @@ Only cfo and coo open Setup. "edit" = forms and buttons; "view" = read only. Wor
 | Set product type, reprocessed flag | cfo | D-25 |
 | Add material or grade with rate | cfo | D-23 |
 | Add a material class (its name and the % it asks) | cfo, through the action material.save (the QC Head has nutrient.edit, not material.save, so she cannot) | D-144 |
-| Set material class, nutrient % | qc, cfo | D-23 |
+| Set material class, nutrient % | qc (the cfo until push 7f, D-167) | D-23, D-167 |
 | Approve or close a re-approval | cfo, and the administrator (coo), who holds every action (D-96 replaces D-54 for the administrator) | R-2 Cost |
 | Propose price | cfo | D-06 |
 | Approve or send back price | coo | D-06 |
@@ -282,7 +282,7 @@ No new action: each list uses the right that adds to it. Delete, Take out of use
 - Guide rows per built-in role: COO 36, CFO 57, Production Manager 11, QC Head 10, Plant Manager 6, KAM 4 (tested in p15).
 
 ## 11.26 10 Nov 2026: push 7c (D-164)
-- No new action. A material's density: nutrient.edit (QC Head; the CFO and COO hold it too). A product's density: recipe.edit (Production Manager, COO) or the administrator (R70).
+- No new action. A material's density: nutrient.edit (QC Head and COO; the CFO until push 7f, D-167). A product's density: recipe.edit (Production Manager, COO) or the administrator (R70).
 - productDensity goes in state to whoever sees materials or products; it holds no Rs.
 - Guide rows per built-in role: COO 36, CFO 57, Production Manager 12, QC Head 11, Plant Manager 6, KAM 4 (tested in p15).
 
@@ -292,3 +292,8 @@ No new action: each list uses the right that adds to it. Delete, Take out of use
 
 ## 11.28 10 Nov 2026: push 7e (D-166)
 - No new action. Every C2M person except the administrator (COO) signs their role page before C2M opens; Role sign-offs (Setup, Record and checks) is shown to the administrator only.
+
+## 11.29 10 Nov 2026: push 7f (D-167)
+- CFO: nutrient.edit taken off (built-in role; live role by migration 016). The CFO still sees materials and nutrients (see.materials) and adds rates and classes.
+- Notices: a role gets the notices of every recipe step whose right it holds; the COO only his own.
+- Review 7f: cfo notices also carry prices and lists, so a role reads them only with recipe.step.cost and see.margin; Mark as read never goes back; a read mark is not shown in the change record. The CFO also loses Save class on a material (nutrient.edit); he keeps Add a material class (material.save).

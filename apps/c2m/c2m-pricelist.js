@@ -146,7 +146,7 @@ function pdf(res, aud, data, picked, reasons) {
   // 1 signature (Tahir, 22 Oct 2026): a list that leaves VAN is issued by the CFO alone; Tahir's approval stays in C2M's record
   doc.moveDown(2); const sy = doc.y, half = W / 2 - 12;
   doc.moveTo(36 + W - half, sy).lineTo(36 + W, sy).lineWidth(0.8).strokeColor(INK).stroke();
-  [[36 + W - half, 'Issued by', 'Yawar Hussain', 'Chief Financial Officer']].forEach(([x, l, n, r]) => {
+  [[36 + W - half, 'Issued by', ISSUER.name, ISSUER.role]].forEach(([x, l, n, r]) => {
     doc.fillColor(MUTED).font('Helvetica').fontSize(7.5).text(l, x, sy + 5, { width: half }); doc.fillColor(NAVY).font('Helvetica-Bold').fontSize(9.5).text(n, x, sy + 15, { width: half }); doc.fillColor(MUTED).font('Helvetica').fontSize(7.5).text(r, x, sy + 28, { width: half }); });
   doc.y = sy + 40;
   // Footer and page number on every page, drawn inside the page so no blank page is added (handover review)
@@ -162,4 +162,6 @@ function pdf(res, aud, data, picked, reasons) {
   doc.end();
 }
 
-module.exports = { AUDIENCES, FIELDS, fieldsFor, rows, title, notes, pdf, FOOTER, BASIS, fmtD };
+/** Who issues a price list: 1 place for the PDF and the preview on the page (push 7g, finding 1). */
+const ISSUER = { name: 'Yawar Hussain', role: 'Chief Financial Officer' };
+module.exports = { ISSUER, AUDIENCES, FIELDS, fieldsFor, rows, title, notes, pdf, FOOTER, BASIS, fmtD };

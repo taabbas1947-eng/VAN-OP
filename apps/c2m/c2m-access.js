@@ -72,7 +72,7 @@ const CATALOGUE = [
 const ALL_KEYS = CATALOGUE.flatMap(g => g.items.map(i => i[0]));
 const LABEL = Object.fromEntries(CATALOGUE.flatMap(g => g.items));
 
-const CFO = ['price.propose', 'list.revise', 'pricedoc.all', 'recipe.start', 'recipe.step.cost', 'reapproval.decide', 'rate.save', 'material.save', 'material.add', 'nutrient.edit',
+const CFO = ['price.propose', 'list.revise', 'pricedoc.all', 'recipe.start', 'recipe.step.cost', 'reapproval.decide', 'rate.save', 'material.save', 'material.add', /* nutrient.edit taken off (Tahir, 10 Nov 2026, D-167: nutrients are the QC Head's) */
   'packing.manage', 'labour.manage', 'product.classify', 'settings.edit', 'targets.propose', 'customer.edit', 'client.add', 'variant.add', 'freight.edit', 'grants.give', 'lists.link', 'lists.mark',
   'lists.carry', 'lists.remove', 'o2s.sync', 'import.decide', 'actuals.enter', 'actuals.tiebooks', 'notices.see',
   'see.products', 'see.cost', 'see.price', 'see.margin', 'see.settings', 'see.materials', 'guide.all'];

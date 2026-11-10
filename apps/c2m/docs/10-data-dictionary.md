@@ -414,3 +414,9 @@ Changed in 0.3.0 and 0.3.1: rs_per_kg fixed (1 rate of 1 kind, labour or FOH). A
 |---|---|---|
 | Role page | The page about a person's role in C2M, read and signed once per version | page ROLE_PAGES; c2m_audit entity signoff |
 | Sign-off | A person's signature on a role page version, with the date and time | c2m_audit, entity signoff, entity_id "page:version"; state signed |
+
+## 10.28 10 Nov 2026 (D-167)
+| Term | Meaning | Where |
+|---|---|---|
+| Notices read | The newest notice id a person has marked as read | c2m_audit entity notices_read; state noticesReadUpto |
+| Price list issuer | The name and role printed under "Issued by" on a price list and its preview | c2m-pricelist.js ISSUER; state issuer |

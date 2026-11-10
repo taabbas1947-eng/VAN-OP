@@ -893,3 +893,27 @@ Tests: t21 70, new p21 70; all others pass (t2 keeps its 1 old failure). Indepen
 Open for Tahir: the CFO role still holds nutrient.edit, while his page says nutrients are the QC Head's to enter: keep or remove the right. Read each role page on Role sign-offs and correct any words.
 Not pushed. Delivered to E:\VAN Systems for Tahir to push.
 Tahir ruled after delivery (10 Nov 2026): remove nutrient.edit from the CFO role (only the QC Head and the COO enter nutrients, densities and declared grades). To do in the next push: c2m-access.js SEED cfo, docs 11, the p15 Guide counts; on the live site the right is unticked on the launcher, People and access, Roles by app, C2M, CFO.
+
+## 10 Nov 2026 (4) - push 7f: notices read, notices for launcher roles, the CFO and nutrients (D-167), MODULE: C2M
+Tahir: "small push 7f"; notices also reach launcher roles: yes; a notice marked seen once read: yes; remove nutrient.edit from the CFO.
+Files: c2m-access.js (CFO without nutrient.edit), c2m-lib.js (noRs: a figure before Rs), c2m-routes.js (notices by step rights; POST /api/c2m/notices/read; record leaves out read marks), c2m.html (For your information: new, Mark as read, read ones folded; the editor names a blank %; change list 2026-11-10d), migrations 016 (+ PRODUCTION), docs 03 to 12.
+Migration 016: Ahmer runs the PRODUCTION file once (1 UPDATE and a check; an empty check means done).
+Tests: t21 76, new p22 8; full run in docs 12. Independent review 7f: 0 Blocking, 1 Major, 8 Minor, all fixed.
+Next (Tahir, 10 Nov): an interface review of every screen (tables, field sizes, colours, text selection, boxes, layout, page structure, text, alignment); an independent audit is running.
+Not pushed. Delivered to E:\VAN Systems for Tahir to push.
+
+
+## 10 Nov 2026 (5) - push 7g: the screens check, 25 findings (D-168), MODULE: C2M
+Tahir, on the picture "C2M Screens Check": below target red when more than 2 points short, amber within 2; titles in normal case and bigger; money in millions with 2 decimals; "All 25 in 1 push".
+Files: c2m.html (1 colour rule gpTone and gpCls; 1 missing mark –; millions with 2 decimals; kg with 4 decimals; GP with %; titles and answer lines on the recipe page, Clients and Month end; Delete and Remove in red outline; product page action bar; Materials Change cost plus More; the Guide grouped by place; What changed at most 5; phone labels, line editor, chart text and tap targets; change list 2026-11-10e), c2m-pricelist.js (ISSUER, 1 place for the issuer), c2m-routes.js (state issuer), docs 03, 05, 06, 08, 10, 12.
+No migration.
+Tests: new p23 26; changed p9, p12, p13, p14, p17 (held updates still show), p19, p22. Full run: all pass, t2 keeps its 1 old failure. Independent review 7g: 3 Blocking (amber cells shown green on price lists, Clients sort, the colour rule not on every tile), 6 Major, 9 Minor; all fixed except 1 left for Tahir.
+Open for Tahir: Margin (and the Clients overview flag) still needs a large Rs short before red (his ruling of 16 Oct 2026), so a pack 3 points short can be amber on Margin and red on Clients. Keep the Rs test on Margin, or use the 2-point rule alone there too.
+Not pushed. Delivered to E:\VAN Systems for Tahir to push, together with push 7f.
+
+
+## 10 Nov 2026 (6) - push 7g, Margin rule (D-169), MODULE: C2M
+Tahir (panel after the 7g review): Margin uses "2 points alone", the same rule as every other screen.
+Files: c2m.html (Margin, the Clients overview flag and the COO's red line: red = below cost or more than 2 points short; the Rs test and red_share_pct gone from the page; the setting hidden in Company settings; change list 2026-11-10e says so), docs 03, 06, 08, 09, 12.
+Tests: p23 27; full run all pass, t2 keeps its 1 old failure.
+The open question in entry (5) is closed. Not pushed. Delivered to E:\VAN Systems for Tahir to push, with 7f and 7g.

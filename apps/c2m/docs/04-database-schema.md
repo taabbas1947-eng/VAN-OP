@@ -847,3 +847,6 @@ File: apps/c2m/migrations/015_c2m_basis_density.sql (local) and 015_c2m_basis_de
 
 ## 4.22 Push 7e (10 Nov 2026, D-166): no migration
 - c2m_audit rows with entity signoff, entity_id "page:version", action signed, new_value {"role", "label"} record each sign-off.
+
+## 4.23 Migration 016 (10 Nov 2026, D-167): the CFO no longer enters nutrients
+File: apps/c2m/migrations/016_c2m_cfo_nutrients.sql and .PRODUCTION.sql. Takes "nutrient.edit" off c2m_role.actions_json for role_key cfo; safe to run twice; ends with a check query (empty = done). c2m_audit rows with entity notices_read, entity_id the username, new_value {"upto": newest notice id read}.

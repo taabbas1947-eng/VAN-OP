@@ -430,7 +430,7 @@ function gradeCheck(declared, N, rho) {
 }
 /** Push 7d (walk of 10 Nov 2026): a note with its rupee figures taken out, for a person who does not see cost (the QC Head).
  *  "(Rs 112.10)" goes with its brackets; any other figure reads "Rs …". */
-function noRs(t) { if (t == null) return t; return String(t).replace(/\s*\(\s*(?:[+-]\s?)?(?:Rs\.?|PKR)\s?:?\s?[\d,]*\d(?:\.\d+)?\s*(?:Mn|M|K|lakh|crore)?\s*\)/gi, '').replace(/(?:[+-]\s?)?\b(?:Rs\.?|PKR)\s?:?\s?[\d,]*\d(?:\.\d+)?(?:\s?(?:Mn|M|K|lakh|crore)\b)?/gi, 'Rs …').replace(/\s{2,}/g, ' ').trim(); } /* review 7d, M3: Rs., Rs.480, PKR, Mn, a sign; a bracket goes only when it holds nothing but the figure */
+function noRs(t) { if (t == null) return t; return String(t).replace(/\s*\(\s*(?:[+-]\s?)?(?:Rs\.?|PKR)\s?:?\s?[\d,]*\d(?:\.\d+)?\s*(?:Mn|M|K|lakh|crore)?\s*\)/gi, '').replace(/(?:[+-]\s?)?\b(?:Rs\.?|PKR)\s?:?\s?[\d,]*\d(?:\.\d+)?(?:\s?(?:Mn|M|K|lakh|crore)\b)?/gi, 'Rs …').replace(/\b\d[\d,]*(?:\.\d+)?\s?(?:Mn|M|K|lakh|crore)?\s?(?:Rs\.?|PKR)(?![A-Za-z])(?!\s?:?\s?…)/gi, 'Rs …').replace(/\s{2,}/g, ' ').trim(); } /* push 7f: a figure written before Rs too. review 7d, M3: Rs., Rs.480, PKR, Mn, a sign; a bracket goes only when it holds nothing but the figure */
 module.exports = {
   noRs, newMaterialClass, fieldLabel, safeLabel, MEASURES, cleanNutrient, nutrientBackfill, gradeCheck, BASES, perUnitPct, toBasis,
   rowNameKey, looseKey, rowSize, masterCmp, sameRegion,

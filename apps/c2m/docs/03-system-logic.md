@@ -526,3 +526,15 @@ Built 10 Nov 2026, not pushed. Rules and examples checked by an independent unit
 - A product that follows another's recipe uses that product's density (its own cannot be entered; C2M names the product to enter it on). Deleting a product deletes its density and its declared grade; deleting a material grade deletes its density.
 - Recipe screens say "kg per L" for a product sold per L (the line was always kg per 1 L of such a product; only the words were "kg per kg"). Before 015 every value counts as typed, also for a material bought in L.
 - Independent unit audit of the built code (10 Nov 2026): 0 Blocking, 2 Major, 5 Minor. Independent code review (10 Nov 2026): 0 Blocking, 2 Major, 7 Minor (after the audit fixes). All fixed except: the live editor does not name a material whose % is blank (as before 7c; the analysis below it does).
+
+## 3.46 Push 7d: fixes from the walk of each screen (owner: Tahir; D-165, 10 Nov 2026)
+Built 10 Nov 2026, not pushed. No migration. Tahir had Majid, Himayat, Fahim and Yawar sign in one by one; Claude read every screen (read only).
+- A person without see.cost (the QC Head) gets every recipe note, step note, send back reason and advice, and notice with its rupee figures taken out (lib.noRs): a bracket holding only a figure goes; any other figure (Rs 112, Rs. 112, Rs.480, PKR 500, Rs 9.69M, -Rs 276,854) reads "Rs …". The CFO, COO, Production Manager and Plant Manager (see.cost) keep them. Not caught: a figure written before Rs ("112 Rs per kg") or with no Rs.
+- "Not costed: N packs" shows on Today only to a person who can fix it (rate.save, packing.manage, labour.manage or recipe.step.cost); the Production Manager and Plant Manager no longer get it (its button opened nothing for the Plant Manager).
+- "Fill Labour rate High, Low, FOH rate High, Low" is marked Act now and is the CFO's next move, ahead of approvals: until each is filled, the packs on it have no cost.
+- A re-approval line says "Cost moved." and its own cause (the cause holds the % in force when it was made), not today's re-approval %.
+- Dates written as 2026-10-14 inside notes show as 14 Oct 2026 on every Today line, the recipe note and History.
+- Wording: "With others: N." ; "Names to settle": capital The, and "No O2S sale waits on it yet" when its sales are Rs 0; the no declared grade sentence; the recipes list says "Materials, Rs per kg or L" and "no lines yet" for a draft with none; a material card lists each product once; a recipe's Material data missing says the QC Head enters class and nutrients (and the CFO the rate) to a person who cannot fix it.
+- Guide: "Read materials and nutrients" for the Plant Manager when his role holds Inputs (see.materials; Fahim's launcher role does, the built-in one does not).
+- Dates in words also on Recipe steps, every version, a closed version's reason and notices. A material card says "Used in N products". Missing material data names the QC Head for class, nutrients and density and the CFO for a rate.
+- Independent review 7d (10 Nov 2026): 0 Blocking, 3 Major (send back reason and notices still carried Rs to the QC Head; Rs. and PKR were not caught), 8 Minor; all fixed.

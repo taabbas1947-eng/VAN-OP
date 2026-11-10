@@ -285,3 +285,7 @@ No new action: each list uses the right that adds to it. Delete, Take out of use
 - No new action. A material's density: nutrient.edit (QC Head; the CFO and COO hold it too). A product's density: recipe.edit (Production Manager, COO) or the administrator (R70).
 - productDensity goes in state to whoever sees materials or products; it holds no Rs.
 - Guide rows per built-in role: COO 36, CFO 57, Production Manager 12, QC Head 11, Plant Manager 6, KAM 4 (tested in p15).
+
+## 11.27 10 Nov 2026: push 7d (D-165)
+- No new action. Recipe notes reach a role without see.cost with no Rs (lib.noRs). "Not costed" on Today needs see.cost and one of rate.save, packing.manage, labour.manage, recipe.step.cost.
+- Live roles seen on 10 Nov: production holds see.cost (built-in); Fahim's plant role on the launcher also holds see.materials, so he has Inputs and the new Guide row "Read materials and nutrients". Built-in counts unchanged (p15).

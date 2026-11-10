@@ -428,8 +428,11 @@ function gradeCheck(declared, N, rho) {
   });
   return { rows, state: !rows.length ? 'none' : rows.some(r => r.state === 'below') ? 'below' : rows.some(r => r.state === 'unknown') ? 'unknown' : 'meets' };
 }
+/** Push 7d (walk of 10 Nov 2026): a note with its rupee figures taken out, for a person who does not see cost (the QC Head).
+ *  "(Rs 112.10)" goes with its brackets; any other figure reads "Rs …". */
+function noRs(t) { if (t == null) return t; return String(t).replace(/\s*\(\s*(?:[+-]\s?)?(?:Rs\.?|PKR)\s?:?\s?[\d,]*\d(?:\.\d+)?\s*(?:Mn|M|K|lakh|crore)?\s*\)/gi, '').replace(/(?:[+-]\s?)?\b(?:Rs\.?|PKR)\s?:?\s?[\d,]*\d(?:\.\d+)?(?:\s?(?:Mn|M|K|lakh|crore)\b)?/gi, 'Rs …').replace(/\s{2,}/g, ' ').trim(); } /* review 7d, M3: Rs., Rs.480, PKR, Mn, a sign; a bracket goes only when it holds nothing but the figure */
 module.exports = {
-  newMaterialClass, fieldLabel, safeLabel, MEASURES, cleanNutrient, nutrientBackfill, gradeCheck, BASES, perUnitPct, toBasis,
+  noRs, newMaterialClass, fieldLabel, safeLabel, MEASURES, cleanNutrient, nutrientBackfill, gradeCheck, BASES, perUnitPct, toBasis,
   rowNameKey, looseKey, rowSize, masterCmp, sameRegion,
   listRowIs, listRowSize, officialRow, officialPack, restoreRow,
   round, rateWarning, materialCost, recipeTotal, packingPerUnit, buyOf, buyNote, sourceText, piecePrice, printMrp, mrpIssues, mrpMissing, pickConversionRule, conversionFor, costBreakdown,

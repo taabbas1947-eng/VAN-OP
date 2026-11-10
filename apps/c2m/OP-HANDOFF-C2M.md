@@ -876,3 +876,11 @@ Independent unit audit (built code): 0 Blocking, 2 Major, 5 Minor; independent c
 Open for Tahir: whether the recipes of the 23 products sold per L were typed per L (the screens said kg per kg until now); notices to custom roles and marking notices seen; tolerance per nutrient. For Himayat after 015: mark w/v values and enter densities; set P and K basis.
 Not pushed. Delivered to E:\VAN Systems for Tahir to push.
 Tahir ruled after delivery (10 Nov 2026): the QC Head re-checks all 23 recipes of products sold per L, confirming their lines are kg per 1 L; a wrong one is revised through the normal recipe path. (Answers the open question above and in docs 12.)
+
+## 10 Nov 2026 (2) - push 7d: fixes from the walk of each screen (D-165), MODULE: C2M
+Tahir had Majid, Himayat, Fahim and Yawar sign in one by one on the live site; Claude read every screen as each, read only (findings in docs 03, 3.46). Tahir: "Fix all as push 7d".
+Files: c2m-lib.js (noRs), c2m-routes.js (no Rs in recipe notes, steps, send back and notices without see.cost), c2m.html (Today items, next move, dates in words, wording, Guide row), docs 03, 06, 07, 08, 11, 12.
+No migration. Change list 2026-11-10b.
+Tests: t21 61, new p20 13; t3 to t20, no-011, pricecheck, p9 to p19 (see docs 12). Independent review 7d: 0 Blocking, 3 Major, 8 Minor, all fixed.
+Data for the team (not faults): Yawar fills labour and FOH High and Low (all 66 products wait on it), freight, Oct actuals, 38 sheet items; Himayat enters 53 materials, trims micronutrient suggestions, adds Amino acids to the list, re-checks the 23 liquid recipes; 0 declared grades.
+Not pushed. Delivered to E:\VAN Systems for Tahir to push.

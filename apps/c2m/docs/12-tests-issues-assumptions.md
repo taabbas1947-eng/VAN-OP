@@ -764,3 +764,8 @@ Assumptions and points for Tahir (Not confirmed):
 - Not confirmed: whether any recipe of a product sold per L was typed as kg per kg rather than kg per L (the screens said kg per kg until now); Tahir to decide whether the QC Head re-checks the 23 liquid products' recipes.
 - All other tests pass after push 7c: t3 to t20, no-011, pricecheck 64, p9 to p18. t2 keeps its 1 old failure, the same before this push.
 
+## 10 Nov 2026, push 7d: fixes from the walk of each screen (D-165)
+- t21 gains 4 (61): no Rs in step notes, the recipe note, a send back reason and advice, or notices for the QC Head; the CFO keeps them.
+- New page test p20 (13): change list 2026-11-10b; no Not costed on Today for the Production Manager and Plant Manager, still for the CFO; recipes list Rs per kg or L and no lines yet; dates in words on the recipe page; who enters missing material data; the declared grade sentence; a product listed once on a material card.
+- Not confirmed: rupee figures written after the number ("112 Rs per kg") are not caught by lib.noRs.
+

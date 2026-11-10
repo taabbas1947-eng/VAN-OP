@@ -433,9 +433,9 @@ module.exports = function mountC2mRoutes(app, deps) {
       const cp = D.cpById.get(v.client_product_id); const cust = cp ? D.custById.get(cp.customer_id) : null;
       const pr = engine.priceRecipe(D, v);
       const lines = pr.lines.map(l => ({ gradeId: l.gradeId, name: l.name, grade: l.grade, qty: l.qty, ...(seeCost ? { rate: l.rate, date: l.date, cost: l.cost } : {}) }));
-      return { id: v.id, clientProductId: v.client_product_id, customer: cust ? cust.name : '?', brand: cp ? cp.brand : '?', version: v.version_no, state: v.state, note: v.note, rname: v.rname || engine.MAIN, isDefault: v.state === 'approved' && (engine.approvedVersion(D, v.client_product_id) || {}).id === v.id, defaultName: engine.defaultName(D, v.client_product_id),
-        sentBack: v.sent_back_by ? { by: v.sent_back_by, state: v.sent_back_state, reason: v.sent_back_reason, advice: v.sent_back_advice } : null,
-        lines, kgTotal: pr.kgTotal, materials: seeCost ? pr.materials : undefined, nutrients: engine.nutrients(pr, engine.analysisOpts(D, v.client_product_id)), steps: v.steps,
+      return { id: v.id, clientProductId: v.client_product_id, customer: cust ? cust.name : '?', brand: cp ? cp.brand : '?', version: v.version_no, state: v.state, note: seeCost ? v.note : lib.noRs(v.note), rname: v.rname || engine.MAIN, isDefault: v.state === 'approved' && (engine.approvedVersion(D, v.client_product_id) || {}).id === v.id, defaultName: engine.defaultName(D, v.client_product_id),
+        sentBack: v.sent_back_by ? { by: v.sent_back_by, state: v.sent_back_state, reason: seeCost ? v.sent_back_reason : lib.noRs(v.sent_back_reason), advice: seeCost ? v.sent_back_advice : lib.noRs(v.sent_back_advice) } : null, // no Rs without see.cost (review 7d, M1)
+        lines, kgTotal: pr.kgTotal, materials: seeCost ? pr.materials : undefined, nutrients: engine.nutrients(pr, engine.analysisOpts(D, v.client_product_id)), steps: seeCost ? v.steps : v.steps.map(s => ({ ...s, note: lib.noRs(s.note) })), // push 7d: no Rs to a person who does not see cost
         path: (v.rname || engine.MAIN) !== engine.defaultName(D, v.client_product_id) && engine.approvedVersions(D, v.client_product_id).length > 0 ? 'other' : 'default', // push 7b: other = Majid, Himayat, Yawar (R64)
         flags: ['review', 'endorse'].includes(v.state) ? recipeFlags(D, v.id) : [], // R68: why a comment is needed to pass
         backSig: v.sent_back_by && v.state === 'draft' ? (backSigs.get(v.id) ?? null) : undefined }; // R63: the lines as sent back, so the page says where a resend goes
@@ -448,7 +448,7 @@ module.exports = function mountC2mRoutes(app, deps) {
     if (D.m015 && (has('see.materials') || has('see.products'))) out.productDensity = Object.fromEntries([...D.density.product].filter(([k]) => D.cpById.has(k)));
     if (D.m014 && nutCopyFailed && (has('nutrient.list') || has('material.save'))) out.nutCopyFailed = nutCopyFailed; // review 7a, M2: shown, never silent
     if (D.m014 && (has('see.materials') || has('see.products'))) { out.nutrientList = D.nutrientList; out.declared = Object.fromEntries([...D.declared].filter(([k]) => D.cpById.has(k))); }
-    if (!has('see.margin') && ['production', 'qc', 'plant'].includes(role)) { const [nt] = await softQ("SELECT * FROM c2m_notice WHERE for_role=? AND at >= DATE_SUB(?, INTERVAL 30 DAY) ORDER BY id DESC LIMIT 20", [role, now()]); out.notices = nt || []; } // push 7b (R65): recipe notices for the Production Manager, QC Head and Plant Manager
+    if (!has('see.margin') && ['production', 'qc', 'plant'].includes(role)) { const [nt] = await softQ("SELECT * FROM c2m_notice WHERE for_role=? AND at >= DATE_SUB(?, INTERVAL 30 DAY) ORDER BY id DESC LIMIT 20", [role, now()]); out.notices = (nt || []).map(n => has('see.cost') ? n : { ...n, text: lib.noRs(n.text) }); } // push 7b (R65): recipe notices for the Production Manager, QC Head and Plant Manager
     if (has('see.materials')) {
       // Material master without rates: Himayat's screen (ruled 16 Oct)
       out.materials = [...D.rates.values()].map(g => ({ gradeId: g.gradeId, materialId: g.materialId, name: g.name, grade: g.grade, unit: g.unit, typeId: g.typeId, type: g.type, role: g.role, fields: g.fields, nutrients: g.nutrients,

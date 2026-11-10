@@ -17,6 +17,14 @@ Changed in 0.6.0: entry 0.6.0 added.
 Changed in 0.5.0: entry 0.5.0 added; real figures removed from earlier entries (public repo).
 Format: Keep a Changelog, semantic versions. Live: 1.0.0 (pushed 19 Oct about 22:09, checked live by Claude as Tahir the same evening; Yawar's view checked in the cloud copy only); 0.9.3 pushed 19 Oct 14:38, checked live; 0.9.2 pushed 19 Oct 12:43, checked live; first data load 19 Oct 2026 about 13:17, checked live. Before: 0.9.1 (pushed 19 Oct 09:39, checked live). apps/c2m first pushed by Tahir on 17 Oct and the live migration run the same day (39 empty c2m_ tables); 0.6.0 and 0.7.0 pushed on 18 Oct (17:29), 0.8.0 (20:16) and 0.9.0 (22:03), each checked live by Claude. The folder tabs (D-59) were built after the 0.9.0 push and ship in 0.9.1. No data loaded yet: the first data load runs on Monday 19 Oct 2026.
 
+## [Next version, push 7d: fixes from the walk of each screen] · 10 Nov 2026 · D-165 · Who: Tahir ruled; Claude built and tested; not pushed · No migration
+### Fixed
+- The QC Head no longer sees rupee figures in a recipe's history or note.
+- Packs not costed show on Today only to those who can fix them; the CFO's labour and FOH job heads his list.
+- Dates in notes read as 14 Oct 2026; re-approval lines no longer quote today's % against an older cause.
+- Wording on Today, the recipes list, the recipe page and the material card. A Guide row for the Plant Manager's Inputs.
+- In-app change list entry 2026-11-10b.
+
 ## [Next version, push 7c: liquids, % w/w and % w/v, densities] · 10 Nov 2026 · D-164 · Who: Tahir ruled (R70, R71, R72, R73); Claude built and tested; not pushed · Migration 015 (Ahmer runs it first)
 ### Added
 - Each % on a material card is w/w or w/v, as its certificate states it; each nutrient on a label too.

@@ -221,3 +221,10 @@ A pack takes 1 labour rate and 1 FOH rate, each the first match of these levels:
 | B-55 | A saved material is complete (R61) | % in product of a nutrient = sum over the lines of kg per kg x % in the material. A material the QC Head has saved counts 0 for any nutrient not on its card. A material not saved yet makes the analysis not complete (its typed values still add up). |
 | B-56 | Declared grade check (R62) | Meets when the Default recipe's % >= label % - tolerance; below by label % - recipe % (2 decimals); unknown when the analysis is not complete. A warning only. |
 | B-57 | A material with no rate (R66) | No rate is not Rs 0: the pack is not costed and the recipe cannot pass the cost step until the CFO saves its rate. |
+
+## 9 Nov 2026 (D-163)
+| ID | Rule | Detail |
+|---|---|---|
+| B-58 | % of mix (R67) | % of mix of a line = its kg per kg / the recipe's total kg per kg x 100. Shown only; lines are saved as kg per kg. |
+| B-59 | Resend (R63) | Lines compared as "grade:kg per kg" pairs (6 decimals), order ignored. Equal: back to the sender; different or not known: the QC Head. |
+| B-60 | Red at a check (R68) | Red = the analysis not complete, or a declared nutrient below the label (meets when recipe % >= label % - tolerance). A low figure while not complete is not red for the label, only for the analysis. |

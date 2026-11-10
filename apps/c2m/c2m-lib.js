@@ -223,6 +223,13 @@ function familyColour(typeId, types) {
 }
 /** Next step in the recipe chain (ruling 13 Oct): Majid writes, Himayat reviews, Fahim endorses, Yawar approves cost. */
 const RECIPE_FLOW = { draft: 'review', review: 'endorse', endorse: 'cost', cost: 'approved' };
+/** Push 7b (R64, D-163): another recipe of a product (the short path) goes Production Manager, QC Head, CFO; the Plant Manager is skipped. */
+const RECIPE_FLOW_OTHER = { draft: 'review', review: 'cost', cost: 'approved' };
+/** A recipe's lines as 1 string, the same whatever their order: "12:0.2|3:0.1" (grade id and kg per kg). R63 compares it at resend. */
+const lineSig = lines => (lines || []).map(l => `${Number(l.gradeId != null ? l.gradeId : l.grade_id)}:${Number(Number(l.qty).toFixed(8))}`).sort().join('|');
+/** Where a resend goes (R63, D-163): sent back by the QC Head, or the lines changed since it was sent back (or that is not known),
+ *  back to the QC Head; otherwise straight back to whoever sent it back. */
+function resendTo(sentBackState, sigAtBack, sigNow) { if (sentBackState === 'review' || sentBackState === 'draft' || !sentBackState) return 'review'; return sigAtBack != null && sigAtBack === sigNow ? sentBackState : 'review'; }
 const RECIPE_WHO = { draft: 'production', review: 'qc', endorse: 'plant', cost: 'cfo' };
 
 /** Pakistan time (Asia/Karachi, UTC+5, no daylight saving). Audit finding 9, 16 Oct 2026. */
@@ -410,5 +417,5 @@ module.exports = {
   listRowIs, listRowSize, officialRow, officialPack, restoreRow,
   round, rateWarning, materialCost, recipeTotal, packingPerUnit, buyOf, buyNote, sourceText, piecePrice, printMrp, mrpIssues, mrpMissing, pickConversionRule, conversionFor, costBreakdown,
   marginPct, targetPrice, contributionFloor, fedPct, netPoPrice, needsReapproval, exposure, flag,
-  RECIPE_FLOW, RECIPE_WHO, fmtInt, fmtRs2, pkToday, pkNow, FAMILY_COLOURS, familyColour, CATS, FARMER_LINE, buyerLine, targetOr, priceCountsForPo, REAPPROVE_DEFAULT,
+  RECIPE_FLOW, RECIPE_FLOW_OTHER, lineSig, resendTo, RECIPE_WHO, fmtInt, fmtRs2, pkToday, pkNow, FAMILY_COLOURS, familyColour, CATS, FARMER_LINE, buyerLine, targetOr, priceCountsForPo, REAPPROVE_DEFAULT,
 };

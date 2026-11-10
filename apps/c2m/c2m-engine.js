@@ -140,7 +140,7 @@ function approvedVersion(D, cpId) {
   const dn = defaultName(D, cpId); const d = appr.filter(v => (v.rname || MAIN) === dn);
   return d.length ? d[d.length - 1] : appr[appr.length - 1];
 }
-function latestVersion(D, cpId) { const list = D.recipes.byCp.get(recipeOwner(D, cpId)) || []; return list.length ? list[list.length - 1] : null; }
+function latestVersion(D, cpId) { const list = (D.recipes.byCp.get(recipeOwner(D, cpId)) || []).filter(v => v.state !== 'closed'); return list.length ? list[list.length - 1] : null; } // push 7b: a closed version (R69) is not the product's latest
 
 /** Materials cost of a recipe version at today's rates; also returns the priced lines. */
 function priceRecipe(D, ver, rateOverride) {

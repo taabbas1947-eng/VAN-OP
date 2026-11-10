@@ -17,6 +17,19 @@ Changed in 0.6.0: entry 0.6.0 added.
 Changed in 0.5.0: entry 0.5.0 added; real figures removed from earlier entries (public repo).
 Format: Keep a Changelog, semantic versions. Live: 1.0.0 (pushed 19 Oct about 22:09, checked live by Claude as Tahir the same evening; Yawar's view checked in the cloud copy only); 0.9.3 pushed 19 Oct 14:38, checked live; 0.9.2 pushed 19 Oct 12:43, checked live; first data load 19 Oct 2026 about 13:17, checked live. Before: 0.9.1 (pushed 19 Oct 09:39, checked live). apps/c2m first pushed by Tahir on 17 Oct and the live migration run the same day (39 empty c2m_ tables); 0.6.0 and 0.7.0 pushed on 18 Oct (17:29), 0.8.0 (20:16) and 0.9.0 (22:03), each checked live by Claude. The folder tabs (D-59) were built after the 0.9.0 push and ship in 0.9.1. No data loaded yet: the first data load runs on Monday 19 Oct 2026.
 
+## [Next version, push 7b: the recipe path, notices, the line editor, the check screen, Close] · 9 Nov 2026 · D-163 · Who: Tahir ruled (R63, R64, R65, R67, R68, R69); Claude built and tested; not pushed · No migration
+### Added
+- Notices at each recipe step: the next person is told, and the Production Manager is told when a recipe is approved, sent back or closed. The Production Manager, QC Head and Plant Manager now see their notices on Today.
+- The line editor shows each material with its grade and what it carries, a Find box, the % of the mix, the live total and the live analysis against the label (warning only).
+- The check screen: what changed against the approved version, the analysis against the label, material data missing with Open material.
+- Close this version, with a reason, for the QC Head, Plant Manager and CFO at their step (and the sender of a draft sent back).
+### Changed
+- A resend goes to the QC Head when the lines changed since it was sent back; straight back to the sender only when no line changed.
+- Another recipe of a product now goes Production Manager, QC Head, CFO (was Production Manager, CFO).
+- Passing a recipe with something red (analysis not complete, below the label) needs a comment, kept on the step.
+- Words: Write recipe, Revise recipe, Check recipe, Pass to the Plant Manager or the CFO, Send to the QC Head; sent back by first name.
+- In-app change list entry 2026-11-09b by role; entry 2026-11-09a now waits until migration 014 has run and is remembered as not seen. Guide rows: Check a recipe (was Review a recipe), Close a recipe version (new), and 7 recipe rows rewritten.
+
 ## [Next version, push 7a: nutrient list, material cards, declared grades, a material with no rate] · 9 Nov 2026 · D-162 · Who: Tahir ruled (R60, R61, R62, R66); Claude built and tested; not pushed · Migration 014 (Ahmer runs it first)
 ### Added
 - 1 nutrient list kept by the QC Head (Nutrients tab): each nutrient with how it is shown, its full name, its basis (K2O, not K) and % w/w or w/v. C2M stops a second one shown the same way; a nutrient is hidden, never deleted; the CFO is told of a new one.

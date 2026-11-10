@@ -392,3 +392,11 @@ All below: right see.margin (403 otherwise), registered after the C2M access che
 | POST /api/c2m/materials | material.save or material.add | {name, typeId, unit, grade, rate, source}; rate only with material.save; no rate: source is the supplier or why | {gradeId}; no rate and not the CFO: notice to the CFO |
 | POST /api/c2m/materials/:id/type | nutrient.edit | {typeId} | {ok}; to a class that adds no nutrients also clears the grade's nutrient rows and check (logged) |
 - GET /api/c2m/state adds m014; nutrientList and declared (see.products or see.materials); materials gain suggest, nutRows, checked, checkedBy, checkedAt, notEntered, noRate; recipes' nutrients gain notEntered.
+
+## 5.20 The recipe path after push 7b (9 Nov 2026; owner: Tahir; D-163)
+| Route | Right | Body | Answer |
+|---|---|---|---|
+| POST /api/c2m/recipes/:id/advance | recipe.step.<state> | {note} (needed at review and endorse when red) | {state, other, changed}; 400 "Write a comment before you pass it, because …" |
+| POST /api/c2m/recipes/:id/sendback | recipe.step.<state> | {reason, advice} | {ok}; keeps the lines as sent back; notice to the Production Manager |
+| POST /api/c2m/recipes/:id/close | recipe.step.<state> at review, endorse, cost; or the sender of a draft sent back | {reason} (5 letters or more) | {ok}; state closed; notice to the Production Manager |
+- GET /api/c2m/state: recipes gain path, flags, backSig; notices now also for the Production Manager, QC Head and Plant Manager (their role, last 30 days).

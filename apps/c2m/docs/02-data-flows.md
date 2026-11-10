@@ -333,3 +333,10 @@ Built 9 Nov 2026, not pushed. Migration 014.
 - Who reads what: state carries m014, nutrientList and declared (to every role with see.products or see.materials); materials carry suggest, nutRows (nutrient, %, certificate, date), checked, checkedBy, checkedAt, notEntered and noRate (no Rs) to see.materials. The engine builds each grade's nutrients and fields from these tables (engine.nutrientMode), so every recipe's analysis, the recipe panel and Today read the new data with no other change.
 - The one-time copy (routes nutBackfill, lib.nutrientBackfill): on the first state read after 014, when c2m_nutrient is empty, reads c2m_material_type and c2m_material_grade.nutrients_json and writes the list, the values and the checks in 1 transaction, logged once (entity nutrient, action copy). The old columns are not changed or cleared.
 - The Production Manager now holds see.materials: he reads Inputs, Materials and nutrients (no packing; no Rs on Inputs beyond the rates he already saw as a cost reader).
+
+## 2.37 The recipe path after push 7b (owner: Tahir R63 to R65, R68, R69; D-163, 9 Nov 2026)
+Built 9 Nov 2026, not pushed. No migration.
+- Send back now keeps the lines as they were in the change record (c2m_audit, entity recipe, action sent_back, new_value {to: draft, lines: "grade:qty|…"}); resend compares them with the lines now (lib.lineSig, lib.resendTo). A version sent back before 7b has no stored lines, so its resend goes to the QC Head.
+- Every step and send back, close and approval writes c2m_notice rows for the role named (qc, plant, cfo, production), in the same transaction as the step.
+- Pass (advance) takes a note: kept on c2m_recipe_step.note and in the notice. Close writes state closed, a step closed with the reason, an audit row and a notice.
+- State: each recipe gains path (default or other), flags (why a comment is needed, at review and endorse) and backSig (a draft sent back). The Production Manager, QC Head and Plant Manager now receive notices (their role, last 30 days).

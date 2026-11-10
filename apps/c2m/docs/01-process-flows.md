@@ -798,3 +798,30 @@ flowchart TD
 ```
 - A class (Nitrogen source, Amino acid source, Binder) only suggests nutrients: on a material that has not been saved yet, each suggested nutrient not typed shows as "to enter". The QC Head or the CFO adds and edits classes (Classes tab). Changing a material between 2 nutrient classes keeps its nutrients, all shown on its card; changing it to a class that adds no nutrients clears them (kept in the change record).
 - The first time C2M runs after migration 014 it copies every class field (N% becomes the nutrient N) and every % already entered into the new tables, once; a material whose class fields were all entered starts as saved (checked).
+
+## 1.40 The recipe path after push 7b (owner: Tahir rules R63, R64, R65, R68, R69; Claude built; D-163, 9 Nov 2026)
+Built 9 Nov 2026, not pushed. No migration (the recipe tables already hold a step comment and any state). Replaces the path drawn earlier where it differs; an approved version still never changes.
+
+```mermaid
+flowchart TD
+  A[Majid writes or revises the draft · Edit lines: grade and nutrients in the picker, % of mix, live total and analysis against the label · R67] --> B[Himayat checks · what changed, against the label, material data missing; Open material to fix it himself]
+  B -->|Default recipe| C[Fahim endorses]
+  B -->|another recipe of the product · R64| D[Yawar approves cost]
+  C --> D
+  D --> E([Approved: Majid is told · R65])
+  B -. passing with something red needs a comment · R68 .-> B
+  C -. passing with something red needs a comment .-> C
+  B -. send back: reason and advice .-> A
+  C -. send back .-> A
+  D -. send back .-> A
+  A -. resend, lines changed since sent back · R63 .-> B
+  A -. resend, no line changed .-> C
+  A -. resend, no line changed .-> D
+  B -. close with a reason · R69 .-> X([Closed: Majid is told; kept with lines and steps])
+  C -. close .-> X
+  D -. close .-> X
+  A -. a draft sent back: closed by its sender .-> X
+```
+- Each arrow forward writes a notice to the next person (QC Head, Plant Manager, CFO); send back, close and approval write one to the Production Manager. The Production Manager, QC Head and Plant Manager see their notices of the last 30 days on Today, For your information.
+- Red at a check: the analysis is not complete, or (after migration 014) a nutrient below the product's declared grade. A low figure while the analysis is not complete is "not complete", not below.
+- A closed version is not the product's latest: the next version starts from the approved one, and a product whose only version was closed shows "Write the first recipe" again.

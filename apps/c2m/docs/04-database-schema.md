@@ -832,3 +832,8 @@ Urgent prices and list revisions are marked by a c2m_audit row: entity price or 
 - c2m_declared_grade (client_product_id, nutrient_id, pct DECIMAL(9,4), tol DECIMAL(7,4) default 0, by_user, at; key client_product_id, nutrient_id).
 - Role rows (c2m_role.actions_json): qc gains nutrient.list, grade.declare, material.add; production gains material.add and see.materials; cfo gains material.add; coo gains the 3 when its actions are ticked one by one. Each update adds an action only when it is missing, so running it twice changes nothing.
 - c2m_material_type.nutrient_fields now holds the nutrients a class suggests (their "shown as" names; old rows keep N% style names, read the same). c2m_material_grade.nutrients_json is no longer written after 014; it is kept as it was.
+
+## 4.20 Push 7b (9 Nov 2026, D-163): no migration
+- c2m_recipe_version.state may now hold closed (VARCHAR(20); no change to the table). c2m_recipe_step.action may hold closed; its note holds the comment of a pass and the reason of a close.
+- c2m_audit rows for a send back (entity recipe, action sent_back) now hold new_value {"to":"draft","lines":"grade:kg per kg|…"}.
+- c2m_notice.for_role may now be production, qc or plant (VARCHAR(20); no change).

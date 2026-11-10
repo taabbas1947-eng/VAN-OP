@@ -389,3 +389,12 @@ Changed in 0.3.0 and 0.3.1: rs_per_kg fixed (1 rate of 1 kind, labour or FOH). A
 | Tolerance | Points below the label still taken as meeting it (0 = none) | c2m_declared_grade.tol |
 | noRate | A material added with no rate, waiting for the CFO | materials[].noRate |
 | m014 | true once migration 014's tables can be read | state m014 |
+
+## 10.25 9 Nov 2026 (D-163)
+| Term | Meaning | Where |
+|---|---|---|
+| Closed (recipe version) | A version not going ahead, closed with a reason; kept with lines and steps; not the product's latest | c2m_recipe_version.state = closed; step closed |
+| path | default (Production Manager, QC Head, Plant Manager, CFO) or other (Production Manager, QC Head, CFO) | state recipes[].path |
+| flags | Why a comment is needed to pass this recipe now | state recipes[].flags |
+| backSig | The lines as they were when sent back | state recipes[].backSig; c2m_audit sent_back new_value.lines |
+| % of mix | A line's share of the recipe's total kg per kg | Edit lines (page only) |

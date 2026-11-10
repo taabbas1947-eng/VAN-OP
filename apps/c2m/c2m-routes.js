@@ -428,13 +428,17 @@ module.exports = function mountC2mRoutes(app, deps) {
         defaultName: engine.defaultName(D, cp.id), others: engine.approvedVersions(D, cp.id).filter(v => !appr || v.id !== appr.id).map(v => ({ id: v.id, name: v.rname, version: v.version_no, packs: seeCost ? D.packs.filter(p => p.client_product_id === cp.id).map(p => { const c = engine.packCost(D, p, { version: v }); return { id: p.id, total: c && c.costed ? c.total : null }; }) : undefined })) }; // D-140: the other approved recipes, cost for reading only
     });
 
+    const backSigs = new Map(); { const ids = [...D.recipes.byVer.values()].filter(v => v.sent_back_by && v.state === 'draft').map(v => v.id); for (const id of ids) backSigs.set(id, await backSig(id)); } // push 7b
     const recipes = [...D.recipes.byVer.values()].filter(v => D.cpById.has(v.client_product_id)).map(v => { // a product out of use takes its recipes off the screens too (kept in the database; review 1.0.2 re-check 2, A1)
       const cp = D.cpById.get(v.client_product_id); const cust = cp ? D.custById.get(cp.customer_id) : null;
       const pr = engine.priceRecipe(D, v);
       const lines = pr.lines.map(l => ({ gradeId: l.gradeId, name: l.name, grade: l.grade, qty: l.qty, ...(seeCost ? { rate: l.rate, date: l.date, cost: l.cost } : {}) }));
       return { id: v.id, clientProductId: v.client_product_id, customer: cust ? cust.name : '?', brand: cp ? cp.brand : '?', version: v.version_no, state: v.state, note: v.note, rname: v.rname || engine.MAIN, isDefault: v.state === 'approved' && (engine.approvedVersion(D, v.client_product_id) || {}).id === v.id, defaultName: engine.defaultName(D, v.client_product_id),
         sentBack: v.sent_back_by ? { by: v.sent_back_by, state: v.sent_back_state, reason: v.sent_back_reason, advice: v.sent_back_advice } : null,
-        lines, kgTotal: pr.kgTotal, materials: seeCost ? pr.materials : undefined, nutrients: engine.nutrients(pr), steps: v.steps };
+        lines, kgTotal: pr.kgTotal, materials: seeCost ? pr.materials : undefined, nutrients: engine.nutrients(pr), steps: v.steps,
+        path: (v.rname || engine.MAIN) !== engine.defaultName(D, v.client_product_id) && engine.approvedVersions(D, v.client_product_id).length > 0 ? 'other' : 'default', // push 7b: other = Majid, Himayat, Yawar (R64)
+        flags: ['review', 'endorse'].includes(v.state) ? recipeFlags(D, v.id) : [], // R68: why a comment is needed to pass
+        backSig: v.sent_back_by && v.state === 'draft' ? (backSigs.get(v.id) ?? null) : undefined }; // R63: the lines as sent back, so the page says where a resend goes
     });
 
     // Settings (budget and ambition GP, thresholds) go to Yawar and Tahir only (review S9)
@@ -442,6 +446,7 @@ module.exports = function mountC2mRoutes(app, deps) {
     out.m014 = D.m014; // push 7a (D-162): the nutrient list and declared grades; false until migration 014
     if (D.m014 && nutCopyFailed && (has('nutrient.list') || has('material.save'))) out.nutCopyFailed = nutCopyFailed; // review 7a, M2: shown, never silent
     if (D.m014 && (has('see.materials') || has('see.products'))) { out.nutrientList = D.nutrientList; out.declared = Object.fromEntries([...D.declared].filter(([k]) => D.cpById.has(k))); }
+    if (!has('see.margin') && ['production', 'qc', 'plant'].includes(role)) { const [nt] = await softQ("SELECT * FROM c2m_notice WHERE for_role=? AND at >= DATE_SUB(?, INTERVAL 30 DAY) ORDER BY id DESC LIMIT 20", [role, now()]); out.notices = nt || []; } // push 7b (R65): recipe notices for the Production Manager, QC Head and Plant Manager
     if (has('see.materials')) {
       // Material master without rates: Himayat's screen (ruled 16 Oct)
       out.materials = [...D.rates.values()].map(g => ({ gradeId: g.gradeId, materialId: g.materialId, name: g.name, grade: g.grade, unit: g.unit, typeId: g.typeId, type: g.type, role: g.role, fields: g.fields, nutrients: g.nutrients,
@@ -743,6 +748,27 @@ module.exports = function mountC2mRoutes(app, deps) {
   /* ---------- Recipes: write, review, endorse, approve cost, send back (ruling 13 to 14 Oct) ---------- */
   async function getVersion(id) { const [[v]] = await q('SELECT * FROM c2m_recipe_version WHERE id=?', [id]); if (!v) throw bad('This recipe version is no longer in C2M. Press Refresh; if it is still missing, it was deleted.'); return v; }
   async function step(vid, action, by, note) { await q('INSERT INTO c2m_recipe_step (recipe_version_id, action, by_user, at, note) VALUES (?,?,?,?,?)', [vid, action, by, now(), note || null]); }
+  /* ---------- Push 7b (Tahir, 9 Nov 2026, R63 to R65, R68, R69, D-163) ---------- */
+  /** The lines of a version as they were when it was last sent back (kept in the change record), or null when not known. */
+  async function backSig(vid) {
+    const [[a]] = await q("SELECT new_value FROM c2m_audit WHERE entity='recipe' AND entity_id=? AND action='sent_back' ORDER BY id DESC LIMIT 1", [String(vid)]);
+    if (!a || !a.new_value) return null; try { const j = JSON.parse(a.new_value); return j && typeof j.lines === 'string' ? j.lines : null; } catch (e) { return null; }
+  }
+  /** What is red on a recipe at a check (R68): the analysis not complete, or a nutrient below the product's declared grade. */
+  function recipeFlags(D, vid) {
+    const vo = D.recipes.byVer.get(Number(vid)); if (!vo) return [];
+    const N = engine.nutrients(engine.priceRecipe(D, vo)), out = [];
+    if (!N.complete) out.push('the nutrient analysis is not complete');
+    if (D.m014) { const g = lib.gradeCheck(D.declared.get(Number(vo.client_product_id)) || [], N); g.rows.filter(r => r.state === 'below').forEach(r => out.push(`${r.label} is ${r.by} below the label`)); }
+    return out;
+  }
+  /** A recipe in words for a notice: "Enrich for Syngenta Pakistan, version 3 (DAP in place of TSP)". */
+  function recipeWords(D, vid) {
+    const vo = D.recipes.byVer.get(Number(vid)); const cp = vo ? D.cpById.get(vo.client_product_id) : null; const cu = cp ? D.custById.get(cp.customer_id) : null;
+    return `${cp ? cp.brand : 'A product'}${cu ? ' for ' + cu.name : ''}, version ${vo ? vo.version_no : '?'}${vo && vo.rname && vo.rname !== engine.MAIN ? ` (${vo.rname})` : ''}`;
+  }
+  const whoW = c => `${c.name || c.user} (${c.label})`;
+  const NEXT_W = { review: 'Check recipe', endorse: 'Endorse recipe', cost: 'Approve cost' };
 
   app.post('/api/c2m/recipes/new', can('recipe.start'), wrap(async (req, res) => {
     const { clientProductId, fromVersionId, note, recipeKind } = req.body || {};
@@ -797,14 +823,24 @@ module.exports = function mountC2mRoutes(app, deps) {
     const v = await getVersion(req.params.id);
     if (!req.c2m.can.has('recipe.step.' + v.state)) throw Object.assign(new Error('This step is not yours.'), { status: 403 });
     const [[n]] = await q('SELECT COUNT(*) n FROM c2m_recipe_line WHERE recipe_version_id=?', [v.id]); if (!n.n) throw bad('Add the recipe lines first.');
-    let next = lib.RECIPE_FLOW[v.state];
-    if (v.state === 'draft' && v.sent_back_state) next = v.sent_back_state; // resend goes straight back to whoever sent it back (ruled 14 Oct)
-    /* D-140 (Tahir, 30 Oct 2026): another recipe of a product that already has its Default takes the short path: Majid writes, Yawar approves cost. */
+    /* D-140 (Tahir, 30 Oct 2026): another recipe of a product that already has its Default takes the short path. Push 7b (R64, D-163):
+       the short path is now Majid, Himayat, Yawar (the Plant Manager is skipped), so the QC Head checks every recipe the plant may run. */
     const Dp = await engine.loadAll(q); const vo = Dp.recipes.byVer.get(v.id); const other = vo && vo.rname !== engine.defaultName(Dp, v.client_product_id) && engine.approvedVersions(Dp, v.client_product_id).length > 0;
-    if (other && v.state === 'draft') next = 'cost';
+    const note = String((req.body || {}).note || '').replace(/\s+/g, ' ').trim().slice(0, 400);
+    let next = (other && lib.RECIPE_FLOW_OTHER[v.state]) || lib.RECIPE_FLOW[v.state]; let changed = null, nowSig = null;
+    if (v.state === 'draft' && v.sent_back_state) { // R63: a resend goes back to the QC Head when the lines changed since it was sent back; else straight to the sender (ruled 14 Oct)
+      const [ln] = await q('SELECT grade_id, qty FROM c2m_recipe_line WHERE recipe_version_id=?', [v.id]); const before = await backSig(v.id); nowSig = lib.lineSig(ln);
+      changed = before == null ? null : before !== nowSig; next = lib.resendTo(v.sent_back_state, before, nowSig); if (other && next === 'endorse') next = 'review'; // changed null: not known (sent back before 7b), so the QC Head
+    }
+    /* R68: passing a recipe with something red (analysis not complete, below the declared grade) needs a comment, kept on its step. */
+    if (['review', 'endorse'].includes(v.state)) { const red = recipeFlags(Dp, v.id); if (red.length && !note) throw bad(`Write a comment before you pass it, because ${red.join('; ')}.`); }
     /* Review 30 Oct, finding 3: a version that took the short path as another recipe, whose recipe has since become the Default, goes through Himayat and Fahim. */
     const [stp] = await q('SELECT action FROM c2m_recipe_step WHERE recipe_version_id=?', [v.id]); const checked = stp.some(x => x.action === 'reviewed') && stp.some(x => x.action === 'endorsed');
     if (!other && v.state === 'draft' && v.sent_back_state === 'cost' && !checked) next = 'review';
+    /* Review 7b, M1 (R64): a short-path version never reaches the cost step without the QC Head, also one sent on before 7b. */
+    const qcDone = stp.some(x => x.action === 'reviewed');
+    if (other && v.state === 'draft' && next === 'cost' && !qcDone) next = 'review';
+    if (other && v.state === 'cost' && !qcDone) throw bad('The QC Head now checks every recipe, another recipe of a product too, and this version has not been checked. Send it back to the Production Manager; when he resends it, it goes to the QC Head.');
     if (!other && v.state === 'cost' && !checked && engine.approvedVersions(Dp, v.client_product_id).length) throw bad(`"${vo ? vo.rname : ''}" is the Default recipe now, so this version needs the QC Head's review and the Plant Manager's endorsement before its cost is approved. Send it back to the Production Manager; when he resends it, it goes to the QC Head.`);
     if (next === 'approved') {
       const D0 = await engine.loadAll(q); const pr = engine.priceRecipe(D0, D0.recipes.byVer.get(v.id));
@@ -818,9 +854,10 @@ module.exports = function mountC2mRoutes(app, deps) {
     }
     const act = { draft: v.sent_back_state ? 'resent' : 'sent', review: 'reviewed', endorse: 'endorsed', cost: 'cost_approved' }[v.state];
     await tx(async () => {
+    if (nowSig != null) { const [[lk]] = await q('SELECT id FROM c2m_recipe_version WHERE id=? FOR UPDATE', [v.id]); if (!lk) throw moved(); const [ln2] = await q('SELECT grade_id, qty FROM c2m_recipe_line WHERE recipe_version_id=?', [v.id]); if (lib.lineSig(ln2) !== nowSig) throw moved(); } // review 7b, minor 1: lines saved from another tab a moment ago
     const [u] = await q('UPDATE c2m_recipe_version SET state=?, sent_back_by=NULL, sent_back_state=NULL WHERE id=? AND state=?', [next, v.id, v.state]);
     if (!u.affectedRows) throw moved();
-    await step(v.id, act, req.c2m.user, (req.body || {}).note);
+    await step(v.id, act, req.c2m.user, note || null);
     if (next === 'approved') {
       /* D-140: approving a version makes the earlier approved version of the SAME recipe old; the product's other recipes stay approved. */
       const Db = await engine.loadAll(q); const myName = (Db.recipes.byVer.get(v.id) || {}).rname || engine.MAIN; const hadAppr = engine.approvedVersions(Db, v.client_product_id).filter(x => x.id !== v.id);
@@ -846,9 +883,13 @@ module.exports = function mountC2mRoutes(app, deps) {
         }
       }
     }
-    await audit(req.c2m.user, 'recipe', v.id, act, v.state, next, other ? 'Another recipe of the product: short path, the Production Manager writes and the CFO approves cost' : null);
+    await audit(req.c2m.user, 'recipe', v.id, act, v.state, next, other ? 'Another recipe of the product: short path, the Production Manager, the QC Head, then the CFO (R64)' : null);
+    /* R65: a notice to the next person, and to the Production Manager when the cost is approved (saved with the step or not at all). */
+    const rw = recipeWords(Dp, v.id);
+    if (next === 'approved') await notice('production', `Approved: ${rw}. Cost approved by ${whoW(req.c2m)}.`, req.c2m.user);
+    else if (NEXT_W[next]) await notice(lib.RECIPE_WHO[next], `${NEXT_W[next]}: ${rw}. ${act === 'resent' ? (next === 'review' && v.sent_back_state !== 'review' ? (changed === null ? 'Resent; C2M does not know whether the lines changed since it was sent back, so it starts again with the QC Head' : 'Resent with changed lines, so it starts again with the QC Head') : 'Resent') : act === 'sent' ? 'Sent' : act === 'reviewed' ? 'Reviewed' : 'Endorsed'} by ${whoW(req.c2m)}${note ? `. Comment: ${note}` : ''}.`, req.c2m.user);
     });
-    res.json({ state: next, other: !!other });
+    res.json({ state: next, other: !!other, changed });
   }));
 
   app.post('/api/c2m/recipes/:id/sendback', wrap(async (req, res) => {
@@ -860,7 +901,26 @@ module.exports = function mountC2mRoutes(app, deps) {
       const [u] = await q("UPDATE c2m_recipe_version SET state='draft', sent_back_by=?, sent_back_state=?, sent_back_reason=?, sent_back_advice=? WHERE id=? AND state=?", [req.c2m.user, v.state, reason.slice(0, 400), advice.slice(0, 400), v.id, v.state]);
       if (!u.affectedRows) throw moved();
       await step(v.id, 'sent_back', req.c2m.user, reason + ' | Advice: ' + advice);
-      await audit(req.c2m.user, 'recipe', v.id, 'sent_back', v.state, 'draft', reason);
+      const [ln] = await q('SELECT grade_id, qty FROM c2m_recipe_line WHERE recipe_version_id=?', [v.id]);
+      await audit(req.c2m.user, 'recipe', v.id, 'sent_back', v.state, { to: 'draft', lines: lib.lineSig(ln) }, reason); // R63: the lines as sent back, compared at resend
+      const Dn = await engine.loadAll(q); await notice('production', `Sent back: ${recipeWords(Dn, v.id)}, by ${whoW(req.c2m)}. Reason: ${reason.slice(0, 140)}. Advice: ${advice.slice(0, 140)}.`, req.c2m.user); // R65
+    });
+    res.json({ ok: true });
+  }));
+  /* R69: the QC Head, the Plant Manager or the CFO closes a version that is not going ahead, with a reason. At their own step, or a
+     draft they sent back. Closed is kept with its steps and lines; the product's next version starts from its approved one. */
+  app.post('/api/c2m/recipes/:id/close', wrap(async (req, res) => {
+    const v = await getVersion(req.params.id);
+    const atStep = ['review', 'endorse', 'cost'].includes(v.state) && req.c2m.can.has('recipe.step.' + v.state);
+    const sender = v.state === 'draft' && v.sent_back_by && (v.sent_back_by === req.c2m.user || req.c2m.admin) && req.c2m.can.has('recipe.step.' + v.sent_back_state);
+    if (!atStep && !sender) throw Object.assign(new Error(v.state === 'draft' ? 'Only the person who sent it back closes a draft; the Production Manager may delete his own draft.' : ['approved', 'old', 'closed'].includes(v.state) ? 'Only a version in progress can be closed.' : 'Only the person at this step can close it.'), { status: 403 });
+    const reason = String((req.body || {}).reason || '').replace(/\s+/g, ' ').trim();
+    if (reason.length < 5) throw bad('Write why this version is closed (at least a few words): the Production Manager reads it.');
+    await tx(async () => {
+      const [u] = await q("UPDATE c2m_recipe_version SET state='closed' WHERE id=? AND state=?", [v.id, v.state]); if (!u.affectedRows) throw moved();
+      await step(v.id, 'closed', req.c2m.user, reason.slice(0, 400));
+      await audit(req.c2m.user, 'recipe', v.id, 'closed', v.state, 'closed', reason.slice(0, 400));
+      const Dn = await engine.loadAll(q); await notice('production', `Closed: ${recipeWords(Dn, v.id)}, by ${whoW(req.c2m)}. Reason: ${reason.slice(0, 200)}.`, req.c2m.user);
     });
     res.json({ ok: true });
   }));
@@ -3237,7 +3297,7 @@ module.exports = function mountC2mRoutes(app, deps) {
    * Yawar switches the Default alone; Tahir gets a notice.
    * ========================================================================== */
   const OOU = { grade: 'material_grade', pitem: 'packing_item', bill: 'packing_bill', customer: 'customer' };
-  const STATE_W = { draft: 'draft', review: 'with the QC Head', endorse: 'with the Plant Manager', cost: 'with the CFO', approved: 'approved', old: 'an old version' };
+  const STATE_W = { draft: 'draft', review: 'with the QC Head', endorse: 'with the Plant Manager', cost: 'with the CFO', approved: 'approved', old: 'an old version', closed: 'closed' };
   const need007 = D => { if (!D.m007) throw Object.assign(new Error('This part is not switched on yet: IT has 1 step to run. Nothing was saved; try again after IT has run it.'), { status: 409 }); };
   async function rightFor(req, kind, id) {
     let a = { grade: 'material.save', pitem: 'packing.manage', bill: 'packing.manage', rule: 'labour.manage', freight: 'freight.edit', customer: 'client.add', product: 'client.add', recipe: 'recipe.start' }[kind];
@@ -3306,7 +3366,7 @@ module.exports = function mountC2mRoutes(app, deps) {
     } else if (kind === 'recipe') {
       const [[v]] = await q('SELECT * FROM c2m_recipe_version WHERE id=?', [id]); if (!v) throw bad('This recipe version is no longer in C2M. Press Refresh; if it is still missing, it was deleted.');
       label = `${pn(v.client_product_id)}, recipe version ${v.version_no}`;
-      if (v.state !== 'draft') L.push(`It is ${STATE_W[v.state] || v.state}: only a draft can be deleted. ${v.state === 'approved' || v.state === 'old' ? 'Write a new version instead.' : 'Send it back first, or let it finish.'}`);
+      if (v.state !== 'draft') L.push(`It is ${STATE_W[v.state] || v.state}: only a draft can be deleted. ${['approved', 'old', 'closed'].includes(v.state) ? 'Write a new version instead.' : 'Send it back first, or let it finish.'}`);
     } else throw bad('Unknown list.');
     return { kind, id, label, uses: L, out, isOut, ...extra };
   }

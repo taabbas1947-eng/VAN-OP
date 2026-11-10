@@ -257,7 +257,7 @@ No new action: each list uses the right that adds to it. Delete, Take out of use
 ## 11.22 7 Nov 2026 (D-160): Guide rows per role, Start and Find
 - No new action and no right changed. The Guide shows each person only the rows of their role whose Start opens a place they have (canGo on navFor's places and CAN): COO 36 rows, CFO 55, Production Manager 10, QC Head 6, Plant Manager 5, KAM (viewer) 4, with the seeded rights (tested in p15). A role made on the launcher gets the rows of the role it works like (see.margin: CFO, or COO for the administrator; granted lists only: KAM; recipe draft, review or endorse: Production Manager, QC Head, Plant Manager), filtered the same way; one that fits none reads the 2 general lines.
 - Production Manager: See what waits for you; Write the first recipe of a client product; Write a new recipe version; Write another recipe for a product; Revise a recipe sent back; Delete a draft started by mistake; Read a product's recipe, packs and cost; Add a variant; Find anything; Find a row in a list.
-- QC Head: See what waits for you; Review a recipe; Class a material and enter its nutrient %; Read a recipe; Find anything; Find a row in a list.
+- QC Head: See what waits for you; Check a recipe; Close a recipe version; Class a material and enter its nutrient %; Read a recipe; Find anything; Find a row in a list.
 - Plant Manager: See what waits for you; Endorse a recipe; Read a recipe; Find anything; Find a row in a list.
 - KAM: See your price lists; Download a price list as PDF; Ask for a list you cannot see; Find anything.
 - Find anything offers only places the person can open: a KAM finds his own granted lists and the Guide's jobs, never Costs, Margin, Setup or another list; Production, QC and Plant find products and recipes on their own places (Products or Recipes), never Clients.
@@ -275,3 +275,8 @@ No new action: each list uses the right that adds to it. Delete, Take out of use
 - The Production Manager also gets see.materials, so his places are Today, Products, Recipes, Inputs, Guide. On Inputs he reads materials and nutrients and may Add a material; no packing tabs, no Edit, Hide or Enter buttons.
 - Migration 014 adds these to the role rows on the database (production keeps any changes a System Administrator made: an action is only added when missing). Until 014 is run the seeded roles in c2m-access.js carry them, but the new routes answer "not switched on yet".
 - Guide rows per built-in role: COO 36, CFO 56, Production Manager 11, QC Head 9, Plant Manager 5, KAM 4 (tested in p15).
+
+## 11.25 9 Nov 2026: push 7b (D-163)
+- No new action. Close uses the step rights (recipe.step.review, .endorse, .cost); the sender of a draft sent back may close it if they hold the right of the step they sent it back from.
+- The Production Manager, QC Head and Plant Manager (roles production, qc, plant, without notices.see) now receive their own notices of the last 30 days in state and see them on Today, For your information. A custom role receives none.
+- Guide rows per built-in role: COO 36, CFO 57, Production Manager 11, QC Head 10, Plant Manager 6, KAM 4 (tested in p15).

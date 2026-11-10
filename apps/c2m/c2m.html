@@ -398,10 +398,10 @@ const ICON = { today: SVG('<rect x="3" y="3" width="18" height="18" rx="2"/><pat
 /** On a phone the bottom bar holds 4 places and More when a person has more than 5 (F1). */
 const phone4 = (nav, more) => nav.length > 5 ? ['today', 'margin', 'reports', 'prices'].filter(k => nav.includes(k)) : more && more.length && nav.length > 4 ? nav.slice(0, 4) : nav; // 1.0.0: 4 in the phone bar, the 5th place under More
 let finder = null, moreOpen = false;
-const STEP = { draft: 'The Production Manager checks', review: 'The QC Head reviews', endorse: 'The Plant Manager endorses', cost: 'The CFO approves cost', approved: 'Approved', old: 'Earlier version' };
-const MYJOB = { draft: 'Check recipe', review: 'Review recipe', endorse: 'Endorse recipe', cost: 'Approve cost' };
+const STEP = { draft: 'The Production Manager writes', review: 'The QC Head checks', endorse: 'The Plant Manager endorses', cost: 'The CFO approves cost', approved: 'Approved', old: 'Earlier version', closed: 'Closed' }; // push 7b: the writer's step reads as his (audit 9 Nov, finding 9)
+const MYJOB = { draft: 'Write recipe', review: 'Check recipe', endorse: 'Endorse recipe', cost: 'Approve cost' };
 /** A step in words: names keep their capital ("Yawar approves cost"); "approved" and "earlier version" read in lower case. */
-const stepTxt = st => /^(Approved|Earlier)/.test(STEP[st] || '') ? STEP[st].toLowerCase() : (STEP[st] || st);
+const stepTxt = st => /^(Approved|Earlier|Closed)/.test(STEP[st] || '') ? STEP[st].toLowerCase() : (STEP[st] || st);
 const STEP_ROLE = { draft: 'production', review: 'qc', endorse: 'plant', cost: 'cfo' };
 /* Access: what this person may do comes from the ticks on their role, not from the role's name. */
 let PV = null, PVBACK = null; const KM = { sel: null, copy: false }; /* KAM lists: PV is the manager whose screen Tahir or Yawar is looking at (read only) */
@@ -544,7 +544,7 @@ const isStuck = from => !!from && wdays(from) > 2;
 const ageTxt = from => { const n = daysSince(from); return n == null ? '' : n === 0 ? 'today' : pl(n, 'day', 'days'); };
 const ageHtml = (from, plain) => from ? `<span class="age ${isStuck(from) ? 'stuck' : ''}" title="Waiting since ${esc(fmtD(d10(from)))}">${ageTxt(from)}${isStuck(from) ? '<span class="stuckp">stuck</span>' : ''}</span>` : (plain ? `<span class="age">${plain}</span>` : '');
 const lastStep = v => (v.steps || []).length ? v.steps[v.steps.length - 1] : null;
-const VERB = { sent: 'checked', resent: 'resent', reviewed: 'reviewed', endorsed: 'endorsed', cost_approved: 'approved the cost', written: 'wrote', imported: 'imported', sent_back: 'sent back' };
+const VERB = { sent: 'sent', resent: 'resent', closed: 'closed', reviewed: 'reviewed', endorsed: 'endorsed', cost_approved: 'approved the cost', written: 'wrote', imported: 'imported', sent_back: 'sent back' };
 const personName = u => { const p = (ST.people || []).find(x => x.username === u); return p && p.name ? p.name.split(' ')[0] : u ? u.charAt(0).toUpperCase() + u.slice(1) : ''; };
 const relDay = at => { const n = daysSince(at); return n === 0 ? 'today' : n === 1 ? 'yesterday' : `on ${fmtD(d10(at))}`; };
 const firstOfMonth = () => ST.today.slice(0, 7) + '-01';
@@ -554,9 +554,10 @@ const monthSince = () => { const f = firstOfMonth(), g = ST.importedAt ? d10(ST.
 function jobs() {
   const R = ST.me.role, J = [];
   (ST.recipes || []).forEach(v => { if (!myStep(v)) return; const ls = lastStep(v); const prod = (ST.products || []).find(p => p.id === v.clientProductId); const appr = prod && prod.approvedVersionId && prod.approvedVersionId !== v.id ? (ST.recipes || []).find(x => x.id === prod.approvedVersionId) : null;
-    let d = v.sentBack && v.state === 'draft' ? `Sent back: ${v.sentBack.reason}. Advice: ${v.sentBack.advice}` : (v.note || '');
+    let d = v.sentBack && v.state === 'draft' ? `Sent back by ${personName(v.sentBack.by)}: ${dot(v.sentBack.reason)}. Advice: ${dot(v.sentBack.advice)}.` : (v.note || '');
+    if (['review', 'endorse'].includes(v.state) && (v.flags || []).length) d = `${d ? dot(d) + '. ' : ''}Needs a comment to pass: ${v.flags.join('; ')}.`; // push 7b (R68)
     if (v.state === 'cost' && myStep(v)) { const parts = []; if (ls) parts.push(`${personName(ls.by_user)} ${VERB[ls.action] || ls.action} it ${relDay(ls.at)}.`); if (appr && v.materials != null && appr.materials) { const dm = (v.materials - appr.materials) / appr.materials * 100; parts.push(`Materials ${rs2(v.materials)} per ${prod.soldPer} against ${rs2(appr.materials)} approved (${dm >= 0 ? '+' : ''}${dm.toFixed(1)}%).`); } if (v.nutrients && v.nutrients.complete) parts.push('Every input is classed and entered.'); if (parts.length) d = parts.join(' ') + (v.note ? ' ' + String(v.note).replace(/([^.!?])$/, '$1.') : ''); }
-    J.push({ t: `${MYJOB[v.state]}: ${prodNm(v.clientProductId, v.brand)} for ${v.customer}, version ${v.version}`, d, btn: 'Open recipe', go1: `Open to ${MYJOB[v.state].split(' ')[0].toLowerCase()}`, pan: { k: 'rec', id: v.id }, kind: v.state === 'draft' ? 'do' : 'approve', pri: 1, since: ls ? ls.at : null }); });
+    J.push({ t: `${myJob(v)}: ${prodNm(v.clientProductId, v.brand)} for ${v.customer}, version ${v.version}`, d, btn: 'Open recipe', go1: `Open to ${myJob(v).split(' ')[0].toLowerCase()}`, pan: { k: 'rec', id: v.id }, kind: v.state === 'draft' ? 'do' : 'approve', pri: 1, since: ls ? ls.at : null }); });
   {
     const P = packIdx();
     if (CAN('labour.manage') && LF().ready) { const nf = LF().rates.filter(x => x.rsPerKg == null), due = ST.today.slice(0, 8) + '05'; const goLF = () => { scr = 'costs'; cpart = 'labour'; saved = null; window.scrollTo(0, 0); }; // push 2c
@@ -1967,7 +1968,16 @@ const CHANGELOG = [
  { t: 'A material not in the list can be added without a rate: name, grade, class and the supplier or why. The CFO is told and adds the rate.', for: ['material.add'], guide: 'Add a material that is not in the list' },
  { t: 'You now have Inputs: every material and what it carries, to read while writing a recipe.', for: ['recipe.edit'], guide: null },
  { t: 'A material may now come in with no rate, added by the QC Head or the Production Manager. Approvals shows "… materials wait for your rate"; a recipe using one cannot pass the cost step until the rate is in.', for: ['rate.save'], guide: 'Add the rate of a new material' },
- { t: 'A class is now a label (Nitrogen source, Amino acid source, Binder): it suggests nutrients and locks none. The QC Head may add classes too.', for: ['material.save'], guide: 'Add a material class' }] }
+ { t: 'A class is now a label (Nitrogen source, Amino acid source, Binder): it suggests nutrients and locks none. The QC Head may add classes too.', for: ['material.save'], guide: 'Add a material class' }] },
+  { ver: '2026-11-09b', date: '2026-11-09', title: 'The recipe path: who sees what, notices, the line editor, the check, Close', items: [
+ { t: 'Edit lines now shows each material with its grade and what it carries, a Find box, the % of the mix, the total and the analysis as you type (against the label once the QC Head enters it). Below the label is a warning only.', for: ['recipe.edit'], guide: 'Write the first recipe of a client product' },
+ { t: 'Resend: if you changed the lines, the recipe goes to the QC Head first; if not, straight back to whoever sent it. The button names who. You are told on Today when a recipe is approved, sent back or closed.', for: ['recipe.edit'], guide: 'Revise a recipe sent back' },
+ { t: 'The check screen shows what changed against the approved version, the analysis against the label, and any material data missing, with Open material to fix it yourself and then pass it.', for: ['recipe.step.review'], guide: 'Check a recipe' },
+ { t: 'Every recipe now comes to you, another recipe of a product too (then it goes straight to the CFO). A recipe resent with changed lines comes back to you.', for: ['recipe.step.review'], guide: 'Check a recipe' },
+ { t: 'Passing with something red (analysis not complete, or below the label) needs a comment; it is kept on the step and the next person reads it.', for: ['recipe.step.review', 'recipe.step.endorse'], guide: null },
+ { t: 'Close this version: a version not going ahead is closed with a reason; the Production Manager is told. A notice reaches you when a recipe comes to your step.', for: ['recipe.step.review', 'recipe.step.endorse', 'recipe.step.cost'], guide: 'Close a recipe version' },
+ { t: 'Another recipe of a product now comes to you after the QC Head has checked it. A recipe you sent back comes straight back only if no line changed.', for: ['recipe.step.cost'], guide: 'Approve the cost of a recipe' },
+ { t: 'Recipes: the QC Head now checks every recipe, notices go to the next person at each step, and a version can be closed with a reason.', for: ['see.margin'], guide: null }] }
 ];
 let _wnShown = false, wnGuide = null;
 /** A Guide link only when that row is on this person's Guide (Yawar's rows, Tahir's rows, and Both; D-141). */
@@ -1980,10 +1990,11 @@ const wnMine = () => CLX().filter(c => wnLines(c).length);
 function checkWhatsNew() {
   const CL = CLX(); if (_wnShown || !ST || !ST.me || PV || !CL.length) return;
   let seen = ''; try { seen = localStorage.getItem(wnKey()) || ''; } catch (_) {}
-  const latest = CL[CL.length - 1].ver; if (seen === latest) return;
+  const late = wnHeld(); // entries held back earlier (they waited for migration 014) and now shown, though older than the last one seen
+  const latest = CL[CL.length - 1].ver; if (seen === latest && !CL.some(c => late.includes(c.ver))) return;
   const i = seen ? CL.findIndex(c => c.ver === seen) : -1;
-  const show = (i >= 0 ? CL.slice(i + 1) : CL.slice()).filter(c => wnLines(c).length);
-  if (!show.length) { try { localStorage.setItem(wnKey(), latest); } catch (_) {} return; } // nothing for this job: remembered quietly
+  const show = CL.filter((c, k) => (i < 0 || k > i || late.includes(c.ver)) && !(seen && c.ver <= seen && !late.includes(c.ver))).filter(c => wnLines(c).length);
+  if (!show.length) { wnRemember(); return; } // nothing for this job: remembered quietly
   _wnShown = true; const el = document.createElement('div'); el.id = 'wnbox'; el.innerHTML = wnHtml(show); document.body.appendChild(el);
   { const a = $('app'); if (a) a.setAttribute('inert', ''); } // nothing behind the box takes a click or a key (review 30 Oct)
   const b = el.querySelector('.wnf [data-wnok]'); if (b) b.focus();
@@ -1995,7 +2006,10 @@ function wnHtml(entries) {
   <div class="wnb">${shown.map(wnEntry).join('')}${rest > 0 ? `<p class="wnd">${pl(rest, 'earlier update', 'earlier updates')} not shown: every update is in the Guide, What changed.</p>` : ''}</div>
   <div class="wnf"><button class="btn ghost" data-wnguide="">Open the Guide</button><button class="btn" data-wnok>Got it</button></div></div>`;
 }
-function wnDismiss() { try { const CL = CLX(); localStorage.setItem(wnKey(), CL[CL.length - 1].ver); } catch (_) {} const el = $('wnbox'); if (el) el.remove(); const a = $('app'); if (a) a.removeAttribute('inert'); const f = document.querySelector('.hdr nav button'); if (f && scr !== 'guide') f.focus(); }
+/** Entries held back until migration 014 runs are remembered as not seen, so they show once it has run (push 7b). */
+function wnHeld() { try { return JSON.parse(localStorage.getItem(wnKey() + '.held') || '[]') || []; } catch (_) { return []; } }
+function wnRemember() { try { const CL = CLX(); localStorage.setItem(wnKey(), CL[CL.length - 1].ver); localStorage.setItem(wnKey() + '.held', JSON.stringify(CHANGELOG.filter(c => !CL.includes(c)).map(c => c.ver))); } catch (_) {} }
+function wnDismiss() { wnRemember(); const el = $('wnbox'); if (el) el.remove(); const a = $('app'); if (a) a.removeAttribute('inert'); const f = document.querySelector('.hdr nav button'); if (f && scr !== 'guide') f.focus(); }
 document.addEventListener('click', e => { const t = e.target.closest('[data-wnok],[data-wnguide]'); if (!t || !ST) return;
   if (t.dataset.wnguide != null) { const inBox = !!t.closest('#wnbox'); if (inBox) wnDismiss(); wnGuide = t.dataset.wnguide || null; if (wnGuide) gjOpen.add(wnGuide); scr = 'guide'; closePanel(); render(); const r = document.querySelector('.gj.gjhl'); if (r) { r.scrollIntoView({ block: 'center' }); const b = r.querySelector('.gjs'); if (b) b.focus({ preventScroll: true }); } return; }
   wnDismiss(); });
@@ -2039,7 +2053,7 @@ document.addEventListener('click', e => { const th = e.target.closest && e.targe
 document.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.classList && e.target.classList.contains('srt')) { e.preventDefault(); e.target.click(); } });
 document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target && e.target.id === 'audq') { e.preventDefault(); aud.q = e.target.value; aud.data = null; audLoad(); } });
 /** Draw the page, then record the move for the phone Back button (push 6c, D-161). */
-function render() { renderPage(); navSync(); }
+function render() { renderPage(); navSync(); if (editLines) elLive(); } // push 7b: the editor's live total and analysis
 function renderPage() {
   if (scr !== 'guide') wnGuide = null; // the Guide row mark lasts while the Guide is open (D-141)
   const M = ST.me; const J = jobs();
@@ -2411,8 +2425,10 @@ let custQ = ''; // read by Find (SEARCH cq); the 0.9.0 customer table is gone (1
 const fmtShort = s => { const p = d10(s).split('-'); return p.length === 3 ? `${+p[2]} ${MON[+p[1] - 1]} ${p[0]}` : ''; }; // with the year, as every date (round 4; review r4, findings 8 and 21)
 /** Recipe steps as chips that say who did each step and when (P1, H5: "Himayat reviewed · 17 Oct"); the current step is marked. */
 function stepChips(v) {
-  const order = ['draft', 'review', 'endorse', 'cost', 'approved']; const cur = order.indexOf(v.state);
-  const DONE = { draft: ['sent', 'resent'], review: ['reviewed'], endorse: ['endorsed'], cost: ['cost_approved'] }; const DV = { draft: 'checked', review: 'reviewed', endorse: 'endorsed', cost: 'approved cost' };
+  const order = v.path === 'other' ? ['draft', 'review', 'cost', 'approved'] : ['draft', 'review', 'endorse', 'cost', 'approved']; // push 7b (R64): the short path skips the Plant Manager
+  if (v.state === 'closed') { const c = (v.steps || []).slice().reverse().find(x => x.action === 'closed'); return `<div class="steps"><span class="now">Closed${c ? ` by ${esc(personName(c.by_user))}<small>· ${fmtShort(c.at)}</small>` : ''}</span></div>${c && c.note ? `<p class="ans">Why: ${esc(c.note)}</p>` : ''}`; }
+  const cur = order.indexOf(v.state);
+  const DONE = { draft: ['sent', 'resent'], review: ['reviewed'], endorse: ['endorsed'], cost: ['cost_approved'] }; const DV = { draft: 'sent', review: 'checked', endorse: 'endorsed', cost: 'approved cost' };
   return `<div class="steps">${order.map((st, i) => { if (st === 'approved') return `<span class="${v.state === 'approved' ? 'done' : ''}">Approved</span>`;
     const done = i < cur || v.state === 'approved'; const s2 = done ? (v.steps || []).slice().reverse().find(x => DONE[st].includes(x.action)) : null;
     return `<span class="${done ? 'done' : i === cur ? 'now' : ''}">${done && s2 ? `${esc(personName(s2.by_user))} ${DV[st]}<small>· ${fmtShort(s2.at)}</small>` : STEP[st]}</span>`; }).join('')}</div>`;
@@ -2421,9 +2437,9 @@ function vRecipes() {
   if (openRec) return vRecipe((ST.recipes || []).find(v => v.id === openRec));
   const R = ST.me.role; const mine = (ST.recipes || []).filter(v => myStep(v));
   const seeC = CAN('see.cost'); const P = packIdx();
-  const list = (ST.recipes || []).filter(v => v.state !== 'old').sort((a, b) => (myStep(b) ? 1 : 0) - (myStep(a) ? 1 : 0) || a.customer.localeCompare(b.customer));
-  return `${head('Recipes', `${mine.length} waiting for you, ${list.length} in C2M.`, 'C2M keeps the official recipe for each client product. Every version is kept; a change goes the Production Manager, the QC Head, the Plant Manager, then the CFO.')}
-  <div class="next">${mine.length ? `<button class="btn" data-rec="${mine[0].id}">${MYJOB[mine[0].state]}: ${esc(prodNm(mine[0].clientProductId, mine[0].brand))} for ${esc(mine[0].customer)}</button>` : '<span>Nothing waits for you.</span>'}${CAN('recipe.start') ? ' <button class="btn ghost" data-newrec>Write a new recipe version</button>' : ''}</div>
+  const list = (ST.recipes || []).filter(v => v.state !== 'old' && v.state !== 'closed').sort((a, b) => (myStep(b) ? 1 : 0) - (myStep(a) ? 1 : 0) || a.customer.localeCompare(b.customer));
+  return `${head('Recipes', `${mine.length} waiting for you, ${list.length} in C2M.`, 'C2M keeps the official recipe for each client product. Every version is kept; a change goes the Production Manager, the QC Head, the Plant Manager, then the CFO (another recipe of a product: the Production Manager, the QC Head, then the CFO). A version not going ahead is closed with a reason.')}
+  <div class="next">${mine.length ? `<button class="btn" data-rec="${mine[0].id}">${esc(myJob(mine[0]))}: ${esc(prodNm(mine[0].clientProductId, mine[0].brand))} for ${esc(mine[0].customer)}</button>` : '<span>Nothing waits for you.</span>'}${CAN('recipe.start') ? ' <button class="btn ghost" data-newrec>Write a new recipe version</button>' : ''}</div>
   ${newRecForm()}
   ${findBox('recipes', 'Find a product, client or step')}<div class="box wrapx"><table data-lft="recipes"><tr><th>Client product</th><th>Version</th><th>Step</th><th class="r">Kg per kg</th>${seeC ? '<th class="r">Materials per kg</th>' : ''}</tr>${list.map(v => `<tr class="go" tabindex="0" data-rec="${v.id}"><td>${esc(prodNm(v.clientProductId, v.brand))} for ${esc(v.customer)}${v.rname && v.rname !== 'Main' ? ` · <i>${esc(v.rname)}</i>` : ''}${v.isDefault && ((ST.products || []).find(p => p.id === v.clientProductId) || {}).others && ((ST.products || []).find(p => p.id === v.clientProductId).others || []).length ? ' <span class="pill p-green">Default</span>' : ''}</td><td>${v.version}</td><td><span class="pill ${v.state === 'approved' ? 'p-green' : myStep(v) ? 'p-amber' : 'p-none'}">${STEP[v.state]}</span></td><td class="r num">${v.kgTotal.toFixed(3)}</td>${seeC ? `<td class="r num">${rs2(v.materials)}</td>` : ''}</tr>`).join('')}</table></div>`;
 }
@@ -2435,7 +2451,7 @@ function newRecForm() {
   return `<div class="box form" id="nrf"><b>New recipe version</b><label for="nrp">Client product<select id="nrp" data-nrp><option value="">Pick</option>${prods.map(p => `<option value="${p.id}" ${p.id === newRec.cp ? 'selected' : ''}>${esc(prodNm(p.id, p.brand))} for ${esc(p.customer)}${p.recipeState ? ' (has ' + stepTxt(p.recipeState) + ')' : ''}</option>`).join('')}</select></label>
   ${ST.m007 && (!pk || pk.approvedVersionId) ? `<fieldset class="q1"><legend><b>Which recipe?</b></legend>
     <label><input type="radio" name="nrk" data-nrk="default"${k === 'default' ? ' checked' : ''}> A new version of the Default recipe (${esc(dn)}): once approved it sets the cost. The Production Manager, the QC Head, the Plant Manager, then the CFO.</label>
-    <label><input type="radio" name="nrk" data-nrk="other"${k === 'other' ? ' checked' : ''}> Another recipe for this product, kept beside the Default (e.g. DAP in place of TSP). The Production Manager writes it and the CFO approves its cost; it never moves cost until the CFO makes it the Default.</label></fieldset>
+    <label><input type="radio" name="nrk" data-nrk="other"${k === 'other' ? ' checked' : ''}> Another recipe for this product, kept beside the Default (e.g. DAP in place of TSP). The Production Manager writes it, the QC Head checks it and the CFO approves its cost; it never moves cost until the CFO makes it the Default.</label></fieldset>
   ${k === 'other' ? `<label for="nrnm">Name of this recipe<input id="nrnm" maxlength="80" placeholder="e.g. DAP in place of TSP" value="${esc(newRec.name || '')}"></label>` : ''}` : ''}
   <label for="nrn">What changes and why (e.g. TSP replaced by DAP)<input id="nrn" value="${esc(newRec.note || '')}"></label><div><button class="btn" data-nrsave>Start from the current recipe</button> <button class="btn ghost" data-nrcancel>Cancel</button></div></div>`;
 }
@@ -2444,20 +2460,21 @@ function vRecipe(v, o = {}) {
   const R = ST.me.role; const seeC = CAN('see.cost'); const mine = canStep(v);
   const order = ['draft', 'review', 'endorse', 'cost', 'approved']; const cur = order.indexOf(v.state);
   const prod = (ST.products || []).find(p => p.id === v.clientProductId);
-  const prob = recProblem(v); const lead = mine ? `Your step: ${MYJOB[v.state].split(' ')[0].toLowerCase()}.` : `${stepTxt(v.state).charAt(0).toUpperCase() + stepTxt(v.state).slice(1)}.`;
+  const prob = recProblem(v); const lead = mine ? `Your step: ${myJob(v).split(' ')[0].toLowerCase()}.` : `${stepTxt(v.state).charAt(0).toUpperCase() + stepTxt(v.state).slice(1)}.`;
   let h = o.product ? (prob ? `<p class="answer">Version ${v.version}: ${esc(prob)}</p>` : '') : o.panel ? `<p class="answer">Version ${v.version}: ${esc(lead)}${prob ? ' ' + esc(prob) : ''}</p>` : `<p class="crumb"><button data-recback>All recipes</button> › ${esc(prodNm(v.clientProductId, v.brand))} for ${esc(v.customer)}, version ${v.version}</p><p class="kick"><span>${esc(v.brand)} for ${esc(v.customer)} · version ${v.version}</span><span></span></p>${head('Recipe', `${esc(lead)}${prob ? ' ' + esc(prob) : ` ${esc(prodNm(v.clientProductId, v.brand))} for ${esc(v.customer)}, version ${v.version}.`}`)}`;
   h += stepChips(v); h += recNameLine(v);
-  if (mine && !o.panel) h += `<div class="next"><b>Your step: ${MYJOB[v.state]}.</b> <button class="btn" data-panrec="${v.id}">Open to ${MYJOB[v.state].toLowerCase()}</button></div>`;
-  else if (mine) h += `<div class="next"><b>Your step: ${MYJOB[v.state]}.</b> <button class="btn" data-adv="${v.id}"${v.state === 'cost' ? ' data-confirm="Confirm: approve cost"' : ''}>${v.state === 'draft' ? (v.sentBack ? 'Resend to ' + (ROLE_NAME[STEP_ROLE[v.sentBack.state]] || 'sender') : 'Send for review') : v.state === 'review' ? 'Mark reviewed' : v.state === 'endorse' ? 'Endorse' : 'Approve cost'}</button>${v.state !== 'draft' ? ` <button class="btn ghost" data-sb="${v.id}">Send back to the Production Manager</button>` : ''}${v.state === 'draft' && CAN('recipe.edit') ? ` <button class="btn ghost" data-editlines="${v.id}">Edit lines</button>` : ''}</div>`;
-  else h += `<p class="ans">${v.state === 'approved' ? 'Approved. A change starts a new version.' : v.state === 'old' ? 'An earlier version, kept for the record.' : 'With ' + ROLE_NAME[STEP_ROLE[v.state]] + '.'}</p>`;
+  if (mine && !o.panel) h += `<div class="next"><b>Your step: ${esc(myJob(v))}.</b> <button class="btn" data-panrec="${v.id}">Open to ${esc(myJob(v).split(' ')[0].toLowerCase())}</button></div>`;
+  else if (mine) h += recActions(v); // push 7b (R63, R68, R69)
+  else h += `<p class="ans">${v.state === 'approved' ? 'Approved. A change starts a new version.' : v.state === 'old' ? 'An earlier version, kept for the record.' : v.state === 'closed' ? 'Closed: it did not go ahead. Kept for the record.' : 'With the ' + ROLE_NAME[STEP_ROLE[v.state]] + '.'}${canCloseDraft(v) ? ` <button class="btn ghost" data-rclose="${v.id}">Close this version</button>` : ''}</p>`;
+  h += closeBox(v);
   if (sendBack === v.id && !behind) h += `<div class="box form"><label for="sbr">Reason (required)<textarea id="sbr"></textarea></label><label for="sba">Revision advice (required)<textarea id="sba"></textarea></label><div><button class="btn warn" data-sbsend="${v.id}">Send back</button> <button class="btn ghost" data-sbcancel>Cancel</button></div></div>`;
   // A solid recipe far from 1 kg per kg is checked before its cost is approved (cost review 18 Oct 2026, D-64)
   if (prod && prod.form === 'solid' && ['cost', 'endorse', 'review'].includes(v.state) && (v.kgTotal < 0.98 || v.kgTotal > 1.20)) h += `<div class="amberbox"><b>Check the quantities:</b> this solid recipe adds to ${v.kgTotal.toFixed(4)} kg of inputs per 1 kg of product. Usual is 0.98 to 1.20 (process loss included); a typing slip here moves the cost of every pack.</div>`;
-  if (v.sentBack && v.state === 'draft') h += `<div class="warnbox">Sent back by ${esc(v.sentBack.by)}: ${esc(v.sentBack.reason)}. Advice: ${esc(v.sentBack.advice)}. Resending returns it straight to them.</div>`;
+  if (v.sentBack && v.state === 'draft') h += `<div class="warnbox">Sent back by ${esc(personName(v.sentBack.by))}, the ${esc(ROLE_NAME[STEP_ROLE[v.sentBack.state]] || '')}: ${esc(dot(v.sentBack.reason))}. Advice: ${esc(dot(v.sentBack.advice))}. ${v.sentBack.state === 'review' ? 'Resending returns it to the QC Head.' : 'Resending returns it straight to them if no line changed; if you change the lines, it goes to the QC Head first.'}</div>`;
   if (editLines && editLines.id === v.id && !behind) h += linesEditor(v);
   h += `<div class="two"><div><h2>Recipe: kg of input per 1 ${prod ? prod.soldPer : 'kg'} of product</h2><div class="box wrapx"><table><tr><th>Input, kg per 1 ${prod ? prod.soldPer : 'kg'}</th><th class="r">Qty</th>${seeC ? '<th class="r">Rate</th><th class="r">Rs</th>' : ''}</tr>${v.lines.map(l => `<tr><td>${esc(l.name)} <span class="ans" style="font-size:12px">${esc(matNutTxt(l.gradeId))}</span></td><td class="r num">${l.qty.toFixed(4)}</td>${seeC ? `<td class="r num">${rs2(l.rate)}</td><td class="r num">${rs2(l.cost)}</td>` : ''}</tr>`).join('')}<tr><td><b>Total</b></td><td class="r num"><b>${v.kgTotal.toFixed(4)}</b></td>${seeC ? `<td></td><td class="r num"><b>${rs2(v.materials)}</b></td>` : ''}</tr></table></div>
   <p class="ans">${v.kgTotal > 1.0005 ? 'Total above 1: process loss carried in the recipe.' : v.kgTotal < 0.9995 ? 'Total below 1: water or a solvent may not be listed.' : ''} ${esc(v.note || '')}</p></div>
-  <div><h2>Nutrient analysis</h2>${nutBox(v.nutrients)}${nutWorking(v)}</div></div>`;
+  <div><h2>Nutrient analysis</h2>${nutBox(v.nutrients)}${nutWorking(v)}${recGrade(v)}</div></div>${recGaps(v)}${recChanges(v)}`; // push 7b (R68)
   const appr = prod && prod.approvedVersionId && prod.approvedVersionId !== v.id ? (ST.recipes || []).find(x => x.id === prod.approvedVersionId) : null;
   if (seeC && appr && !['approved', 'old'].includes(v.state) && v.materials != null && appr.materials != null) {
     const dm = v.materials - appr.materials; const dmp = appr.materials ? Math.abs(dm / appr.materials * 100) : 0;
@@ -2465,7 +2482,7 @@ function vRecipe(v, o = {}) {
     h += `<div class="${Math.abs(dm) < 0.005 ? 'notebox' : dmp > (SET('reapprove_pct') || 3) ? 'warnbox' : 'amberbox'}"><b>This version against the approved version ${appr.version}:</b> materials ${rs2(v.materials)} against ${rs2(appr.materials)} per ${prod.soldPer} (${dm >= 0 ? '+' : ''}${rs2(dm)}, ${dm >= 0 ? '+' : ''}${(dm / appr.materials * 100).toFixed(1)}%). The costs below stay on the approved version until the CFO approves this one.</div>`;
   }
   if (seeC && prod && !o.product) h += `<h2>Cost per ${prod.soldPer}, by pack (approved version)</h2><div class="box wrapx"><table><tr><th>Pack</th><th class="r">Materials</th><th class="r">Packing</th><th class="r">Labour and FOH (factory overhead)</th><th class="r">Freight</th><th class="r">Cost</th><th>Labour and FOH rate</th></tr>${prod.packs.map(k => k.cost ? `<tr><td>${k.size} ${prod.soldPer}</td><td class="r num">${rs2(k.cost.materials)}</td><td class="r num">${rs2(k.cost.packing)}</td><td class="r num">${rs2(k.cost.conversion)}</td><td class="r num">${rs2(k.cost.freight)}</td><td class="r num"><b>${rs2(k.cost.total)}</b></td><td>${esc(k.cost.rule || 'none')}</td></tr>${billLines(k, prod)}` : `<tr><td>${k.size} ${prod.soldPer}</td><td colspan="6">Not costed: ${esc((k.costGaps && k.costGaps.length ? k.costGaps : ['no approved recipe']).join(', '))}</td></tr>`).join('')}</table></div>`;
-  if (!o.product) h += `<h2>History</h2><div class="box wrapx"><table>${v.steps.slice().reverse().map(s => `<tr><td class="mono">${esc(when(s.at))}</td><td>${esc(s.action.replace('_', ' '))}</td><td>${esc(personName(s.by_user))}</td><td>${esc(s.note || '')}</td></tr>`).join('')}</table></div>`;
+  if (!o.product) h += `<h2>History</h2><div class="box wrapx"><table>${v.steps.slice().reverse().map(s => `<tr><td class="mono">${esc(when(s.at))}</td><td>${esc(VERB[s.action] || s.action.replace('_', ' '))}</td><td>${esc(personName(s.by_user))}</td><td>${esc(s.note || '')}</td></tr>`).join('')}</table></div>`;
   return h;
 }
 function billLines(k, prod) {
@@ -2497,11 +2514,6 @@ function nutBox(N) {
   ${(N.notEntered || []).length ? `<tr><td colspan="2"><span class="late">Nutrients not entered yet by the QC Head: ${esc(N.notEntered.join(', '))}</span></td></tr>` : ''}
   ${N.unclassified.length ? `<tr><td colspan="2"><span class="late">To classify on ${navHas('inputs') ? 'Inputs' : 'Costs'}, Materials: ${esc(N.unclassified.join(', '))}</span></td></tr>` : ''}</table></div>
   <p class="ans">${N.complete ? (ST.m014 ? 'Complete: every material is classed and its nutrients entered; a nutrient not entered for a material counts as 0.' : 'Complete: every material is classed and every field entered.') : `Not complete yet: the QC Head classes the materials and enters the values on ${navHas('inputs') ? 'Inputs' : 'Costs'}, Materials.`} Materials that add no nutrients still count in the weight, so they dilute the %.</p>`;
-}
-function linesEditor(v) {
-  const mats = (ST.rates || []).filter(m => inUseOr('grade', m.gradeId) || editLines.lines.some(l => l.gradeId === m.gradeId)).slice().sort((a, b) => a.name.localeCompare(b.name));
-  return `<div class="box form"><b>Edit draft lines</b><div class="wrapx"><table><tr><th>Material</th><th>Qty per kg</th><th></th></tr>${editLines.lines.map((l, i) => `<tr><td><select data-el-m="${i}" aria-label="Material">${mats.map(m => `<option value="${m.gradeId}" ${m.gradeId === l.gradeId ? 'selected' : ''}>${esc(m.name)}</option>`).join('')}</select></td><td><input type="number" step="0.0001" data-el-q="${i}" value="${l.qty}" aria-label="Quantity"></td><td><button class="btn ghost" data-el-del="${i}">Remove</button></td></tr>`).join('')}</table></div>
-  <div><button class="btn ghost" data-el-add>Add a line</button> <button class="btn" data-el-save="${v.id}">Save lines</button> <button class="btn ghost" data-el-cancel>Cancel</button></div></div>`;
 }
 
 /* ---------- Edit and Delete on every list (Yawar's feedback; Tahir's rulings 30 Oct 2026, D-139) ----------
@@ -2891,7 +2903,7 @@ function histRow(r, cols) { const H = (r.history || []).slice(0, 6); return `<tr
 function matTable() {
   const R = ST.me.role; const ed = CAN('nutrient.edit'); const yw = CAN('rate.save');
   const M = (ST.materials || []).slice().sort((a, b) => a.name.localeCompare(b.name)); const rate = new Map((ST.rates || []).map(r => [r.gradeId, r])); const seeR = !!ST.rates && (yw || CAN('see.margin')); // the Production Manager reads cost on his recipes, not every rate and its source (review 7a, M4)
-  const todo = M.filter(m => matState(m)[0] === 'p-amber'); const used = new Set((ST.recipes || []).filter(v => v.state !== 'old').flatMap(v => v.lines.map(l => l.gradeId)));
+  const todo = M.filter(m => matState(m)[0] === 'p-amber'); const used = new Set((ST.recipes || []).filter(v => v.state !== 'old' && v.state !== 'closed').flatMap(v => v.lines.map(l => l.gradeId)));
   const q = matQ.trim().toLowerCase();
   const noRate = M.filter(m => m.noRate || (rate.has(m.gradeId) && rate.get(m.gradeId).rate == null)); // push 7a: added with no rate, waiting for the CFO
   const list = (matFilter === 'todo' ? todo : matFilter === 'none' ? M.filter(m => m.role === 'none') : matFilter === 'norate' ? noRate : M).filter(m => !q || m.name.toLowerCase().includes(q));
@@ -2913,7 +2925,7 @@ const NUTS = () => ST.nutrientList || [];
 const nutOf = id => NUTS().find(n => n.id === Number(id));
 const nutByLabel = l => NUTS().find(n => n.label.toLowerCase() === String(l).toLowerCase());
 const nutHow = n => n ? [n.basis, n.measure === 'w/v' ? '% w/v' : ''].filter(Boolean).join(', ') : '';
-const usedIn = gid => (ST.recipes || []).filter(v => v.state !== 'old' && v.lines.some(l => l.gradeId === gid)).map(v => v.brand + (v.customer && v.customer !== 'VAN brand' ? ' for ' + v.customer : ''));
+const usedIn = gid => (ST.recipes || []).filter(v => v.state !== 'old' && v.state !== 'closed' && v.lines.some(l => l.gradeId === gid)).map(v => v.brand + (v.customer && v.customer !== 'VAN brand' ? ' for ' + v.customer : ''));
 function matArea() {
   if (!ST.m014) return matTable() + matAddForm(); // before migration 014: as before
   const T = [['materials', 'Materials'], ['nutrients', 'Nutrients'], ['classes', 'Classes'], ['declared', 'Declared grades']];
@@ -3085,6 +3097,98 @@ document.addEventListener('click', async e => {
   else if (d.n7mtsave) { const rate = CAN('material.save') ? val('mtr') : ''; const j = await act('/api/c2m/materials', { name: val('mtn'), typeId: +val('mtt'), unit: val('mtu'), grade: val('mtg'), rate, source: val('mts') }, rate ? 'Material added with its rate' : 'Material added. The CFO is told to add its rate.'); if (j) { mtAdd = false; mtDraft = {}; render(); } return; }
   render();
 });
+
+/* ---------- Push 7b (Tahir, 9 Nov 2026, R63 to R65, R67 to R69, D-163): the recipe path, Majid's editor, Himayat's check ----------
+   R63 a resend goes back to the QC Head when the lines changed since it was sent back; R64 the short path is Majid, Himayat, Yawar;
+   R65 notices (server); R67 the editor shows grade and nutrients, % of mix, a live total and the analysis against the declared grade;
+   R68 the check shows what changed, the grade check and data gaps, and a comment is needed only when something is red; R69 close. */
+let closeRec = null, recComment = {}; // a comment typed, kept per version (review 7b, minor 7)
+const myJob = v => v.state === 'draft' && v.sentBack ? 'Revise recipe' : MYJOB[v.state];
+const dot = s => String(s == null ? '' : s).trim().replace(/[.!?]+$/, '');
+const lineSigP = lines => (lines || []).map(l => `${Number(l.gradeId)}:${Number(Number(l.qty).toFixed(8))}`).sort().join('|');
+/** Where a resend goes (copy of lib.resendTo, c2m-lib.js). */
+function resendToP(v) { const sb = v.sentBack; if (!sb || sb.state === 'review') return 'review'; const to = v.backSig == null || v.backSig !== lineSigP(v.lines) ? 'review' : sb.state; return v.path === 'other' && to === 'endorse' ? 'review' : to; }
+const passTxt = v => v.state === 'draft' ? (v.sentBack ? `Resend to the ${ROLE_NAME[STEP_ROLE[resendToP(v)]]}` : 'Send to the QC Head') : v.state === 'review' ? (v.path === 'other' ? 'Pass to the CFO' : 'Pass to the Plant Manager') : v.state === 'endorse' ? 'Endorse' : 'Approve cost';
+/** What a material carries, short, for the picker: "N 46, OM 45", "adds no nutrients", "to classify", "nutrients not entered". */
+function matShort(m) { if (!m) return ''; if (m.role === 'none') return 'adds no nutrients'; if (m.role !== 'nutrient') return 'to classify';
+  const t = Object.entries(m.nutrients || {}).map(([k, x]) => `${fName(k)} ${Number(x)}`).join(', '); return ST.m014 && m.checked === false ? (t ? t + '; not all entered' : 'nutrients not entered') : t; }
+/** The approved version this one is compared with: the same recipe's, else the product's Default. */
+function recBase(v) { const R = ST.recipes || []; return R.filter(x => x.clientProductId === v.clientProductId && x.state === 'approved' && x.id !== v.id && (x.rname || 'Main') === (v.rname || 'Main')).sort((a, b) => b.version - a.version)[0] || (() => { const p = (ST.products || []).find(p => p.id === v.clientProductId); return p && p.approvedVersionId && p.approvedVersionId !== v.id ? R.find(x => x.id === p.approvedVersionId) : null; })(); }
+/** R68: what changed against the approved version, line by line (no Rs). */
+function recChanges(v) {
+  if (['approved', 'old', 'closed'].includes(v.state)) return ''; const a = recBase(v);
+  if (!a) return `<h2>What changed</h2><p class="ans">The first version of this recipe: nothing to compare.</p>`;
+  const sum = L => { const M = new Map(); L.forEach(l => { const o = M.get(l.gradeId); M.set(l.gradeId, o ? { ...o, qty: o.qty + l.qty } : { ...l }); }); return M; }; // a grade on 2 lines is added up (review 7b, minor 8)
+  const A = sum(a.lines), B = sum(v.lines), rows = [];
+  for (const [g, l] of B) { const o = A.get(g); if (!o) rows.push([l, null, l.qty, 'added']); else if (Math.abs(o.qty - l.qty) > 1e-9) rows.push([l, o.qty, l.qty, '']); }
+  for (const [g, o] of A) if (!B.has(g)) rows.push([o, o.qty, null, 'removed']);
+  return `<h2>What changed against approved version ${a.version}</h2>${rows.length ? `<div class="box wrapx"><table><tr><th>Material · grade</th><th class="r">Was, kg per kg</th><th class="r">Now</th></tr>${rows.map(([l, was, now, k]) => `<tr><td>${esc(l.name)} · ${esc(l.grade || '')}${k ? ` <span class="pill ${k === 'added' ? 'p-blue' : 'p-red'}">${k}</span>` : ''}</td><td class="r num">${was == null ? '–' : was.toFixed(4)}</td><td class="r num"><b>${now == null ? '–' : now.toFixed(4)}</b></td></tr>`).join('')}</table></div>` : '<p class="ans">No line changed.</p>'}`;
+}
+/** R62 and R68: the declared grade against this version's analysis. */
+function recGrade(v) {
+  if (!ST.m014 || ['old', 'closed'].includes(v.state)) return ''; const D = decOf(v.clientProductId);
+  if (!D.length) return `<p class="ans">No declared grade for this product yet${CAN('grade.declare') ? ': enter it on Inputs, Declared grades' : ''}, so the label is not checked.</p>`;
+  const c = gradeCheckP(D, v.nutrients);
+  return `<h2>Against the label</h2><div class="box wrapx"><table><tr><th>Nutrient</th><th class="r">On the label</th><th class="r">This recipe gives</th><th>Check</th></tr>${c.rows.map(r => `<tr><td>${esc(r.label)}</td><td class="r num">${num4(r.pct)}%${r.tol ? ` <span class="ans">−${num4(r.tol)}</span>` : ''}</td><td class="r num">${r.got != null ? r.got.toFixed(2) + '%' : (() => { const f = ((v.nutrients || {}).fields || []).find(f => String(f.field).toLowerCase() === r.label.toLowerCase()); return f && f.pct != null ? f.pct.toFixed(2) + '% so far' : '–'; })()}</td><td>${r.state === 'meets' ? '<span class="pill p-green">meets</span>' : r.state === 'below' ? `<span class="pill p-red">below by ${r.by}</span>` : '<span class="pill p-amber">analysis not complete</span>'}</td></tr>`).join('')}</table></div><p class="ans">A warning only: it stops nothing. Below the label needs a comment to pass.</p>`;
+}
+/** R68: materials on this recipe whose data is missing, each with Open for the QC Head (he fixes it himself, then passes). */
+function recGaps(v) {
+  if (['approved', 'old', 'closed'].includes(v.state)) return '';
+  const G = v.lines.map(l => { const m = matOf(l.gradeId); if (!m) return null; const w = m.role === 'unclassified' || !m.role ? 'needs a class' : m.role === 'nutrient' && ST.m014 && m.checked === false ? 'nutrients not entered' : m.role === 'nutrient' && (m.fields || []).some(f => (m.nutrients || {})[f] == null) ? 'a nutrient % is missing' : null; const r = m.noRate || (ST.rates && (ST.rates.find(x => x.gradeId === l.gradeId) || {}).rate === null) ? "waits for the CFO's rate" : null; return w || r ? { l, m, w: [w, r].filter(Boolean).join('; ') } : null; }).filter(Boolean);
+  if (!G.length) return '';
+  return `<div class="amberbox"><b>Material data missing on this recipe:</b><ul style="margin:6px 0 0;padding-left:18px">${G.map(g => `<li>${esc(g.l.name)} · ${esc(g.l.grade || '')}: ${esc(g.w)}${CAN('nutrient.edit') && ST.m014 && /class|nutrient/.test(g.w) ? ` <button class="btn ghost sm" data-n7mopen="${g.l.gradeId}">Open material</button>` : ''}</li>`).join('')}</ul>${CAN('nutrient.edit') ? '<p class="ans" style="margin:6px 0 0">Fix it on the material yourself, then come back here and pass it: no need to send it back for this.</p>' : ''}</div>`;
+}
+/** The step buttons, the comment and the reason it is needed (R68), Close (R69). */
+function recActions(v) {
+  const rv = ['review', 'endorse'].includes(v.state), fl = v.flags || [];
+  const unsaved = v.state === 'draft' && editLines && editLines.id === v.id && lineSigP(editLines.lines) !== lineSigP(v.lines); // review 7b, minor 7
+  const where = v.state === 'draft' && v.sentBack ? (resendToP(v) === 'review' && v.sentBack.state !== 'review' ? (v.backSig == null ? ' C2M does not know whether the lines changed since it was sent back, so it goes to the QC Head first.' : ' The lines changed since it was sent back, so it goes to the QC Head first.') : v.sentBack.state === 'review' ? '' : ' No line changed since it was sent back, so it goes straight back to whoever sent it.') : '';
+  return `<div class="next"><b>Your step: ${esc(myJob(v))}.</b>${where ? `<span class="ans">${esc(where.trim())}</span>` : ''}</div>
+  ${rv ? `<label for="rcm" style="display:block;margin:6px 0">Comment ${fl.length ? `<b class="late">needed, because ${esc(fl.join('; '))}</b>` : '<span class="ans">(optional; kept on the step)</span>'}<textarea id="rcm" data-ver="${v.id}" maxlength="400">${esc(recComment[v.id] || '')}</textarea></label>` : ''}
+  ${unsaved ? '<p class="late" style="margin:4px 0">Save lines first: the lines typed in the editor are not saved yet, and only saved lines are sent.</p>' : ''}<div class="acts"><button class="btn" data-adv="${v.id}"${v.state === 'cost' ? ' data-confirm="Confirm: approve cost"' : ''}${unsaved ? ' disabled' : ''}>${esc(passTxt(v))}</button>${v.state !== 'draft' ? ` <button class="btn ghost" data-sb="${v.id}">Send back to the Production Manager</button> <button class="btn ghost" data-rclose="${v.id}">Close this version</button>` : ''}${v.state === 'draft' && CAN('recipe.edit') ? ` <button class="btn ghost" data-editlines="${v.id}">Edit lines</button>` : ''}</div>`;
+}
+const canCloseDraft = v => v.state === 'draft' && v.sentBack && (v.sentBack.by === ST.me.user || ADM()) && CAN('recipe.step.' + v.sentBack.state);
+function closeBox(v) { if (closeRec !== v.id || behind) return ''; return `<div class="box form"><b>Close this version</b><p class="ans" style="margin:0">It stops here and is kept, with its lines and steps. The Production Manager is told and reads your reason; the next version starts from the approved one.</p><label for="rcl">Why it is closed (required)<textarea id="rcl" maxlength="400"></textarea></label><div><button class="btn warn" data-rclosego="${v.id}">Close it</button> <button class="btn ghost" data-rclosecancel>Cancel</button></div></div>`; }
+/** R67: Majid's line editor: grade and nutrients in the picker, a Find box, % of mix, the live total and analysis against the label. */
+function linesEditor(v) {
+  const pool = (ST.materials || ST.rates || []).filter(m => inUseOr('grade', m.gradeId) || editLines.lines.some(l => l.gradeId === m.gradeId)).slice().sort((a, b) => a.name.localeCompare(b.name) || String(a.grade).localeCompare(String(b.grade)));
+  const opt = (m, sel) => `<option value="${m.gradeId}"${sel ? ' selected' : ''}>${esc(m.name)} · ${esc(m.grade || '')}${matShort(m) ? ' — ' + esc(matShort(m)) : ''}</option>`;
+  return `<div class="box form" id="el-box" data-cp="${v.clientProductId}"><b>Edit draft lines</b> <span class="ans">kg of input per 1 kg of product; % of the mix is worked out as you type</span>
+  <div class="wrapx"><table><tr><th>Material · grade — what it carries</th><th class="r">Kg per kg</th><th class="r">% of mix</th><th></th></tr>
+  ${editLines.lines.map((l, i) => `<tr><td><select data-el-m="${i}" aria-label="Material, line ${i + 1}">${pool.map(m => opt(m, m.gradeId === l.gradeId)).join('')}</select></td><td class="r"><input inputmode="decimal" data-el-q="${i}" value="${esc(String(l.qty))}" style="width:90px" aria-label="Kg per kg, line ${i + 1}"></td><td class="r num" id="el-pc-${i}"></td><td><button class="btn ghost" data-el-del="${i}">Remove</button></td></tr>`).join('')}
+  <tr class="tot"><td><b>Total</b></td><td class="r num"><b id="el-tot"></b></td><td class="r num"><b id="el-totpc"></b></td><td></td></tr></table></div>
+  <div class="row" style="align-items:flex-end"><label for="el-find" style="flex:1 1 220px">Find a material: name, grade or nutrient<input id="el-find" type="search" value="${esc(editLines.find || '')}" autocomplete="off"></label><label for="el-addm" style="flex:2 1 280px">Material to add<select id="el-addm">${elAddOpts(pool)}</select></label><label for="el-addq">Kg per kg<input id="el-addq" inputmode="decimal" style="width:90px" value="${esc(editLines.addQ || '')}"></label><button class="btn ghost" data-el-addgo>Add the line</button></div>
+  <div id="el-live" aria-live="polite"></div>
+  <div><button class="btn" data-el-save="${v.id}">Save lines</button> <button class="btn ghost" data-el-cancel>Cancel</button></div></div>`;
+}
+function elAddOpts(pool) { const q = String(editLines.find || '').trim().toLowerCase(); const A = (pool || []).filter(m => !editLines.lines.some(l => l.gradeId === m.gradeId) && (!q || `${m.name} ${m.grade} ${matShort(m)}`.toLowerCase().includes(q)));
+  return A.map(m => `<option value="${m.gradeId}"${String(editLines.addG) === String(m.gradeId) ? ' selected' : ''}>${esc(m.name)} · ${esc(m.grade || '')}${matShort(m) ? ' — ' + esc(matShort(m)) : ''}</option>`).join('') || '<option value="">Nothing matches</option>'; }
+/** The analysis of the lines as typed (the engine's rule: kg per kg x % in the material, per 1 kg of product). */
+function elCalc() {
+  const L = editLines.lines, tot = L.reduce((s, l) => s + (Number(l.qty) > 0 ? Number(l.qty) : 0), 0), sums = new Map(), gaps = []; let complete = true;
+  for (const l of L) { const m = matOf(l.gradeId), q = Number(l.qty) > 0 ? Number(l.qty) : 0; if (!m) { complete = false; gaps.push('a material not in the list'); continue; } if (m.role === 'none') continue;
+    if (m.role !== 'nutrient') { complete = false; gaps.push(`${m.name} needs a class`); continue; }
+    if (ST.m014 && m.checked === false) { complete = false; gaps.push(`${m.name}: nutrients not entered yet`); }
+    (m.fields || []).forEach(f => { if ((m.nutrients || {})[f] == null) complete = false; });
+    for (const [k, x] of Object.entries(m.nutrients || {})) sums.set(k, (sums.get(k) || 0) + q * Number(x)); }
+  return { tot, complete, gaps, N: { complete, fields: [...sums].map(([field, pct]) => ({ field, pct, missing: [] })) } };
+}
+function elLive() {
+  const box = $('el-box'); if (!box || !editLines) return; const C = elCalc();
+  editLines.lines.forEach((l, i) => { const c = $('el-pc-' + i); if (c) c.textContent = C.tot > 0 && Number(l.qty) > 0 ? (Number(l.qty) / C.tot * 100).toFixed(1) : '–'; });
+  const t = $('el-tot'); if (t) t.textContent = C.tot.toFixed(4); const tp = $('el-totpc'); if (tp) tp.textContent = C.tot > 0 ? '100.0' : '–';
+  const D = ST.m014 ? decOf(+box.dataset.cp) : []; const g = D.length ? gradeCheckP(D, C.N) : null;
+  const lab = f => { const r = g && g.rows.find(r => r.label.toLowerCase() === String(f).toLowerCase()); return r ? (r.state === 'below' ? ` <span class="late">(label ${num4(r.pct)}, below)</span>` : r.state === 'meets' ? ` <span class="ans">(label ${num4(r.pct)}, meets)</span>` : ` <span class="ans">(label ${num4(r.pct)})</span>`) : ''; };
+  const parts = C.N.fields.sort((a, b) => b.pct - a.pct).map(f => `${esc(fName(f.field))} ${f.pct.toFixed(2)}%${lab(f.field)}`);
+  const miss = g ? g.rows.filter(r => !C.N.fields.some(f => f.field.toLowerCase() === r.label.toLowerCase())).map(r => `${esc(r.label)} 0% <span class="late">(label ${num4(r.pct)}${C.complete ? ', below' : ''})</span>`) : [];
+  const L = $('el-live'); if (L) L.innerHTML = `<div class="${g && g.state === 'below' ? 'amberbox' : 'notebox'}"><b>As you type, per 1 kg of product:</b> ${parts.concat(miss).join(' · ') || 'no nutrient yet'}.${C.gaps.length ? ` <span class="late">Not complete: ${esc(C.gaps.join('; '))}.</span>` : ''}${C.tot && (C.tot < 0.98 || C.tot > 1.2) ? ` <span class="late">The lines add to ${C.tot.toFixed(4)} kg per kg; usual is 0.98 to 1.20.</span>` : ''}${g ? ' Below the label is a warning, not a block: you can still send it, and the QC Head sees the same.' : ''}</div>`;
+}
+document.addEventListener('input', e => { const t = e.target; if (!t || !editLines) return; const d = t.dataset || {};
+  if (d.elQ != null) { const x = String(t.value).replace(',', '.').trim(); editLines.lines[+d.elQ].qty = x === '' || isNaN(Number(x)) ? x : Number(x); elLive(); }
+  else if (t.id === 'el-addq') editLines.addQ = t.value;
+  else if (t.id === 'el-find') { editLines.find = t.value; const s = $('el-addm'); if (s) s.innerHTML = elAddOpts((ST.materials || ST.rates || []).filter(m => inUseOr('grade', m.gradeId))); }
+  });
+document.addEventListener('input', e => { const t = e.target; if (t && t.id === 'rcm') recComment[t.dataset.ver] = t.value; });
 
 /* ---------- 0.8.0: Setup, what drives C2M; work moved to Today (ruling 5) ---------- */
 /* ---------- Rate and packing price trials (Inputs) ---------- */
@@ -4419,8 +4523,8 @@ function boDocs() {
    Same rows, in the same order, as docs/07-guide.md. ---------- */
 /* Who does what: shown to every role, so each person reads their own part and the next person's. Same text as doc 07, Who does what. */
 const WHO = [
-  { r: 'production', who: 'Production Manager', does: 'Writes each recipe and every new version. Adds a variant from the product\'s page.', next: 'The QC Head reviews it next.' },
-  { r: 'qc', who: 'QC Head', does: 'Gives each material its class and nutrient %. Reviews the recipe and its nutrient analysis.', next: 'The Plant Manager endorses it next.' },
+  { r: 'production', who: 'Production Manager', does: 'Writes each recipe and every new version. Adds a variant from the product\'s page.', next: 'The QC Head checks it next (another recipe of a product: then the CFO).' },
+  { r: 'qc', who: 'QC Head', does: 'Keeps the nutrient list, each material\'s nutrients and each product\'s declared grade. Checks every recipe: what changed, its nutrients against the label.', next: 'The Plant Manager endorses it next (another recipe of a product: the CFO approves its cost).' },
   { r: 'plant', who: 'Plant Manager', does: 'Checks the recipe, nutrients and cost. Endorses it, or sends it back with a reason.', next: 'The CFO approves the cost next.' },
   { r: 'cfo', who: 'CFO', does: 'Approves the cost of every recipe. Keeps rates, packing and labour current. Adds clients and products, and a rate for 1 variant. Proposes prices and VAN brand list revisions. Gives KAMs their lists.', next: 'The COO approves his prices, list revisions and setting changes.' },
   { r: 'coo', who: 'COO', does: 'Approves prices, list revisions, targets and thresholds. Adds clients, products and variants. Decides who sees which price lists. Does the monthly rate check.', next: 'As the administrator he may approve what he proposed himself; everyone else may not.' },
@@ -4439,7 +4543,7 @@ function gRole() {
 const GUIDE_JOBS = () => [
   { j: 'Start the day', who: 'B', go: 'appr:', s: ['Open **Approvals**.', 'Do **Your next move** first: press the button on it.', 'Then the rest of your list, from the top. Each line opens in a panel and says how long it has waited.', '"End of your list" means you are done.'], n: '"Stuck" means more than 2 working days (Monday to Saturday). What waits for others is folded under your list, under **With others**.' },
   { j: 'See what waits for you', who: 'production qc plant', go: 'scr:today', s: ['Open **Today**.', 'Do **Your next move** first: press the button on it.', 'Then the rest of your list. Each line opens in a panel and says how long it has waited.', '"End of your list" means you are done.'], n: 'A line waiting more than 2 working days (Monday to Saturday) is marked stuck, and the COO sees it.' },
-  { j: 'Approve the cost of a recipe', who: 'cfo', need: 'recipe.step.cost', go: 'appr:Approve cost', s: ['Open **Approvals**.', 'On the line "Approve cost: …", press its button to open it.', 'Check the recipe, its materials and the cost by pack.', 'Press **Approve cost**, or **Send back** with a reason and advice.'], n: 'It comes to you after the Plant Manager endorses. A recipe sent back goes back to whoever sent it. The cost applies to trucks from the next day.' },
+  { j: 'Approve the cost of a recipe', who: 'cfo', need: 'recipe.step.cost', go: 'appr:Approve cost', s: ['Open **Approvals**.', 'On the line "Approve cost: …", press its button to open it.', 'Check the recipe, its materials and the cost by pack.', 'Press **Approve cost**, or **Send back to the Production Manager** with a reason and advice, or **Close this version**.'], n: 'It comes to you after the Plant Manager endorses (another recipe of a product: after the QC Head checks it). A recipe you sent back comes straight back to you if no line changed; changed lines go to the QC Head first. The cost applies to trucks from the next day; the Production Manager is told it is approved.' },
   { j: 'Approve the cost of a product that follows another\'s recipe', who: 'cfo', need: 'recipe.step.cost', go: 'appr:Approve cost', s: ['Open **Approvals**.', 'On the line "Approve cost: the product for the client", press **Open to approve** (or **Open product**).', 'On the product page, **Cost by pack**, check the cost of each pack.', 'Press **Approve cost**.'], n: 'A client product that follows one of our products\' recipe has no recipe steps of its own: only its cost is approved. Until then it cannot be priced and its trucks are not counted in Margin. It comes back when the recipe it follows moves more than the re-approval %.' },
   { j: 'Re-approve costs after a rate change', who: 'cfo', need: 'reapproval.decide', go: 'appr:Re-approve', s: ['Open **Approvals**.', 'On a line "Re-approve cost: …", press **Open re-approval**.', 'Check each pack\'s cost before and after, and the cause.', 'Press **Approve all**, or tick the packs you checked and press **Approve ticked only**.'], n: `Shown when a pack's approved cost would move more than ${SET('reapprove_pct')}%. The packs not ticked wait in a new line, so none is lost. Packs with no approved cost were put there once, as 1 "first cost" line.` },
   { j: 'See re-approvals of cost', who: 'coo', go: 'appr:', s: ['Open **Approvals**.', 'Open **With others**, under your list.', 'Read each re-approval: its cause and the packs it moves.'], n: 'Re-approvals of cost are the CFO\'s to approve; you see each one.' },
@@ -4500,16 +4604,16 @@ const GUIDE_JOBS = () => [
   { j: 'Find a row in a list', who: 'B production qc plant', go: { cfo: 'setup:clients.lines', coo: 'setup:clients.lines', _: 'scr:recipes' }, s: ['Open the list.', 'Type any part of a name, client, kind or date in the **Find** box above it.', 'The list shows only the rows that match and says how many ("2 of 59").', 'Clear the box to see every row.'], n: 'What you typed stays while you move around C2M.' },
   { j: 'Edit a row', who: 'B', need: ['customer.edit', 'client.add', 'material.save', 'packing.manage', 'labour.manage', 'freight.edit'], go: 'setup:clients.lines', s: ['Open the list (on **More**, **Setup**, or **Costs**) and find the row.', 'Press **Edit** in its row (a client product: its page, **Edit this product**).', 'Change what is needed in the form, filled in.', 'Save.'], n: 'Names and words save at once and are logged. A new rate, packing price, labour or FOH Rs or freight Rs is saved as a new dated entry: past trucks keep their cost, and a cost that moves more than the re-approval % waits on Approvals. A size, kg or L, and where a product\'s recipe comes from cannot change.' },
   { j: 'Delete a row', who: 'B', need: ['client.add', 'material.save', 'packing.manage', 'labour.manage', 'freight.edit'], go: 'setup:clients.lines', s: ['Open the list and find the row.', 'Press **Delete** in its row: C2M first checks what uses it.', 'Nothing uses it: write why and press **Delete** twice.', 'Something uses it: C2M names it and offers **Take out of use**.'], n: 'A deleted row leaves the list; its values stay in the change record. Out of use hides it from forms and pickers and keeps it for past costs; **Put back in use** in its row. Approved prices and approved recipes are never deleted.' },
-  { j: 'Keep another recipe for a product', who: 'B', need: 'recipe.start', go: 'newrec:other', s: ['Open **More**, **Products**.', 'Press **+ New**, **Write a new recipe version**.', 'Pick the client product and choose **Another recipe for this product**; name it (e.g. DAP in place of TSP).', 'Press **Start from the current recipe**.'], n: 'The Production Manager writes it and the CFO approves its cost; it never moves cost. Its cost shows beside the Default on the product page, **Recipe**.' },
+  { j: 'Keep another recipe for a product', who: 'B', need: 'recipe.start', go: 'newrec:other', s: ['Open **More**, **Products**.', 'Press **+ New**, **Write a new recipe version**.', 'Pick the client product and choose **Another recipe for this product**; name it (e.g. DAP in place of TSP).', 'Press **Start from the current recipe**.'], n: 'The Production Manager writes it, the QC Head checks it and the CFO approves its cost; it never moves cost. Its cost shows beside the Default on the product page, **Recipe**.' },
   { j: 'Change the Default recipe', who: 'cfo', need: 'recipe.step.cost', go: 'scr:products', s: ['Open **More**, **Products**, and the product.', 'Open **Recipe**.', 'Under **Approved recipes**, press **Make default** on the recipe.', 'Confirm.'], n: 'Only the Default sets cost, price for target and margin. Make default gives every pack a new approved cost from that moment; trucks from tomorrow carry it. The COO is told. Switching back needs no new steps.' },
   { j: 'Correct a mistake', who: 'B', need: ['price.propose', 'targets.propose', 'price.withdraw', 'list.withdraw', 'client.add'], go: 'client:', s: ['A price or target waiting for the COO: **Take back**, in its row on **Clients**, **White Label**.', 'A price approved for a later date: **Withdraw** (the COO).', 'A client product: its page, **Edit this product** or **Delete**. A row in a list: **Edit** or **Delete** in its row.', 'An item from the CFO\'s sheets: **More**, **Setup**, **Record and checks**, **Sheet items**.', 'A material, packing or freight cost: **Correct** within 1 hour of it going in, or change or drop it in **Open next week\'s costs** before Monday.'], n: 'Every correction is logged.' },
-  { j: 'Write the first recipe of a client product', who: 'production', need: 'recipe.start', go: 'scr:today', s: ['Open **Today**: the line "Write the first recipe: …".', 'Press **Start the recipe**.', 'Fill its lines: **Edit lines**, add each material and its kg, then **Save lines**.', 'Press **Send for review**.'], n: 'The QC Head reviews it next, then the Plant Manager, then the CFO approves its cost. Until then the product has no cost.' },
-  { j: 'Write a new recipe version', who: 'production', need: 'recipe.start', go: 'newrec:', s: ['Open **Recipes**.', 'Press **Write a new recipe version**.', 'Pick the client product, choose **A new version of the Default recipe**, and say what changes and why.', 'Press **Start from the current recipe**; change the lines (**Edit lines**, **Save lines**).', 'Press **Send for review**.'], n: 'Once the CFO approves its cost it sets the cost of every pack.' },
-  { j: 'Write another recipe for a product', who: 'production', need: 'recipe.start', go: 'newrec:other', s: ['Open **Recipes**.', 'Press **Write a new recipe version**.', 'Pick the client product, choose **Another recipe for this product**, and name it (e.g. DAP in place of TSP).', 'Press **Start from the current recipe**; change the lines and send it on.'], n: 'It goes straight to the CFO for its cost and never moves cost unless the CFO makes it the Default.' },
-  { j: 'Revise a recipe sent back', who: 'production', need: 'recipe.edit', go: 'appr:Sent back', s: ['Open **Today**: the line says "Sent back" with the reason and advice.', 'Press its button to open the recipe.', 'Change the lines: **Edit lines**, then **Save lines**.', 'Press **Resend** to whoever sent it back.'], n: 'It goes straight back to whoever sent it back.' },
+  { j: 'Write the first recipe of a client product', who: 'production', need: 'recipe.start', go: 'scr:today', s: ['Open **Today**: the line "Write the first recipe: …".', 'Press **Start the recipe**.', 'Press **Edit lines**; find each material (name, grade or nutrient), type its kg per kg and press **Add the line**. The total, the % of the mix and the analysis against the label show as you type. Press **Save lines**.', 'Press **Send to the QC Head**.'], n: 'The QC Head checks it next, then the Plant Manager, then the CFO approves its cost; each is told. Until then the product has no cost.' },
+  { j: 'Write a new recipe version', who: 'production', need: 'recipe.start', go: 'newrec:', s: ['Open **Recipes**.', 'Press **Write a new recipe version**.', 'Pick the client product, choose **A new version of the Default recipe**, and say what changes and why.', 'Press **Start from the current recipe**; change the lines (**Edit lines**, **Save lines**).', 'Press **Send to the QC Head**.'], n: 'Once the CFO approves its cost it sets the cost of every pack. You are told on Today when it is approved, sent back or closed.' },
+  { j: 'Write another recipe for a product', who: 'production', need: 'recipe.start', go: 'newrec:other', s: ['Open **Recipes**.', 'Press **Write a new recipe version**.', 'Pick the client product, choose **Another recipe for this product**, and name it (e.g. DAP in place of TSP).', 'Press **Start from the current recipe**; change the lines and press **Send to the QC Head**.'], n: 'The QC Head checks it, then the CFO approves its cost (no Plant Manager step). It never moves cost unless the CFO makes it the Default.' },
+  { j: 'Revise a recipe sent back', who: 'production', need: 'recipe.edit', go: 'appr:Sent back', s: ['Open **Today**: the line "Revise recipe: …" says who sent it back, the reason and the advice.', 'Press its button to open the recipe.', 'Change the lines: **Edit lines**, then **Save lines**.', 'Press **Resend**: the button names who it goes to.'], n: 'Changed lines go to the QC Head first, then on as usual; no line changed: straight back to whoever sent it back. Only the person who sent it back can close it.' },
   { j: 'Delete a draft started by mistake', who: 'production', need: 'recipe.start', go: 'scr:recipes', s: ['Open **Recipes** and press the draft.', 'Press **Delete this draft**.', 'Write why and press **Delete** twice.'], n: 'Only a draft can be deleted. Approved recipes are never deleted.' },
   { j: 'Read a product\'s recipe, packs and cost', who: 'production', go: 'scr:products', s: ['Open **Products**.', 'Open the client, then the product.', 'Read **Recipe** and **Cost by pack**.'], n: 'To read only: nothing on it changes a price or a cost.' },
-  { j: 'Review a recipe', who: 'qc', need: 'recipe.step.review', go: 'scr:today', s: ['Open **Today**: the line "Review recipe: …".', 'Press **Open to review** (or its button).', 'Check the inputs and the nutrient analysis.', 'Press **Mark reviewed**, or **Send back** with a reason and advice.'], n: 'The Plant Manager endorses it next. A recipe sent back goes to the Production Manager.' },
+  { j: 'Check a recipe', who: 'qc', need: 'recipe.step.review', go: 'scr:today', s: ['Open **Today**: the line "Check recipe: …".', 'Press **Open to check** (or its button).', 'Read **What changed** against the approved version, the nutrient analysis, **Against the label**, and any material data missing (**Open material** to fix it yourself).', 'Press **Pass to the Plant Manager** (another recipe of a product: **Pass to the CFO**); write a comment when something is red. Or **Send back to the Production Manager** with a reason and advice, or **Close this version**.'], n: 'Every recipe the plant may run comes to you, another recipe of a product too. The next person is told. A recipe resent with changed lines comes back to you.' },
   ...((typeof ST === 'undefined' || !ST || ST.m014 !== false) ? [
   { j: 'Enter a material\'s nutrients', who: 'qc', need: 'nutrient.edit', go: 'scr:inputs', s: ['Open **Inputs**, **Materials** (Today also lists the materials that need you) and find the material.', 'If its class is wrong, pick its **Class** and press **Save class**.', 'Press **Open**: its card shows each nutrient with its % and certificate.', 'Pick **Add a nutrient** for each one it carries (amino acids, zinc, anything in the list); type the %, the certificate and its date.', 'Press **Save**.'], n: 'A nutrient not on the card counts as 0 in every recipe. Binders, fillers and agents need only their class. Not in the list: pick **Not in the list** to add it there and then.' },
   { j: 'Add a nutrient to the list', who: 'qc', need: 'nutrient.list', go: 'scr:inputs', s: ['Open **Inputs**, then the **Nutrients** tab.', 'Press **Add a nutrient**.', 'Type how it is shown (e.g. Amino acids), its full name, its basis (e.g. free amino acids; as K2O) and whether it is % w/w or w/v.', 'Press **Add to the list**.'], n: 'The CFO is told. 1 nutrient, 1 basis: K2O and K are 2 nutrients. C2M stops a second one shown the same way. A nutrient is hidden, never deleted.' },
@@ -4518,7 +4622,8 @@ const GUIDE_JOBS = () => [
   ] : [ // before migration 014: the old row (review 7a, minor 1)
   { j: 'Class a material and enter its nutrient %', who: 'qc', need: 'nutrient.edit', go: 'scr:inputs', s: ['Open **Inputs**, **Materials** (Today also lists the materials that need you).', 'Find the material (the Find box above the list).', 'Pick its **Class** (a nutrient source, or no nutrients such as binder, filler, anti-caking agent, wetting agent) and press **Save class**.', 'For a nutrient source, press **Enter %**, type the % of each field and press **Save**.'], n: 'Binders, fillers and agents need only their class. Every recipe that uses the material then shows its nutrient analysis.' },
   ]),
-  { j: 'Endorse a recipe', who: 'plant', need: 'recipe.step.endorse', go: 'scr:today', s: ['Open **Today**: the line "Endorse recipe: …".', 'Press **Open to endorse** (or its button).', 'Check the recipe, its nutrients and its cost.', 'Press **Endorse**, or **Send back** with a reason and advice.'], n: 'The CFO approves its cost next. A recipe sent back goes to the Production Manager.' },
+  { j: 'Endorse a recipe', who: 'plant', need: 'recipe.step.endorse', go: 'scr:today', s: ['Open **Today**: the line "Endorse recipe: …".', 'Press **Open to endorse** (or its button).', 'Check the recipe, what changed, its nutrients against the label, and its cost.', 'Press **Endorse** (write a comment when something is red), or **Send back to the Production Manager** with a reason and advice, or **Close this version**.'], n: 'The CFO approves its cost next and is told. A recipe sent back goes to the Production Manager.' },
+  { j: 'Close a recipe version', who: 'qc plant cfo', need: ['recipe.step.review', 'recipe.step.endorse', 'recipe.step.cost'], go: { cfo: 'appr:Approve cost', _: 'scr:today' }, s: ['Open the recipe at your step (its line on Today or Approvals).', 'Press **Close this version**.', 'Write why it is closed.', 'Press **Close it**.'], n: 'It stops there and is kept with its lines and steps. The Production Manager is told and reads your reason; the next version starts from the approved one. A draft you sent back can be closed the same way.' },
   { j: 'Read a recipe', who: 'qc plant', go: 'scr:recipes', s: ['Open **Recipes**.', 'Find it (the Find box above the list) and press its row.', 'Read its lines, its steps and who did each, and its nutrients.'], n: 'Every version is kept; **All recipes** goes back to the list.' },
   { j: 'See your price lists', who: 'viewer', go: 'scr:lists', s: ['Open **Price lists**.', 'Press the list\'s name at the top.', 'Read the approved prices.'], n: 'Approved prices only, in the same document every manager receives.' },
   { j: 'Download a price list as PDF', who: 'viewer', need: ['pricedoc.granted', 'pricedoc.all'], go: 'scr:lists', s: ['Open **Price lists**.', 'Press the list\'s name at the top.', 'Press **Download** … **as PDF** and share it.'], n: 'Prices are approved prices only. Cost and margin are never printed.' },
@@ -4550,7 +4655,7 @@ function vGuide() {
   <details class="how" style="margin-top:12px"><summary>Who does what in the recipe chain</summary>${whoBox}</details>
   ${skinRow}`;
   return `${head('Guide', ans, mine.length ? 'Each row is 1 job: tap it for its numbered steps and what happens next; Start opens its first screen.' : '')}${wnGuideBox()}${list}
-  <div class="box form" style="margin-top:14px"><b>How C2M works</b><ol style="margin:0;padding-left:20px"><li>Each client product has its own recipe: the Production Manager writes, the QC Head reviews, the Plant Manager endorses, the CFO approves cost. A product can keep another recipe beside it (the Production Manager writes, the CFO approves); only the Default sets cost.</li><li>A variant is the form of a product (Powder, Pellets); a size such as 1 L or 25 kg is a pack.</li><li>The CFO keeps rates current; C2M recosts every recipe.</li><li>The CFO proposes prices; the COO approves; managers see the approved lists.</li><li>A product can have variants (Humi Grow: Powder, Pellets); a variant's recipe starts as a copy.</li><li>KAMs see only the lists and clients the CFO or the COO give them. Cost and margin never reach them.</li><li>Every change is dated and logged.</li></ol></div>
+  <div class="box form" style="margin-top:14px"><b>How C2M works</b><ol style="margin:0;padding-left:20px"><li>Each client product has its own recipe: the Production Manager writes, the QC Head checks, the Plant Manager endorses, the CFO approves cost. A product can keep another recipe beside it (the Production Manager writes, the QC Head checks, the CFO approves); only the Default sets cost. Each person is told when a recipe comes to them.</li><li>A variant is the form of a product (Powder, Pellets); a size such as 1 L or 25 kg is a pack.</li><li>The CFO keeps rates current; C2M recosts every recipe.</li><li>The CFO proposes prices; the COO approves; managers see the approved lists.</li><li>A product can have variants (Humi Grow: Powder, Pellets); a variant's recipe starts as a copy.</li><li>KAMs see only the lists and clients the CFO or the COO give them. Cost and margin never reach them.</li><li>Every change is dated and logged.</li></ol></div>
   ${skinRow}
   <h2>Who does what</h2>${whoBox}
   ${ST.docs && ST.docs.length && !CAN('guide.all') ? `<h2>Read more</h2><div class="subnav" role="tablist" aria-label="Documents">${ST.docs.map(d => `<button role="tab" data-gdoc="${esc(d)}" aria-selected="${!!(boDoc && boDoc.f === d)}">${esc(d.replace(/^\d+-/, '').replace(/-/g, ' ').replace('.md', ''))}</button>`).join('')}</div>${boDoc ? `<div class="md"><pre>${esc(boDoc.text)}</pre></div>` : ''}` : ''}`;
@@ -4635,15 +4740,18 @@ document.addEventListener('click', async e => {
   else if (d.cust != null && !d.propose) { scr = 'margin'; nm.drill = null; nm.grp = 'all'; nm.by = 'client'; nm.q = d.cust; window.scrollTo(0, 0); }
   else if (d.rec) { goRec(+d.rec); window.scrollTo(0, 0); }
   else if ('recback' in d) openRec = null;
-  else if (d.adv) { await act(`/api/c2m/recipes/${d.adv}/advance`, {}, j => j.state === 'approved' ? 'Cost approved. Clients and price lists use it now; in Margin it applies to trucks from tomorrow (a first cost also covers earlier trucks).' : 'Sent on.'); return; }
-  else if (d.sb) sendBack = +d.sb; else if ('sbcancel' in d) sendBack = null;
+  else if (d.adv) { const note = $('rcm') ? val('rcm') : ''; const ok = await act(`/api/c2m/recipes/${d.adv}/advance`, { note }, j => j.state === 'approved' ? 'Cost approved. Clients and price lists use it now; in Margin it applies to trucks from tomorrow (a first cost also covers earlier trucks).' : `Sent on to the ${ROLE_NAME[STEP_ROLE[j.state]] || 'next person'}${j.changed && j.state === 'review' ? ': the lines changed, so it starts again with the QC Head' : ''}. They are told.`); if (ok) { delete recComment[d.adv]; render(); } return; }
+  else if (d.rclose) { closeRec = +d.rclose; sendBack = null; }
+  else if ('rclosecancel' in d) closeRec = null;
+  else if (d.rclosego) { const ok = await act(`/api/c2m/recipes/${d.rclosego}/close`, { reason: val('rcl') }, 'Version closed. The Production Manager is told.'); if (ok) { closeRec = null; render(); } return; }
+  else if ('elAddgo' in d) { const g = +val('el-addm'), q = Number(String(val('el-addq') || '').replace(',', '.')); if (!g) { toast('Pick a material to add.'); return; } if (!(q > 0)) { toast('Type its kg per kg, more than 0.'); const f = $('el-addq'); if (f) f.focus(); return; } editLines.lines.push({ gradeId: g, qty: q }); editLines.addG = editLines.addQ = ''; }
+  else if (d.sb) { sendBack = +d.sb; closeRec = null; } else if ('sbcancel' in d) sendBack = null;
   else if (d.sbsend) { const r = await act(`/api/c2m/recipes/${d.sbsend}/sendback`, { reason: val('sbr'), advice: val('sba') }, 'Sent back to the Production Manager'); if (r) { sendBack = null; render(); } return; }
   else if ('newrec' in d) { newRec = { cp: d.newrec ? +d.newrec : null }; }
   else if ('nrcancel' in d) newRec = null;
   else if ('nrsave' in d && (newRec.kind || 'default') === 'other' && $('nrnm') && !need([['nrnm', 'Name this recipe, e.g. DAP in place of TSP.']])) return;
   else if ('nrsave' in d) { const cpId = +val('nrp'); const p = (ST.products || []).find(x => x.id === cpId); const other = (newRec.kind || 'default') === 'other' && !!$('nrnm'); const r = await act('/api/c2m/recipes/new', { clientProductId: cpId, fromVersionId: p ? (p.approvedVersionId || p.latestVersionId) : null, note: val('nrn'), recipeKind: other ? 'other' : 'default', recipeName: other ? val('nrnm') : undefined }, other ? 'Draft started. Send it when ready: it goes straight to the CFO for its cost.' : 'Draft started'); if (r) { newRec = null; goRec(r.id); render(); } return; }
   else if (d.editlines) { const v = ST.recipes.find(x => x.id === +d.editlines); editLines = { id: v.id, lines: v.lines.map(l => ({ gradeId: l.gradeId, qty: l.qty })) }; }
-  else if ('elAdd' in d) editLines.lines.push({ gradeId: ((ST.rates || []).find(m => inUseOr('grade', m.gradeId)) || (ST.rates || [])[0]).gradeId, qty: 0.01 });
   else if (d.elDel != null) editLines.lines.splice(+d.elDel, 1);
   else if ('elCancel' in d) editLines = null;
   else if (d.elSave) { const r = await act(`/api/c2m/recipes/${d.elSave}/lines`, { lines: editLines.lines }, 'Lines saved'); if (r) { editLines = null; render(); } return; }
@@ -4810,7 +4918,8 @@ document.addEventListener('change', async e => {
   else if (d.mclass) { matPend[d.mclass] = +t.value; render(); }
   else if (d.ptype) { const v = t.value; if (v === '__new') { costPend = null; ask = { kind: 'ptype', id: +d.ptype }; render(); return; } const P0 = (ST.products || []).find(x => x.id === +d.ptype); costPend = P0 && (P0.typeId || null) === (v ? +v : null) ? null : { kind: 'ptype', id: +d.ptype, value: v ? +v : null }; render(); }
   else if (d.assign) { const k0 = packIdx().get(+d.assign); const v = t.value ? +t.value : null; costPend = k0 && (k0.billId || null) === v ? null : { kind: 'assign', id: +d.assign, value: v }; render(); }
-  else if (d.elM != null) editLines.lines[+d.elM].gradeId = +t.value; else if (d.elQ != null) editLines.lines[+d.elQ].qty = Number(t.value);
+  else if (d.elM != null) { editLines.lines[+d.elM].gradeId = +t.value; elLive(); } else if (d.elQ != null) { const x = String(t.value).replace(',', '.').trim(); editLines.lines[+d.elQ].qty = x === '' || isNaN(Number(x)) ? x : Number(x); elLive(); }
+  else if (t.id === 'el-addm' && editLines) editLines.addG = t.value;
   else if (d.blPk != null && billEdit) { const id = +d.blPk; billEdit.packIds = t.checked ? [...new Set([...(billEdit.packIds || []), id])] : (billEdit.packIds || []).filter(x => x !== id); blRender(); }
   else if (d.blI != null) { billEdit.lines[+d.blI].itemId = +t.value; blRender(); } else if (d.blL != null) { billEdit.lines[+d.blL].level = t.value; blRender(); } else if (d.blP != null) { billEdit.lines[+d.blP].pieces = Number(t.value); blRender(); } else if (d.blN != null) { billEdit.lines[+d.blN].packsPerOuter = Number(t.value); blRender(); } /* the "for Monday" label follows the items */
 });

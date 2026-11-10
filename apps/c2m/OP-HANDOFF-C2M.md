@@ -917,3 +917,14 @@ Tahir (panel after the 7g review): Margin uses "2 points alone", the same rule a
 Files: c2m.html (Margin, the Clients overview flag and the COO's red line: red = below cost or more than 2 points short; the Rs test and red_share_pct gone from the page; the setting hidden in Company settings; change list 2026-11-10e says so), docs 03, 06, 08, 09, 12.
 Tests: p23 27; full run all pass, t2 keeps its 1 old failure.
 The open question in entry (5) is closed. Not pushed. Delivered to E:\VAN Systems for Tahir to push, with 7f and 7g.
+
+
+## 10 Nov 2026 (7) - pause point: 7f and 7g live, waiting for the team's real feedback, MODULE: C2M
+State: pushes 7c to 7g are pushed by Tahir (GitHub 8c09d6f) and live on van-control-tower.onrender.com/c2m. Checked live as Yawar at 17:46: change list 2026-11-10e, the issuer from c2m-pricelist.js ISSUER, money as Rs 3.10M, the 2-point colour rule (17 against 20 red, 18.5 against 20 amber), Clients title and answer line, no n/a and no colour words on Margin, no page errors. Yawar's CFO role page shows first; he has not signed it (left for him).
+Still to do on the system: migration 016 is not in effect (live, the CFO still holds nutrient.edit). Ahmer runs 016_c2m_cfo_nutrients.PRODUCTION.sql once (an empty check means done), or Tahir unticks nutrient entry for the CFO on the launcher, People and access, Roles by app, C2M.
+For Tahir: read the 6 role pages on Setup, Record and checks, Role sign-offs and correct any words; each person signs at their next login.
+Team data C2M waits for (not code): Yawar: labour and FOH rates (Low and High), freight, October actuals, the 38 items from his sheets. Himayat: 53 materials to enter, the amino acids, the re-check of the 23 liquid recipes, declared grades (0 entered).
+Open idea, not ruled: a label tolerance per nutrient (Himayat). Needs a picture and Tahir's ruling before any build.
+Left on purpose: on a phone, the red Delete on the product page sits full width under the title (within the 7g ruling; Tahir may ask for it smaller).
+Next: Tahir resumes when the team has worked in C2M and given real feedback. Then: walk each screen signed in as Majid, Himayat, Fahim and Yawar (about 1 week from now), collect the feedback, picture first, panel questions, build as push 7h.
+Working notes for the next session: the cloud copy keeps stash entries for 7e and 7f+7g (already pushed; drop them before new work and start from origin/main 8c09d6f). Tests: route harness t2 to t21 (t2 keeps 1 old failure), page tests p9 to p23, pc, no-011.

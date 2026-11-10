@@ -435,7 +435,7 @@ module.exports = function mountC2mRoutes(app, deps) {
       const lines = pr.lines.map(l => ({ gradeId: l.gradeId, name: l.name, grade: l.grade, qty: l.qty, ...(seeCost ? { rate: l.rate, date: l.date, cost: l.cost } : {}) }));
       return { id: v.id, clientProductId: v.client_product_id, customer: cust ? cust.name : '?', brand: cp ? cp.brand : '?', version: v.version_no, state: v.state, note: v.note, rname: v.rname || engine.MAIN, isDefault: v.state === 'approved' && (engine.approvedVersion(D, v.client_product_id) || {}).id === v.id, defaultName: engine.defaultName(D, v.client_product_id),
         sentBack: v.sent_back_by ? { by: v.sent_back_by, state: v.sent_back_state, reason: v.sent_back_reason, advice: v.sent_back_advice } : null,
-        lines, kgTotal: pr.kgTotal, materials: seeCost ? pr.materials : undefined, nutrients: engine.nutrients(pr), steps: v.steps,
+        lines, kgTotal: pr.kgTotal, materials: seeCost ? pr.materials : undefined, nutrients: engine.nutrients(pr, engine.analysisOpts(D, v.client_product_id)), steps: v.steps,
         path: (v.rname || engine.MAIN) !== engine.defaultName(D, v.client_product_id) && engine.approvedVersions(D, v.client_product_id).length > 0 ? 'other' : 'default', // push 7b: other = Majid, Himayat, Yawar (R64)
         flags: ['review', 'endorse'].includes(v.state) ? recipeFlags(D, v.id) : [], // R68: why a comment is needed to pass
         backSig: v.sent_back_by && v.state === 'draft' ? (backSigs.get(v.id) ?? null) : undefined }; // R63: the lines as sent back, so the page says where a resend goes
@@ -444,13 +444,15 @@ module.exports = function mountC2mRoutes(app, deps) {
     // Settings (budget and ambition GP, thresholds) go to Yawar and Tahir only (review S9)
     const out = { m007: D.m007, outOfUseKeys: [...D.outOfUse], variantsReady: D.variantsReady, families: D.families.map(f => ({ id: f.id, name: f.name, variants: D.pvariants.filter(v => v.family_id === f.id).map(v => ({ id: v.id, name: v.name })) })), me: meOf(acc, user), settings: has('see.settings') ? D.settings.rows : has('see.margin') ? D.settings.rows.filter(r => MARGIN_SETTINGS.includes(r.k) || isListSet(r.k)).map(r => ({ k: r.k, v: r.v })) : [], fedPct: lib.fedPct(D.settings.values.fed_pct), products, recipes, today: today() };
     out.m014 = D.m014; // push 7a (D-162): the nutrient list and declared grades; false until migration 014
+    out.m015 = !!D.m015; // push 7c (D-164): a basis on each value, densities; false until migration 015
+    if (D.m015 && (has('see.materials') || has('see.products'))) out.productDensity = Object.fromEntries([...D.density.product].filter(([k]) => D.cpById.has(k)));
     if (D.m014 && nutCopyFailed && (has('nutrient.list') || has('material.save'))) out.nutCopyFailed = nutCopyFailed; // review 7a, M2: shown, never silent
     if (D.m014 && (has('see.materials') || has('see.products'))) { out.nutrientList = D.nutrientList; out.declared = Object.fromEntries([...D.declared].filter(([k]) => D.cpById.has(k))); }
     if (!has('see.margin') && ['production', 'qc', 'plant'].includes(role)) { const [nt] = await softQ("SELECT * FROM c2m_notice WHERE for_role=? AND at >= DATE_SUB(?, INTERVAL 30 DAY) ORDER BY id DESC LIMIT 20", [role, now()]); out.notices = nt || []; } // push 7b (R65): recipe notices for the Production Manager, QC Head and Plant Manager
     if (has('see.materials')) {
       // Material master without rates: Himayat's screen (ruled 16 Oct)
       out.materials = [...D.rates.values()].map(g => ({ gradeId: g.gradeId, materialId: g.materialId, name: g.name, grade: g.grade, unit: g.unit, typeId: g.typeId, type: g.type, role: g.role, fields: g.fields, nutrients: g.nutrients,
-        ...(D.m014 ? { suggest: g.suggest, nutRows: g.nutRows, checked: g.checked, checkedBy: g.checkedBy, checkedAt: g.checkedAt, notEntered: g.notEntered, noRate: g.rate == null } : {}) })); // push 7a: noRate, so the QC Head and Production Manager see a material waiting for the CFO's rate (no Rs)
+        ...(D.m014 ? { density: g.density || null, suggest: g.suggest, nutRows: g.nutRows, checked: g.checked, checkedBy: g.checkedBy, checkedAt: g.checkedAt, notEntered: g.notEntered, noRate: g.rate == null } : {}) })); // push 7a: noRate, so the QC Head and Production Manager see a material waiting for the CFO's rate (no Rs)
       const [mt] = await pq('SELECT id, name, nutrient_fields, nutrient_role FROM c2m_material_type ORDER BY nutrient_role, name'); out.materialTypes = mt;
     }
     if (!has('see.products') && has('see.granted_lists')) {
@@ -757,9 +759,10 @@ module.exports = function mountC2mRoutes(app, deps) {
   /** What is red on a recipe at a check (R68): the analysis not complete, or a nutrient below the product's declared grade. */
   function recipeFlags(D, vid) {
     const vo = D.recipes.byVer.get(Number(vid)); if (!vo) return [];
-    const N = engine.nutrients(engine.priceRecipe(D, vo)), out = [];
+    const N = engine.nutrients(engine.priceRecipe(D, vo), engine.analysisOpts(D, vo.client_product_id)), out = [];
     if (!N.complete) out.push('the nutrient analysis is not complete');
-    if (D.m014) { const g = lib.gradeCheck(D.declared.get(Number(vo.client_product_id)) || [], N); g.rows.filter(r => r.state === 'below').forEach(r => out.push(`${r.label} is ${r.by} below the label`)); }
+    if (D.m014) { const g = lib.gradeCheck(D.declared.get(Number(vo.client_product_id)) || [], N); g.rows.filter(r => r.state === 'below').forEach(r => out.push(`${r.label} is ${r.by} below the label`));
+      if (N.complete && g.rows.some(r => r.state === 'unknown' && /product density/.test(r.why || ''))) out.push('the product density is missing, so the label cannot be checked'); } // push 7c (R71)
     return out;
   }
   /** A recipe in words for a notice: "Enrich for Syngenta Pakistan, version 3 (DAP in place of TSP)". */
@@ -1882,6 +1885,32 @@ module.exports = function mountC2mRoutes(app, deps) {
   const NEED014 = 'This part is not switched on yet: Ahmer runs database update 014 first. Everything else works as before.';
   const has014 = async () => { try { await q('SELECT id FROM c2m_nutrient LIMIT 1'); return true; } catch (e) { if (e && (e.code === 'ER_NO_SUCH_TABLE' || e.errno === 1146)) return false; throw e; } };
   const need014 = async () => { if (!await has014()) throw Object.assign(new Error(NEED014), { status: 409 }); };
+  /* Push 7c (Tahir, 10 Nov 2026, R70 to R73, D-164): % w/w and % w/v, and densities, after migration 015. */
+  const m15 = async () => { try { await q('SELECT kind FROM c2m_density LIMIT 1'); return true; } catch (e) { if (e && (e.code === 'ER_NO_SUCH_TABLE' || e.errno === 1146)) return false; throw e; } };
+  /** A density, kg per L at 20 °C (R70): of a material grade by the QC Head (nutrient.edit), of a product by the Production Manager
+   *  (recipe.edit) or the administrator. An empty figure removes it. Range 0.5 to 3.0 kg per L. */
+  app.post('/api/c2m/density', wrap(async (req, res) => {
+    if (!await m15()) throw Object.assign(new Error('This part is not switched on yet: Ahmer runs database update 015 first. Everything else works as before.'), { status: 409 });
+    const b = req.body || {}; const kind = b.kind === 'product' ? 'product' : b.kind === 'grade' ? 'grade' : null; if (!kind) throw bad('Say whether it is a material or a product.');
+    const may = kind === 'grade' ? req.c2m.can.has('nutrient.edit') : (req.c2m.can.has('recipe.edit') || req.c2m.admin);
+    if (!may) throw Object.assign(new Error(kind === 'grade' ? 'The QC Head enters the density of a material.' : 'The Production Manager enters the density of a product.'), { status: 403 });
+    const id = Number(b.id); const raw = String(b.kgPerL == null ? '' : b.kgPerL).trim(); const src = String(b.source || '').replace(/\s+/g, ' ').trim().slice(0, 120); const dt = String(b.date || '').trim();
+    const out = await tx(async () => {
+      const [[ref]] = kind === 'grade' ? await q('SELECT id FROM c2m_material_grade WHERE id=? FOR UPDATE', [id]) : await q('SELECT id FROM c2m_client_product WHERE id=? FOR UPDATE', [id]); // locked, so a delete at the same moment waits (review 7c, minor 6)
+      if (!ref) throw bad('This is no longer in C2M. Press Refresh.');
+      if (kind === 'product') { const [ex] = await softQ('SELECT e.follows_product_id f, p.brand FROM c2m_product_ext e LEFT JOIN c2m_client_product p ON p.id=e.follows_product_id WHERE e.client_product_id=?', [id]); const fo = ex && ex[0]; // review 7c, minor 2: a product that follows another's recipe takes its density
+        if (fo && fo.f) throw bad(`This product follows the recipe of ${fo.brand || 'another product'}: enter the density there.`); }
+      const [[old]] = await q('SELECT kg_per_l, source, src_date FROM c2m_density WHERE kind=? AND ref_id=? FOR UPDATE', [kind, id]);
+      if (raw === '') { await q('DELETE FROM c2m_density WHERE kind=? AND ref_id=?', [kind, id]); await audit(req.c2m.user, 'density', `${kind}:${id}`, 'remove', old || null, null, null); return { ok: true, removed: true }; }
+      const d = strictNum(raw); if (!(d >= 0.5 && d <= 3)) throw bad('Type the density in kg per L at 20 °C, from 0.5 to 3.0 (water is 1.0).');
+      if (!src) throw bad('Write where the density comes from: a lab report or the supplier certificate.');
+      if (dt && (!/^\d{4}-\d{2}-\d{2}$/.test(dt) || isNaN(Date.parse(dt)) || dt > today())) throw bad('The date is not a date up to today.');
+      await q('INSERT INTO c2m_density (kind, ref_id, kg_per_l, source, src_date, by_user, at) VALUES (?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE kg_per_l=VALUES(kg_per_l), source=VALUES(source), src_date=VALUES(src_date), by_user=VALUES(by_user), at=VALUES(at)', [kind, id, d, src, dt || null, req.c2m.user, now()]); // 1 statement: 2 first saves at once cannot both insert (review 7c, minor 6)
+      await audit(req.c2m.user, 'density', `${kind}:${id}`, 'save', old || null, { kgPerL: d, source: src, date: dt || null }, null);
+      return { ok: true, kgPerL: d };
+    });
+    res.json(out);
+  }));
   /** The first time C2M runs after migration 014, it copies every class field and every % already entered (lib.nutrientBackfill). Once:
    *  done when the change record holds its copy row (not when the list has rows, so a nutrient added by hand first never stops it;
    *  review 7a, M2). A nutrient already in the list is reused. If the copy fails it is tried again on the next read, and the QC Head,
@@ -2012,7 +2041,7 @@ module.exports = function mountC2mRoutes(app, deps) {
     res.json({ ok: true });
   }));
   async function saveGradeNutrients(req, res) {
-    await need014(); const rows = req.body.rows;
+    await need014(); const rows = req.body.rows; const w15 = await m15(); // push 7c: a basis on each value after 015
     const out = await tx(async () => {
       const [[g]] = await q('SELECT g.id, t.nutrient_role FROM c2m_material_grade g JOIN c2m_raw_material m ON m.id=g.material_id LEFT JOIN c2m_material_type t ON t.id=m.type_id WHERE g.id=? FOR UPDATE', [req.params.id]);
       if (!g) throw bad('This material grade is no longer in C2M. Press Refresh; if it is still missing, it was deleted.');
@@ -2027,38 +2056,41 @@ module.exports = function mountC2mRoutes(app, deps) {
         if (Number(n.hidden) && !had.has(Number(n.id))) throw bad(`${n.label} is hidden in the nutrient list: show it again there first.`);
         if (seen.has(n.id)) throw bad(`${n.label} is listed twice.`); seen.add(n.id);
         const raw = String(r.pct == null ? '' : r.pct).trim(); if (raw === '') throw bad(`Type the % for ${n.label}, or press Remove if the material has none.`);
-        const v = strictNum(raw); if (!(v >= 0 && v <= 100)) throw bad(`${n.label}: type a % between 0 and 100 (digits only).`);
+        const ms = w15 ? (r.measure === 'w/v' ? 'w/v' : 'w/w') : 'w/w'; const v = strictNum(raw); // push 7c: a w/v figure can be above 100 (a dense liquid), a w/w figure cannot
+        if (!(v >= 0 && v <= (ms === 'w/v' ? 300 : 100))) throw bad(ms === 'w/v' ? `${n.label}: type a % w/v from 0 to 300 (digits only). A certificate in g per L: divide by 10.` : `${n.label}: type a % w/w between 0 and 100 (digits only).`);
         const cert = String(r.cert || '').replace(/\s+/g, ' ').trim().slice(0, 120); const cd = String(r.certDate || '').trim();
         if (cd && (!/^\d{4}-\d{2}-\d{2}$/.test(cd) || isNaN(Date.parse(cd)) || cd > today())) throw bad(`${n.label}: the certificate date is not a date up to today.`);
-        clean.push({ nutrientId: Number(n.id), label: n.label, pct: v, cert: cert || null, certDate: cd || null });
+        clean.push({ nutrientId: Number(n.id), label: n.label, pct: v, measure: ms, cert: cert || null, certDate: cd || null });
       }
       await q('DELETE FROM c2m_grade_nutrient WHERE grade_id=?', [g.id]);
-      for (const r of clean) await q('INSERT INTO c2m_grade_nutrient (grade_id, nutrient_id, pct, cert, cert_date, by_user, at) VALUES (?,?,?,?,?,?,?)', [g.id, r.nutrientId, r.pct, r.cert, r.certDate, req.c2m.user, now()]);
+      for (const r of clean) { if (w15) await q('INSERT INTO c2m_grade_nutrient (grade_id, nutrient_id, pct, measure, cert, cert_date, by_user, at) VALUES (?,?,?,?,?,?,?,?)', [g.id, r.nutrientId, r.pct, r.measure, r.cert, r.certDate, req.c2m.user, now()]); else await q('INSERT INTO c2m_grade_nutrient (grade_id, nutrient_id, pct, cert, cert_date, by_user, at) VALUES (?,?,?,?,?,?,?)', [g.id, r.nutrientId, r.pct, r.cert, r.certDate, req.c2m.user, now()]); }
       await q('DELETE FROM c2m_grade_check WHERE grade_id=?', [g.id]); await q('INSERT INTO c2m_grade_check (grade_id, by_user, at) VALUES (?,?,?)', [g.id, req.c2m.user, now()]);
-      await audit(req.c2m.user, 'grade_nutrients', g.id, 'save', oldRows.map(r => ({ nutrientId: Number(r.nutrient_id), pct: Number(r.pct) })), clean.map(r => ({ label: r.label, pct: r.pct, cert: r.cert, certDate: r.certDate })), null);
+      await audit(req.c2m.user, 'grade_nutrients', g.id, 'save', oldRows.map(r => ({ nutrientId: Number(r.nutrient_id), pct: Number(r.pct) })), clean.map(r => ({ label: r.label, pct: r.pct, measure: r.measure, cert: r.cert, certDate: r.certDate })), null);
       return { ok: true, rows: clean.length };
     });
     res.json(out);
   }
   /** R62: a product's declared grade, nutrient by nutrient, with the tolerance the QC Head allows below it. Saving replaces the set. */
   app.post('/api/c2m/products/:id/declared', can('grade.declare'), wrap(async (req, res) => {
-    await need014(); const rows = (req.body || {}).rows; if (!Array.isArray(rows)) throw bad('Send the declared nutrients.');
+    await need014(); const rows = (req.body || {}).rows; if (!Array.isArray(rows)) throw bad('Send the declared nutrients.'); const w15pre = await m15();
     const out = await tx(async () => {
-      const [[cp]] = await q('SELECT id, brand FROM c2m_client_product WHERE id=? FOR UPDATE', [req.params.id]); if (!cp) throw bad('This product is no longer in C2M. Press Refresh.');
+      const [[cp]] = await q('SELECT id, brand, sold_per FROM c2m_client_product WHERE id=? FOR UPDATE', [req.params.id]); if (!cp) throw bad('This product is no longer in C2M. Press Refresh.');
       const [list] = await q('SELECT id, label, hidden FROM c2m_nutrient'); const N = new Map(list.map(n => [Number(n.id), n]));
       if (rows.length > 20) throw bad('At most 20 nutrients on a label.');
       const seen = new Set(), clean = [];
       for (const r of rows) {
         const n = N.get(Number(r && r.nutrientId)); if (!n) throw bad('A nutrient picked is no longer in the list. Press Refresh.');
         if (seen.has(n.id)) throw bad(`${n.label} is listed twice.`); seen.add(n.id);
-        const p = strictNum(String(r.pct == null ? '' : r.pct).trim()); if (!(p > 0 && p <= 100)) throw bad(`${n.label}: type the % on the label, more than 0 and up to 100.`);
+        const ms0 = r.measure === 'w/v' ? 'w/v' : r.measure === 'w/w' ? 'w/w' : (cp.sold_per === 'L' ? 'w/v' : 'w/w'), cap = ms0 === 'w/v' && await m15() ? 300 : 100; // review 7c, minor 3: a w/v label may pass 100
+        const p = strictNum(String(r.pct == null ? '' : r.pct).trim()); if (!(p > 0 && p <= cap)) throw bad(`${n.label}: type the % on the label, more than 0 and up to ${cap}.`);
         const tr = String(r.tol == null ? '' : r.tol).trim(); const t = tr === '' ? 0 : strictNum(tr); if (!(t >= 0 && t < p)) throw bad(`${n.label}: the tolerance is the points below the label still taken as meeting it, 0 or more and less than ${p}.`);
-        clean.push({ nutrientId: Number(n.id), label: n.label, pct: p, tol: t });
+        const ms = r.measure === 'w/v' ? 'w/v' : r.measure === 'w/w' ? 'w/w' : (cp.sold_per === 'L' ? 'w/v' : 'w/w'); // push 7c: as the label states it
+        clean.push({ nutrientId: Number(n.id), label: n.label, pct: p, tol: t, measure: ms });
       }
-      const [old] = await q('SELECT nutrient_id, pct, tol FROM c2m_declared_grade WHERE client_product_id=?', [cp.id]);
+      const [old] = await q(w15pre ? 'SELECT nutrient_id, pct, tol, measure FROM c2m_declared_grade WHERE client_product_id=?' : 'SELECT nutrient_id, pct, tol FROM c2m_declared_grade WHERE client_product_id=?', [cp.id]); // the basis it was, in the record (review 7c, minor 9)
       await q('DELETE FROM c2m_declared_grade WHERE client_product_id=?', [cp.id]);
-      for (const r of clean) await q('INSERT INTO c2m_declared_grade (client_product_id, nutrient_id, pct, tol, by_user, at) VALUES (?,?,?,?,?,?)', [cp.id, r.nutrientId, r.pct, r.tol, req.c2m.user, now()]);
-      await audit(req.c2m.user, 'declared_grade', cp.id, 'save', old.map(r => ({ nutrientId: Number(r.nutrient_id), pct: Number(r.pct), tol: Number(r.tol) })), clean.map(r => ({ label: r.label, pct: r.pct, tol: r.tol })), null);
+      const w15 = await m15(); for (const r of clean) { if (w15) await q('INSERT INTO c2m_declared_grade (client_product_id, nutrient_id, pct, measure, tol, by_user, at) VALUES (?,?,?,?,?,?,?)', [cp.id, r.nutrientId, r.pct, r.measure, r.tol, req.c2m.user, now()]); else await q('INSERT INTO c2m_declared_grade (client_product_id, nutrient_id, pct, tol, by_user, at) VALUES (?,?,?,?,?,?)', [cp.id, r.nutrientId, r.pct, r.tol, req.c2m.user, now()]); }
+      await audit(req.c2m.user, 'declared_grade', cp.id, 'save', old.map(r => ({ nutrientId: Number(r.nutrient_id), pct: Number(r.pct), tol: Number(r.tol), ...(r.measure ? { measure: r.measure } : {}) })), clean.map(r => ({ label: r.label, pct: r.pct, tol: r.tol, measure: r.measure })), null);
       return { ok: true, rows: clean.length };
     });
     res.json(out);
@@ -3070,7 +3102,7 @@ module.exports = function mountC2mRoutes(app, deps) {
   /* ---------- Change record, in plain words, with filters (D-125) ----------
      Read only. Each entry gets the name of what changed (product, pack, client, material, packing item, setting) in place of its number. */
   const AUDIT_KIND = {
-    recipes: ['recipe', 'grade_nutrients', 'material', 'material_type', 'nutrient', 'declared_grade'],
+    recipes: ['recipe', 'grade_nutrients', 'material', 'material_type', 'nutrient', 'declared_grade', 'density'],
     costs: ['recipe:cost_approved', 'client_pack:cost_approved', 'client_product:cost_approved', 'reapproval', 'rate', 'packing_bill', 'packing_item', 'packing_rate', 'conversion_rule', 'freight', 'monthly_actual', 'monthly_check', 'first_cost_sweep', 'import_item', 'client_pack:packing_bill'],
     prices: ['price', 'list_revision', 'list_price', 'list_master', 'price_doc', 'target', 'target_request'],
     products: ['client_product', 'client_pack', 'customer', 'product_family', 'product_variant', 'product_name'],
@@ -3087,7 +3119,7 @@ module.exports = function mountC2mRoutes(app, deps) {
     mine.forEach(x => { parts.push('(entity=? AND action=?)'); P.push(...x.split(':')); });
     if (kind === 'settings') { const all = Object.values(AUDIT_KIND).flat().filter(x => !x.includes(':')); parts.push(`entity NOT IN (${all.map(() => '?').join(',')})`); P.push(...all); } // anything not filed elsewhere
     return { sql: '(' + parts.join(' OR ') + ')', P }; };
-  const AUD_THING = { product_name: 'Product name', client_product: 'Product', client_pack: 'Pack', customer: 'Client', price: 'Price', recipe: 'Recipe', reapproval: 'Re-approval', rate: 'Material rate', packing_bill: 'Packing bill', packing_item: 'Packing item', packing_rate: 'Packing rate', product_family: 'Product', product_variant: 'Variant', setting: 'Setting', setting_request: 'Setting change', sync: 'O2S data', target: 'Target GP', target_request: 'Target GP change', first_cost_sweep: 'Packs with no approved cost', saved_report: 'Saved report', list_revision: 'List revision', list_price: 'List row', list_master: 'Price lists', price_doc: 'Price list PDF', material: 'Material', grade_nutrients: 'Nutrients', nutrient: 'Nutrient list', declared_grade: 'Declared grade', material_type: 'Material class', conversion_rule: 'Labour and FOH rate', freight: 'Freight', monthly_actual: 'Monthly actuals', monthly_check: 'Monthly check', grant: 'List access', role: 'Role', import_item: 'Sheet item' };
+  const AUD_THING = { product_name: 'Product name', client_product: 'Product', client_pack: 'Pack', customer: 'Client', price: 'Price', recipe: 'Recipe', reapproval: 'Re-approval', rate: 'Material rate', packing_bill: 'Packing bill', packing_item: 'Packing item', packing_rate: 'Packing rate', product_family: 'Product', product_variant: 'Variant', setting: 'Setting', setting_request: 'Setting change', sync: 'O2S data', target: 'Target GP', target_request: 'Target GP change', first_cost_sweep: 'Packs with no approved cost', saved_report: 'Saved report', list_revision: 'List revision', list_price: 'List row', list_master: 'Price lists', price_doc: 'Price list PDF', material: 'Material', grade_nutrients: 'Nutrients', density: 'Density', nutrient: 'Nutrient list', declared_grade: 'Declared grade', material_type: 'Material class', conversion_rule: 'Labour and FOH rate', freight: 'Freight', monthly_actual: 'Monthly actuals', monthly_check: 'Monthly check', grant: 'List access', role: 'Role', import_item: 'Sheet item' };
   const AUD_DID = { add: 'added', create: 'created', save: 'saved', edit: 'changed', update: 'changed', change: 'changed', remove: 'removed', delete: 'deleted', propose: 'proposed', approve: 'approved', sent_back: 'sent back', withdrawn: 'withdrawn', 'taken back': 'taken back', cancelled: 'cancelled', ended: 'ended', replaced: 'replaced', 'end restored': 'end date restored', request: 'requested', refuse: 'refused', dismiss: 'dismissed', pull: 'pulled', run: 'put on Approvals', cost_approved: 'cost approved', endorsed: 'endorsed', reviewed: 'reviewed', sent: 'sent on', new: 'new version started', lines: 'lines changed', packing_bill: 'packing bill changed', add_variant: 'variant added', follow: 'set to follow a product', type: 'product type changed', variant: 'variant tagged', group: 'group changed', name: 'name changed', print_name: 'printed name changed', class: 'class set', retire: 'taken out of use', copy: 'copied', grant: 'given', link: 'linked', rename: 'renamed', left_list: 'left the list', applied: 'in force', carried: 'carried into the master', done: 'done', reprocessed: 'reprocessed flag changed', 'in use': 'back in use', 'out of use': 'out of use', in_use: 'back in use', out_of_use: 'out of use', 'all clients': 'all clients given', 'no clients': 'no clients', 'FED changed': 'FED changed', 'cost moved since shown': 'cost moved since shown', 'left: not costed': 'left: not costed', 'left: within threshold': 'left: within the threshold', spelling: 'O2S spelling kept', spec: 'description changed', o2s_names: 'O2S spellings changed', not_c2m_pack: 'marked not a C2M pack', unlink: 'unlinked', imported: 'imported', accept: 'accepted', reject: 'rejected' };
   const MON3 = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const isoWords = t => String(t == null ? '' : t).replace(/\b(20\d\d)-(\d\d)-(\d\d)\b/g, (m, y, mo, d) => `${+d} ${MON3[+mo - 1]} ${y}`);
@@ -3242,6 +3274,8 @@ module.exports = function mountC2mRoutes(app, deps) {
     const packName = id => { const k = packAll.get(Number(id)); if (!k) return null; return `${cpName(k.client_product_id) || 'a product'}, ${+Number(k.pack_size).toFixed(3)} ${k.sold_per === 'L' ? 'L' : 'kg'}`; };
     const recs = await pick('recipe', 'SELECT id, client_product_id, version_no FROM c2m_recipe_version WHERE id IN (?)');
     const gr = new Map(); for (const e of ['rate', 'grade_nutrients', 'material']) { const L = ids(e); if (L.length) (await soft(`SELECT g.id, g.grade, m.name FROM c2m_material_grade g JOIN c2m_raw_material m ON m.id=g.material_id WHERE g.id IN (${L.map(() => '?').join(',')})`, L)).forEach(x => gr.set(Number(x.id), x)); }
+    { const L = [...new Set(rows.filter(r => r.entity === 'density' && /^grade:\d+$/.test(String(r.entity_id || ''))).map(r => Number(String(r.entity_id).slice(6))))].filter(n => !gr.has(n)); // push 7c: density rows name their material
+      if (L.length) (await soft(`SELECT g.id, g.grade, m.name FROM c2m_material_grade g JOIN c2m_raw_material m ON m.id=g.material_id WHERE g.id IN (${L.map(() => '?').join(',')})`, L)).forEach(x => gr.set(Number(x.id), x)); }
     const mats = await pick('material', 'SELECT id, name FROM c2m_raw_material WHERE id IN (?)');
     const pit = new Map(); for (const e of ['packing_item', 'packing_rate']) { const L = ids(e); if (L.length) (await soft(`SELECT id, name FROM c2m_packing_item WHERE id IN (${L.map(() => '?').join(',')})`, L)).forEach(x => pit.set(Number(x.id), x)); }
     const bills = await pick('packing_bill', 'SELECT id, name FROM c2m_packing_bill WHERE id IN (?)');
@@ -3261,6 +3295,7 @@ module.exports = function mountC2mRoutes(app, deps) {
         case 'price': { const p = prices.get(n); return p ? packName(p.client_pack_id) : null; }
         case 'recipe': { const r = recs.get(n); return r ? `${cpName(r.client_product_id) || 'a product'}, version ${r.version_no}` : null; }
         case 'customer': { const c = D.custById.get(n); return c ? c.name : null; }
+        case 'density': { const [k, r] = String(id).split(':'); if (k === 'product') return cpName(r); const g = gr.get(Number(r)); return g ? `${g.name}${g.grade && g.grade !== 'Standard' ? ', ' + g.grade : ''}` : null; } // push 7c (review 7c, minor 4)
         case 'rate': case 'grade_nutrients': { const g = gr.get(n); return g ? `${g.name}${g.grade && g.grade !== 'Standard' ? ', ' + g.grade : ''}` : null; }
         case 'material': { const g = a.action === 'create' ? gr.get(n) : null; const m = mats.get(n); return g ? g.name : m ? m.name : null; }
         case 'packing_item': case 'packing_rate': { const x = pit.get(n); return x ? x.name : null; }
@@ -3386,7 +3421,7 @@ module.exports = function mountC2mRoutes(app, deps) {
         const [[g]] = await q('SELECT * FROM c2m_material_grade WHERE id=? FOR UPDATE', [id]); const [rates] = await q('SELECT rate, rate_date, source FROM c2m_material_rate WHERE grade_id=?', [id]); const [[m]] = await q('SELECT * FROM c2m_raw_material WHERE id=?', [g.material_id]);
         const [nr] = await softQ('SELECT n.label, gn.pct, gn.cert, gn.cert_date FROM c2m_grade_nutrient gn JOIN c2m_nutrient n ON n.id=gn.nutrient_id WHERE gn.grade_id=?', [id]); // review 7a, minor 4: kept in the record
         old = { material: m.name, grade: g.grade, unit: m.unit, nutrients: g.nutrients_json, nutrientRows: nr && nr.length ? nr : undefined, rates };
-        await q('DELETE FROM c2m_material_rate WHERE grade_id=?', [id]); await q('DELETE FROM c2m_material_grade WHERE id=?', [id]); await softQ('DELETE FROM c2m_grade_nutrient WHERE grade_id=?', [id]); await softQ('DELETE FROM c2m_grade_check WHERE grade_id=?', [id]); await softQ("DELETE FROM c2m_out_of_use WHERE entity='material_grade' AND entity_id=?", [id]); // push 7a: nutrient rows and check go too (review 7a, B1: the out-of-use delete stays live)
+        await q('DELETE FROM c2m_material_rate WHERE grade_id=?', [id]); await q('DELETE FROM c2m_material_grade WHERE id=?', [id]); await softQ('DELETE FROM c2m_grade_nutrient WHERE grade_id=?', [id]); await softQ('DELETE FROM c2m_grade_check WHERE grade_id=?', [id]); await softQ("DELETE FROM c2m_out_of_use WHERE entity='material_grade' AND entity_id=?", [id]); await softQ("DELETE FROM c2m_density WHERE kind='grade' AND ref_id=?", [id]); // push 7a; density: push 7c: nutrient rows and check go too (review 7a, B1: the out-of-use delete stays live)
         const [[left]] = await q('SELECT COUNT(*) n FROM c2m_material_grade WHERE material_id=?', [m.id]); if (!Number(left.n)) await q('DELETE FROM c2m_raw_material WHERE id=?', [m.id]);
       } else if (kind === 'pitem') {
         const [[it]] = await q('SELECT * FROM c2m_packing_item WHERE id=? FOR UPDATE', [id]); const [rates] = await q('SELECT price_per_piece, rate_date, source FROM c2m_packing_rate WHERE packing_item_id=?', [id]);
@@ -3405,7 +3440,7 @@ module.exports = function mountC2mRoutes(app, deps) {
         const [[cp]] = await q('SELECT * FROM c2m_client_product WHERE id=? FOR UPDATE', [id]); const [ks] = await q('SELECT * FROM c2m_client_pack WHERE client_product_id=?', [id]); const [dv] = await q('SELECT id FROM c2m_recipe_version WHERE client_product_id=?', [id]);
         old = { product: cp, packs: ks, draftVersions: dv.map(x => x.id) };
         for (const v of dv) { await q('DELETE FROM c2m_recipe_line WHERE recipe_version_id=?', [v.id]); await q('DELETE FROM c2m_recipe_step WHERE recipe_version_id=?', [v.id]); await softQ('DELETE FROM c2m_recipe_name WHERE recipe_version_id=?', [v.id]); }
-        await q('DELETE FROM c2m_recipe_version WHERE client_product_id=?', [id]); await softQ('DELETE FROM c2m_recipe_default WHERE client_product_id=?', [id]);
+        await q('DELETE FROM c2m_recipe_version WHERE client_product_id=?', [id]); await softQ('DELETE FROM c2m_recipe_default WHERE client_product_id=?', [id]); await softQ("DELETE FROM c2m_density WHERE kind='product' AND ref_id=?", [id]); await softQ('DELETE FROM c2m_declared_grade WHERE client_product_id=?', [id]); // push 7c (review 7c, minor 5)
         for (const k of ks) await softQ('DELETE FROM c2m_pack_ext WHERE client_pack_id=?', [k.id]);
         /* A labour or FOH rate set for this product only would become a rate for every product once its list is empty (review 30 Oct, finding 1): it is retired, logged. */
         const [rl] = await q('SELECT r.id, r.name FROM c2m_conversion_rule r WHERE r.active=1 AND (r.scope_client_product_id=? OR (EXISTS (SELECT 1 FROM c2m_conversion_rule_product x WHERE x.rule_id=r.id AND x.client_product_id=?) AND NOT EXISTS (SELECT 1 FROM c2m_conversion_rule_product y WHERE y.rule_id=r.id AND y.client_product_id<>?)))', [id, id, id]);

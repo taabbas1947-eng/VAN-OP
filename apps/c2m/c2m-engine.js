@@ -65,7 +65,7 @@ async function loadRecipes(q) {
 async function loadAll(q) {
   // Speed: these reads do not depend on each other, so they run together (one wait instead of 16 in a row).
   const soft = async sql => { try { return (await q(sql))[0]; } catch (e) { if (e && (e.code === 'ER_NO_SUCH_TABLE' || e.errno === 1146)) return null; throw e; } };
-  const [settings, rates, packing, recipes, [customers], [cps], [packs], [rules], [ruleProducts], [types], [freight], [versions], fam, pvs, exts, pexts, rvs, rnames, rdefs, ooUse, lfRates, lfPicks, nuts, gnuts, gchecks, decl] = await Promise.all([
+  const [settings, rates, packing, recipes, [customers], [cps], [packs], [rules], [ruleProducts], [types], [freight], [versions], fam, pvs, exts, pexts, rvs, rnames, rdefs, ooUse, lfRates, lfPicks, nuts, gnuts, gchecks, decl, dens] = await Promise.all([
     loadSettings(q), loadRates(q), loadPacking(q), loadRecipes(q),
     q('SELECT * FROM c2m_customer ORDER BY grp DESC, name'),
     q('SELECT * FROM c2m_client_product WHERE active=1 ORDER BY customer_id, brand'),
@@ -83,11 +83,15 @@ async function loadAll(q) {
     // Migration 011 (D-150): labour and FOH as named rates, Low and High, and each product's pick. Until it is run C2M uses the old rates.
     soft('SELECT * FROM c2m_lf_rate ORDER BY kind, name, valid_from, id'), soft('SELECT * FROM c2m_lf_pick ORDER BY client_product_id, kind, valid_from, id'),
     // Migration 014 (push 7a, D-162): the nutrient list, nutrients per material grade, checked grades, declared grades. Until it is run the class fields apply as before.
-    soft('SELECT * FROM c2m_nutrient ORDER BY label'), soft('SELECT * FROM c2m_grade_nutrient'), soft('SELECT * FROM c2m_grade_check'), soft('SELECT * FROM c2m_declared_grade')]);
+    soft('SELECT * FROM c2m_nutrient ORDER BY label'), soft('SELECT * FROM c2m_grade_nutrient'), soft('SELECT * FROM c2m_grade_check'), soft('SELECT * FROM c2m_declared_grade'),
+    soft('SELECT * FROM c2m_density')]); // migration 015 (push 7c, D-164): densities of materials and products
   const m014 = nuts != null && gnuts != null && gchecks != null && decl != null;
   const nutrientList = m014 ? nuts.map(n => ({ id: Number(n.id), name: n.name, label: n.label, basis: n.basis || '', measure: n.measure || 'w/w', hidden: !!Number(n.hidden) })) : [];
-  if (m014) nutrientMode(rates, nutrientList, gnuts, gchecks);
-  const declared = new Map(); if (m014) { const nb = new Map(nutrientList.map(n => [n.id, n])); for (const d of decl) { const n = nb.get(Number(d.nutrient_id)); if (!n) continue; const k = Number(d.client_product_id); if (!declared.has(k)) declared.set(k, []); declared.get(k).push({ nutrientId: n.id, label: n.label, pct: Number(d.pct), tol: Number(d.tol) || 0, by: d.by_user, at: d.at }); } }
+  const m015 = m014 && dens != null; // push 7c: a basis (w/w or w/v) on each value and each label nutrient, densities
+  const density = { grade: new Map(), product: new Map() };
+  if (m015) for (const d of dens) { const k = d.kind === 'product' ? 'product' : d.kind === 'grade' ? 'grade' : null; if (k && Number(d.kg_per_l) > 0) density[k].set(Number(d.ref_id), { kgPerL: Number(d.kg_per_l), source: d.source || '', date: d.src_date ? String(d.src_date).slice(0, 10) : null, by: d.by_user }); }
+  if (m014) nutrientMode(rates, nutrientList, gnuts, gchecks, m015 ? density.grade : null);
+  const declared = new Map(); if (m014) { const nb = new Map(nutrientList.map(n => [n.id, n])); for (const d of decl) { const n = nb.get(Number(d.nutrient_id)); if (!n) continue; const k = Number(d.client_product_id); if (!declared.has(k)) declared.set(k, []); declared.get(k).push({ nutrientId: n.id, label: n.label, pct: Number(d.pct), tol: Number(d.tol) || 0, measure: d.measure === 'w/v' ? 'w/v' : d.measure === 'w/w' ? 'w/w' : null, by: d.by_user, at: d.at }); } }
   const variantsReady = fam != null && pvs != null && exts != null && pexts != null && rvs != null;
   const m007 = rnames != null && rdefs != null && ooUse != null;
   const rn = new Map((rnames || []).map(r => [Number(r.recipe_version_id), r.recipe_name]));
@@ -104,22 +108,23 @@ async function loadAll(q) {
   const ruleObjs = rules.map(r => ({ id: r.id, name: r.name, kind: r.kind, isBase: r.is_base, products: ruleProducts.filter(x => x.rule_id === r.id).map(x => x.client_product_id), scopePvariantId: ruleVar.has(r.id) ? ruleVar.get(r.id) : null, rsPerKg: Number(r.rs_per_kg), scopeClientProductId: r.scope_client_product_id, scopeBaseProductId: r.scope_base_product_id,
     scopeForm: r.scope_form, scopeReprocessed: r.scope_reprocessed, scopePackMin: r.scope_pack_min, scopePackMax: r.scope_pack_max, validFrom: r.valid_from, active: r.active, source: r.source }));
   const lf = lfRates != null && lfPicks != null ? lfIndex(lfRates, lfPicks) : null; // null: before migration 011, the old rates apply
-  return { lf, settings, rates, packing, recipes, customers, custById, cps, cpById, packs, rules: ruleObjs, productTypes: types, freight, verByPack, families: fam || [], pvariants: pvs || [], ext, packExt, variantsReady, m007, recDefault, outOfUse, m014, nutrientList, declared };
+  return { lf, settings, rates, packing, recipes, customers, custById, cps, cpById, packs, rules: ruleObjs, productTypes: types, freight, verByPack, families: fam || [], pvariants: pvs || [], ext, packExt, variantsReady, m007, recDefault, outOfUse, m014, nutrientList, declared, m015, density };
 }
 
 /** Push 7a (R60, R61, D-162): after migration 014 a material grade's nutrients come from the nutrient list, not its class.
  *  nutrients: { label: % }; fields: the nutrients the grade has, plus, until the QC Head has saved it (checked), the ones its class
  *  suggests, so a suggested one not typed yet shows as missing. A checked grade's unlisted nutrients count as 0. A grade that
  *  carries nutrients and is not checked is notEntered: a recipe using it is not complete, as its other nutrients are not known yet. */
-function nutrientMode(rates, list, gnuts, gchecks) {
+function nutrientMode(rates, list, gnuts, gchecks, gdens) {
   const byId = new Map(list.map(n => [n.id, n])), byLow = new Map(list.map(n => [n.label.toLowerCase(), n.label]));
   const chk = new Map(gchecks.map(c => [Number(c.grade_id), { by: c.by_user, at: c.at }])); const rows = new Map();
-  for (const r of gnuts) { const n = byId.get(Number(r.nutrient_id)); if (!n) continue; const k = Number(r.grade_id); if (!rows.has(k)) rows.set(k, []); rows.get(k).push({ nutrientId: n.id, label: n.label, pct: Number(r.pct), cert: r.cert || '', certDate: r.cert_date ? String(r.cert_date).slice(0, 10) : null }); }
+  for (const r of gnuts) { const n = byId.get(Number(r.nutrient_id)); if (!n) continue; const k = Number(r.grade_id); if (!rows.has(k)) rows.set(k, []); rows.get(k).push({ nutrientId: n.id, label: n.label, pct: Number(r.pct), measure: r.measure === 'w/v' ? 'w/v' : 'w/w', cert: r.cert || '', certDate: r.cert_date ? String(r.cert_date).slice(0, 10) : null }); } // measure: push 7c (before 015 every value is w/w)
   for (const g of rates.values()) {
     const R = (rows.get(Number(g.gradeId)) || []).sort((a, b) => a.label.localeCompare(b.label)); const c = chk.get(Number(g.gradeId));
     g.suggest = g.fields.map(f => byLow.get(lib.fieldLabel(f).toLowerCase()) || lib.fieldLabel(f)).filter(Boolean); // the class's fields, as nutrients
     g.nutRows = R; g.checked = !!c; g.checkedBy = c ? c.by : null; g.checkedAt = c ? String(c.at).slice(0, 19) : null;
     g.nutrients = Object.fromEntries(R.map(r => [r.label, r.pct]));
+    g.nutMeasure = Object.fromEntries(R.map(r => [r.label, r.measure])); g.density = gdens ? (gdens.get(Number(g.gradeId)) || null) : null; // push 7c
     if (g.role !== 'nutrient') { g.fields = []; g.nutrients = {}; g.notEntered = false; continue; }
     const f = R.map(r => r.label); if (!g.checked) for (const s2 of g.suggest) if (!f.some(x => x.toLowerCase() === s2.toLowerCase())) f.push(s2);
     g.fields = f; g.notEntered = !g.checked;
@@ -142,11 +147,14 @@ function approvedVersion(D, cpId) {
 }
 function latestVersion(D, cpId) { const list = (D.recipes.byCp.get(recipeOwner(D, cpId)) || []).filter(v => v.state !== 'closed'); return list.length ? list[list.length - 1] : null; } // push 7b: a closed version (R69) is not the product's latest
 
+/** Push 7c: how a recipe's analysis is read: per L (a liquid product: % w/v) or per kg (% w/w), and the product's density. */
+function analysisOpts(D, cpId) { const cp = D.cpById.get(Number(cpId)); const d = D.density && D.density.product; const ow = d && d.get(Number(recipeOwner(D, cpId))); // the density of the product whose mix it is (review 7c, minor 2: a follower uses its owner's)
+  return { perL: !!cp && cp.sold_per === 'L', rho: (ow || {}).kgPerL || null, m015: !!D.m015 }; }
 /** Materials cost of a recipe version at today's rates; also returns the priced lines. */
 function priceRecipe(D, ver, rateOverride) {
   if (!ver) return null;
   const lines = ver.lines.map(l => { const g = D.rates.get(l.gradeId) || {}; const rate = rateOverride && rateOverride.gradeId === l.gradeId ? rateOverride.rate : g.rate;
-    return { gradeId: l.gradeId, name: g.name || '?', grade: g.grade, qty: l.qty, rate, date: g.date, cost: rate == null ? null : l.qty * rate, nutrients: g.nutrients || {}, fields: g.fields || [], role: g.role || 'unclassified', type: g.type, checked: g.checked, notEntered: !!g.notEntered }; });
+    return { gradeId: l.gradeId, name: g.name || '?', grade: g.grade, qty: l.qty, rate, date: g.date, cost: rate == null ? null : l.qty * rate, nutrients: g.nutrients || {}, fields: g.fields || [], role: g.role || 'unclassified', type: g.type, checked: g.checked, notEntered: !!g.notEntered, nutMeasure: g.nutMeasure || {}, density: g.density ? g.density.kgPerL : null, unit: g.unit || 'kg' }; });
   const missing = lines.some(l => l.rate == null || !(Number(l.rate) > 0)); // a Rs 0 rate is a missing rate (review of 0.6.0)
   return { lines, materials: missing ? null : lib.materialCost(lines), kgTotal: lib.recipeTotal(lines), missingRate: missing };
 }
@@ -155,18 +163,25 @@ function priceRecipe(D, ver, rateOverride) {
  * % in product = sum of qty x nutrient % over the lines. Non-nutrient inputs (binder, filler, anti-caking,
  * wetting agent, colour, pH adjuster) count in the weight and add 0. A nutrient input with a field left
  * blank makes that field incomplete; an unclassified input is listed for Himayat to classify. */
-function nutrients(priced) {
-  const out = {}, fields = new Set(), missing = new Map(), carriers = [], unclassified = [], notEntered = [];
+function nutrients(priced, opt) {
+  /* Push 7c (R71, B-61, D-164): each value is changed to kg of nutrient per 1 unit of the material before it is added: dosed in kg,
+     w/w as typed, w/v divided by the material's density; dosed in L, w/v as typed, w/w times the density. A value that needs a
+     density that is missing is held back (noDensity) and its nutrient is not complete. The sum is % w/w for a product sold per kg
+     and % w/v (kg per 100 L) for one sold per L. opt: { perL, rho } (rho = the product's density, kg per L, or null). */
+  const perL = !!(opt && opt.perL), rho = opt && Number(opt.rho) > 0 ? Number(opt.rho) : null, on = !!(opt && opt.m015); // review 7c, M1: before 015 every value counts as typed, as before
+  const out = {}, fields = new Set(), missing = new Map(), noDen = new Map(), carriers = [], unclassified = [], notEntered = [];
   for (const l of priced.lines) {
     if (l.role === 'none') { carriers.push({ name: l.name, type: l.type, qty: l.qty }); continue; }
     if (l.role !== 'nutrient') { unclassified.push(l.name); continue; }
     if (l.notEntered) notEntered.push(l.name); // push 7a: carries nutrients, not saved by the QC Head yet; its values so far still add up
-    for (const f of l.fields) { fields.add(f); const v = (l.nutrients || {})[f]; if (v == null) { if (!missing.has(f)) missing.set(f, []); missing.get(f).push(l.name); } else out[f] = (out[f] || 0) + l.qty * Number(v); }
+    for (const f of l.fields) { fields.add(f); const v = (l.nutrients || {})[f]; if (v == null) { if (!missing.has(f)) missing.set(f, []); missing.get(f).push(l.name); continue; }
+      const pc = on ? lib.perUnitPct(Number(v), (l.nutMeasure || {})[f] || 'w/w', l.unit, l.density) : Number(v); if (pc == null) { if (!noDen.has(f)) noDen.set(f, []); noDen.get(f).push(l.name); continue; }
+      out[f] = (out[f] || 0) + l.qty * pc; }
   }
   return {
-    fields: [...fields].map(f => ({ field: f, pct: out[f] == null ? null : out[f], missing: missing.get(f) || [] })),
-    carriers, carrierKg: carriers.reduce((s, c) => s + c.qty, 0), unclassified, notEntered,
-    complete: !unclassified.length && !notEntered.length && ![...missing.values()].some(x => x.length),
+    fields: [...fields].map(f => ({ field: f, pct: out[f] == null || noDen.has(f) ? null : out[f], missing: missing.get(f) || [], noDensity: noDen.get(f) || [] })),
+    carriers, carrierKg: carriers.reduce((s, c) => s + c.qty, 0), unclassified, notEntered, basis: perL ? 'w/v' : 'w/w', rho,
+    complete: !unclassified.length && !notEntered.length && ![...missing.values()].some(x => x.length) && !noDen.size,
   };
 }
 
@@ -286,4 +301,5 @@ function isVanBrand(cp) { return !!cp && cp.channel === 'VAN brand'; }
 /** O2S channel words as C2M shows them. */
 const CHANNEL_NAME = { Cobo: 'COBO', Vgreen: 'VGreen', 'White Label': 'White label' };
 
-module.exports = { MAIN, defaultName, approvedVersions, recipeOwner, loadAll, packCost, priceRecipe, nutrients, costOnDate, versionOnDate, latestApproved, approvedVersion, latestVersion, matcher, isVanBrand, CHANNEL_NAME, freightFor, today, conversionOf, lfPickOf, lfRateOf };
+module.exports = {
+  analysisOpts, MAIN, defaultName, approvedVersions, recipeOwner, loadAll, packCost, priceRecipe, nutrients, costOnDate, versionOnDate, latestApproved, approvedVersion, latestVersion, matcher, isVanBrand, CHANNEL_NAME, freightFor, today, conversionOf, lfPickOf, lfRateOf };

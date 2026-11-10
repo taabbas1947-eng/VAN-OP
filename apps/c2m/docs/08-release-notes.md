@@ -17,6 +17,18 @@ Changed in 0.6.0: entry 0.6.0 added.
 Changed in 0.5.0: entry 0.5.0 added; real figures removed from earlier entries (public repo).
 Format: Keep a Changelog, semantic versions. Live: 1.0.0 (pushed 19 Oct about 22:09, checked live by Claude as Tahir the same evening; Yawar's view checked in the cloud copy only); 0.9.3 pushed 19 Oct 14:38, checked live; 0.9.2 pushed 19 Oct 12:43, checked live; first data load 19 Oct 2026 about 13:17, checked live. Before: 0.9.1 (pushed 19 Oct 09:39, checked live). apps/c2m first pushed by Tahir on 17 Oct and the live migration run the same day (39 empty c2m_ tables); 0.6.0 and 0.7.0 pushed on 18 Oct (17:29), 0.8.0 (20:16) and 0.9.0 (22:03), each checked live by Claude. The folder tabs (D-59) were built after the 0.9.0 push and ship in 0.9.1. No data loaded yet: the first data load runs on Monday 19 Oct 2026.
 
+## [Next version, push 7c: liquids, % w/w and % w/v, densities] · 10 Nov 2026 · D-164 · Who: Tahir ruled (R70, R71, R72, R73); Claude built and tested; not pushed · Migration 015 (Ahmer runs it first)
+### Added
+- Each % on a material card is w/w or w/v, as its certificate states it; each nutrient on a label too.
+- Densities, kg per L at 20 °C, with source and date: of a material (the QC Head, on its card) and of a product (the Production Manager, on Inputs, Declared grades).
+- The analysis of a product sold per L is in % w/v, of one sold per kg in % w/w, with the other basis beside it once the product density is known. Label checks are made in the label's basis.
+- A missing density makes only the figures that need it "not complete", naming it.
+### Changed
+- The nutrient list no longer asks w/w or w/v (it is on each value now).
+- The line editor works out the analysis on the right basis, per 1 L for a liquid, and shows the lines' total kg per L as a hint.
+- Recipe screens say kg per L for a product sold per L (they said kg per kg). A material whose density is needed and missing shows "density needed" on Materials and Today.
+- In-app change list entry 2026-11-10a, held until 015 has run. Guide: 2 new rows (Enter the density of a material, Enter the density of a product); 3 rows say w/w or w/v.
+
 ## [Next version, push 7b: the recipe path, notices, the line editor, the check screen, Close] · 9 Nov 2026 · D-163 · Who: Tahir ruled (R63, R64, R65, R67, R68, R69); Claude built and tested; not pushed · No migration
 ### Added
 - Notices at each recipe step: the next person is told, and the Production Manager is told when a recipe is approved, sent back or closed. The Production Manager, QC Head and Plant Manager now see their notices on Today.

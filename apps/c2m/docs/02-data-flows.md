@@ -340,3 +340,10 @@ Built 9 Nov 2026, not pushed. No migration.
 - Every step and send back, close and approval writes c2m_notice rows for the role named (qc, plant, cfo, production), in the same transaction as the step.
 - Pass (advance) takes a note: kept on c2m_recipe_step.note and in the notice. Close writes state closed, a step closed with the reason, an audit row and a notice.
 - State: each recipe gains path (default or other), flags (why a comment is needed, at review and endorse) and backSig (a draft sent back). The Production Manager, QC Head and Plant Manager now receive notices (their role, last 30 days).
+
+## 2.38 Liquids, push 7c (owner: Tahir R70 to R73; D-164, 10 Nov 2026)
+Built 10 Nov 2026, not pushed. Migration 015.
+- Material card save (POST /api/c2m/grades/:id/nutrients) now carries measure per row into c2m_grade_nutrient.measure. Declared grade save carries measure per row into c2m_declared_grade.measure; a row with none takes w/v for a product sold per L, w/w otherwise.
+- POST /api/c2m/density writes or removes 1 row of c2m_density (kind grade or product), with an audit row (entity density, entity_id "grade:8" or "product:32").
+- engine.loadAll reads c2m_density into D.density {grade, product}; each material grade gains nutMeasure and density; engine.analysisOpts gives each recipe its basis (per L or per kg) and the product density (its own, else that of the product whose recipe it follows).
+- State: m015; productDensity (to see.materials or see.products); materials[].density; nutRows[].measure; declared rows .measure; recipes[].nutrients.basis, .rho and fields[].noDensity.

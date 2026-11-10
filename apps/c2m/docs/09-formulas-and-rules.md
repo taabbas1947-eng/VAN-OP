@@ -228,3 +228,11 @@ A pack takes 1 labour rate and 1 FOH rate, each the first match of these levels:
 | B-58 | % of mix (R67) | % of mix of a line = its kg per kg / the recipe's total kg per kg x 100. Shown only; lines are saved as kg per kg. |
 | B-59 | Resend (R63) | Lines compared as "grade:kg per kg" pairs (6 decimals), order ignored. Equal: back to the sender; different or not known: the QC Head. |
 | B-60 | Red at a check (R68) | Red = the analysis not complete, or a declared nutrient below the label (meets when recipe % >= label % - tolerance). A low figure while not complete is not red for the label, only for the analysis. |
+
+## 10 Nov 2026 (D-164)
+| ID | Rule | Detail |
+|---|---|---|
+| B-61 | A value per unit of material (R71) | Dosed in kg: w/w as typed; w/v / material density. Dosed in L: w/v as typed; w/w x material density. Missing density: held back, not complete, named. Never 1.0. Example: Amino Acid liquid 40% w/v at 1.20 kg per L is 33.33 kg per 100 kg. |
+| B-62 | The analysis basis | Sum of kg per kg (or per L) of the lines x the value per unit, x 100: % w/w for a product sold per kg, % w/v for one sold per L. Example: Tornado 0.2245 kg per L x 40 / 1.20 = 7.483% w/v. |
+| B-63 | The other basis (R72) | w/w to w/v: x product density; w/v to w/w: / product density. Example: 7.483% w/v / 1.25 = 5.99% w/w. Shown in brackets; without the product density, not shown. |
+| B-64 | Label on the other basis | Checked after converting the recipe figure with the product density (B-63); without it the line is not complete and red at a check. Limits: w/w 0 to 100, w/v 0 to 300, density 0.5 to 3.0 kg per L. g per L / 10 = % w/v. |

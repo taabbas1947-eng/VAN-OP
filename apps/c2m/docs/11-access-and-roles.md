@@ -280,3 +280,8 @@ No new action: each list uses the right that adds to it. Delete, Take out of use
 - No new action. Close uses the step rights (recipe.step.review, .endorse, .cost); the sender of a draft sent back may close it if they hold the right of the step they sent it back from.
 - The Production Manager, QC Head and Plant Manager (roles production, qc, plant, without notices.see) now receive their own notices of the last 30 days in state and see them on Today, For your information. A custom role receives none.
 - Guide rows per built-in role: COO 36, CFO 57, Production Manager 11, QC Head 10, Plant Manager 6, KAM 4 (tested in p15).
+
+## 11.26 10 Nov 2026: push 7c (D-164)
+- No new action. A material's density: nutrient.edit (QC Head; the CFO and COO hold it too). A product's density: recipe.edit (Production Manager, COO) or the administrator (R70).
+- productDensity goes in state to whoever sees materials or products; it holds no Rs.
+- Guide rows per built-in role: COO 36, CFO 57, Production Manager 12, QC Head 11, Plant Manager 6, KAM 4 (tested in p15).

@@ -400,3 +400,11 @@ All below: right see.margin (403 otherwise), registered after the C2M access che
 | POST /api/c2m/recipes/:id/sendback | recipe.step.<state> | {reason, advice} | {ok}; keeps the lines as sent back; notice to the Production Manager |
 | POST /api/c2m/recipes/:id/close | recipe.step.<state> at review, endorse, cost; or the sender of a draft sent back | {reason} (5 letters or more) | {ok}; state closed; notice to the Production Manager |
 - GET /api/c2m/state: recipes gain path, flags, backSig; notices now also for the Production Manager, QC Head and Plant Manager (their role, last 30 days).
+
+## 5.21 Liquids, push 7c (10 Nov 2026; owner: Tahir; D-164)
+| Route | Right | Body | Answer |
+|---|---|---|---|
+| POST /api/c2m/density | kind grade: nutrient.edit; kind product: recipe.edit or the administrator | {kind, id, kgPerL, source, date}; kgPerL empty removes it | {ok, kgPerL} or {ok, removed}; 400 out of 0.5 to 3.0, no source, a date after today, an unknown id; 403 the wrong role; 409 before 015 |
+| POST /api/c2m/grades/:id/nutrients | nutrient.edit | rows[].measure w/w or w/v (after 015) | as before; a w/v value up to 300 |
+| POST /api/c2m/products/:id/declared | grade.declare | rows[].measure w/w or w/v (after 015; none: by how the product is sold) | as before |
+- GET /api/c2m/state: m015; productDensity {productId: {kgPerL, source, date, by}}; materials[].density; recipes[].nutrients gain basis, rho and fields[].noDensity; flags may say the product density is missing.

@@ -395,24 +395,41 @@ function nutrientBackfill(types, grades, taken) {
   }
   return { labels, map: Object.fromEntries(byField), rows, checked, skipped };
 }
-/** A product's declared grade against a recipe's analysis (R62). declared: [{ label, pct, tol }]; N: engine.nutrients().
- *  Each row: meets (got >= label - tolerance), below (by how much), or unknown (the analysis is not complete, or the
- *  nutrient cannot be worked out yet). A nutrient no material in the recipe carries is 0 when the analysis is complete. */
-function gradeCheck(declared, N) {
-  const F = new Map(((N && N.fields) || []).map(f => [String(f.field).toLowerCase(), f]));
+/* ---------- Push 7c (Tahir, 10 Nov 2026, R70 to R73, D-164): % w/w and % w/v ----------
+   % w/w = kg of nutrient per 100 kg; % w/v = kg per 100 L (g per 100 mL); density in kg per L, at 20 °C. Checked by an
+   independent unit audit, 10 Nov 2026 (every rule and example correct). */
+const BASES = ['w/w', 'w/v'];
+/** kg of nutrient per 1 kg (dosed in kg) or per 1 L (dosed in L) of a material, as a %, from its value as typed.
+ *  Dosed in kg: w/w as typed, w/v ÷ density. Dosed in L: w/v as typed, w/w × density. null when a needed density is missing. */
+function perUnitPct(v, measure, unit, density) {
+  const x = Number(v), d = Number(density) > 0 ? Number(density) : null; const w = measure === 'w/v';
+  if (!isFinite(x)) return null;
+  if (unit === 'L') return w ? x : d ? x * d : null;
+  return w ? (d ? x / d : null) : x;
+}
+/** A product's figure in the other basis: w/w to w/v × density; w/v to w/w ÷ density; null without a density. */
+function toBasis(pct, from, to, rho) { if (pct == null) return null; if (from === to) return pct; const d = Number(rho) > 0 ? Number(rho) : null; if (!d) return null; return from === 'w/w' ? pct * d : pct / d; }
+/** A product's declared grade against a recipe's analysis (R62; push 7c: each label nutrient has its basis, R72).
+ *  declared: [{ label, pct, tol, measure }]; N: engine.nutrients() (with basis and rho). Each row: meets (got >= label - tolerance),
+ *  below (by how much), or unknown (analysis not complete, a density missing, or the product density missing for a label on the
+ *  other basis: why says which). A nutrient no material carries is 0 when complete. While not complete, a low figure is unknown
+ *  (review 7a, M3); one already at the label stays meets. */
+function gradeCheck(declared, N, rho) {
+  const F = new Map(((N && N.fields) || []).map(f => [String(f.field).toLowerCase(), f])); const nb = (N && N.basis) || 'w/w', r0 = rho != null ? rho : N && N.rho;
   const rows = (declared || []).map(d => {
-    const f = F.get(String(d.label).toLowerCase()); const pct = Number(d.pct), tol = Number(d.tol) || 0;
-    let got = null; if (f && !f.missing.length && f.pct != null) got = f.pct; else if (!f && N && N.complete) got = 0;
-    /* Review 7a, M3: while the analysis is not complete a material not entered yet may still add to it, so a low figure is unknown,
-       not below. A figure already at the label stays meets: no material takes a nutrient away. */
+    const f = F.get(String(d.label).toLowerCase()); const pct = Number(d.pct), tol = Number(d.tol) || 0; const lb = d.measure === 'w/v' || d.measure === 'w/w' ? d.measure : nb;
+    let got = null, why = null;
+    if (f && !(f.missing || []).length && !(f.noDensity || []).length && f.pct != null) got = f.pct; else if (!f && N && N.complete) got = 0;
+    else if (f && (f.noDensity || []).length) why = `density of ${f.noDensity.join(', ')} missing`;
+    if (got != null && got !== 0 && lb !== nb) { const c = toBasis(got, nb, lb, r0); /* 0 is 0 on either basis (review 7c, minor 1) */ if (c == null) { got = null; why = 'the product density is missing (the label is ' + lb + ')'; } else got = c; }
     if (got != null && !(N && N.complete) && got < pct - tol - 1e-9) got = null;
     const state = got == null ? 'unknown' : got >= pct - tol - 1e-9 ? 'meets' : 'below';
-    return { label: d.label, pct, tol, got, state, by: state === 'below' ? round(pct - got, 2) : 0 };
+    return { label: d.label, pct, tol, measure: lb, got, state, why: state === 'unknown' ? (why || 'the analysis is not complete') : null, by: state === 'below' ? round(pct - got, 2) : 0 };
   });
   return { rows, state: !rows.length ? 'none' : rows.some(r => r.state === 'below') ? 'below' : rows.some(r => r.state === 'unknown') ? 'unknown' : 'meets' };
 }
 module.exports = {
-  newMaterialClass, fieldLabel, safeLabel, MEASURES, cleanNutrient, nutrientBackfill, gradeCheck,
+  newMaterialClass, fieldLabel, safeLabel, MEASURES, cleanNutrient, nutrientBackfill, gradeCheck, BASES, perUnitPct, toBasis,
   rowNameKey, looseKey, rowSize, masterCmp, sameRegion,
   listRowIs, listRowSize, officialRow, officialPack, restoreRow,
   round, rateWarning, materialCost, recipeTotal, packingPerUnit, buyOf, buyNote, sourceText, piecePrice, printMrp, mrpIssues, mrpMissing, pickConversionRule, conversionFor, costBreakdown,

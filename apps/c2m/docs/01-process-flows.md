@@ -825,3 +825,25 @@ flowchart TD
 - Each arrow forward writes a notice to the next person (QC Head, Plant Manager, CFO); send back, close and approval write one to the Production Manager. The Production Manager, QC Head and Plant Manager see their notices of the last 30 days on Today, For your information.
 - Red at a check: the analysis is not complete, or (after migration 014) a nutrient below the product's declared grade. A low figure while the analysis is not complete is "not complete", not below.
 - A closed version is not the product's latest: the next version starts from the approved one, and a product whose only version was closed shows "Write the first recipe" again.
+
+## 1.41 Liquids: % w/w and % w/v, and densities, push 7c (owner: Tahir rules R70 to R73; Claude built; D-164, 10 Nov 2026)
+Built 10 Nov 2026, not pushed. Migration 015 (Ahmer runs it; until then C2M works as after push 7b).
+
+```mermaid
+flowchart TD
+  A[Himayat, material card: each % as the certificate states it, w/w or w/v] --> B{any value on the other basis from how the material is dosed?}
+  B -->|no| C[Its figures add up as typed]
+  B -->|yes| D[Himayat enters its density, kg per L at 20 °C, with source and date · R70]
+  D --> C
+  B -. density missing .-> X[Only the figures that need it show not complete, naming the material · R71]
+  C --> E[Recipe analysis: % w/w for a product sold per kg, % w/v for one sold per L]
+  F[Himayat, declared grade: each label nutrient w/w or w/v, as the label states it] --> G{label on the other basis from the analysis?}
+  G -->|no| H[Checked as it is]
+  G -->|yes| I[Majid enters the product's density on Inputs, Declared grades · R70; the lines added up show beside it as a hint · R73]
+  I --> H
+  G -. product density missing .-> Y[That label line is not complete: the product density is missing]
+  E --> H
+  H --> J[Shown in the label's basis, the other beside it when the product density is known · R72]
+```
+- Every % entered before 015 is w/w, as C2M took it so far: nothing moves until Himayat marks a value w/v.
+- A label check that cannot be done for lack of the product density is red at a check ("the product density is missing, so the label cannot be checked"), so passing needs a comment.

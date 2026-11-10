@@ -398,3 +398,13 @@ Changed in 0.3.0 and 0.3.1: rs_per_kg fixed (1 rate of 1 kind, labour or FOH). A
 | flags | Why a comment is needed to pass this recipe now | state recipes[].flags |
 | backSig | The lines as they were when sent back | state recipes[].backSig; c2m_audit sent_back new_value.lines |
 | % of mix | A line's share of the recipe's total kg per kg | Edit lines (page only) |
+
+## 10.26 10 Nov 2026 (D-164)
+| Term | Meaning | Where |
+|---|---|---|
+| % w/w | kg of nutrient per 100 kg | c2m_grade_nutrient.measure, c2m_declared_grade.measure = w/w |
+| % w/v | kg of nutrient per 100 L (g per 100 mL); can be above 100 | measure = w/v |
+| Density | kg per L at 20 °C, as supplied (material) or finished (product), with its source and date | c2m_density; state materials[].density, productDensity |
+| basis (analysis) | w/w for a product sold per kg, w/v for one sold per L | state recipes[].nutrients.basis |
+| rho | The product density the analysis is shown with | state recipes[].nutrients.rho |
+| noDensity | The materials whose density is missing for a nutrient | state recipes[].nutrients.fields[].noDensity |

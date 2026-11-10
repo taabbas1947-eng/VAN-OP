@@ -865,3 +865,14 @@ Files: c2m-lib.js (RECIPE_FLOW_OTHER, lineSig, resendTo), c2m-engine.js (latestV
 Tests: new t20 (43) and p18 (44); p15 counts and p17 entry checks updated; t3 to t19, no-011, pricecheck 64, p9 to p17 pass; t2 keeps its old 1 failure.
 Independent review 7b: 0 Blocking, 2 Major, 8 Minor; all fixed except minor 5 left for Tahir (notices go to built-in roles by name; a launcher role with a recipe step right gets none; the 3 recipe roles' notices show 30 days, never marked seen). See docs 03 3.44 and 12.
 Not pushed. Delivered to E:\VAN Systems for Tahir to push (no migration needed for 7b).
+
+## 10 Nov 2026 (1) - push 7c: liquids, % w/w and % w/v, densities (D-164), MODULE: C2M
+Tahir ruled on the picture "C2M Liquids and Basis": R70 the QC Head enters material densities, the Production Manager product densities; R71 a missing density makes only the figures that need it not complete, naming it, never 1.0; R72 shown in the label's basis with the other beside it; R73 the lines' total kg per L as a hint only.
+Files: c2m-engine.js, c2m-lib.js, c2m-routes.js, c2m.html, migrations/015_c2m_basis_density.sql and .PRODUCTION.sql (new), docs 01 to 12.
+What it does: each % on a material card and each label nutrient is w/w or w/v; densities of materials and products with source and date (POST /api/c2m/density); a product sold per L is worked out in % w/v, per kg in % w/w; label checks in the label's basis; "density needed" on Materials and Today; recipe screens say kg per L for a product sold per L. Change list 2026-11-10a and 2 new Guide rows wait for 015.
+Migration 015: Ahmer runs the PRODUCTION file once in phpMyAdmin (2 ALTERs, 2 UPDATEs, 1 new table). A second run stops at the first ALTER: harmless. Until then C2M works as after 7b.
+Tests: new t21 (57) and p19 (51); p15, p17, p18 assertions updated; t3 to t20, no-011, pricecheck 64, p9 to p18 pass; t2 keeps its old 1 failure.
+Independent unit audit (built code): 0 Blocking, 2 Major, 5 Minor; independent code review: 0 Blocking, 2 Major, 7 Minor; all fixed except the live editor not naming a material with a blank % (as before).
+Open for Tahir: whether the recipes of the 23 products sold per L were typed per L (the screens said kg per kg until now); notices to custom roles and marking notices seen; tolerance per nutrient. For Himayat after 015: mark w/v values and enter densities; set P and K basis.
+Not pushed. Delivered to E:\VAN Systems for Tahir to push.
+Tahir ruled after delivery (10 Nov 2026): the QC Head re-checks all 23 recipes of products sold per L, confirming their lines are kg per 1 L; a wrong one is revised through the normal recipe path. (Answers the open question above and in docs 12.)

@@ -837,3 +837,10 @@ Urgent prices and list revisions are marked by a c2m_audit row: entity price or 
 - c2m_recipe_version.state may now hold closed (VARCHAR(20); no change to the table). c2m_recipe_step.action may hold closed; its note holds the comment of a pass and the reason of a close.
 - c2m_audit rows for a send back (entity recipe, action sent_back) now hold new_value {"to":"draft","lines":"grade:kg per kg|…"}.
 - c2m_notice.for_role may now be production, qc or plant (VARCHAR(20); no change).
+
+## 4.21 Migration 015 (10 Nov 2026, D-164): a basis on each value, densities
+File: apps/c2m/migrations/015_c2m_basis_density.sql (local) and 015_c2m_basis_density.PRODUCTION.sql (phpMyAdmin, with the database name). Run once; a second run stops at the first ALTER with "Duplicate column name": harmless.
+- c2m_grade_nutrient.measure VARCHAR(4) NOT NULL DEFAULT 'w/w', after pct: whether the % is w/w or w/v, as the certificate states it.
+- c2m_declared_grade.measure VARCHAR(4) NOT NULL DEFAULT 'w/w', after pct: as the label states it. The migration sets w/v on rows of products sold per L.
+- New table c2m_density (kind VARCHAR(10) 'grade' or 'product', ref_id INT, kg_per_l DECIMAL(8,4), source VARCHAR(120) NULL, src_date DATE NULL, by_user, at; PRIMARY KEY (kind, ref_id)).
+- Deleting a material grade deletes its density row too.

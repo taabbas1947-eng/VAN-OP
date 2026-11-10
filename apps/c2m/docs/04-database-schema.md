@@ -844,3 +844,6 @@ File: apps/c2m/migrations/015_c2m_basis_density.sql (local) and 015_c2m_basis_de
 - c2m_declared_grade.measure VARCHAR(4) NOT NULL DEFAULT 'w/w', after pct: as the label states it. The migration sets w/v on rows of products sold per L.
 - New table c2m_density (kind VARCHAR(10) 'grade' or 'product', ref_id INT, kg_per_l DECIMAL(8,4), source VARCHAR(120) NULL, src_date DATE NULL, by_user, at; PRIMARY KEY (kind, ref_id)).
 - Deleting a material grade deletes its density row too.
+
+## 4.22 Push 7e (10 Nov 2026, D-166): no migration
+- c2m_audit rows with entity signoff, entity_id "page:version", action signed, new_value {"role", "label"} record each sign-off.

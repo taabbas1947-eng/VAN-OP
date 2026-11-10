@@ -305,6 +305,7 @@ h1.topic{font-size:17px;letter-spacing:.04em}
 @media (max-width:760px){.jrow .sw{text-align:left;min-width:0}.jrow{flex-direction:column;align-items:stretch}.jrow .btn{min-height:44px;width:100%}}
 /* Products (D-99 B, D-93): client list left */
 .ptools{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;margin:0 0 12px}.ptools input{flex:0 1 260px;min-width:180px}.ptools .chips{margin:0;flex:1 1 100%;order:3}.ptools .newm{margin-left:auto}
+.rpbox{position:fixed;inset:0;z-index:60;background:var(--bg);overflow:auto;padding:24px max(16px,env(safe-area-inset-right,0px)) 40px max(16px,env(safe-area-inset-left,0px))}.rpin{max-width:820px;margin:0 auto}.rp h2{margin:20px 0 8px}.rpflow{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 8px}.rpflow span{font-size:13px;padding:6px 10px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--muted)}.rpflow .on{border-color:var(--blue);color:var(--ink);font-weight:700;background:var(--surface);box-shadow:inset 0 -3px 0 var(--blue)}.rpflow .ok{color:var(--ok)}.rpl{margin:0;padding-left:20px}.rpl li{margin:0 0 8px;line-height:1.55;max-width:80ch}.rptick{display:flex;gap:10px;align-items:flex-start;margin:22px 0 0;padding:12px 14px;border:1px solid var(--blue);border-radius:8px;background:var(--surface);font-weight:600}.rptick input{width:20px;height:20px;margin:0;flex:none}
 .lfh{display:none!important}.wnscrim{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:40}.wn{position:fixed;z-index:41;left:50%;top:50%;transform:translate(-50%,-50%);width:min(660px,calc(100vw - 32px));max-height:86vh;display:flex;flex-direction:column;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:10px;box-shadow:0 12px 40px rgba(0,0,0,.25)}.wn .wnh{padding:16px 18px 8px;border-bottom:1px solid var(--line)}.wn .wnh h2{margin:0;font-size:18px}.wn .wnb{padding:6px 18px 10px;overflow:auto}.wn .wnf{padding:10px 18px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:8px}.wn ul{margin:8px 0 0;padding-left:20px}.wn li{margin-bottom:8px;line-height:1.55}.wn .wnd{font-size:12px;color:var(--muted)}.wn hr{border:0;border-top:1px solid var(--line);margin:14px 0}tr.gjhl td{background:var(--latebg)}
 /* Guide job rows (push 6b, D-160): tap a row for its steps; Start opens the job (40 px tall, also on a phone) */
 .gjl{background:var(--surface);border:1px solid var(--line);border-radius:3px;margin:0 0 14px}.gj{border-bottom:1px solid var(--line)}.gj:last-child{border-bottom:0}.gj.gjhl{background:var(--latebg)}
@@ -460,7 +461,7 @@ async function savePdf(id) {
 }
 async function load() { ST = await api('/api/c2m/state' + (PV ? '?as=' + encodeURIComponent(PV) : '')); const B = SET('budget_gp'); if (B != null) { (ST.products || []).forEach(p => { if (p.target == null || Number(p.target) <= 0) { p.target = B > 0 ? B : null; p.targetDefault = B > 0; } }); (ST.sales || []).forEach(r => { if (r.target == null || Number(r.target) <= 0) r.target = B > 0 ? B : 0; }); (ST.open || []).forEach(r => { if (r.target == null || Number(r.target) <= 0) r.target = B > 0 ? B : 0; }); } // D-75: no target set = the company GP target
   if (navAfter) { const s = navAfter; navAfter = null; navLand(s); } /* Back out of a preview: the step is put back with this person's own rights (review 6c, M1) */
-  if (!ST.me.nav.concat(ST.me.more || []).includes(scr)) scr = ST.me.nav[0]; if (navI < 0 && location.hash.length > 1) navFromHash(location.hash); /* an address with #place opens that place, if this person can (push 6c) */ render(); checkWhatsNew(); if (lm.open && !lmDone()) lmLoad(); } // the carry-over plan follows every change made meanwhile (a rename in Product names; review 1.0.3 re-check, finding 5)
+  if (!ST.me.nav.concat(ST.me.more || []).includes(scr)) scr = ST.me.nav[0]; if (navI < 0 && location.hash.length > 1) navFromHash(location.hash); /* an address with #place opens that place, if this person can (push 6c) */ render(); if (!checkSignoff()) checkWhatsNew(); if (lm.open && !lmDone()) lmLoad(); } // the carry-over plan follows every change made meanwhile (a rename in Product names; review 1.0.3 re-check, finding 5)
 let actBusy = false;
 async function once(fn) { if (actBusy) { toast('Wait: the last save is still running.'); return false; } actBusy = true; try { return await fn(); } finally { actBusy = false; } }
 async function act(path, body, okMsg) { return once(() => act0(path, body, okMsg)); } // a double click sends 1 save (review 1.0.2 re-check, finding 5)
@@ -1510,7 +1511,7 @@ async function effectFirst(path, body, slot) {
 }
 /** The parts of Setup and of Costs (push 2a): 1 map, so both places draw the same screens. */
 function nsuB() {
-  return { settings: () => boSettings(true), rates: () => { if (!nsuMatInit) { nsuMatInit = true; matFilter = 'all'; } return vInputs('materials'); }, packing: () => vInputs('packing') + '<h2>Packing bills</h2><p class="ans">A packing bill is the packing recipe of a pack: its items and how many of each. Primary items are per pack; a carton is per outer: cost per carton ÷ (packs in the carton × pack size).</p>' + vInputs('bills'), conv: () => boRules(), freight: () => boRules('freight'), lines: nsuLines, variants: p3Variants, people: boAccess, docs: boDocs, o2s: nsuO2s, sheet: () => boImport(true), checks: () => (CAN('actuals.enter') || CAN('actuals.tiebooks') || CAN('actuals.ratecheck') ? `<div class="next"><span>${CAN('actuals.enter') ? 'Enter or correct actual labour and FOH, or tie a month to the books' : 'Mark the rate check'} in its panel.</span><button class="btn ghost" data-panact>Enter or correct a month</button></div>` : '') + boActuals(false), audit: boAudit };
+  return { signoff: () => vSignoffs(), settings: () => boSettings(true), rates: () => { if (!nsuMatInit) { nsuMatInit = true; matFilter = 'all'; } return vInputs('materials'); }, packing: () => vInputs('packing') + '<h2>Packing bills</h2><p class="ans">A packing bill is the packing recipe of a pack: its items and how many of each. Primary items are per pack; a carton is per outer: cost per carton ÷ (packs in the carton × pack size).</p>' + vInputs('bills'), conv: () => boRules(), freight: () => boRules('freight'), lines: nsuLines, variants: p3Variants, people: boAccess, docs: boDocs, o2s: nsuO2s, sheet: () => boImport(true), checks: () => (CAN('actuals.enter') || CAN('actuals.tiebooks') || CAN('actuals.ratecheck') ? `<div class="next"><span>${CAN('actuals.enter') ? 'Enter or correct actual labour and FOH, or tie a month to the books' : 'Mark the rate check'} in its panel.</span><button class="btn ghost" data-panact>Enter or correct a month</button></div>` : '') + boActuals(false), audit: boAudit };
 }
 function vSetup2() {
   /* Costs left Setup for its own place (Tahir and Yawar, 5 Nov 2026, R5 and R22; push 2a). An old Setup key for a cost part opens it there. */
@@ -1518,7 +1519,7 @@ function vSetup2() {
   const G = [['clients', 'Clients', [['lines', 'Clients']]],
     ['van', 'Products and variants', [['variants', 'Products and variants']]],
     ['set', 'Settings', [['settings', 'Company settings'], ['people', 'KAM lists']]],
-    ['record', 'Record and checks', [['audit', 'Change record'], ['checks', 'Monthly checks'], ['o2s', 'From O2S'], ['sheet', 'Sheet items'], ['docs', 'System documentation']]]];
+    ['record', 'Record and checks', [['audit', 'Change record'], ['checks', 'Monthly checks'], ['o2s', 'From O2S'], ['sheet', 'Sheet items'], ['docs', 'System documentation'], ...(ADM() ? [['signoff', 'Role sign-offs']] : [])]]]; // Role sign-offs: push 7e, the COO only
   if (NSU_OLD[nsu]) { const [tab, part] = NSU_OLD[nsu]; nsuPart[tab] = part; nsu = tab; }
   if (!G.some(g => g[0] === nsu)) nsu = 'clients';
   const g = G.find(x => x[0] === nsu); const part = g[2].some(x => x[0] === nsuPart[nsu]) ? nsuPart[nsu] : g[2][0][0]; nsuPart[nsu] = part; /* the part shown is the part kept, so Back counts it once (push 6c) */
@@ -1989,9 +1990,107 @@ const CHANGELOG = [
  { t: 'Filling the labour and FOH rates High and Low is now your next move: until each is filled, the packs on it have no cost.', for: ['labour.manage'], guide: null },
  { t: 'Packs not costed now show on Today only to those who can fix them. A recipe page says who enters missing material data.', for: ['recipe.edit', 'recipe.step.endorse'], guide: null },
  { t: 'Dates in notes now read as 14 Oct 2026.', for: ['see.products'], guide: null },
- { t: 'The recipes list says no lines yet for a draft with none, and Rs per kg or L for materials.', for: ['see.cost'], guide: null }] }
+ { t: 'The recipes list says no lines yet for a draft with none, and Rs per kg or L for materials.', for: ['see.cost'], guide: null }] },
+  { ver: '2026-11-10c', date: '2026-11-10', title: 'A role page for each person', items: [
+ { t: 'Each person now reads a page about their role in C2M (about 2 minutes) and signs it once before C2M opens; the COO does not sign. A changed page is signed again. Read it any time: Guide, Read your role page.', for: ['see.products', 'see.granted_lists'], guide: null },
+ { t: 'Role sign-offs on More, Setup, Record and checks: who has signed, who has not, and each role page to read.', for: [], guide: null }] }
 ];
 let _wnShown = false, wnGuide = null;
+/* ---------- Push 7e (Tahir, 10 Nov 2026, D-166): the role page, read and signed once per version before C2M opens ----------
+   1 page per role (6). The page fills the screen and nothing behind it takes a click until it is signed. The COO does not sign; he
+   reads every page on More, Setup, Record and checks, Role sign-offs. A new version of a role's page asks everyone in it to sign again. */
+const PLACE_WHAT = { today: 'Everything that waits for you, oldest first. Start here every day.', approvals: 'Everything that waits for you, oldest first, with your next move at the top. Start here every day.', clients: 'Each client and brand: its prices, targets and margin on 1 page.', margin: 'Profit by group, client, brand and pack, down to each truck.', costs: 'Material, packing, labour, FOH, freight and month end: each cost in its own box.', products: 'Every product with its recipe, packs and cost.', recipes: 'Every recipe and version, with its lines, steps and analysis.', inputs: 'Materials and what each carries, nutrients, classes and declared grades.', setup: 'Clients, products and variants, settings, and the record of every change.', reports: 'Ready reports and your own, to read or download.', lists: 'The approved price lists given to you.', guide: 'Your jobs, step by step, each with a Start button.' };
+const PLACE_NAME = { today: 'Today', approvals: 'Approvals', clients: 'Clients', margin: 'Margin', costs: 'Costs', products: 'Products', recipes: 'Recipes', inputs: 'Inputs', setup: 'Setup', reports: 'Reports', lists: 'Price lists', guide: 'Guide' };
+const ROLE_PAGES = {
+  production: { ver: 1, places: ['today', 'products', 'recipes', 'inputs', 'guide'], title: 'Production Manager', step: 0,
+    role: 'You write every recipe in C2M: the first recipe of a new client product, each new version, and another recipe beside the Default. Nothing reaches the QC Head, the plant or the CFO until you send it.',
+    jobs: ['<b>Write the first recipe</b> of a client product when Today lists it: Start the recipe, Edit lines, Save lines, then Send to the QC Head.', '<b>Write a new recipe version</b> when a material or a quantity changes, and say what changes and why.', '<b>Type each line as kg of material per 1 kg of product</b>, or per 1 L for a product sold per L. The total, the % of the mix and the analysis against the label show as you type.', '<b>Revise a recipe sent back</b>: read the reason and the advice, change the lines, then Resend. The button names who it goes to.', '@015<b>Enter a product\'s density</b> on Inputs, Declared grades, when its label is on the other basis (w/w for a product sold per L, w/v for one sold per kg).', '<b>Add a material that is not in the list</b>, with its supplier or why it is needed. The CFO adds its rate; the QC Head its nutrients.', '<b>Add a variant</b> of a product on Products (+ New, Add a variant). Its recipe starts as a draft copy: change what differs and send it on.'],
+    done: 'Today says nothing needs you: no "Write the first recipe" line and none of your drafts waiting.',
+    notDo: 'You do not check, endorse or approve a recipe. You do not enter a material\'s nutrients or any rate or price. You can delete only a draft you started by mistake; an approved recipe is never deleted.' },
+  qc: { ver: 1, places: ['today', 'recipes', 'inputs', 'guide'], title: 'QC Head', step: 1,
+    role: 'You are the check on every recipe. Nothing the plant may run reaches the Plant Manager or the CFO until you have passed it, and every nutrient C2M adds up comes from the material cards you keep.',
+    jobs: ['<b>Check a recipe</b> when Today lists it. Read what changed, the nutrient analysis, the check against the label, and any material data missing. Pass it, send it back with a reason and advice, or close it.', '<b>Fix missing data yourself</b>: press Open material, enter it, come back and pass. No need to send it back for this.', '<b>Write a comment when something is red</b> (the analysis not complete, or below the label). The next person reads it.', '<b>Keep every material card</b>: each nutrient\'s %@015w, w/w or w/v as the certificate states it@, the certificate and its date@015w, and the density when C2M asks for it@.', '<b>Keep the nutrient list and the classes.</b> 1 nutrient, 1 basis: K2O and K are 2 nutrients.', '<b>Enter each product\'s declared grade</b>: what the label promises, and the tolerance you allow below it.'],
+    done: 'Today says nothing needs you. No material shows "to enter" or "density needed". Every product has its declared grade.',
+    notDo: 'You see no rupee figures: rates, costs and prices belong to the CFO. You do not approve cost. You never type a figure you cannot trace to a certificate.' },
+  plant: { ver: 1, places: ['today', 'recipes', 'guide'], title: 'Plant Manager', step: 2,
+    role: 'You say whether the plant can make the recipe as written, after the QC Head has checked it and before the CFO approves its cost.',
+    jobs: ['<b>Endorse a recipe</b> when Today lists it: read the recipe, what changed, its nutrients against the label and its cost, then press Endorse.', '<b>Write a comment when something is red</b>; the CFO reads it.', '<b>Send it back to the Production Manager</b> with a reason and advice when the plant cannot make it as written.', '<b>Close a version</b> that is not going ahead, with the reason. The Production Manager is told.', '<b>Read any recipe</b> on Recipes, with its lines, steps and who did each.'],
+    done: 'Today says nothing needs you: no recipe waits at your step.',
+    notDo: 'You do not write recipes, enter nutrients, or enter rates or prices. Another recipe of a product (not the Default) does not come to you: after the QC Head it goes straight to the CFO.' },
+  cfo: { ver: 1, places: ['approvals', 'clients', 'margin', 'costs', 'products', 'setup', 'reports', 'guide'], title: 'CFO', step: 3,
+    role: 'You keep every cost true and propose every price. You approve the cost of each recipe, the last step before it is approved; the Default recipe then sets the cost of every pack.',
+    jobs: ['<b>Keep the rates current</b>: materials, packing, labour and FOH (Low and High), and freight. Each change is dated; past trucks keep their cost.', '<b>Approve the cost of a recipe</b> when Approvals lists it, and re-approve costs that moved more than the re-approval %.', '<b>Fix packs that are not costed</b>: each one names what is missing (an approved recipe, a packing bill, or a rate).', '<b>Propose prices and targets</b> for clients, and revise the VAN brand price lists. The COO approves them.', '<b>Close each month</b>: enter actual labour and FOH, and tie C2M to the books.', '<b>Check the items from your sheets</b> that C2M carried in, and settle O2S names.', '<b>Add clients, products and packs</b> on More, Products, and <b>give a KAM his lists</b> on More, Setup, Settings, KAM lists.'],
+    done: 'Approvals says nothing needs you. Every pack has a cost, every costed pack has a price, and last month is tied to the books.',
+    notDo: 'You do not approve your own prices, list revisions, targets or setting changes: the COO does. You do not write recipes. Nutrients are the QC Head\'s to enter.' },
+  viewer: { ver: 1, places: ['lists', 'guide'], title: 'Price list viewer', step: -1,
+    role: 'You see the approved prices of the price lists given to you, in the same document every manager receives.',
+    jobs: ['<b>Open your price lists</b> and read the approved prices.', '<b>Download a list as PDF</b> and share it with your clients.', '<b>Ask the COO or the CFO</b> for a list you need and cannot see.'],
+    done: 'You quote only the prices on your approved lists.',
+    notDo: 'You see no cost or margin, and you change nothing in C2M.' },
+  custom: { ver: 1, places: [], title: '', step: -1,
+    role: 'This role was set up by the System Administrator on the launcher. What you may do is what is ticked on it: the places below are the places you may use.',
+    jobs: null, done: 'Your first place says nothing needs you.', notDo: 'The places not listed here are not part of your role.', readNote: 'Each person in such a role sees their own places and jobs on this page.' } };
+const RP_FLOW = ['Production Manager writes', 'QC Head checks', 'Plant Manager endorses', 'CFO approves cost'];
+/** Which role page is this person's: null for the COO (does not sign) and while looking at a manager's screen. */
+function rolePageKey() { if (!ST || !ST.me || ST.me.admin || PV) return null; const r = ST.me.role; if (['production', 'qc', 'plant', 'cfo', 'viewer'].includes(r)) return r; return (ST.me.nav || []).includes('lists') && !(ST.me.nav || []).some(n => ['products', 'recipes', 'costs', 'margin'].includes(n)) ? 'viewer' : 'custom'; }
+const rpId = k => `${k}:${ROLE_PAGES[k].ver}`;
+/** The page itself. mode: sign (fills the screen, ends with the tick and Sign) or read (from the Guide, or the COO reading a role's page). */
+function rolePageHtml(k, mode, who) {
+  const P = ROLE_PAGES[k], nav = who ? null : (ST.me.nav || []).concat(ST.me.more || []);
+  const title = P.title || (who ? 'A role made on the launcher' : ST.me.label);
+  const places = (nav ? nav.filter(n => PLACE_WHAT[n]) : (P.places || [])).map(n => `<tr><td><b>${esc(PLACE_NAME[n])}</b></td><td>${esc(PLACE_WHAT[n])}</td></tr>`).join('');
+  const g15 = t => ST.m015 ? t.replace(/@015w?/g, '').replace(/@/g, '') : t.replace(/@015w[^@]*@/g, '').replace(/@/g, ''); /* lines about w/w, w/v and density show once database update 015 has run (review 7e, W5) */
+  const own = !who && !P.jobs ? gjMine().map(r => `<b>${esc(r.j)}</b>`) : [];
+  const jobs = (P.jobs ? P.jobs.filter(j => ST.m015 || !j.startsWith('@015')).map(g15) : null) || (who ? [P.readNote || 'Each job the role has the right to do, as its Guide shows it.'] : own.length ? own : GUIDE_CUSTOM.map(esc));
+  const html = rpBody(k, mode, who, P, title, places, jobs); const mins = Math.max(1, Math.ceil(html.replace(/<[^>]+>/g, ' ').split(/\s+/).filter(Boolean).length / 200)); // the words as drawn, rounded up (review 7e, 9)
+  return `<div class="rp"><p class="ans" style="margin:0 0 4px;color:var(--muted)">${mode === 'sign' ? 'Before you start · ' : ''}about ${mins} ${mins === 1 ? 'minute' : 'minutes'} · version ${P.ver}</p>${html}</div>`;
+}
+function rpBody(k, mode, who, P, title, places, jobs) {
+  return `
+  <h1 class="topic">Your role in C2M: ${esc(title)}</h1><p class="answer">${esc(P.role)}</p>
+  <h2>1. Where you sit</h2>${P.step >= 0 ? `<div class="rpflow">${RP_FLOW.map((s, i) => `<span${i === P.step ? ' class="on"' : ''}>${i === P.step ? 'You: ' : ''}${esc(s)}</span>`).join('')}<span class="ok">Approved: the Default recipe sets the cost of every pack</span></div><p class="ans">Another recipe of a product (not the Default) skips the Plant Manager: after the QC Head it goes straight to the CFO, and it moves no cost until the CFO makes it the Default. Each person is told when a recipe comes to them.</p>` : `<p>${k === 'viewer' ? 'The CFO proposes prices and the COO approves them; only approved prices reach your lists.' : 'Your places and jobs are below; Today or your first place lists what waits for you.'}</p>`}
+  <h2>2. Your places</h2><div class="box wrapx"><table><tr><th>Place</th><th>What it is for</th></tr>${places || '<tr><td colspan="2">As ticked on the role.</td></tr>'}</table></div>
+  <h2>3. Your jobs</h2><ul class="rpl">${jobs.map(j => `<li>${j}</li>`).join('')}</ul>
+  <h2>4. What done looks like</h2><p>${esc(P.done)}</p>
+  <h2>5. What you do not see or do</h2><p>${esc(P.notDo)}</p>
+  <h2>6. Always true</h2><p>${k === 'viewer' ? '' : 'Every save carries your name and the time, in the change record. A warning does not stop your work; to pass a recipe with something red, write a comment first. '}When unsure, open the Guide: each job has its steps and a Start button.</p>
+  ${mode === 'sign' ? `<label class="rptick"><input type="checkbox" id="rp-ok"> I have read this page and understand my role and jobs in C2M.</label><p style="margin:12px 0 0"><button class="btn" id="rp-sign" data-rpsign="${esc(k)}" disabled>Sign and open C2M</button> <span class="ans" style="margin:0">Signing is kept in the change record with the date and time.</span></p>` : `<p style="margin:16px 0 0"><button class="btn" data-rpclose="1">Close</button></p>`}`;
+}
+let _rpShown = false;
+/** Shows the page when this person has not signed this version yet; true while it is shown (What changed waits until after). */
+function checkSignoff() {
+  const k = rolePageKey(); if (!k || _rpShown) return _rpShown; if (!Array.isArray(ST.signed) || ST.signed.some(s => (typeof s === 'string' ? s : s.page) === rpId(k) && (typeof s === 'string' || !s.role || s.role === ST.me.role))) return false; // no list: a server from before 7e; a sign counts only for the role it was signed in
+  _rpShown = true; rpOpen(k, 'sign'); return true;
+}
+function rpOpen(k, mode, who) {
+  const old = $('rpbox'); if (old) old.remove(); const el = document.createElement('div'); el.id = 'rpbox'; el.className = 'rpbox'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-modal', 'true');
+  el.innerHTML = `<div class="rpin">${rolePageHtml(k, mode, who)}</div>`; document.body.appendChild(el); const a = $('app'); if (a) a.setAttribute('inert', ''); el.scrollTop = 0; const h = el.querySelector('h1'); if (h) { h.tabIndex = -1; h.focus(); }
+}
+function rpClose() { const el = $('rpbox'); if (el) el.remove(); const a = $('app'); if (a) a.removeAttribute('inert'); }
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('rpbox') && !$('rp-ok')) { e.preventDefault(); rpClose(); } });
+document.addEventListener('change', e => { if (e.target && e.target.id === 'rp-ok') { const b = $('rp-sign'); if (b) b.disabled = !e.target.checked; } });
+document.addEventListener('click', async e => { const t = e.target.closest && e.target.closest('[data-rpsign],[data-rpclose],[data-rpread]'); if (!t || !ST) return; e.preventDefault();
+  if (t.dataset.rpclose) { rpClose(); return; }
+  if (t.dataset.rpread != null) { const k = t.dataset.rpread || rolePageKey(); if (k && ROLE_PAGES[k]) rpOpen(k, 'read', !!t.dataset.rpread); return; }
+  const k = t.dataset.rpsign; if (!$('rp-ok') || !$('rp-ok').checked) return; t.disabled = true;
+  try { await api('/api/c2m/signoff', { page: k, version: ROLE_PAGES[k].ver }); // with the sign-in token (review 7e, 1)
+    ST.signed = (ST.signed || []).concat({ page: rpId(k), role: ST.me.role }); _rpShown = false; rpClose(); toast('Signed. Welcome to C2M.'); checkWhatsNew(); }
+  catch (err) { t.disabled = false; toast(err.message, true); } });
+/** The COO's list: who signed which page and when (Setup, Record and checks, Role sign-offs). */
+function vSignoffs() {
+  if (!ST.signoffs) return '<p class="ans">Role sign-offs start when the server is updated.</p>'; // review 7e, 8
+  const S = ST.signoffs; const ppl = S.people.filter(p => !p.admin);
+  /* the last sign of this person's own page, in this person's own role (review 7e, 2) */
+  const mine = p => { const L = S.rows.filter(r => r.user === p.user && r.page.split(':')[0] === p.page && (!r.role || r.role === p.role)); return L.length ? L[L.length - 1] : null; };
+  const cur = r => !!r && ROLE_PAGES[r.page.split(':')[0]] && Number(r.page.split(':')[1]) === ROLE_PAGES[r.page.split(':')[0]].ver;
+  const row = p => { const r = mine(p);
+    return `<tr><td><b>${esc(p.name)}</b> <span class="ans" style="margin:0">${esc(p.user)}</span></td><td>${esc(p.label)}</td><td>${r ? `${cur(r) ? '<span class="pill p-green">signed</span>' : '<span class="pill p-amber">signed an older version</span>'} ${esc(fmtD(d10(r.at)))}` : '<span class="pill p-amber">not yet</span>'}</td></tr>`; };
+  const n = ppl.filter(p => cur(mine(p))).length;
+  return `<p class="ans">${n} of ${ppl.length} ${ppl.length === 1 ? 'person has' : 'people have'} signed their role page. Each person signs once per version, before C2M opens for them; you do not sign.</p>
+  <div class="box wrapx"><table class="cards"><tr><th>Person</th><th>Role</th><th>Role page</th></tr>${ppl.map(row).join('') || '<tr><td colspan="3">Nobody yet.</td></tr>'}</table></div>
+  <h2>Read each role page</h2><p class="ans">The same words each person reads before C2M opens.</p><div class="acts">${Object.keys(ROLE_PAGES).map(k => `<button class="btn ghost" data-rpread="${k}">${esc(ROLE_PAGES[k].title || 'A role made on the launcher')}</button>`).join(' ')}</div>`;
+}
+
 /** A Guide link only when that row is on this person's Guide (Yawar's rows, Tahir's rows, and Both; D-141). */
 const gjVisible = n => gjMine().some(r => r.j === n); // a Guide link only when that row is on this person's Guide (D-141; push 6b, every role)
 const wnLines = c => (c.items || []).filter(it => ADM() || (it.for || ['all']).some(a => a === 'all' ? CAN('see.products') || CAN('see.margin') : CAN(a)));
@@ -2000,7 +2099,7 @@ const wnKey = () => 'c2m_changelog_seen_' + String((ST && ST.me && ST.me.user) |
 const CLX = () => CHANGELOG.filter(c => (!c.needs014 || (ST && ST.m014)) && (!c.needs015 || (ST && ST.m015))); // push 7c: an entry that needs 015 waits too
 const wnMine = () => CLX().filter(c => wnLines(c).length);
 function checkWhatsNew() {
-  const CL = CLX(); if (_wnShown || !ST || !ST.me || PV || !CL.length) return;
+  const CL = CLX(); if (_wnShown || _rpShown || !ST || !ST.me || PV || !CL.length) return; // push 7e: the role page comes first
   let seen = ''; try { seen = localStorage.getItem(wnKey()) || ''; } catch (_) {}
   const late = wnHeld(); // entries held back earlier (they waited for migration 014) and now shown, though older than the last one seen
   const latest = CL[CL.length - 1].ver; if (seen === latest && !CL.some(c => late.includes(c.ver))) return;
@@ -4723,7 +4822,7 @@ function vGuide() {
   const big = CAN('see.margin'), me = gRole(), mine = gjMine();
   const skinRow = `<h2>Your look</h2><div class="skinrow" role="group" aria-label="Your look">${SKINS.map(([k, l]) => `<button data-skin="${k}" aria-pressed="${skin === k}"><i style="background:${{ silver: '#EDF0F5', slate: '#C9D3DC', stone: '#E3DCCF', dusk: '#151A22' }[k]}"></i>${l}</button>`).join('')}</div><p class="ans" style="margin-top:6px">Kept in this browser, so each device remembers its own.</p>`;
   const whoBox = `<div class="two">${WHO.map(w => `<div class="box form"${w.r === ST.me.role ? ' style="border-color:var(--blue)"' : ''}><b>${esc(w.who)}${w.r === ST.me.role ? ' (this is you)' : ''}</b><p style="margin:6px 0 0">${esc(w.does)}</p><p style="margin:6px 0 0;color:var(--muted,#667)">${esc(w.next)}</p></div>`).join('')}</div>`;
-  const ans = mine.length ? `Your jobs: ${mine.length}. Tap a job for its steps, then Start.` : `Your job in C2M, ${esc(ST.me.label)}.`;
+  const ans = (mine.length ? `Your jobs: ${mine.length}. Tap a job for its steps, then Start.` : `Your job in C2M, ${esc(ST.me.label)}.`) + (rolePageKey() ? ' <button class="btn ghost sm" data-rpread="">Read your role page</button>' : ''); // push 7e
   const list = mine.length ? `<h2>Your jobs</h2>${mine.length > 6 ? findBox('gjobs', 'Find a job') : ''}<div class="gjl" id="gjobs" data-lft="gjobs">${mine.map(gjRow).join('')}</div>` : `<div class="box form"><b>Your job</b><ol style="margin:0;padding-left:20px">${GUIDE_CUSTOM.map(x => `<li>${esc(x)}</li>`).join('')}</ol></div>`;
   if (big) return `${head('Guide', ans, `Each row is 1 job: tap it for its numbered steps and what happens next; Start opens its first screen. Rows for the ${me === 'coo' ? 'COO' : 'CFO'}, and for both of you. The full system documentation is in More, Setup, Record and checks.`)}
   <h2>Your first day in 5 steps</h2><ol class="box form" style="margin:0 0 14px;padding:12px 12px 12px 32px">${(me === 'coo' ? ['Open <b>Approvals</b>. Do "Your next move", then the prices, list revisions, targets and settings waiting for you.', 'Open <b>Clients</b>, White Label. A price from the CFO shows "Open to approve" in its row; a brand in a row opens its page.', 'Open <b>Margin</b>. It opens on the whole company for this month; open a line, then a pack, down to each truck.', 'Open <b>More, Products</b> to add a client, a variant or a pack.', 'Open <b>More, Setup, Settings, KAM lists</b> to give a KAM his lists.'] : ['Open <b>Approvals</b>. Do "Your next move", then the rest of your list.', 'Open <b>Clients</b>, White Label. Pick a client, then a brand: its recipe, cost, prices and margin are on 1 page.', 'On the client, type a new price or target in the row, see the GP at once, then send it to the COO. It takes effect on Monday.', 'Open <b>Margin</b>. It opens on the whole company for this month; open a line, then a pack, down to each truck.', 'Open <b>Costs</b> when a material, packing, labour or FOH (factory overhead) cost changes; each cost has its own box. Every change is dated and logged.']).map(x => `<li>${x}</li>`).join('')}</ol>
@@ -4937,7 +5036,7 @@ document.addEventListener('click', async e => {
   render();
 });
 document.addEventListener('keydown', e => {
-  if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) { e.preventDefault(); if (!ST || pan) return; finder = finder ? null : { q: '', i: 0 }; moreOpen = false; render(); if (!finder) refocus('[data-finder]'); return; }
+  if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) { e.preventDefault(); if (!ST || pan || $('rpbox')) return; finder = finder ? null : { q: '', i: 0 }; moreOpen = false; render(); if (!finder) refocus('[data-finder]'); return; }
   if (finder) { if (e.key === 'Escape') { finder = null; render(); refocus('[data-finder]'); return; } if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); finder.i = Math.max(0, Math.min((finder.n || 1) - 1, finder.i + (e.key === 'ArrowDown' ? 1 : -1))); $('fres').innerHTML = finderList(); $('fq').setAttribute('aria-activedescendant', 'fopt-' + finder.i); return; }
     if (e.key === 'Enter') { const b = document.querySelector('#fres [aria-selected="true"]'); if (b) { e.preventDefault(); finderGo(b.dataset.fgo); render(); } return; } return; }
   if (e.key === 'Escape' && moreOpen) { moreOpen = false; render(); refocus('[data-more]'); return; }

@@ -408,3 +408,9 @@ Changed in 0.3.0 and 0.3.1: rs_per_kg fixed (1 rate of 1 kind, labour or FOH). A
 | basis (analysis) | w/w for a product sold per kg, w/v for one sold per L | state recipes[].nutrients.basis |
 | rho | The product density the analysis is shown with | state recipes[].nutrients.rho |
 | noDensity | The materials whose density is missing for a nutrient | state recipes[].nutrients.fields[].noDensity |
+
+## 10.27 10 Nov 2026 (D-166)
+| Term | Meaning | Where |
+|---|---|---|
+| Role page | The page about a person's role in C2M, read and signed once per version | page ROLE_PAGES; c2m_audit entity signoff |
+| Sign-off | A person's signature on a role page version, with the date and time | c2m_audit, entity signoff, entity_id "page:version"; state signed |

@@ -847,3 +847,21 @@ flowchart TD
 ```
 - Every % entered before 015 is w/w, as C2M took it so far: nothing moves until Himayat marks a value w/v.
 - A label check that cannot be done for lack of the product density is red at a check ("the product density is missing, so the label cannot be checked"), so passing needs a comment.
+
+## 1.42 The role page, read and signed once (owner: Tahir; Claude built; D-166, 10 Nov 2026)
+Built 10 Nov 2026, not pushed. No migration.
+
+```mermaid
+flowchart LR
+  A["Signs in, opens C2M"] --> B{"Signed this page, this version?"}
+  B -->|yes| Z["C2M opens as before"]
+  B -->|no| C["Role page fills the screen; nothing behind it takes a click"]
+  C --> D["Reads to the end, ticks: I have read this page and understand my role and jobs"]
+  D --> E["Sign and open C2M"]
+  E --> F["Kept in the change record: who, page and version, date and time"]
+  F --> Z
+  G["Tahir changes a role's page: a new version"] -.-> B
+```
+- 6 pages: Production Manager, QC Head, Plant Manager, CFO, Price list viewer (KAM), and a role made on the launcher (built from its places and Guide rows). The COO does not sign; he reads every page and sees who signed on More, Setup, Record and checks, Role sign-offs.
+- Each page: your role in 1 paragraph, 1 where you sit, 2 your places, 3 your jobs, 4 what done looks like, 5 what you do not see or do, 6 always true. About 1 to 2 minutes to read; never more than 5.
+- What changed (at login) waits until the page is signed. The page stays readable any time: Guide, Read your role page.

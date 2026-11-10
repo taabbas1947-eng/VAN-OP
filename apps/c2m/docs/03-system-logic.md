@@ -538,3 +538,13 @@ Built 10 Nov 2026, not pushed. No migration. Tahir had Majid, Himayat, Fahim and
 - Guide: "Read materials and nutrients" for the Plant Manager when his role holds Inputs (see.materials; Fahim's launcher role does, the built-in one does not).
 - Dates in words also on Recipe steps, every version, a closed version's reason and notices. A material card says "Used in N products". Missing material data names the QC Head for class, nutrients and density and the CFO for a rate.
 - Independent review 7d (10 Nov 2026): 0 Blocking, 3 Major (send back reason and notices still carried Rs to the QC Head; Rs. and PKR were not caught), 8 Minor; all fixed.
+
+## 3.47 The role page, read and signed once (owner: Tahir; D-166, 10 Nov 2026)
+Built 10 Nov 2026, not pushed. Tahir ruled on the picture "C2M Role Sign-off": the page fills the screen until signed; a new version is signed again; everyone except the COO signs; English.
+- Which page: the built-in role keys production, qc, plant, cfo, viewer take their own page; a role made on the launcher with Price lists and none of Products, Recipes, Costs or Margin takes the viewer page; any other takes the launcher-role page, built from the person's own places and Guide rows. The COO (administrator) and a preview of a manager's screen never see it.
+- A person's places on their page are the places their live role opens (Fahim's launcher role shows Inputs).
+- Shown when the state carries signed and it lacks "page:version". Sign is off until the tick. Escape does not close the page to sign; it closes the page opened to read. Ctrl K does not open behind it.
+- Reading time is worked out at 200 words a minute, with the fixed parts counted.
+- Each sign keeps the role it was signed in: a person moved to another role signs that role's page; the COO's list counts a sign only for the person's own page, current version and current role, and leaves out switched off logins. The server refuses a page that is not the caller's role's page.
+- Lines about w/w, w/v and density show on the Production Manager's and QC Head's pages once database update 015 has run.
+- Independent review 7e (10 Nov 2026): 1 Blocking (Sign was sent without the sign-in token, so nobody could sign), 3 Major (signs not tied to the role; the CFO page said he does not enter nutrients, though his role can; jobs missing from the Production Manager's and CFO's pages), 9 Minor and 7 wording points; all fixed. Open for Tahir: whether the CFO keeps the right to enter nutrients (the page now says "Nutrients are the QC Head's to enter").

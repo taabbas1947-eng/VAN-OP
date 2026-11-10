@@ -347,3 +347,7 @@ Built 10 Nov 2026, not pushed. Migration 015.
 - POST /api/c2m/density writes or removes 1 row of c2m_density (kind grade or product), with an audit row (entity density, entity_id "grade:8" or "product:32").
 - engine.loadAll reads c2m_density into D.density {grade, product}; each material grade gains nutMeasure and density; engine.analysisOpts gives each recipe its basis (per L or per kg) and the product density (its own, else that of the product whose recipe it follows).
 - State: m015; productDensity (to see.materials or see.products); materials[].density; nutRows[].measure; declared rows .measure; recipes[].nutrients.basis, .rho and fields[].noDensity.
+
+## 2.39 The role page, push 7e (owner: Tahir; D-166, 10 Nov 2026)
+- Sign: POST /api/c2m/signoff {page, version} writes 1 c2m_audit row (entity signoff, entity_id "production:1", action signed, new_value {role, label}); a second sign of the same page and version writes none. The COO's sign is skipped.
+- State: signed (the page ids this person has signed); for the COO, signoffs {rows: every sign, people: every C2M person with role label and whether the role is the administrator}.

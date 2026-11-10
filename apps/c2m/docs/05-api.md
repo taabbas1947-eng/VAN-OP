@@ -408,3 +408,9 @@ All below: right see.margin (403 otherwise), registered after the C2M access che
 | POST /api/c2m/grades/:id/nutrients | nutrient.edit | rows[].measure w/w or w/v (after 015) | as before; a w/v value up to 300 |
 | POST /api/c2m/products/:id/declared | grade.declare | rows[].measure w/w or w/v (after 015; none: by how the product is sold) | as before |
 - GET /api/c2m/state: m015; productDensity {productId: {kgPerL, source, date, by}}; materials[].density; recipes[].nutrients gain basis, rho and fields[].noDensity; flags may say the product density is missing.
+
+## 5.22 The role page, push 7e (10 Nov 2026; owner: Tahir; D-166)
+| Route | Right | Body | Answer |
+|---|---|---|---|
+| POST /api/c2m/signoff | any C2M person; the COO is skipped | {page: production, qc, plant, cfo, viewer or custom; version 1 to 99} | {ok, page} or {ok, skipped}; 400 an unknown page or version, or a page that is not the caller's role's page |
+- GET /api/c2m/state: signed ([{page: "page:version", role}]); signoffs for the COO ({rows: [{user, page, role, at}], people: [{user, name, role, label, admin, page}]}).

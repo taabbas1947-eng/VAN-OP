@@ -884,3 +884,12 @@ No migration. Change list 2026-11-10b.
 Tests: t21 61, new p20 13; t3 to t20, no-011, pricecheck, p9 to p19 (see docs 12). Independent review 7d: 0 Blocking, 3 Major, 8 Minor, all fixed.
 Data for the team (not faults): Yawar fills labour and FOH High and Low (all 66 products wait on it), freight, Oct actuals, 38 sheet items; Himayat enters 53 materials, trims micronutrient suggestions, adds Amino acids to the list, re-checks the 23 liquid recipes; 0 declared grades.
 Not pushed. Delivered to E:\VAN Systems for Tahir to push.
+
+## 10 Nov 2026 (3) - push 7e: the role page, read and signed once (D-166), MODULE: C2M
+Tahir asked for a mandatory read and sign-off page for everyone who lands, under 5 minutes, explaining the app flow and their role and job. On the picture "C2M Role Sign-off" he ruled: the page fills the screen until signed; a changed page is signed again; everyone except the COO signs; English.
+Files: c2m-routes.js (state signed and signoffs, POST /api/c2m/signoff, record names), c2m.html (ROLE_PAGES for Production Manager, QC Head, Plant Manager, CFO, Price list viewer and a launcher role; the full-screen page; Guide, Read your role page; Setup, Record and checks, Role sign-offs for the COO; change list 2026-11-10c), docs 01 to 12.
+No migration: each sign is a change record row (entity signoff, "page:version", with the role).
+Tests: t21 70, new p21 70; all others pass (t2 keeps its 1 old failure). Independent review 7e: 1 Blocking (Sign was sent without the sign-in token), 3 Major, 9 Minor, 7 wording; all fixed.
+Open for Tahir: the CFO role still holds nutrient.edit, while his page says nutrients are the QC Head's to enter: keep or remove the right. Read each role page on Role sign-offs and correct any words.
+Not pushed. Delivered to E:\VAN Systems for Tahir to push.
+Tahir ruled after delivery (10 Nov 2026): remove nutrient.edit from the CFO role (only the QC Head and the COO enter nutrients, densities and declared grades). To do in the next push: c2m-access.js SEED cfo, docs 11, the p15 Guide counts; on the live site the right is unticked on the launcher, People and access, Roles by app, C2M, CFO.

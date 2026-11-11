@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>VAN price lists</title>
+<link rel="icon" href="/assets/favicon.png">
+<style>
+:root{--navy:#14327e;--red:#e5262a;--ink:#14233a;--muted:#4a5a70;--line:#d8dfe9;--band:#f4f6fa}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;color:var(--ink);background:#fff}
+header{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:3px solid var(--navy)}
+header img{height:44px;width:auto}
+header .co{font-weight:700;color:var(--navy)}
+header .sub{font-size:13px;color:var(--muted)}
+header a{margin-left:auto;font-size:13px;color:var(--navy);text-decoration:none;border:1px solid var(--navy);padding:6px 10px;border-radius:4px}
+main{max-width:900px;margin:0 auto;padding:18px}
+h1{font-size:20px;margin:0 0 4px;color:var(--navy)}
+.tabs{display:flex;gap:8px;margin:14px 0}
+.tabs button{font:inherit;padding:8px 18px;border:1px solid var(--navy);background:#fff;color:var(--navy);border-radius:4px;cursor:pointer}
+.tabs button[aria-selected=true]{background:var(--navy);color:#fff}
+h2{font-size:16px;margin:22px 0 2px}
+.from{font-size:13px;color:var(--muted);margin-bottom:6px}
+.box{overflow-x:auto;border:1px solid var(--line);border-radius:4px}
+table{border-collapse:collapse;width:100%;min-width:420px}
+th{background:var(--navy);color:#fff;font-size:13px;text-align:left;padding:8px 10px;position:sticky;top:0}
+td{padding:7px 10px;border-top:1px solid var(--line)}
+tr:nth-child(even) td{background:var(--band)}
+td.n,th.n{text-align:right;white-space:nowrap}
+#msg{padding:30px 0;color:var(--muted)}
+footer{padding:16px 18px;font-size:12px;color:var(--muted);border-top:2px solid var(--red);margin-top:30px;text-align:center}
+</style>
+</head>
+<body>
+<header>
+  <img src="/c2m/assets/van-logo.png" alt="VAN">
+  <div><div class="co">Vital Agri Nutrients</div><div class="sub">Price lists</div></div>
+  <a href="/">Team sign in</a>
+</header>
+<main>
+  <h1>Price lists by region and channel</h1>
+  <div class="tabs" role="tablist"><button role="tab" id="t-punjab" aria-selected="true">Punjab</button><button role="tab" id="t-sindh" aria-selected="false">Sindh</button></div>
+  <div id="msg">Loading prices…</div>
+  <div id="out"></div>
+</main>
+<footer>Vital Agri Nutrients (Private) Limited · www.van.com.pk</footer>
+<script>
+(function(){
+  var MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],data=null,region='punjab';
+  var $=function(i){return document.getElementById(i)};
+  function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+  function fmt(d){if(!d)return'';var p=d.split('-');return +p[2]+' '+MON[+p[1]-1]+' '+p[0]}
+  function table(cols,rows){
+    var h='<div class="box"><table><thead><tr>'+cols.map(function(c){return'<th'+(c[2]?' class="n"':'')+'>'+esc(c[1])+'</th>'}).join('')+'</tr></thead><tbody>';
+    rows.forEach(function(r){h+='<tr>'+cols.map(function(c){return'<td'+(c[2]?' class="n"':'')+'>'+esc(r[c[0]])+'</td>'}).join('')+'</tr>'});
+    return h+'</tbody></table></div>';
+  }
+  function block(title,sec,cols){
+    if(!sec||!sec.rows.length)return'';
+    return'<h2>'+esc(title)+'</h2>'+(sec.from?'<div class="from">Prices from '+esc(fmt(sec.from))+'</div>':'')+table(cols,sec.rows);
+  }
+  function draw(){
+    if(!data)return;
+    var r=data[region],h='';
+    if(region==='punjab'){
+      h+=block('Farmer list, Punjab',r.farmer,[['product','Product'],['pack','Pack'],['price','Sale price, with FED',1]]);
+      h+=block('Distributor list',r.dist,[['product','Product'],['pack','Pack'],['exFed','Price ex FED',1],['withFed','Price with FED',1]]);
+    }else{
+      h+=block('Dealer list, Sindh',r.dealer,[['product','Product'],['pack','Pack'],['exFed','Net price ex FED',1],['withFed','Net price with FED',1]]);
+      h+=block('Distributor list',r.dist,[['product','Product'],['pack','Pack'],['exFed','Price ex FED',1],['withFed','Price with FED',1]]);
+    }
+    $('out').innerHTML=h;$('msg').style.display=h?'none':'block';if(!h)$('msg').textContent='No prices are listed here yet.';
+  }
+  function pick(x){region=x;$('t-punjab').setAttribute('aria-selected',x==='punjab');$('t-sindh').setAttribute('aria-selected',x==='sindh');draw()}
+  $('t-punjab').onclick=function(){pick('punjab')};$('t-sindh').onclick=function(){pick('sindh')};
+  fetch('/api/public/c2m-prices').then(function(r){return r.json().then(function(j){if(!r.ok)throw new Error(j.error||'Prices cannot be shown just now.');return j})})
+    .then(function(j){data=j;draw()}).catch(function(e){$('msg').textContent=e.message});
+})();
+</script>
+</body>
+</html>

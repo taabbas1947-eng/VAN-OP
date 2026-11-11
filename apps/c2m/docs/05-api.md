@@ -87,6 +87,8 @@ Roles: cfo = Yawar, coo = Tahir, production = Majid, qc = Himayat, plant = Fahim
 | POST | /api/c2m/lists/revisions/:id/withdraw | coo | {why} | {ok}; only an approved revision still waiting for its date; the list stays as it is (audit "withdrawn") | D-34 | yes |
 | POST | /api/c2m/lists/revisions/:id/sendback | coo | {reason} | {ok} | D-28 | yes |
 | POST | /api/c2m/pricedocs | cfo, coo; viewer only for a granted list or client | {audience, client (wl), fields[], eff?, till?, ref?, note?, reasons?} (a viewer cannot set eff, till, note or reasons) | {id, ref} (ref = VAN/PL/year/number). No eff: a client list takes the client's latest approved price date, a VAN list its own list dates. eff ahead: prices in force on that date; a distributor list issued makes each row's printed price its previous price (D-42) | D-14, D-34 | |
+| GET | /api/c2m/pricedocs/latest | cfo, coo (pricedoc.all) | | {docs:[{id, ref, audience, client, effective, till, by, at}]}: the latest issued document of each list and each white label client | 11 Nov 2026 | |
+| GET | /api/public/c2m-prices | none (public, rate limited) | | Simple prices only: {punjab:{farmer, dist}, sindh:{dealer, dist}, updated}, each {from, rows} | 11 Nov 2026 | |
 | GET | /api/c2m/pricedocs/:id/pdf | cfo, coo; the creator while the grant still stands | | application/pdf, printed from the saved snapshot; footer and "page n of N" on every page | D-14 | |
 | GET | /api/c2m/docs/:file | cfo, coo: all 12; production, qc, plant: 01, 07, 11; viewer: 07, 11 | | text/plain (the Markdown file) | D-20 | |
 

@@ -93,7 +93,7 @@ const BUILTIN = Object.keys(SEED);
  * For the six seeded roles this gives exactly the places they had before (tested). */
 function navFor(actions) {
   const a = new Set(actions), has = k => a.has(k);
-  if (has('see.margin')) return { nav: ['approvals', 'clients', 'margin', 'costs'], more: ['products', 'setup', 'reports', 'guide'] }; // R5 top bar: Approvals, Clients, Margin, Costs, More (push 3a, D-152). Clients holds Client prices; Products (adding clients and products) waits under More until push 3b
+  if (has('see.margin')) return { nav: ['approvals', 'clients', 'margin', 'costs'].concat(has('pricedoc.all') ? ['pricelists'] : []), more: ['products', 'setup', 'reports', 'guide'] }; // R5 top bar: Approvals, Clients, Margin, Costs, Price lists (11 Nov 2026), More (push 3a, D-152). Clients holds Client prices; Products (adding clients and products) waits under More until push 3b
   if (!has('see.products') && has('see.granted_lists')) return { nav: ['lists', 'guide'], more: [] };
   const nav = ['today']; if (has('variant.add')) nav.push('products'); /* Majid: a read-only Products screen, to add a variant (Tahir, 26 Oct 2026) */ nav.push('recipes'); if (has('see.materials')) nav.push('inputs'); nav.push('guide');
   return { nav, more: [] };

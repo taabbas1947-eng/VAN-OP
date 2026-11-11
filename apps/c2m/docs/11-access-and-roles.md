@@ -297,3 +297,4 @@ No new action: each list uses the right that adds to it. Delete, Take out of use
 - CFO: nutrient.edit taken off (built-in role; live role by migration 016). The CFO still sees materials and nutrients (see.materials) and adds rates and classes.
 - Notices: a role gets the notices of every recipe step whose right it holds; the COO only his own.
 - Review 7f: cfo notices also carry prices and lists, so a role reads them only with recipe.step.cost and see.margin; Mark as read never goes back; a read mark is not shown in the change record. The CFO also loses Save class on a material (nutrient.edit); he keeps Add a material class (material.save).
+- 11 Nov 2026: a role with see.margin (CFO, COO) gets the place Price lists (pricelists) in its top bar; no new action and no right changed. Download there needs pricedoc.all. The public price page at /c2m/prices needs no role and shows prices only.

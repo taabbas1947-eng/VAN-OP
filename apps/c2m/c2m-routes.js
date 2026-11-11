@@ -274,6 +274,8 @@ module.exports = function mountC2mRoutes(app, deps) {
     if (!R || !R.admin) throw Object.assign(new Error('You approve only what an administrator proposed.'), { status: 403 });
   };
 
+  const STATE_TTL = 30000; const stateCache = new Map(); let writeVer = 0;
+  app.use('/api/c2m', (req, res, next) => { if (req.method !== 'GET') { writeVer++; const done = () => { writeVer++; }; res.on('finish', done); res.on('close', done); } next(); }); // any save, roles included: the kept answers are no longer current
   /* ---------- Page ---------- */
   app.get(['/c2m', '/c2m/'], (req, res) => { res.set('Cache-Control', 'no-cache'); /* the browser keeps its copy and checks it is current (ETag) instead of downloading 560 KB on every open (D-145) */ res.sendFile(path.join(__dirname, 'c2m.html')); });
   app.get('/c2m/assets/van-logo.png', (req, res) => res.sendFile(path.join(__dirname, 'assets', 'van-logo.png')));
@@ -347,6 +349,31 @@ module.exports = function mountC2mRoutes(app, deps) {
     res.json({ ok: true });
   }));
 
+  /* ---------- Public price page, no sign-in (Tahir, 11 Nov 2026) ----------
+     Simple prices by region and channel, nothing else: Farmer list (Punjab), Distributor list (one list for the country, shown under Punjab and Sindh),
+     Dealer list (Sindh). No cost, margin, previous price, % change, reason, payment terms or other policy line, no MRP or FRP, no document number.
+     Read only. Registered before the sign-in check on purpose; it sits outside /api/c2m so that check never sees it. Rate limited per visitor, answer kept 60 seconds. */
+  const PUB_RATE = { windowMs: 10 * 60 * 1000, max: 120 }; const pubHits = new Map();
+  const pubLimit = (req, res, next) => { const xf = String(req.headers['x-forwarded-for'] || '').split(',').map(x => x.trim()).filter(Boolean), ip = xf.length ? xf[xf.length - 1] : (req.ip || 'x'), t = Date.now();
+    const h = (pubHits.get(ip) || []).filter(x => t - x < PUB_RATE.windowMs); if (h.length >= PUB_RATE.max) return res.status(429).json({ error: 'Too many requests. Try again in a few minutes.' });
+    h.push(t); pubHits.set(ip, h); if (pubHits.size > 5000) for (const [k, v] of pubHits) if (!v.some(x => t - x < PUB_RATE.windowMs)) pubHits.delete(k); next(); };
+  let pubCache = { at: 0, body: null };
+  async function publicPrices() {
+    if (pubCache.body && Date.now() - pubCache.at < 60000) return pubCache.body;
+    await applyDueRevisions();
+    const [lp] = await q('SELECT list_name, data_json, issued, valid_till FROM c2m_list_price ORDER BY id');
+    const L = groupLists(lp, ['pb'], await listMaster());
+    const rowsOf = (aud, data, keep) => PL.rows(aud, data).filter(keep);
+    const farmer = rowsOf('farmer_pb', { list: L.farmer }, r => r.cur !== '').map(r => ({ product: r.product, pack: r.pack, price: r.cur }));
+    const dist = rowsOf('dist', { list: L.dist }, r => r.cur !== '').map(r => ({ product: r.product, pack: r.pack, exFed: r.cur, withFed: r.fed }));
+    const dealer = rowsOf('dealer', { list: L.dealer }, r => r.cur !== '').map(r => ({ product: r.product, pack: r.pack, exFed: r.cur, withFed: r.netfed }));
+    const d = L.dates || {}, from = k => (d[k] && d[k].issued ? String(d[k].issued).slice(0, 10) : null);
+    const body = { punjab: { farmer: { from: from('farmer'), rows: farmer }, dist: { from: from('dist'), rows: dist } }, sindh: { dealer: { from: from('dealer'), rows: dealer }, dist: { from: from('dist'), rows: dist } }, updated: today() };
+    pubCache = { at: Date.now(), body }; return body;
+  }
+  app.get('/api/public/c2m-prices', pubLimit, (req, res) => publicPrices().then(b => { res.set('Cache-Control', 'public, max-age=60'); res.json(b); }, () => res.status(503).json({ error: 'Prices cannot be shown just now. Try again in a minute.' })));
+  app.get('/c2m/prices', (req, res) => { res.set('Cache-Control', 'no-cache'); res.sendFile(path.join(__dirname, 'c2m-prices.html')); });
+
   app.use('/api/c2m', (req, res, next) => checkDates().then(f => f ? res.status(503).json({ error: f }) : next(), () => res.status(503).json({ error: 'C2M cannot reach the database. Try again in a minute.' })), auth, c2mAuth);
 
   /** A viewer type role (a KAM): sees only the lists and clients granted to him. The same test build() uses. */
@@ -403,7 +430,8 @@ module.exports = function mountC2mRoutes(app, deps) {
     const enteredAt = new Map(poLines.filter(l => l.entered_at).map(l => [l.line_id, String(l.entered_at).slice(0, 19)])); // when each PO came in (migration 008; empty before it)
     const lastPo = new Map(); poLines.forEach(l => { const p = match(l.customer_name, l.brand, l.channel, l.pack); if (p && l.net_price > 0 && !engine.isVanBrand(D.cpById.get(p.client_product_id))) lastPo.set(p.id, Number(l.net_price)); }); // a VAN brand pack is priced per channel by its lists (D-44)
 
-    const products = D.cps.map(cp => {
+    const viewerOnly = !has('see.products') && has('see.granted_lists'); // a KAM: his answer carries no products or recipes (it empties both below), so they are not worked out (11 Nov 2026)
+    const products = viewerOnly ? [] : D.cps.map(cp => {
       const cust = D.custById.get(cp.customer_id) || {};
       const appr = engine.approvedVersion(D, cp.id), latest = engine.latestVersion(D, cp.id);
       const packs = D.packs.filter(p => p.client_product_id === cp.id).map(p => {
@@ -428,8 +456,8 @@ module.exports = function mountC2mRoutes(app, deps) {
         defaultName: engine.defaultName(D, cp.id), others: engine.approvedVersions(D, cp.id).filter(v => !appr || v.id !== appr.id).map(v => ({ id: v.id, name: v.rname, version: v.version_no, packs: seeCost ? D.packs.filter(p => p.client_product_id === cp.id).map(p => { const c = engine.packCost(D, p, { version: v }); return { id: p.id, total: c && c.costed ? c.total : null }; }) : undefined })) }; // D-140: the other approved recipes, cost for reading only
     });
 
-    const backSigs = new Map(); { const ids = [...D.recipes.byVer.values()].filter(v => v.sent_back_by && v.state === 'draft').map(v => v.id); for (const id of ids) backSigs.set(id, await backSig(id)); } // push 7b
-    const recipes = [...D.recipes.byVer.values()].filter(v => D.cpById.has(v.client_product_id)).map(v => { // a product out of use takes its recipes off the screens too (kept in the database; review 1.0.2 re-check 2, A1)
+    const backSigs = new Map(); if (!viewerOnly) { const ids = [...D.recipes.byVer.values()].filter(v => v.sent_back_by && v.state === 'draft').map(v => v.id); for (const id of ids) backSigs.set(id, await backSig(id)); } // push 7b
+    const recipes = viewerOnly ? [] : [...D.recipes.byVer.values()].filter(v => D.cpById.has(v.client_product_id)).map(v => { // a product out of use takes its recipes off the screens too (kept in the database; review 1.0.2 re-check 2, A1)
       const cp = D.cpById.get(v.client_product_id); const cust = cp ? D.custById.get(cp.customer_id) : null;
       const pr = engine.priceRecipe(D, v);
       const lines = pr.lines.map(l => ({ gradeId: l.gradeId, name: l.name, grade: l.grade, qty: l.qty, ...(seeCost ? { rate: l.rate, date: l.date, cost: l.cost } : {}) }));
@@ -670,8 +698,16 @@ module.exports = function mountC2mRoutes(app, deps) {
       if (!req.c2m.admin && ['see.settings','see.materials','see.cost','see.price'].some(a => R.can.has(a) && !req.c2m.can.has(a))) throw bad('That role can see settings, materials or costs that your role cannot, so its screen cannot be shown to you.');
       acc = { role: R.key, user: as, name: p.name || as, label: R.label, admin: false, actions: R.actions, can: R.can, nav: R.nav, more: R.more, roles: req.c2m.roles }; user = as;
     }
+    /* Speed (11 Nov 2026): the answer is kept 30 seconds for the same person and thrown away at once when anyone saves anything in C2M,
+       so a second open or a tab switch does not rebuild 565 KB. A save that starts while a build is running makes that build's answer unusable (version check). */
+    const ckey = user + '|' + as + '|' + acc.role, hit = stateCache.get(ckey);
+    if (hit && hit.ver === writeVer && Date.now() - hit.at < STATE_TTL) { res.set('Server-Timing', 'cache;dur=0'); res.type('json').send(hit.body); return; }
+    const ver = writeVer, t0 = Date.now();
     if (!as && (mayDo(req, 'reapproval.decide') || req.c2m.admin)) await sweepOnce(user).catch(e => console.error('[c2m] first-cost sweep', e.message));
-    const out = await build(acc, user); out.me.name = acc.name; if (as) out.preview = { user: as, name: acc.name }; res.json(out);
+    const t1 = Date.now();
+    const out = await build(acc, user); out.me.name = acc.name; if (as) out.preview = { user: as, name: acc.name };
+    const body = JSON.stringify(out); stateCache.set(ckey, { ver, at: Date.now(), body }); if (stateCache.size > 60) stateCache.delete(stateCache.keys().next().value);
+    res.set('Server-Timing', `sweep;dur=${t1 - t0}, build;dur=${Date.now() - t1}`); res.type('json').send(body);
   }));
 
   /* ---------- O2S pull (read only) ---------- */
@@ -3105,6 +3141,15 @@ module.exports = function mountC2mRoutes(app, deps) {
       return { id: r.insertId, ref };
     });
     res.json(id);
+  }));
+  /** The latest issued document of every list (and of every white label client): the Price lists tab downloads these, so a download makes no new number (Tahir, 11 Nov 2026). */
+  app.get('/api/c2m/pricedocs/latest', can('pricedoc.all'), wrap(async (req, res) => {
+    const [rows] = await q('SELECT id, ref, audience, effective, valid_till, created_by, created_at, fields_json FROM c2m_price_doc ORDER BY id DESC');
+    const seen = new Set(), docs = [];
+    for (const d of rows) { let client = null; if (d.audience === 'wl') { try { client = JSON.parse(d.fields_json).client || null; } catch (_) {} }
+      const k = d.audience + '|' + (client || ''); if (seen.has(k)) continue; seen.add(k);
+      docs.push({ id: Number(d.id), ref: d.ref, audience: d.audience, client, effective: d.effective ? String(d.effective).slice(0, 10) : null, till: d.valid_till ? String(d.valid_till).slice(0, 10) : null, by: d.created_by, at: String(d.created_at).slice(0, 19) }); }
+    res.json({ docs });
   }));
   app.get('/api/c2m/pricedocs/:id/pdf', wrap(async (req, res) => {
     const [[d]] = await q('SELECT * FROM c2m_price_doc WHERE id=?', [req.params.id]); if (!d) throw bad('This price list document is no longer in C2M. Press Refresh and open it again from the list of documents.');

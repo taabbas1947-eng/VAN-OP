@@ -24,6 +24,7 @@ Format: Keep a Changelog, semantic versions. Live: 1.0.0 (pushed 19 Oct about 22
 ### Changed
 - Speed: /api/c2m/state is kept 30 seconds per person and role and dropped the moment anyone saves in C2M (role changes on the launcher included); it sends a Server-Timing header (sweep, build) so the slow part can be read on live. A KAM's answer no longer works out products and recipes it then empties. Fonts no longer block the first paint.
 - navFor: a role with see.margin and pricedoc.all gets the place pricelists after costs.
+- Server-Timing on /api/c2m/state now also names the steps of the build (load_all, admins, apply_due, products, recipes_out, kam, signoffs_notices, sales, margin_misc, tail, json), so the slow part of a cold open can be read from the header. Nothing else changes.
 
 ## [Next version, push 7g: screens tidied] · 10 Nov 2026 · D-168, D-169 · Who: Tahir ruled ("All 25 in 1 push"); Claude built and tested; not pushed · No migration
 ### Fixed

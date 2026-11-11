@@ -389,14 +389,18 @@ module.exports = function mountC2mRoutes(app, deps) {
   app.get('/api/c2m/me', (req, res) => res.json({ ...meOf(req.c2m, req.c2m.user), name: req.c2m.name }));
 
   /* ---------- Shared data builder ---------- */
-  async function build(acc, user) {
+  async function build(acc, user, tmArg) {
     const role = acc.role, has = a => acc.can.has(a);
+    const tm = tmArg || []; let tl = Date.now(); const T = n => { const x = Date.now(); tm.push(n + ';dur=' + (x - tl)); tl = x; }; // timing marks for Server-Timing (11 Nov 2026): where the cold open spends its time
     if (has('see.materials') || has('see.products')) await nutBackfill(); // push 7a: copies the old class fields once, after migration 014
     const D = await engine.loadAll(q);
+    T('load_all');
     const S = D.settings.values; const AD = await adminUsers(acc.roles); const byAd = u => AD.has(String(u).toLowerCase());
+    T('admins');
     const seeCost = has('see.cost'), seePrice = has('see.price');
     const match = engine.matcher(D);
     await applyDueRevisions();
+    T('apply_due');
     // Speed: the reads below do not depend on each other, so all are sent together (one wait, not one after another).
     // They start after applyDueRevisions so they see what it applied. A read nobody uses is harmless; its error is ignored. A list-only role (it returns early) prefetches nothing and reads as before.
     const pre = new Map(); const pq = sql => (pre.has(sql) ? pre.get(sql) : q(sql));
@@ -456,6 +460,7 @@ module.exports = function mountC2mRoutes(app, deps) {
         defaultName: engine.defaultName(D, cp.id), others: engine.approvedVersions(D, cp.id).filter(v => !appr || v.id !== appr.id).map(v => ({ id: v.id, name: v.rname, version: v.version_no, packs: seeCost ? D.packs.filter(p => p.client_product_id === cp.id).map(p => { const c = engine.packCost(D, p, { version: v }); return { id: p.id, total: c && c.costed ? c.total : null }; }) : undefined })) }; // D-140: the other approved recipes, cost for reading only
     });
 
+    T('products');
     const backSigs = new Map(); if (!viewerOnly) { const ids = [...D.recipes.byVer.values()].filter(v => v.sent_back_by && v.state === 'draft').map(v => v.id); for (const id of ids) backSigs.set(id, await backSig(id)); } // push 7b
     const recipes = viewerOnly ? [] : [...D.recipes.byVer.values()].filter(v => D.cpById.has(v.client_product_id)).map(v => { // a product out of use takes its recipes off the screens too (kept in the database; review 1.0.2 re-check 2, A1)
       const cp = D.cpById.get(v.client_product_id); const cust = cp ? D.custById.get(cp.customer_id) : null;
@@ -476,6 +481,7 @@ module.exports = function mountC2mRoutes(app, deps) {
     if (D.m015 && (has('see.materials') || has('see.products'))) out.productDensity = Object.fromEntries([...D.density.product].filter(([k]) => D.cpById.has(k)));
     if (D.m014 && nutCopyFailed && (has('nutrient.list') || has('material.save'))) out.nutCopyFailed = nutCopyFailed; // review 7a, M2: shown, never silent
     if (D.m014 && (has('see.materials') || has('see.products'))) { out.nutrientList = D.nutrientList; out.declared = Object.fromEntries([...D.declared].filter(([k]) => D.cpById.has(k))); }
+    T('recipes_out');
     /* Push 7e (Tahir, 10 Nov 2026, D-166): the role page each person reads and signs once per version, kept in the change record.
        Each sign holds the role it was signed in, so a person moved to another role signs that role's page (review 7e, 2). */
     { const [sg] = await softQ("SELECT entity_id, new_value FROM c2m_audit WHERE entity='signoff' AND LOWER(by_user)=LOWER(?)", [user]); out.signed = (sg || []).map(r => ({ page: String(r.entity_id), role: signRole(r.new_value) })); }
@@ -506,6 +512,7 @@ module.exports = function mountC2mRoutes(app, deps) {
       out.lists = { issued: L.issued, till: L.till, dates: L.dates, dist: may.has('dist') ? L.dist : [], dealer: may.has('dealer') ? L.dealer : [], farmer: may.has('farmer') ? L.farmer : [] };
       out.wlLists = await wlListData(D, approvedPrice, grants.filter(g => g.grant_kind === 'client').map(g => g.grant_value));
       out.products = []; out.recipes = [];
+      T('kam');
       return out;
     }
     const [rv] = await pq("SELECT * FROM c2m_reapproval WHERE status='open' ORDER BY id");
@@ -518,6 +525,7 @@ module.exports = function mountC2mRoutes(app, deps) {
       out.productTypes = D.productTypes;
       if (!out.materialTypes) { const [mt] = await pq('SELECT id, name, nutrient_fields, nutrient_role FROM c2m_material_type ORDER BY nutrient_role, name'); out.materialTypes = mt; }
     }
+    T('signoffs_notices');
     if (has('see.margin')) {
       const [sales] = await q(`SELECT t.id, t.truck_date, t.kg, t.po, t.dc, p.line_id, p.received, p.customer_name, p.channel, p.brand, p.pack, p.net_price FROM c2m_o2s_truck t JOIN c2m_o2s_po_line p ON p.line_id=t.line_id ORDER BY t.truck_date`);
       /* R46 (push 4, D-154): each VAN brand sale takes its list's freight, the list picked as the price check picks it; no list: no freight, named. */
@@ -603,6 +611,7 @@ module.exports = function mountC2mRoutes(app, deps) {
         let regionRead = false; try { const [cols] = await q("SHOW COLUMNS FROM c2m_o2s_po_line LIKE 'region'"); regionRead = cols.length > 0; } catch (e) { console.error('[c2m] price check: region column check failed: ' + (e.code || e.message)); } // migration 009 (review 4 Nov, finding 5)
         out.listCheck = { first: PC.FIRST_LIST, tol: PC.TOL_PCT, before, regionRead, regionPulled: poLines.some(l => l.region != null), lines: lines.filter(x => x.received >= PC.FIRST_LIST) };
       }
+      T('sales');
       const [[ia]] = await pq("SELECT MIN(at) at FROM c2m_recipe_step WHERE action='imported'"); out.importedAt = ia && ia.at ? String(ia.at) : null; // the day Yawar's sheets were loaded: age of the sheet items
       const [[nd]] = await q('SELECT COUNT(*) n FROM c2m_price_doc WHERE ref LIKE ?', [`VAN/PL/${today().slice(0, 4)}/%`]); out.nextDocRef = `VAN/PL/${today().slice(0, 4)}/${String(Number(nd.n) + 1).padStart(3, '0')}`;
       const [imp] = await pq('SELECT * FROM c2m_import_item ORDER BY status, id'); out.imports = imp;
@@ -633,6 +642,7 @@ module.exports = function mountC2mRoutes(app, deps) {
         for (const cp of D.cps) out.lf.picks.push({ id: cp.id, labour: engine.lfPickOf(D, cp.id, 'labour', T), foh: engine.lfPickOf(D, cp.id, 'foh', T), lSet: D.lf.P.has(cp.id + '|labour'), fSet: D.lf.P.has(cp.id + '|foh') });
       } else out.lf = { ready: false };
       /* Next week's costs (push 2b, D-149): waiting changes, and those that failed or went in during the last 8 days. */
+      T('margin_misc');
       { const ready = await pendReady(); if (ready) await applyDue().catch(() => {}); /* due Monday changes go in before the list is read (review 2b, finding 8) */ const T = today(); out.weekly = { ready, monday: isMonday(T), next: nextMonday(T) }; out.pending = [];
         if (ready) { const since = new Date(Date.parse(T + 'T00:00:00Z') - 8 * 864e5).toISOString().slice(0, 10);
           const [pr] = await q("SELECT id, kind, target, label, now_value, new_value, effect_json, apply_on, urgent, reason, status, saved_by, saved_at, decided_by, decided_at, result_text, body_json FROM c2m_cost_pending WHERE status IN ('waiting','failed') OR (status='applied' AND decided_at>=?) ORDER BY urgent DESC, id DESC LIMIT 200", [since]);
@@ -653,6 +663,7 @@ module.exports = function mountC2mRoutes(app, deps) {
     } else {
       out.docs = fs.readdirSync(path.join(__dirname, 'docs')).filter(f => docAllowed(acc, f)).sort();
     }
+    T('tail');
     return out;
   }
   /** Which stored list an audience prints from: farmer_pb, farmer_sn, farmer_snc and web all use the farmer list. */
@@ -705,9 +716,9 @@ module.exports = function mountC2mRoutes(app, deps) {
     const ver = writeVer, t0 = Date.now();
     if (!as && (mayDo(req, 'reapproval.decide') || req.c2m.admin)) await sweepOnce(user).catch(e => console.error('[c2m] first-cost sweep', e.message));
     const t1 = Date.now();
-    const out = await build(acc, user); out.me.name = acc.name; if (as) out.preview = { user: as, name: acc.name };
-    const body = JSON.stringify(out); stateCache.set(ckey, { ver, at: Date.now(), body }); if (stateCache.size > 60) stateCache.delete(stateCache.keys().next().value);
-    res.set('Server-Timing', `sweep;dur=${t1 - t0}, build;dur=${Date.now() - t1}`); res.type('json').send(body);
+    const tm = []; const out = await build(acc, user, tm); out.me.name = acc.name; if (as) out.preview = { user: as, name: acc.name };
+    const tj = Date.now(); const body = JSON.stringify(out); tm.push('json;dur=' + (Date.now() - tj)); stateCache.set(ckey, { ver, at: Date.now(), body }); if (stateCache.size > 60) stateCache.delete(stateCache.keys().next().value);
+    res.set('Server-Timing', `sweep;dur=${t1 - t0}, build;dur=${Date.now() - t1}, ` + tm.join(', ')); res.type('json').send(body);
   }));
 
   /* ---------- O2S pull (read only) ---------- */

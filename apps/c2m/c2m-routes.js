@@ -392,6 +392,20 @@ module.exports = function mountC2mRoutes(app, deps) {
   async function build(acc, user, tmArg) {
     const role = acc.role, has = a => acc.can.has(a);
     const tm = tmArg || []; let tl = Date.now(); const T = n => { const x = Date.now(); tm.push(n + ';dur=' + (x - tl)); tl = x; }; // timing marks for Server-Timing (11 Nov 2026): where the cold open spends its time
+    /* Speed (11 Nov 2026, push 8b): a cold open spent most of its time on reads that wait for each other, each costing about 150 ms.
+       The reads below need nothing from the others, so they start now, together with loadAll, and are awaited where they were read before. Same SQL, same result.
+       A failed read is raised where it is awaited, as before (the catch here only stops a second, unhandled report of it). */
+    const earlyQ = (sql, p) => { const pr = q(sql, p); pr.catch(() => {}); return pr; };
+    const earlySoft = (sql, p) => { const pr = softQ(sql, p); pr.catch(() => {}); return pr; };
+    const noticeKeys = acc.admin ? [role] : [...new Set([role, ...(has('recipe.edit') || has('recipe.step.draft') ? ['production'] : []), ...(has('recipe.step.review') ? ['qc'] : []), ...(has('recipe.step.endorse') ? ['plant'] : []), ...(has('recipe.step.cost') && has('see.margin') ? ['cfo'] : [])])]; // cfo notices also carry prices and lists: only a finance role reads them (review 7f, 1)
+    const eSigned = earlySoft("SELECT entity_id, new_value FROM c2m_audit WHERE entity='signoff' AND LOWER(by_user)=LOWER(?)", [user]);
+    const eReadUpto = earlySoft("SELECT new_value FROM c2m_audit WHERE entity='notices_read' AND LOWER(by_user)=LOWER(?) ORDER BY id DESC LIMIT 1", [user]);
+    const eSignAll = acc.admin ? earlySoft("SELECT by_user, entity_id, new_value, at FROM c2m_audit WHERE entity='signoff' ORDER BY id", []) : null;
+    const ePeople = acc.admin ? earlySoft("SELECT r.username, a.name, r.role FROM user_module_roles r LEFT JOIN auth_users a ON a.username=r.username WHERE r.module='c2m' AND (a.active IS NULL OR a.active=1) ORDER BY r.username", []) : null;
+    const eGrants = !has('see.products') && has('see.granted_lists') ? earlyQ('SELECT grant_kind, grant_value FROM c2m_list_grant WHERE username=?', [user]) : null;
+    const eSales = has('see.margin') ? earlyQ(`SELECT t.id, t.truck_date, t.kg, t.po, t.dc, p.line_id, p.received, p.customer_name, p.channel, p.brand, p.pack, p.net_price FROM c2m_o2s_truck t JOIN c2m_o2s_po_line p ON p.line_id=t.line_id ORDER BY t.truck_date`) : null;
+    const eRegion = has('see.margin') ? earlyQ("SHOW COLUMNS FROM c2m_o2s_po_line LIKE 'region'") : null;
+    const eNextDoc = has('see.margin') ? earlyQ('SELECT COUNT(*) n FROM c2m_price_doc WHERE ref LIKE ?', [`VAN/PL/${today().slice(0, 4)}/%`]) : null;
     if (has('see.materials') || has('see.products')) await nutBackfill(); // push 7a: copies the old class fields once, after migration 014
     const D = await engine.loadAll(q);
     T('load_all');
@@ -400,6 +414,9 @@ module.exports = function mountC2mRoutes(app, deps) {
     const seeCost = has('see.cost'), seePrice = has('see.price');
     const match = engine.matcher(D);
     await applyDueRevisions();
+    // the notices wait for applyDueRevisions (it can write one), then start together with the reads below
+    const eNoticesRole = !has('see.margin') && noticeKeys.some(k => ['production', 'qc', 'plant', 'cfo'].includes(k)) ? earlySoft(`SELECT * FROM c2m_notice WHERE for_role IN (${noticeKeys.map(() => '?').join(',')}) AND at >= DATE_SUB(?, INTERVAL 30 DAY) ORDER BY id DESC LIMIT 30`, [...noticeKeys, now()]) : null;
+    const eNoticesMargin = has('see.margin') ? earlyQ(`SELECT * FROM c2m_notice WHERE for_role IN (${noticeKeys.map(() => '?').join(',')}) AND at >= DATE_SUB(?, INTERVAL 30 DAY) ORDER BY id DESC LIMIT 20`, [...noticeKeys, now()]) : null;
     T('apply_due');
     // Speed: the reads below do not depend on each other, so all are sent together (one wait, not one after another).
     // They start after applyDueRevisions so they see what it applied. A read nobody uses is harmless; its error is ignored. A list-only role (it returns early) prefetches nothing and reads as before.
@@ -484,18 +501,17 @@ module.exports = function mountC2mRoutes(app, deps) {
     T('recipes_out');
     /* Push 7e (Tahir, 10 Nov 2026, D-166): the role page each person reads and signs once per version, kept in the change record.
        Each sign holds the role it was signed in, so a person moved to another role signs that role's page (review 7e, 2). */
-    { const [sg] = await softQ("SELECT entity_id, new_value FROM c2m_audit WHERE entity='signoff' AND LOWER(by_user)=LOWER(?)", [user]); out.signed = (sg || []).map(r => ({ page: String(r.entity_id), role: signRole(r.new_value) })); }
-    if (acc.admin) { const RM = acc.roles && acc.roles.get ? acc.roles : await loadRoles(); const [all] = await softQ("SELECT by_user, entity_id, new_value, at FROM c2m_audit WHERE entity='signoff' ORDER BY id", []);
-      let [pp] = await softQ("SELECT r.username, a.name, r.role FROM user_module_roles r LEFT JOIN auth_users a ON a.username=r.username WHERE r.module='c2m' AND (a.active IS NULL OR a.active=1) ORDER BY r.username", []); // a switched off login is left out (review 7e, 6)
+    { const [sg] = await eSigned; out.signed = (sg || []).map(r => ({ page: String(r.entity_id), role: signRole(r.new_value) })); }
+    if (acc.admin) { const RM = acc.roles && acc.roles.get ? acc.roles : await loadRoles(); const [all] = await eSignAll;
+      let [pp] = await ePeople; // a switched off login is left out (review 7e, 6)
       if (!pp) [pp] = await softQ("SELECT r.username, a.name, r.role FROM user_module_roles r LEFT JOIN auth_users a ON a.username=r.username WHERE r.module='c2m' ORDER BY r.username", []);
       out.signoffs = { rows: (all || []).map(r => ({ user: String(r.by_user).toLowerCase(), page: String(r.entity_id), role: signRole(r.new_value), at: r.at })),
         people: (pp || []).map(p => { const R = RM.get(p.role) || {}; return { user: String(p.username).toLowerCase(), name: p.name || p.username, role: p.role, label: R.label || p.role, admin: !!R.admin, page: R.key ? signPageOf(R) : 'custom' }; }) }; }
     /* Push 7f (Tahir, 10 Nov 2026, D-167): a notice reaches every role holding the right of its step (a role made on the launcher too), and
        each person marks the notices they have read; read ones fold away. */
-    const noticeKeys = acc.admin ? [role] : [...new Set([role, ...(has('recipe.edit') || has('recipe.step.draft') ? ['production'] : []), ...(has('recipe.step.review') ? ['qc'] : []), ...(has('recipe.step.endorse') ? ['plant'] : []), ...(has('recipe.step.cost') && has('see.margin') ? ['cfo'] : [])])]; // cfo notices also carry prices and lists: only a finance role reads them (review 7f, 1)
-    { const [ns] = await softQ("SELECT new_value FROM c2m_audit WHERE entity='notices_read' AND LOWER(by_user)=LOWER(?) ORDER BY id DESC LIMIT 1", [user]); let up = 0; try { up = Number(JSON.parse((ns && ns[0] && ns[0].new_value) || '{}').upto) || 0; } catch (_) {} out.noticesReadUpto = up; }
+    { const [ns] = await eReadUpto; let up = 0; try { up = Number(JSON.parse((ns && ns[0] && ns[0].new_value) || '{}').upto) || 0; } catch (_) {} out.noticesReadUpto = up; }
     out.issuer = PL.ISSUER; // push 7g: the price list preview names the issuer from the same place as the PDF
-    if (!has('see.margin') && noticeKeys.some(k => ['production', 'qc', 'plant', 'cfo'].includes(k))) { const [nt] = await softQ(`SELECT * FROM c2m_notice WHERE for_role IN (${noticeKeys.map(() => '?').join(',')}) AND at >= DATE_SUB(?, INTERVAL 30 DAY) ORDER BY id DESC LIMIT 30`, [...noticeKeys, now()]); out.notices = (nt || []).map(n => has('see.cost') ? n : { ...n, text: lib.noRs(n.text) }); } // push 7b (R65), 7f: by the step rights held
+    if (!has('see.margin') && noticeKeys.some(k => ['production', 'qc', 'plant', 'cfo'].includes(k))) { const [nt] = await eNoticesRole; out.notices = (nt || []).map(n => has('see.cost') ? n : { ...n, text: lib.noRs(n.text) }); } // push 7b (R65), 7f: by the step rights held
     if (has('see.materials')) {
       // Material master without rates: Himayat's screen (ruled 16 Oct)
       out.materials = [...D.rates.values()].map(g => ({ gradeId: g.gradeId, materialId: g.materialId, name: g.name, grade: g.grade, unit: g.unit, typeId: g.typeId, type: g.type, role: g.role, fields: g.fields, nutrients: g.nutrients,
@@ -503,7 +519,7 @@ module.exports = function mountC2mRoutes(app, deps) {
       const [mt] = await pq('SELECT id, name, nutrient_fields, nutrient_role FROM c2m_material_type ORDER BY nutrient_role, name'); out.materialTypes = mt;
     }
     if (!has('see.products') && has('see.granted_lists')) {
-      const [grants] = await q('SELECT grant_kind, grant_value FROM c2m_list_grant WHERE username=?', [user]);
+      const [grants] = await eGrants;
       out.grants = grants;
       const [lp] = await pq('SELECT list_name, data_json, issued, valid_till FROM c2m_list_price ORDER BY id');
       const lg = grants.filter(g => g.grant_kind === 'list').map(g => g.grant_value);
@@ -527,7 +543,7 @@ module.exports = function mountC2mRoutes(app, deps) {
     }
     T('signoffs_notices');
     if (has('see.margin')) {
-      const [sales] = await q(`SELECT t.id, t.truck_date, t.kg, t.po, t.dc, p.line_id, p.received, p.customer_name, p.channel, p.brand, p.pack, p.net_price FROM c2m_o2s_truck t JOIN c2m_o2s_po_line p ON p.line_id=t.line_id ORDER BY t.truck_date`);
+      const [sales] = await eSales;
       /* R46 (push 4, D-154): each VAN brand sale takes its list's freight, the list picked as the price check picks it; no list: no freight, named. */
       const lineInfo = new Map(poLines.map(l => [l.line_id, l])); const lfOf = k => { const r = D.settings.rows.find(x => x.k === 'lf_' + k); return r && String(r.v).trim() !== '' && isFinite(Number(r.v)) ? Number(r.v) : null; };
       /** The list a VAN brand line is priced on, and that list's freight Rs per kg or L: the price check's own region rule (review 4, finding 4); no list: named, no freight. Trucks and open POs alike (R46; push 5a, D-157). */
@@ -608,16 +624,16 @@ module.exports = function mountC2mRoutes(app, deps) {
           return { po: l.po, received, cust: bl.line, cat: bl.cat, ch: engine.CHANNEL_NAME[l.channel] || l.channel, region: region || null, terms: l.payment_terms || null, brand: l.brand, pack: Number(l.pack), packId: p ? p.id : null, kg: Number(l.ordered_kg), ...r, gp };
         });
         const before = lines.filter(x => x.received < PC.FIRST_LIST).length;
-        let regionRead = false; try { const [cols] = await q("SHOW COLUMNS FROM c2m_o2s_po_line LIKE 'region'"); regionRead = cols.length > 0; } catch (e) { console.error('[c2m] price check: region column check failed: ' + (e.code || e.message)); } // migration 009 (review 4 Nov, finding 5)
+        let regionRead = false; try { const [cols] = await eRegion; regionRead = cols.length > 0; } catch (e) { console.error('[c2m] price check: region column check failed: ' + (e.code || e.message)); } // migration 009 (review 4 Nov, finding 5)
         out.listCheck = { first: PC.FIRST_LIST, tol: PC.TOL_PCT, before, regionRead, regionPulled: poLines.some(l => l.region != null), lines: lines.filter(x => x.received >= PC.FIRST_LIST) };
       }
       T('sales');
       const [[ia]] = await pq("SELECT MIN(at) at FROM c2m_recipe_step WHERE action='imported'"); out.importedAt = ia && ia.at ? String(ia.at) : null; // the day Yawar's sheets were loaded: age of the sheet items
-      const [[nd]] = await q('SELECT COUNT(*) n FROM c2m_price_doc WHERE ref LIKE ?', [`VAN/PL/${today().slice(0, 4)}/%`]); out.nextDocRef = `VAN/PL/${today().slice(0, 4)}/${String(Number(nd.n) + 1).padStart(3, '0')}`;
+      const [[nd]] = await eNextDoc; out.nextDocRef = `VAN/PL/${today().slice(0, 4)}/${String(Number(nd.n) + 1).padStart(3, '0')}`;
       const [imp] = await pq('SELECT * FROM c2m_import_item ORDER BY status, id'); out.imports = imp;
       const [sreq] = await pq('SELECT * FROM c2m_setting_request ORDER BY id DESC LIMIT 20'); out.settingRequests = sreq.map(r => ({ ...r, byAdmin: byAd(r.by_user) }));
       const [treq] = await pq('SELECT r.*, c.brand, cu.name customer FROM c2m_target_request r JOIN c2m_client_product c ON c.id=r.client_product_id JOIN c2m_customer cu ON cu.id=c.customer_id ORDER BY r.id DESC LIMIT 30'); out.targetRequests = treq.map(r => ({ ...r, byAdmin: byAd(r.by_user) }));
-      const [nt] = await q(`SELECT * FROM c2m_notice WHERE for_role IN (${noticeKeys.map(() => '?').join(',')}) AND at >= DATE_SUB(?, INTERVAL 30 DAY) ORDER BY id DESC LIMIT 20`, [...noticeKeys, now()]); out.notices = nt; // push 7f: by the step rights held, last 30 days (review 7f, 5)
+      const [nt] = await eNoticesMargin; out.notices = nt; // push 7f: by the step rights held, last 30 days (review 7f, 5)
       const [gr] = await pq('SELECT * FROM c2m_list_grant ORDER BY username'); out.grants = gr;
       const [people] = await pq("SELECT a.username, a.name, r.role FROM user_module_roles r JOIN auth_users a ON a.username=r.username WHERE r.module='c2m'"); const RR = acc.roles || await loadRoles(); out.people = people.map(p => { const r = RR.get(p.role); return { ...p, roleLabel: r ? r.label : p.role, grantee: isViewerRole(r) }; });
       const [lp] = await pq('SELECT list_name, data_json, issued, valid_till FROM c2m_list_price ORDER BY id'); const LM = await listMaster(); out.lists = groupLists(lp, null, LM);

@@ -159,3 +159,4 @@ While Tahir keeps the window open (the strip at the top of Approvals, Today and 
 - Majid: to correct a recipe from Yawar's sheet, open the product, start a new version of the Default recipe, correct the lines and press Send to the CFO.
 - Yawar: approve its cost on Approvals. Fill Labour and FOH (Low and High) first: no cost is complete without them.
 - The day after the last day, each pack's cost that day becomes its approved cost. Tahir can close the window early with Close the window now (2 taps).
+- Majid (from 17 Nov 2026, change list 2026-11-17b): in the window the recipe editor has **Save lines and send to the CFO**, and the recipe page has **Send to the CFO** next to Open to write. 1 press sends the corrected recipe to Yawar.

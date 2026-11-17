@@ -1,8 +1,8 @@
 {
  "tab": "access",
  "title": "Access and roles matrix",
- "ver": "2026-10-16a",
- "date": "2026-10-16",
+ "ver": "2026-11-17a",
+ "date": "2026-11-17",
  "owner": "COO (Tahir)",
  "intro": "Who may open each screen, who may do each job, which sign-offs are fixed by role, and what no role may ever do. The code's defaults are shown; where the live setting can differ, the item says so.",
  "items": [
@@ -1335,7 +1335,8 @@
    "status": "confirmed",
    "src": [
     "fn mvPageFor, mvMine, mvMay, screenMorning, tdEntryChoices, smpMayView",
-    "D-340, D-341"
+    "D-340, D-341",
+    "D-370"
    ],
    "blocks": [
     {
@@ -1375,6 +1376,10 @@
        [
         "Ismaeel (Finance)",
         "The Finance page: quantities, and PKR only on the to-invoice list (the existing rule: Finance sees money on the invoicing report only)"
+       ],
+       [
+        "Shoaib (Warehouse) and Zain (Supply Chain Officer)",
+        "The Warehouse page (2026-11-17a, D-370): quantities only, no PKR"
        ],
        [
         "Everyone else",

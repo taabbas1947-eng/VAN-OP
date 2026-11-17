@@ -1,8 +1,8 @@
 {
  "tab": "decisions",
  "title": "Decisions",
- "ver": "2026-11-04a",
- "date": "2026-11-04",
+ "ver": "2026-11-17a",
+ "date": "2026-11-17",
  "owner": "COO (Tahir)",
  "intro": "Every ruling and decision on O2S from June to 15 Oct 2026, one per item. D-001 to D-272 are in date order (D-001 is the oldest); D-273 onward were added after an independent review and sit at the end. Each item says who ruled, what was decided, why, what it changed and whether it still holds; an older decision that a newer one overturned is marked Replaced by the newer number. Items marked Not confirmed carry a question for Tahir.",
  "items": [
@@ -20756,6 +20756,150 @@
        [
         "Launcher",
         "Screens and rights in force are ticks on the launcher (D-356): Finance Desk Officer needs Edit on New order, Customers, Reports and FOC samples, View on Lab and Sales & Budget, and customer.create and customer.amend, to match Finance."
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-368",
+   "title": "Open orders shows left to ship (ordered minus shipped) and lets you pick 1 customer to see and download (2026-11-17a)",
+   "owner": "Tahir (ruling)",
+   "rules": [],
+   "status": "confirmed",
+   "src": [
+    "Shoaib (Senior Warehouse Officer), message relayed by Tahir 17 Nov 2026: customer wise remaining dispatch details are not downloadable; he downloads the CSV of all dispatches and edits it in Excel",
+    "Tahir, 17 Nov 2026, panel answers in chat: left to ship 'Ordered minus shipped'; row 'PO, product, Kg/L and bags'; where 'Both reports'; whole job 'Add a Morning view for him'; the 5 questions 'Yes, build these 5'; part bags '1 decimal, e.g. 1.5'; old column 'Replace with Left to ship'; who sees it 'Shoaib and Zain'",
+    "o2s.html RP_CATALOGUE openorders, RB_DATASETS.orders (shipleft, bagsleft, ready, due, pack, unit), fn rbShipLeftOf, rbBagsLeft, rbReadyOf, rbPackTxt, rbCellFmt, rbNumOut, rbNoTot, rbFileStem, rpCustPickHTML, rbExport, rbPrint, rpTableHTML, rpReportHTML",
+    "tests/lefttoship1117a.test.js, tests/findcopy.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-11-17"
+       ],
+       [
+        "Asked by",
+        "Shoaib (Senior Warehouse Officer), through Tahir"
+       ],
+       [
+        "Ruled by",
+        "Tahir"
+       ],
+       [
+        "Decision",
+        "Open orders shows Left to ship, ordered minus shipped (a truck counts as gone once it leaves the gate), in place of left to deliver. A line closed or closed short has nothing left. It also shows the committed date, the pack size, Shipped, Bags left and Cleared, ready (cleared by QA, not shipped, and still wanted on the order: never more than left to ship, 0 on a closed line). A customer picker sets the report's client filter, so the table, its total, Print, CSV and a new Excel button carry only that customer."
+       ],
+       [
+        "Bags left",
+        "Left to ship divided by the pack size, to 1 decimal (15 Kg of a 10 Kg bag is 1.5). No pack size, no bag count. Bags have no total, because pack sizes differ."
+       ],
+       [
+        "Kept",
+        "Left to deliver (balance) stays in the data, so the Custom report still offers it. Every other report keeps its file name."
+       ],
+       [
+        "Live data, 17 Nov 2026",
+        "All 353 trucks in O2S are released and delivered and no truck is loading, so left to ship equals left to deliver on every line today; they differ only while a truck is out and not confirmed."
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-369",
+   "title": "One customer shows 1 row per product, from the same rows as Open orders, with Print, CSV and Excel (2026-11-17a)",
+   "owner": "Tahir (ruling)",
+   "rules": [],
+   "status": "confirmed",
+   "src": [
+    "Shoaib (Senior Warehouse Officer), message relayed by Tahir 17 Nov 2026: customer wise remaining dispatch details are not downloadable; he downloads the CSV of all dispatches and edits it in Excel",
+    "Tahir, 17 Nov 2026, panel answers in chat: left to ship 'Ordered minus shipped'; row 'PO, product, Kg/L and bags'; where 'Both reports'; whole job 'Add a Morning view for him'; the 5 questions 'Yes, build these 5'; part bags '1 decimal, e.g. 1.5'; old column 'Replace with Left to ship'; who sees it 'Shoaib and Zain'",
+    "o2s.html fn rpCustomerHTML, rpCustLines, rpCustExport, rpCustPrint, rpCustTrucks, rpCustTrucksExport, RP_CUST_COLS, var rpCustAll",
+    "tests/lefttoship1117a.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-11-17"
+       ],
+       [
+        "Ruled by",
+        "Tahir"
+       ],
+       [
+        "Decision",
+        "The Orders table of One customer shows 1 row per product on each PO (it showed 1 row per PO, with the products joined in 1 cell). Its rows come from RB_DATASETS.orders, so it always gives the same left to ship as Open orders. It opens on the lines with something left to ship; Every line shows all of them."
+       ],
+       [
+        "Downloads",
+        "Print / PDF, CSV and Excel for the orders, with the customer and the unit on every row; a CSV for the Trucks table. No prices, as before."
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-370",
+   "title": "The Morning view gets an 8th page, Warehouse, for Shoaib and Zain, answering 5 questions (2026-11-17a)",
+   "owner": "Tahir (ruling)",
+   "rules": [
+    "R-019"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir, 17 Nov 2026, panel answers in chat: left to ship 'Ordered minus shipped'; row 'PO, product, Kg/L and bags'; where 'Both reports'; whole job 'Add a Morning view for him'; the 5 questions 'Yes, build these 5'; part bags '1 decimal, e.g. 1.5'; old column 'Replace with Left to ship'; who sees it 'Shoaib and Zain'",
+    "o2s.html MV_PAGE_ROLE (Warehouse, Supply Chain Officer), MV_TITLE, MV_TOPIC, MV_PAGES, fn mvPageWarehouse, mvWhStock, mvWhLeft, mvWhLeftTable, mvWhStockTable, mvOpenCust, var MV_WH_CUST, fn screenMorning",
+    "tests/lefttoship1117a.test.js, tests/morning28b.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-11-17"
+       ],
+       [
+        "Ruled by",
+        "Tahir"
+       ],
+       [
+        "Who sees it",
+        "Shoaib (role Warehouse, Senior Warehouse Officer) and Zain (role Supply Chain Officer). Tahir chose both."
+       ],
+       [
+        "The 5 questions",
+        "Claude picked them from the warehouse jobs in O2S and Tahir approved them: (1) what left the gate yesterday, and is every truck confirmed delivered; (2) what packed stock is in the warehouse now: ready to load, waiting for QA, or on hold; (3) which packed stock has waited longest, and for which customer; (4) which trucks and jobs need me today; (5) what is still left to ship for each customer, and which committed dates have passed, with the download."
+       ],
+       [
+        "Shoaib's own 5 questions",
+        "Asked of each team member on 20 Oct 2026; Shoaib's answers were not found in the repo or in past chats. Tahir chose to build on the 5 above."
+       ],
+       [
+        "Read only",
+        "Like every Morning view page. Left to ship comes from RB_DATASETS.orders (Open orders). Packed stock is packed minus shipped on every line, split as the report Packed, waiting to ship splits it, except that stock on a line with nothing left to ship (closed, or packed beyond the order) is shown apart as no open order, so it is never offered as ready to load. Found on the live data before the build: 1,000 Kg Max Sulfur on Maxim PO 21301, closed short, packed 29 Jul 2026, which the report counts as ready. The one link that is not Today or a PO opens the One customer report for that customer."
        ]
       ]
      }

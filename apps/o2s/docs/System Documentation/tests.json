@@ -1,8 +1,8 @@
 {
  "tab": "tests",
  "title": "Tests, issues and assumptions",
- "ver": "2026-11-03a",
- "date": "2026-11-03",
+ "ver": "2026-11-17a",
+ "date": "2026-11-17",
  "owner": "COO (Tahir)",
  "intro": "Every O2S test file with what it proves and its last result, then the open issues, older registers, assumptions nobody has confirmed, known limits, review reports and the security register. Read the totals first; each item names its source.",
  "items": [
@@ -806,6 +806,12 @@
         "11-03b: the Correct button on a record by area, for 12 roles: who corrects and who reverses a PO, a PO line, a packing run, a shipment and a batch; the lists are the DF_AREAS arrays; each field's own list (batch #, mfg, expiry, planned and produced stay Plant Manager and COO; the bag month moves to the packing area; the invoice price stays CFO and COO); Ordered locked on a PO line, run through the real sheet and save; nobody reverses a PO or a line (a forced reverse is refused) and the sheet says Close products or Close this line; the PO sent back sheet's quantity line; the order sheet's product card has Correct for the COO and the CFO only; a Production person changing a batch number gets 1 message; Batch trace's run picker (1 picker, live runs only, the full sheet, for the packing area, not stopped by the switch); a run's reverse run for real: refused when cleared, on a truck, taken by a truck (lot link or batch number), on QA hold, or already reversed, allowed under a complaint hold and with another truck of the product delivered, and a clean run reversed with the batch and line following; the printed price follows to printPrice and priceMismatch, and is locked once cleared or on a no-price run, and an emptied box is refused; the PO sent back Today card says Open it; a reverse that would leave packed below what left the gate is refused; Correct the PO on the order sheet for the COO and the CFO; the complaint lift names who reverses; 2 lines of one brand read the run's own line; a truck batch line's lotId blocks; the Correct button and its registry never read the corrections switch; COA and inspection unchanged; Batch trace's Correct the month; wording, Guide, changelog and build",
         "D-365, R-052",
         "483 passed, 0 failed (3 Nov 2026)"
+       ],
+       [
+        "lefttoship1117a.test.js",
+        "2026-11-17a: left to ship is ordered minus shipped and 0 on a closed line; bags left to 1 decimal and blank with no pack size; cleared, ready capped at packed minus shipped and at left to ship, 0 on a closed line; the orders rows carry the new fields and keep left to deliver; Open orders: picker, columns, filter, sum, views, Excel, file name, print line, no bag total; One customer: same rows, 1 row per product, 2 views, Print, CSV, Excel, trucks CSV, no prices, writes nothing; the Warehouse page: who gets it, the 5 questions, its sources, the index-only link, writes nothing, mvWhLeft and mvWhStock run (stock on a closed line is no open order, never ready to load); Guide and change log.",
+        "D-368, D-369, D-370",
+        "75 passed, 0 failed (17 Nov 2026, after the independent review)"
        ]
       ]
      }

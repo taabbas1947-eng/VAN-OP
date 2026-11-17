@@ -116,7 +116,7 @@ ok('an open report uses the screen width', /\.qs\.wide\.rp\{max-width:min\(1400p
               { id: 'B3', po: 'P1', brand: 'Old', batchNo: 'B-3', coa: { status: 'approved', receivingDate: '2026-10-03', approvedDate: '2026-10-04' } },
               { id: 'B2', po: 'P1', brand: 'Vibrant', batchNo: 'B-2', coa: { status: 'review', assign: { at: '2026-10-05T05:00:00Z' } } }] } };
   vm.createContext(sd);
-  vm.runInContext(['evToday', 'localDateOf', 'calDays', '_rbClientMap', 'lotBaseNo', 'lotBrandNo', 'batchPOsLabel', 'lineShortClosed'].map(grab).join('\n') + '\nfunction lineCleared(o,l){ return l.brand==="V-Zinc"?200:0; }\nfunction lineNetPrice(){ return 0; }\nfunction fedSplit(){ return {fed:0}; }\nvar RB_DATASETS=' + grabTopVar('RB_DATASETS', '{').replace(/^\s*var\s+RB_DATASETS\s*=\s*/, '') + ';\nthis.D=RB_DATASETS;', sd);
+  vm.runInContext(['evToday', 'localDateOf', 'calDays', '_rbClientMap', 'lotBaseNo', 'lotBrandNo', 'batchPOsLabel', 'lineShortClosed', 'rbShipLeftOf', 'rbBagsLeft', 'rbReadyOf', 'rbPackTxt', 'unitOf'].map(grab).join('\n') + '\nfunction lineCleared(o,l){ return l.brand==="V-Zinc"?200:0; }\nfunction lineNetPrice(){ return 0; }\nfunction fedSplit(){ return {fed:0}; }\nvar RB_DATASETS=' + grabTopVar('RB_DATASETS', '{').replace(/^\s*var\s+RB_DATASETS\s*=\s*/, '') + ';\nthis.D=RB_DATASETS;', sd);
   const w = sd.D.waiting.rows();
   eq('waiting to ship: one line has packed stock not shipped', w.length, 1);
   ok('...500 waiting, 200 cleared and ready, 300 waiting for QA, last packed 4 Oct', w[0].waiting === 500 && w[0].ready === 200 && w[0].awaitqa === 300 && w[0].lastpacked === '2026-10-04');
@@ -128,6 +128,8 @@ ok('an open report uses the screen width', /\.qs\.wide\.rp\{max-width:min\(1400p
   ok('an open certificate counts the days so far, from the hand-over to the lab (07i: shown, not averaged)', t.some(r => r.batch === 'B-2' && r.days === null && r.sofar === '2 days so far' && /^Open/.test(r.status)));
   const o = sd.D.orders.rows();
   ok('open orders: what is left per line (700, and 0 for the delivered one)', o.find(r => r.product === 'V-Zinc').balance === 700 && o.find(r => r.product === 'Vibrant').balance === 0);
+  ok('2026-11-17a: left to ship is ordered minus shipped (700), and 0 for the shipped line', o.find(r => r.product === 'V-Zinc').shipleft === 700 && o.find(r => r.product === 'Vibrant').shipleft === 0);
+  ok('2026-11-17a: cleared, ready on the order row is the same 200 as Packed, waiting to ship', o.find(r => r.product === 'V-Zinc').ready === 200);
 }
 ok('opening One customer does not fall into the builder branch', /c\.kind==='customer'/.test(grab('rpOpen')));
 ok('one customer: orders open their sheet, the DC number prints the DC, no prices', /openOrderSheet\(/.test(grab('rpCustomerHTML')) && /printDC\(/.test(grab('rpCustomerHTML')) && !/price|pkr\(/i.test(grab('rpCustomerHTML')));

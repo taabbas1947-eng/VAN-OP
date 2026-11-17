@@ -1,8 +1,8 @@
 {
  "tab": "formulas",
  "title": "Formulas and business rules",
- "ver": "2026-10-16a",
- "date": "2026-10-16",
+ "ver": "2026-11-17a",
+ "date": "2026-11-17",
  "owner": "not confirmed",
  "intro": "Every number O2S works out and every limit it checks: the formula, its unit and rounding, a worked example, where it lives in o2s.html, the ruling it comes from and the test that proves it. The last item lists every limit in one table.",
  "items": [
@@ -2576,6 +2576,40 @@
     },
     {
      "p": "Worked example: told on Friday 16 Oct 2026 with no holiday: acknowledge by Saturday 17 Oct, interim reply by Thursday 22 Oct, final reply by Tuesday 3 Nov. With a holiday on Monday 19 Oct, the interim reply is due Friday 23 Oct."
+    }
+   ]
+  },
+  {
+   "id": "FO-52",
+   "title": "F-052 · Left to ship and bags left",
+   "owner": "COO (Tahir)",
+   "rules": [],
+   "status": "confirmed",
+   "src": [
+    "fn rbShipLeftOf, rbBagsLeft",
+    "D-368"
+   ],
+   "blocks": [
+    {
+     "p": "Left to ship = max(0, ordered minus shipped) on a line not closed; 0 on a closed line. Bags left = left to ship / pack size, rounded to 1 decimal; blank with no pack size; never totalled."
+    },
+    {
+     "table": {
+      "head": [
+       "Unit",
+       "Rounding",
+       "Where in code",
+       "Ruling"
+      ],
+      "rows": [
+       [
+        "Kg or L (Liquid L, every other form Kg)",
+        "Left to ship whole on screen and in the file; bags 1 decimal",
+        "rbShipLeftOf, rbBagsLeft, rbCellFmt, rbNumOut",
+        "Tahir, 17 Nov 2026"
+       ]
+      ]
+     }
     }
    ]
   },

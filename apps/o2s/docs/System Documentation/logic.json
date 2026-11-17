@@ -1,8 +1,8 @@
 {
  "tab": "logic",
  "title": "System logic",
- "ver": "2026-10-16a",
- "date": "2026-10-16",
+ "ver": "2026-11-17a",
+ "date": "2026-11-17",
  "owner": "not confirmed",
  "intro": "How O2S decides: the stages a record moves through, who gets which job on Today and when, when a job escalates and to whom, the stuck rules, cover and send-back paths, and what happens when 2 people save at once. Each item names the function in o2s.html and the test that pins it; numbers and limits are on the Formulas tab.",
  "items": [
@@ -3450,6 +3450,119 @@
        [
         "FOC sample form",
         "Only his own clients, or a new prospect; a sample for anyone else's client is refused."
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "LG-44",
+   "title": "Left to ship, bags left and cleared, ready on an order line (2026-11-17a)",
+   "owner": "COO (Tahir)",
+   "rules": [],
+   "status": "confirmed",
+   "src": [
+    "fn rbShipLeftOf, rbBagsLeft, rbReadyOf, rbPackTxt",
+    "RB_DATASETS.orders",
+    "D-368"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Situation",
+       "What O2S shows"
+      ],
+      "rows": [
+       [
+        "Line open",
+        "Left to ship = ordered minus shipped, never below 0"
+       ],
+       [
+        "Line closed short, or the PO closed",
+        "Left to ship 0"
+       ],
+       [
+        "Truck released, not yet confirmed delivered",
+        "Counted as shipped: not in left to ship"
+       ],
+       [
+        "Pack size set",
+        "Bags left = left to ship / pack size, rounded to 1 decimal"
+       ],
+       [
+        "No pack size",
+        "Bags left blank"
+       ],
+       [
+        "Cleared, ready",
+        "Cleared by QA (lineCleared), capped at packed minus shipped and at left to ship; 0 on a closed line"
+       ],
+       [
+        "Committed date shown",
+        "The line's own committed date only, the date O2S counts late from; blank if the line has none"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "LG-45",
+   "title": "What the Warehouse Morning view shows, and from where (2026-11-17a)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-019"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn mvPageWarehouse, mvWhStock, mvWhLeft, mvWhLeftTable, mvWhStockTable",
+    "D-370"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Part",
+       "What it shows",
+       "From"
+      ],
+      "rows": [
+       [
+        "Trucks out yesterday",
+        "Released DCs on the day, Kg/L (no PKR: the Warehouse roles see no money)",
+        "mvTSales, as on Saad's page"
+       ],
+       [
+        "Not confirmed delivered",
+        "Shipped minus delivered on open lines",
+        "mvLines sp.onRoad"
+       ],
+       [
+        "Packed stock in the warehouse",
+        "Ready to load + waiting for QA + on hold + no open order. On a line, up to what is left to ship is split by lineCleared and lineHeld; the rest, and all of it on a closed line, is no open order",
+        "mvWhStock, from the order lines"
+       ],
+       [
+        "Oldest packed stock",
+        "The earliest pack run not yet fully shipped, in days, on lines with something left to ship",
+        "packingLog (kg minus shipKg)"
+       ],
+       [
+        "Your jobs on Today",
+        "The jobs of the role signed in, and the daily comments due",
+        "tdItems through mvToday; mvComments (need)"
+       ],
+       [
+        "Left to ship, by customer",
+        "Left to ship, cleared and ready, lines past their committed date; link to One customer",
+        "RB_DATASETS.orders shipleft; late lines from mvLines (the same as Plant)"
+       ],
+       [
+        "Do today",
+        "Load each customer's ready stock (oldest first), comments due, trucks not confirmed delivered, stock on hold, packed stock waiting 7 days or more",
+        "the rows above"
        ]
       ]
      }

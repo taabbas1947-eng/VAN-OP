@@ -1,8 +1,8 @@
 {
  "tab": "dictionary",
  "title": "Data dictionary and glossary",
- "ver": "2026-10-16a",
- "date": "2026-10-16",
+ "ver": "2026-11-17a",
+ "date": "2026-11-17",
  "owner": "COO (Tahir)",
  "intro": "The plain meaning, allowed values and unit of every O2S field, with every pick list in full, then the words the team uses and the abbreviations. Field types and writers are in tab 4; this tab points to the tab 4 item instead of repeating it.",
  "items": [
@@ -3559,6 +3559,61 @@
         "Left",
         "Ordered minus delivered, for this rule. Not minus packed. A line with stock made and not yet delivered is refused, so what is left is stock that does not exist yet.",
         "D-348"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "DD-38",
+   "title": "Left to ship, bags left, cleared, ready: the words (2026-11-17a)",
+   "owner": "COO (Tahir)",
+   "rules": [],
+   "status": "confirmed",
+   "src": [
+    "D-368",
+    "D-369",
+    "D-370"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Word",
+       "Meaning in O2S",
+       "Where it comes from"
+      ],
+      "rows": [
+       [
+        "Left to ship",
+        "Ordered minus shipped on a line not closed. Open orders and One customer use it since 2026-11-17a.",
+        "D-368"
+       ],
+       [
+        "Left to deliver",
+        "Ordered minus delivered. Still in the Custom report.",
+        "RB_DATASETS.orders balance"
+       ],
+       [
+        "Bags left",
+        "Left to ship divided by the pack size, to 1 decimal. A liquid's bag is its can or bottle.",
+        "D-368"
+       ],
+       [
+        "Cleared, ready",
+        "Packed, passed QA, not yet shipped, and still wanted on the order.",
+        "D-368"
+       ],
+       [
+        "No open order",
+        "Packed stock on a line that is closed, or beyond what the line still wants. The Warehouse page shows it apart; it is never ready to load.",
+        "D-370"
+       ],
+       [
+        "Warehouse page",
+        "The Morning view page of the Senior Warehouse Officer and the Supply Chain Officer.",
+        "D-370"
        ]
       ]
      }

@@ -939,3 +939,5 @@ Tests (cloud copy, MariaDB 10.11, real code, migrations 001 to 016, scratch harn
 Not pushed. Delivered to E:\VAN Systems for Tahir to push.
 After the push: Tahir opens the window on Costs (pick the last day). Yawar fills Labour and FOH Low and High, then saves the Fruitlish 3 L bill again (carton as Secondary, 4 packs per outer). Majid corrects recipes; Yawar approves their cost.
 Open for Tahir: what Rs 295 on the Fruitlish bill covers (bottle only, or more); he left it to Yawar.
+
+Live, 17 Nov 2026 16:10: push 9 is pushed (commit 2fb22f1) and deployed. On Tahir's instruction ("stop the approvals, let it be automatic for go-live") Claude opened the go-live window as Tahir, last day 30 Nov 2026; checked live: the strip shows, nothing is held for Monday, Save reads "Save and approve". Labour and FOH Low and High are filled (labour 5 and 7.5, FOH 15 and 22.5). Yawar's urgent Fruitlish 3 L bill (waiting change 6, carton entered per pack) was left for him to save again, which puts it in at once.

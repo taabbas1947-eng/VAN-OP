@@ -236,3 +236,10 @@ A pack takes 1 labour rate and 1 FOH rate, each the first match of these levels:
 | B-62 | The analysis basis | Sum of kg per kg (or per L) of the lines x the value per unit, x 100: % w/w for a product sold per kg, % w/v for one sold per L. Example: Tornado 0.2245 kg per L x 40 / 1.20 = 7.483% w/v. |
 | B-63 | The other basis (R72) | w/w to w/v: x product density; w/v to w/w: / product density. Example: 7.483% w/v / 1.25 = 5.99% w/w. Shown in brackets; without the product density, not shown. |
 | B-64 | Label on the other basis | Checked after converting the recipe figure with the product density (B-63); without it the line is not complete and red at a check. Limits: w/w 0 to 100, w/v 0 to 300, density 0.5 to 3.0 kg per L. g per L / 10 = % w/v. |
+
+## 17 Nov 2026 (D-170)
+| ID | Rule | Detail |
+|---|---|---|
+| B-65 | Window open | Open while today (Pakistan date) <= golive_until. Only the administrator sets it. |
+| B-66 | Recipe from the sheet | A product with an approved or old recipe version whose note starts "Imported from". In the window its Default recipe goes draft, then cost, then approved. |
+| B-67 | The close | The day after golive_until: for each pack of a product in use with a complete cost today, if abs(approved - today) >= Rs 0.005, a new approved cost = today's cost (materials + packing + labour + FOH + freight). Once per golive_until. |

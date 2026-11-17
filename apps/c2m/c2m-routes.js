@@ -41,6 +41,12 @@ module.exports = function mountC2mRoutes(app, deps) {
   checkDates().then(f => f && console.error('[c2m] ' + f)).catch(() => {});
   const now = () => lib.pkNow();     // Pakistan time (audit finding 9)
   const today = () => lib.pkToday();
+  /* ---------- Go-live window (Tahir, 17 Nov 2026, D-170) ----------
+     Until the last day Tahir sets (setting golive_until), every cost change goes in when saved (no Monday wait, no urgent approval and
+     no re-approval item), and the Default recipe of a product that came from Yawar's sheet is corrected by the Production Manager and
+     approved by the CFO in 1 step. The day after the last day, each fully costed pack's cost that day becomes its approved cost. */
+  const GL = { until: null, at: 0 };
+  const glOn = () => !!GL.until && today() <= GL.until;
   /* Every query goes through q: undefined becomes NULL (review S9), and inside tx() it runs on the
    * transaction's connection. Without deps.pool C2M answers 503 (mountFault above); the check in tx() is only a guard. */
   const txStore = new AsyncLocalStorage();
@@ -50,6 +56,9 @@ module.exports = function mountC2mRoutes(app, deps) {
     /* Effect before saving (push 2a): in a dry run every re-approval item a save would write is listed instead (review 5 Nov, finding 1:
        packing price writes its own item, not through reapprovalFor). The rest of the save runs and is rolled back. */
     const dry = dryStore.getStore(); if (dry && /^\s*INSERT INTO c2m_reapproval\b/i.test(sql)) { try { dry.items.push(...JSON.parse((p || [])[1] || '[]')); } catch (_) {} return Promise.resolve([{ insertId: 0, affectedRows: 1 }]); }
+    if (!dry && glOn() && /^\s*INSERT INTO c2m_reapproval\b/i.test(sql)) { // go-live window: no re-approval item; a first cost (a pack with none approved) is still written (D-170, review m5)
+      let it = []; try { it = JSON.parse((p || [])[1] || '[]'); } catch (_) {} const first = it.filter(i => i && i.first);
+      if (!first.length) return Promise.resolve([{ insertId: 0, affectedRows: 0 }]); p = [p[0], JSON.stringify(first), ...p.slice(2)]; }
     const c = txStore.getStore(); return c ? c.execute(sql, clean(p)) : deps.pdq(sql, clean(p)); };
   /** Placeholders for a list, e.g. IN (?,?,?): prepared statements (the platform's pool.execute) cannot take an array for 1 ?. */
   const qs = a => a.map(() => '?').join(',');
@@ -82,6 +91,14 @@ module.exports = function mountC2mRoutes(app, deps) {
   /** A query on the piece 3 link tables: [] if migration 003 has not been run yet. */
   const softQ = async (sql, p) => { try { return await q(sql, p); } catch (e) { if (e && (e.code === 'ER_NO_SUCH_TABLE' || e.errno === 1146)) return [[]]; throw e; } };
   const isDate = d => /^\d{4}-\d{2}-\d{2}$/.test(String(d || '')) && !isNaN(Date.parse(d));
+  /** The last day of the go-live window, or null (D-170). Read at most every 30 seconds, and fresh when asked. A failed read keeps the last answer. */
+  async function glUntil(fresh) {
+    if (!fresh && GL.at && Date.now() - GL.at < 30000) return GL.until;
+    try { const [rows] = await deps.pdq("SELECT v FROM c2m_setting WHERE k='golive_until'"); const v = rows && rows[0] ? String(rows[0].v).slice(0, 10) : null; GL.until = v && isDate(v) ? v : null; GL.at = Date.now(); } catch (_) {}
+    return GL.until;
+  }
+  /** A count of packs sent for re-approval, as the person is told: 0 while the go-live window is open (no item is written, D-170). */
+  const reN = n => (glOn() && !dryStore.getStore() ? 0 : n);
 
   /* ---------- Access: c2m role from the platform's role registry ---------- */
   /* The roles: the table c2m_role when migration 002 has been run, else the 6 built in (so a deploy before the migration locks nobody out). */
@@ -109,7 +126,7 @@ module.exports = function mountC2mRoutes(app, deps) {
     const R = roles || await loadRoles(); const [h] = await q("SELECT username, role FROM user_module_roles WHERE module='c2m'");
     return new Set(h.filter(x => R.get(x.role) && R.get(x.role).admin).map(x => String(x.username).toLowerCase()));
   }
-  const wrap = fn => (req, res) => fn(req, res).catch(e => {
+  const wrap = fn => (req, res) => glUntil().then(() => fn(req, res)).catch(e => { // the go-live window is known before every request (D-170)
     if (e && (e.errno === 1213 || e.errno === 1205 || e.code === 'ER_LOCK_DEADLOCK' || e.code === 'ER_LOCK_WAIT_TIMEOUT')) e = moved();
     if (e && e.code === 'ER_NO_SUCH_TABLE') { e = Object.assign(new Error('C2M is not switched on yet: IT has 1 step to run. Nothing was saved; try again after IT has run it.'), { status: 503 }); }
     if (!e.status) console.error('[c2m]', e);
@@ -149,7 +166,7 @@ module.exports = function mountC2mRoutes(app, deps) {
       items.push(av ? { packId: p.id, label, from: Number(av.total), to: c.total, pct: (c.total - Number(av.total)) / Number(av.total) * 100 } : { packId: p.id, label, from: null, to: c.total, pct: null, first: true });
     }
     if (items.length) await q('INSERT INTO c2m_reapproval (cause, items_json, created_at) VALUES (?,?,?)', [cause.slice(0, 300), JSON.stringify(items), now()]);
-    return items.length;
+    return glOn() && !dryStore.getStore() ? items.filter(i => i.first).length : items.length; // in the window only first costs are written (D-170)
   }
   /** C2M's own sales and cost of trucks out in a month (YYYY-MM), from O2S trucks and the approved cost on each truck's date;
    *  FOC lines (price 0) are kept apart (D-62, D-64). */
@@ -407,6 +424,7 @@ module.exports = function mountC2mRoutes(app, deps) {
     const eRegion = has('see.margin') ? earlyQ("SHOW COLUMNS FROM c2m_o2s_po_line LIKE 'region'") : null;
     const eNextDoc = has('see.margin') ? earlyQ('SELECT COUNT(*) n FROM c2m_price_doc WHERE ref LIKE ?', [`VAN/PL/${today().slice(0, 4)}/%`]) : null;
     if (has('see.materials') || has('see.products')) await nutBackfill(); // push 7a: copies the old class fields once, after migration 014
+    if (has('see.margin')) await glClose().catch(e => console.error('[c2m] go-live close failed: ' + (e && e.message))); // D-170: a window that has ended resets the approved costs before they are read (no query while no window is set)
     const D = await engine.loadAll(q);
     T('load_all');
     const S = D.settings.values; const AD = await adminUsers(acc.roles); const byAd = u => AD.has(String(u).toLowerCase());
@@ -486,13 +504,13 @@ module.exports = function mountC2mRoutes(app, deps) {
       return { id: v.id, clientProductId: v.client_product_id, customer: cust ? cust.name : '?', brand: cp ? cp.brand : '?', version: v.version_no, state: v.state, note: seeCost ? v.note : lib.noRs(v.note), rname: v.rname || engine.MAIN, isDefault: v.state === 'approved' && (engine.approvedVersion(D, v.client_product_id) || {}).id === v.id, defaultName: engine.defaultName(D, v.client_product_id),
         sentBack: v.sent_back_by ? { by: v.sent_back_by, state: v.sent_back_state, reason: seeCost ? v.sent_back_reason : lib.noRs(v.sent_back_reason), advice: seeCost ? v.sent_back_advice : lib.noRs(v.sent_back_advice) } : null, // no Rs without see.cost (review 7d, M1)
         lines, kgTotal: pr.kgTotal, materials: seeCost ? pr.materials : undefined, nutrients: engine.nutrients(pr, engine.analysisOpts(D, v.client_product_id)), steps: seeCost ? v.steps : v.steps.map(s => ({ ...s, note: lib.noRs(s.note) })), // push 7d: no Rs to a person who does not see cost
-        path: (v.rname || engine.MAIN) !== engine.defaultName(D, v.client_product_id) && engine.approvedVersions(D, v.client_product_id).length > 0 ? 'other' : 'default', // push 7b: other = Majid, Himayat, Yawar (R64)
+        path: (v.rname || engine.MAIN) !== engine.defaultName(D, v.client_product_id) && engine.approvedVersions(D, v.client_product_id).length > 0 ? 'other' : (v.state === 'draft' && glOn() && openingCps(D).has(Number(v.client_product_id))) || (v.state !== 'draft' && /\(D-170\)/.test((v.steps || []).map(s => s.note || '').join(' '))) ? 'golive' : 'default', // push 7b: other = Majid, Himayat, Yawar (R64); golive = Majid, then Yawar (D-170)
         flags: ['review', 'endorse'].includes(v.state) ? recipeFlags(D, v.id) : [], // R68: why a comment is needed to pass
         backSig: v.sent_back_by && v.state === 'draft' ? (backSigs.get(v.id) ?? null) : undefined }; // R63: the lines as sent back, so the page says where a resend goes
     });
 
     // Settings (budget and ambition GP, thresholds) go to Yawar and Tahir only (review S9)
-    const out = { m007: D.m007, outOfUseKeys: [...D.outOfUse], variantsReady: D.variantsReady, families: D.families.map(f => ({ id: f.id, name: f.name, variants: D.pvariants.filter(v => v.family_id === f.id).map(v => ({ id: v.id, name: v.name })) })), me: meOf(acc, user), settings: has('see.settings') ? D.settings.rows : has('see.margin') ? D.settings.rows.filter(r => MARGIN_SETTINGS.includes(r.k) || isListSet(r.k)).map(r => ({ k: r.k, v: r.v })) : [], fedPct: lib.fedPct(D.settings.values.fed_pct), products, recipes, today: today() };
+    const out = { m007: D.m007, outOfUseKeys: [...D.outOfUse], variantsReady: D.variantsReady, families: D.families.map(f => ({ id: f.id, name: f.name, variants: D.pvariants.filter(v => v.family_id === f.id).map(v => ({ id: v.id, name: v.name })) })), me: meOf(acc, user), settings: has('see.settings') ? D.settings.rows.filter(r => !/^golive_/.test(r.k)) : has('see.margin') ? D.settings.rows.filter(r => MARGIN_SETTINGS.includes(r.k) || isListSet(r.k)).map(r => ({ k: r.k, v: r.v })) : [], fedPct: lib.fedPct(D.settings.values.fed_pct), products, recipes, today: today() };
     out.m014 = D.m014; // push 7a (D-162): the nutrient list and declared grades; false until migration 014
     out.m015 = !!D.m015; // push 7c (D-164): a basis on each value, densities; false until migration 015
     if (D.m015 && (has('see.materials') || has('see.products'))) out.productDensity = Object.fromEntries([...D.density.product].filter(([k]) => D.cpById.has(k)));
@@ -512,6 +530,7 @@ module.exports = function mountC2mRoutes(app, deps) {
     { const [ns] = await eReadUpto; let up = 0; try { up = Number(JSON.parse((ns && ns[0] && ns[0].new_value) || '{}').upto) || 0; } catch (_) {} out.noticesReadUpto = up; }
     out.issuer = PL.ISSUER; // push 7g: the price list preview names the issuer from the same place as the PDF
     if (!has('see.margin') && noticeKeys.some(k => ['production', 'qc', 'plant', 'cfo'].includes(k))) { const [nt] = await eNoticesRole; out.notices = (nt || []).map(n => has('see.cost') ? n : { ...n, text: lib.noRs(n.text) }); } // push 7b (R65), 7f: by the step rights held
+    { const gu = await glUntil(); out.golive = { until: gu, on: !!gu && today() <= gu, opening: viewerOnly ? [] : [...openingCps(D)] }; } /* D-170: everyone sees the window */
     if (has('see.materials')) {
       // Material master without rates: Himayat's screen (ruled 16 Oct)
       out.materials = [...D.rates.values()].map(g => ({ gradeId: g.gradeId, materialId: g.materialId, name: g.name, grade: g.grade, unit: g.unit, typeId: g.typeId, type: g.type, role: g.role, fields: g.fields, nutrients: g.nutrients,
@@ -818,10 +837,62 @@ module.exports = function mountC2mRoutes(app, deps) {
     } finally { autoBusy = false; }
   }
   if (!deps.noAutoPull) {
-    const t1 = setTimeout(() => { autoPull(null, true).catch(() => {}).then(() => applyDue()).catch(() => {}); }, AUTO.firstMs); if (t1.unref) t1.unref();
-    const t2 = setInterval(() => { autoPull().catch(() => {}).then(() => applyDue()).catch(() => {}).then(() => freightDueSweep()).catch(() => {}); }, AUTO.everyMs); if (t2.unref) t2.unref(); // Monday costs go in before the freight check (push 2b)
+    const t1 = setTimeout(() => { glUntil(true).then(() => autoPull(null, true)).catch(() => {}).then(() => applyDue()).catch(() => {}); }, AUTO.firstMs); if (t1.unref) t1.unref();
+    const t2 = setInterval(() => { glUntil(true).then(() => autoPull()).catch(() => {}).then(() => applyDue()).catch(() => {}).then(() => freightDueSweep()).catch(() => {}).then(() => glClose()).catch(e => console.error('[c2m] go-live close failed: ' + (e && e.message))); }, AUTO.everyMs); if (t2.unref) t2.unref(); // Monday costs go in before the freight check (push 2b)
   }
   module.exports._test = Object.assign(module.exports._test || {}, { autoPullDue, autoPull, freightDueSweep, applyDue: (...a) => applyDue(...a), nextMonday: d => nextMonday(d) });
+
+  /* ---------- Go-live window (D-170): the products that came from Yawar's sheet, Tahir's control, and the close ---------- */
+  /** Client products with a recipe version imported from Yawar's sheet (its note starts "Imported from"): the opening recipes. */
+  function openingCps(D) { const out = new Set(); for (const v of D.recipes.byVer.values()) if (['approved', 'old'].includes(v.state) && /^Imported from/i.test(String(v.note || ''))) out.add(Number(v.client_product_id)); return out; } // review m2: a draft's note does not count
+  const setRow = (k, v, label, by) => q('INSERT INTO c2m_setting (k, v, label, needs_approval, updated_by, updated_at) VALUES (?,?,?,0,?,?) ON DUPLICATE KEY UPDATE v=VALUES(v), updated_by=VALUES(updated_by), updated_at=VALUES(updated_at)', [k, v, label, by, now()]);
+  /** Tahir opens the window to a last day, moves the last day, or closes it now (the last day becomes yesterday, so the close runs at once). */
+  app.post('/api/c2m/golive', wrap(async (req, res) => {
+    if (!req.c2m.admin) throw Object.assign(new Error('Only Tahir sets the go-live window.'), { status: 403 });
+    const T = today(); const b = req.body || {}; const old = await glUntil(true); let until;
+    if (b.close) { if (!old || old < T) throw bad('The go-live window is not open.'); until = dayBefore(T); }
+    else { until = String(b.until || '').slice(0, 10); if (!isDate(until) || new Date(until + 'T00:00:00Z').toISOString().slice(0, 10) !== until) throw bad('Pick the last day of the go-live window.'); if (until < T) throw bad('The last day is today or later. To end the window now, press Close the window now.'); }
+    if (old === until) throw bad('The go-live window already ends on that day.');
+    const what = b.close ? `closed by ${req.c2m.name || req.c2m.user}: each pack's cost today becomes its approved cost` : old && old >= T ? `now runs to ${until} (was ${old})` : `opened by ${req.c2m.name || req.c2m.user}, last day ${until}: every cost change goes in when saved, with no Monday wait and no re-approval, and a recipe from Yawar's sheet is corrected by the Production Manager and approved by the CFO in 1 step`;
+    await tx(async () => {
+      await setRow('golive_until', until, 'Go-live window, last day', req.c2m.user);
+      if (!b.close && (!old || old < T)) await q("DELETE FROM c2m_setting WHERE k='golive_reset'"); // a window opened again closes again (review M1)
+      await audit(req.c2m.user, 'setting', 'golive_until', b.close ? 'close' : old && old >= T ? 'change' : 'open', old, until, 'Go-live window (D-170)');
+      for (const r of ['cfo', 'production']) await notice(r, `Go-live window ${what}.`, req.c2m.user);
+    });
+    GL.until = until; GL.at = Date.now();
+    const closed = b.close ? await glClose() : null;
+    res.json({ ok: true, until, closed });
+  }));
+  let glBusy = false;
+  /** The day after the last day: each fully costed pack whose cost differs from its approved cost gets that cost as its approved cost,
+   *  once per window (setting golive_reset holds the last day it was done for). A pack not fully costed keeps its approved cost and is named. */
+  async function glClose() {
+    const until = await glUntil(); const T = today();
+    if (!until || T <= until || glBusy) return null;
+    { const [rows] = await deps.pdq("SELECT v FROM c2m_setting WHERE k='golive_reset'"); if (rows && rows[0] && String(rows[0].v).slice(0, 10) === until) return null; }
+    glBusy = true; let n = 0; const left = []; let ran = false;
+    try {
+      await tx(async () => {
+        const [[lk]] = await q("SELECT v, updated_by FROM c2m_setting WHERE k='golive_until' FOR UPDATE"); if (!lk || String(lk.v).slice(0, 10) !== until) return; const who = lk.updated_by || 'tahir'; // review p3: in the name of who set the window
+        const [[d2]] = await q("SELECT v FROM c2m_setting WHERE k='golive_reset' FOR UPDATE"); if (d2 && String(d2.v).slice(0, 10) === until) return;
+        const D = await engine.loadAll(q); ran = true;
+        for (const p of D.packs) {
+          const cp = D.cpById.get(p.client_product_id); if (!cp) continue;
+          const label = `${cp.brand} ${Number(p.pack_size)} ${cp.sold_per} for ${(D.custById.get(cp.customer_id) || {}).name || ''}`;
+          const c = engine.packCost(D, p); if (!c || !c.costed) { left.push(label); continue; }
+          const av = engine.latestApproved(D, p.id); if (av && Math.abs(Number(av.total) - c.total) < 0.005) continue;
+          await q('INSERT INTO c2m_cost_version (client_pack_id, valid_from, materials, packing, conversion, freight, total, recipe_version_id, cause, approved_by) VALUES (?,?,?,?,?,?,?,?,?,?)',
+            [p.id, now(), c.materials, c.packing, c.conversion, c.freight, c.total, c.recipeVersionId, `Go-live window closed (last day ${until}): the cost that day became the approved cost (D-170)`, who]);
+          await audit(who, 'client_pack', p.id, 'cost_approved', av ? Number(av.total) : null, { total: c.total }, 'Go-live window closed (D-170)'); n++;
+        }
+        await setRow('golive_reset', until, 'Go-live window, approved costs reset for', who);
+        const txt = `Go-live window closed (last day ${until}): ${n} pack(s) took the cost that day as their approved cost.${left.length ? ` ${left.length} pack(s) not fully costed were left as they were, e.g. ${left.slice(0, 4).join('; ')}.` : ''}`;
+        for (const r of ['coo', 'cfo']) await notice(r, txt, who);
+      });
+    } finally { glBusy = false; }
+    return ran ? { packs: n, notCosted: left.length } : null;
+  }
 
   /* ---------- Recipes: write, review, endorse, approve cost, send back (ruling 13 to 14 Oct) ---------- */
   async function getVersion(id) { const [[v]] = await q('SELECT * FROM c2m_recipe_version WHERE id=?', [id]); if (!v) throw bad('This recipe version is no longer in C2M. Press Refresh; if it is still missing, it was deleted.'); return v; }
@@ -907,6 +978,7 @@ module.exports = function mountC2mRoutes(app, deps) {
     const Dp = await engine.loadAll(q); const vo = Dp.recipes.byVer.get(v.id); const other = vo && vo.rname !== engine.defaultName(Dp, v.client_product_id) && engine.approvedVersions(Dp, v.client_product_id).length > 0;
     const note = String((req.body || {}).note || '').replace(/\s+/g, ' ').trim().slice(0, 400);
     let next = (other && lib.RECIPE_FLOW_OTHER[v.state]) || lib.RECIPE_FLOW[v.state]; let changed = null, nowSig = null;
+    const direct = !other && glOn() && openingCps(Dp).has(Number(v.client_product_id)); // D-170: go-live correction of a recipe from Yawar's sheet
     if (v.state === 'draft' && v.sent_back_state) { // R63: a resend goes back to the QC Head when the lines changed since it was sent back; else straight to the sender (ruled 14 Oct)
       const [ln] = await q('SELECT grade_id, qty FROM c2m_recipe_line WHERE recipe_version_id=?', [v.id]); const before = await backSig(v.id); nowSig = lib.lineSig(ln);
       changed = before == null ? null : before !== nowSig; next = lib.resendTo(v.sent_back_state, before, nowSig); if (other && next === 'endorse') next = 'review'; // changed null: not known (sent back before 7b), so the QC Head
@@ -914,13 +986,15 @@ module.exports = function mountC2mRoutes(app, deps) {
     /* R68: passing a recipe with something red (analysis not complete, below the declared grade) needs a comment, kept on its step. */
     if (['review', 'endorse'].includes(v.state)) { const red = recipeFlags(Dp, v.id); if (red.length && !note) throw bad(`Write a comment before you pass it, because ${red.join('; ')}.`); }
     /* Review 30 Oct, finding 3: a version that took the short path as another recipe, whose recipe has since become the Default, goes through Himayat and Fahim. */
-    const [stp] = await q('SELECT action FROM c2m_recipe_step WHERE recipe_version_id=?', [v.id]); const checked = stp.some(x => x.action === 'reviewed') && stp.some(x => x.action === 'endorsed');
+    const [stp] = await q('SELECT action, note FROM c2m_recipe_step WHERE recipe_version_id=?', [v.id]); const checked = stp.some(x => x.action === 'reviewed') && stp.some(x => x.action === 'endorsed');
+    const wentDirect = stp.some(x => /\(D-170\)/.test(x.note || '')); // sent to the CFO in the go-live window: approved by the CFO even after the window ends
     if (!other && v.state === 'draft' && v.sent_back_state === 'cost' && !checked) next = 'review';
     /* Review 7b, M1 (R64): a short-path version never reaches the cost step without the QC Head, also one sent on before 7b. */
     const qcDone = stp.some(x => x.action === 'reviewed');
     if (other && v.state === 'draft' && next === 'cost' && !qcDone) next = 'review';
     if (other && v.state === 'cost' && !qcDone) throw bad('The QC Head now checks every recipe, another recipe of a product too, and this version has not been checked. Send it back to the Production Manager; when he resends it, it goes to the QC Head.');
-    if (!other && v.state === 'cost' && !checked && engine.approvedVersions(Dp, v.client_product_id).length) throw bad(`"${vo ? vo.rname : ''}" is the Default recipe now, so this version needs the QC Head's review and the Plant Manager's endorsement before its cost is approved. Send it back to the Production Manager; when he resends it, it goes to the QC Head.`);
+    if (direct && v.state === 'draft') next = 'cost'; // D-170: the Production Manager, then the CFO; the QC Head and the Plant Manager are skipped in the go-live window
+    if (!other && !direct && !wentDirect && v.state === 'cost' && !checked && engine.approvedVersions(Dp, v.client_product_id).length) throw bad(`"${vo ? vo.rname : ''}" is the Default recipe now, so this version needs the QC Head's review and the Plant Manager's endorsement before its cost is approved. Send it back to the Production Manager; when he resends it, it goes to the QC Head.`);
     if (next === 'approved') {
       const D0 = await engine.loadAll(q); const pr = engine.priceRecipe(D0, D0.recipes.byVer.get(v.id));
       if (pr.missingRate) throw bad('A material on this recipe has no rate. Enter its rate first, then approve the cost.');
@@ -936,7 +1010,7 @@ module.exports = function mountC2mRoutes(app, deps) {
     if (nowSig != null) { const [[lk]] = await q('SELECT id FROM c2m_recipe_version WHERE id=? FOR UPDATE', [v.id]); if (!lk) throw moved(); const [ln2] = await q('SELECT grade_id, qty FROM c2m_recipe_line WHERE recipe_version_id=?', [v.id]); if (lib.lineSig(ln2) !== nowSig) throw moved(); } // review 7b, minor 1: lines saved from another tab a moment ago
     const [u] = await q('UPDATE c2m_recipe_version SET state=?, sent_back_by=NULL, sent_back_state=NULL WHERE id=? AND state=?', [next, v.id, v.state]);
     if (!u.affectedRows) throw moved();
-    await step(v.id, act, req.c2m.user, note || null);
+    await step(v.id, act, req.c2m.user, direct && v.state === 'draft' ? `${note ? note + ' · ' : ''}Go-live correction: straight to the CFO (D-170)` : note || null);
     if (next === 'approved') {
       /* D-140: approving a version makes the earlier approved version of the SAME recipe old; the product's other recipes stay approved. */
       const Db = await engine.loadAll(q); const myName = (Db.recipes.byVer.get(v.id) || {}).rname || engine.MAIN; const hadAppr = engine.approvedVersions(Db, v.client_product_id).filter(x => x.id !== v.id);
@@ -962,13 +1036,13 @@ module.exports = function mountC2mRoutes(app, deps) {
         }
       }
     }
-    await audit(req.c2m.user, 'recipe', v.id, act, v.state, next, other ? 'Another recipe of the product: short path, the Production Manager, the QC Head, then the CFO (R64)' : null);
+    await audit(req.c2m.user, 'recipe', v.id, act, v.state, next, other ? 'Another recipe of the product: short path, the Production Manager, the QC Head, then the CFO (R64)' : direct && v.state === 'draft' ? 'Go-live correction of a recipe from Yawar\'s sheet: the Production Manager, then the CFO (D-170)' : null);
     /* R65: a notice to the next person, and to the Production Manager when the cost is approved (saved with the step or not at all). */
     const rw = recipeWords(Dp, v.id);
     if (next === 'approved') await notice('production', `Approved: ${rw}. Cost approved by ${whoW(req.c2m)}.`, req.c2m.user);
     else if (NEXT_W[next]) await notice(lib.RECIPE_WHO[next], `${NEXT_W[next]}: ${rw}. ${act === 'resent' ? (next === 'review' && v.sent_back_state !== 'review' ? (changed === null ? 'Resent; C2M does not know whether the lines changed since it was sent back, so it starts again with the QC Head' : 'Resent with changed lines, so it starts again with the QC Head') : 'Resent') : act === 'sent' ? 'Sent' : act === 'reviewed' ? 'Reviewed' : 'Endorsed'} by ${whoW(req.c2m)}${note ? `. Comment: ${note}` : ''}.`, req.c2m.user);
     });
-    res.json({ state: next, other: !!other, changed });
+    res.json({ state: next, other: !!other, changed, golive: direct && v.state === 'draft' });
   }));
 
   app.post('/api/c2m/recipes/:id/sendback', wrap(async (req, res) => {
@@ -1046,7 +1120,7 @@ module.exports = function mountC2mRoutes(app, deps) {
       await audit(user, 'rate', g.gradeId, 'save', g.rate, r, source);
       if (mv.length) await q('INSERT INTO c2m_reapproval (cause, items_json, created_at) VALUES (?,?,?)', [`${g.name} rate Rs ${lib.fmtRs2(g.rate)} to Rs ${lib.fmtRs2(r)}, ${today()}`, JSON.stringify(mv.map(m => ({ packId: m.packId, label: m.label, from: m.approved, to: m.after, pct: m.pctApproved }))), now()]);
     });
-    return mv.length;
+    return reN(mv.length);
   }
   /* ---------- Next week's costs: Monday is cost day (Tahir and Yawar, 5 Nov 2026, R11 as ruled that evening, D-149; push 2b) ----------
      A material, packing price, packing bill or freight change saved on a Monday (Pakistan time) goes in at once. Saved Tuesday to Sunday
@@ -1137,7 +1211,7 @@ module.exports = function mountC2mRoutes(app, deps) {
       return res.json(a);
     }
     if (d.first || d.at) return fn(req, res);
-    if (isMonday(T)) { // Monday is cost day: in at once; anything still waiting for this item is replaced by it, in the same transaction
+    if (isMonday(T) || glOn()) { // Monday is cost day, and in the go-live window every day is (D-170): in at once; anything still waiting for this item is replaced by it, in the same transaction
       let a; await tx(async () => { await q("UPDATE c2m_cost_pending SET status='replaced', waiting_key=NULL, decided_by=?, decided_at=? WHERE kind=? AND target=? AND status='waiting'", [req.c2m.user, now(), kind, d.target]); a = await callFn(fn, req); });
       return res.json(a);
     }
@@ -1241,7 +1315,7 @@ module.exports = function mountC2mRoutes(app, deps) {
       await audit(req.c2m.user, 'packing_rate', it.id, 'save', it.price, r, source);
       if (moved.length) await q('INSERT INTO c2m_reapproval (cause, items_json, created_at) VALUES (?,?,?)', [`${it.name} price Rs ${lib.fmtRs2(it.price)} to Rs ${lib.fmtRs2(r)}, ${today()}`, JSON.stringify(moved), now()]);
     });
-    res.json({ ok: true, reapproval: moved.length });
+    res.json({ ok: true, reapproval: reN(moved.length) });
   };
   PEND_FN.packing_rate = save_packing_rate;
   app.post('/api/c2m/packing/rate', can('packing.manage'), wrap(dryable(weekly('packing_rate', save_packing_rate))));
@@ -1848,6 +1922,7 @@ module.exports = function mountC2mRoutes(app, deps) {
   /* ---------- Settings: thresholds need Tahir's approval; budget lines notify Tahir (ruled 14 to 15 Oct) ---------- */
   app.post('/api/c2m/settings', can('settings.edit'), wrap(async (req, res) => {
     const ch = (req.body || {}).changes || {};
+    if (Object.keys(ch).some(k => /^golive_/.test(k))) throw bad('The go-live window is set by Tahir on Costs, not in Company settings.'); // review m1
     const [rows] = await q('SELECT k, v, label, needs_approval FROM c2m_setting'); rows.forEach(r => { if (r.k === 'budget_gp') { r.needs_approval = 1; r.label = 'Company GP target, %'; } if (isListSet(r.k)) r.needs_approval = 1; });
     for (const L of LIST_ROWS) if (!rows.some(r => r.k === L.k)) rows.push({ ...L }); /* a list's target and freight: not set until first approved (D-153) */
     for (const [k, v] of Object.entries(ch)) if (/^lt_/.test(k) && isListSet(k) && String(v).trim() !== '' && !(strictNum(v) > 0 && strictNum(v) < 100)) throw bad('A list target is a % above 0 and below 100.'); // D-75: waits for Tahir, under the name Setup shows (no SQL needed)
@@ -3226,7 +3301,7 @@ module.exports = function mountC2mRoutes(app, deps) {
     if (kind === 'settings') { const all = Object.values(AUDIT_KIND).flat().filter(x => !x.includes(':')); parts.push(`entity NOT IN (${all.map(() => '?').join(',')})`); P.push(...all); } // anything not filed elsewhere
     return { sql: '(' + parts.join(' OR ') + ')', P }; };
   const AUD_THING = { product_name: 'Product name', client_product: 'Product', client_pack: 'Pack', customer: 'Client', price: 'Price', recipe: 'Recipe', reapproval: 'Re-approval', rate: 'Material rate', packing_bill: 'Packing bill', packing_item: 'Packing item', packing_rate: 'Packing rate', product_family: 'Product', product_variant: 'Variant', setting: 'Setting', setting_request: 'Setting change', sync: 'O2S data', target: 'Target GP', target_request: 'Target GP change', first_cost_sweep: 'Packs with no approved cost', saved_report: 'Saved report', list_revision: 'List revision', list_price: 'List row', list_master: 'Price lists', price_doc: 'Price list PDF', material: 'Material', grade_nutrients: 'Nutrients', density: 'Density', nutrient: 'Nutrient list', declared_grade: 'Declared grade', material_type: 'Material class', conversion_rule: 'Labour and FOH rate', freight: 'Freight', monthly_actual: 'Monthly actuals', monthly_check: 'Monthly check', grant: 'List access', role: 'Role', import_item: 'Sheet item', signoff: 'Role page', notices_read: 'Notices' };
-  const AUD_DID = { add: 'added', create: 'created', save: 'saved', edit: 'changed', update: 'changed', change: 'changed', remove: 'removed', delete: 'deleted', propose: 'proposed', approve: 'approved', sent_back: 'sent back', withdrawn: 'withdrawn', 'taken back': 'taken back', cancelled: 'cancelled', ended: 'ended', replaced: 'replaced', 'end restored': 'end date restored', request: 'requested', refuse: 'refused', dismiss: 'dismissed', pull: 'pulled', run: 'put on Approvals', cost_approved: 'cost approved', endorsed: 'endorsed', reviewed: 'reviewed', sent: 'sent on', new: 'new version started', lines: 'lines changed', packing_bill: 'packing bill changed', add_variant: 'variant added', follow: 'set to follow a product', type: 'product type changed', variant: 'variant tagged', group: 'group changed', name: 'name changed', print_name: 'printed name changed', class: 'class set', retire: 'taken out of use', copy: 'copied', grant: 'given', link: 'linked', rename: 'renamed', left_list: 'left the list', applied: 'in force', carried: 'carried into the master', done: 'done', reprocessed: 'reprocessed flag changed', 'in use': 'back in use', 'out of use': 'out of use', in_use: 'back in use', out_of_use: 'out of use', 'all clients': 'all clients given', 'no clients': 'no clients', 'FED changed': 'FED changed', 'cost moved since shown': 'cost moved since shown', 'left: not costed': 'left: not costed', 'left: within threshold': 'left: within the threshold', spelling: 'O2S spelling kept', spec: 'description changed', o2s_names: 'O2S spellings changed', not_c2m_pack: 'marked not a C2M pack', unlink: 'unlinked', imported: 'imported', accept: 'accepted', reject: 'rejected', signed: 'read and signed', read: 'marked as read' };
+  const AUD_DID = { open: 'opened', close: 'closed', add: 'added', create: 'created', save: 'saved', edit: 'changed', update: 'changed', change: 'changed', remove: 'removed', delete: 'deleted', propose: 'proposed', approve: 'approved', sent_back: 'sent back', withdrawn: 'withdrawn', 'taken back': 'taken back', cancelled: 'cancelled', ended: 'ended', replaced: 'replaced', 'end restored': 'end date restored', request: 'requested', refuse: 'refused', dismiss: 'dismissed', pull: 'pulled', run: 'put on Approvals', cost_approved: 'cost approved', endorsed: 'endorsed', reviewed: 'reviewed', sent: 'sent on', new: 'new version started', lines: 'lines changed', packing_bill: 'packing bill changed', add_variant: 'variant added', follow: 'set to follow a product', type: 'product type changed', variant: 'variant tagged', group: 'group changed', name: 'name changed', print_name: 'printed name changed', class: 'class set', retire: 'taken out of use', copy: 'copied', grant: 'given', link: 'linked', rename: 'renamed', left_list: 'left the list', applied: 'in force', carried: 'carried into the master', done: 'done', reprocessed: 'reprocessed flag changed', 'in use': 'back in use', 'out of use': 'out of use', in_use: 'back in use', out_of_use: 'out of use', 'all clients': 'all clients given', 'no clients': 'no clients', 'FED changed': 'FED changed', 'cost moved since shown': 'cost moved since shown', 'left: not costed': 'left: not costed', 'left: within threshold': 'left: within the threshold', spelling: 'O2S spelling kept', spec: 'description changed', o2s_names: 'O2S spellings changed', not_c2m_pack: 'marked not a C2M pack', unlink: 'unlinked', imported: 'imported', accept: 'accepted', reject: 'rejected', signed: 'read and signed', read: 'marked as read' };
   const MON3 = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const isoWords = t => String(t == null ? '' : t).replace(/\b(20\d\d)-(\d\d)-(\d\d)\b/g, (m, y, mo, d) => `${+d} ${MON3[+mo - 1]} ${y}`);
   const audWhy = t => isoWords(String(t || '').replace(/\s*\((?:D-\d+[^)]*|ruling[^)]*|review[^)]*|R\d+[^)]*)\)/gi, '').replace(/\s*\bD-\d+\b,?/g, '').replace(/\s{2,}/g, ' ').trim());
@@ -3684,7 +3759,7 @@ module.exports = function mountC2mRoutes(app, deps) {
       for (const k of drop) { await softQ('DELETE FROM c2m_pack_ext WHERE client_pack_id=?', [k.id]); await q('DELETE FROM c2m_client_pack WHERE id=?', [k.id]); await audit(req.c2m.user, 'client_pack', k.id, 'remove', Number(k.pack_size), null, `Removed the ${Number(k.pack_size)} ${cp.sold_per} pack of ${brand} (Edit)`); ch.push(`removed the ${Number(k.pack_size)} pack`); }
       for (const { ex, k } of keep) {
         const bill = mode === 'bulk' ? null : (k.billId ? Number(k.billId) : null); if (bill) { const [[bb]] = await q('SELECT id FROM c2m_packing_bill WHERE id=?', [bill]); if (!bb) throw bad('A packing bill you picked is not in C2M.'); }
-        if (mode !== 'bulk' && ex.packing_bill_id != null && (bill || null) !== (ex.packing_bill_id || null) && await pendReady() && !isMonday(today())) throw bad(`Moving the ${Number(ex.pack_size)} pack to another packing bill waits for Monday: do it on Costs, Packing cost (tick it on the bill), or on Monday here.`); // review 2d, finding 2
+        if (mode !== 'bulk' && ex.packing_bill_id != null && (bill || null) !== (ex.packing_bill_id || null) && await pendReady() && !isMonday(today()) && !glOn()) throw bad(`Moving the ${Number(ex.pack_size)} pack to another packing bill waits for Monday: do it on Costs, Packing cost (tick it on the bill), or on Monday here.`); // review 2d, finding 2
         if (mode !== 'bulk' && (bill || null) !== (ex.packing_bill_id || null)) { await q('UPDATE c2m_client_pack SET packing_bill_id=? WHERE id=?', [bill, ex.id]); await audit(req.c2m.user, 'client_pack', ex.id, 'packing_bill', ex.packing_bill_id, bill, 'Edit'); ch.push(`packing bill of the ${Number(ex.pack_size)} pack`); recost = true; }
         const only = !!k.clientOnly, was = D.packExt.has(Number(ex.id));
         if (only !== was) { if (only) await q('INSERT INTO c2m_pack_ext (client_pack_id, client_only_id) VALUES (?,?)', [ex.id, cp.customer_id]); else await softQ('DELETE FROM c2m_pack_ext WHERE client_pack_id=?', [ex.id]); ch.push(`${Number(ex.pack_size)} pack ${only ? 'for this client only' : 'no longer for this client only'}`); }

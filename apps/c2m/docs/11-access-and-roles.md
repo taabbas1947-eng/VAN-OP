@@ -298,3 +298,8 @@ No new action: each list uses the right that adds to it. Delete, Take out of use
 - Notices: a role gets the notices of every recipe step whose right it holds; the COO only his own.
 - Review 7f: cfo notices also carry prices and lists, so a role reads them only with recipe.step.cost and see.margin; Mark as read never goes back; a read mark is not shown in the change record. The CFO also loses Save class on a material (nutrient.edit); he keeps Add a material class (material.save).
 - 11 Nov 2026: a role with see.margin (CFO, COO) gets the place Price lists (pricelists) in its top bar; no new action and no right changed. Download there needs pricedoc.all. The public price page at /c2m/prices needs no role and shows prices only.
+
+## 11.30 17 Nov 2026: the go-live window (D-170)
+- Only the administrator (Tahir) opens, moves or closes the window (POST /api/c2m/golive). No new action; no right changed.
+- In the window the QC Head and the Plant Manager have no step on a correction of a recipe from Yawar's sheet; the Production Manager sends it to the CFO.
+- A KAM sees no strip and no list of products.

@@ -423,3 +423,10 @@ All below: right see.margin (403 otherwise), registered after the C2M access che
 | POST /api/c2m/notices/read | any C2M person | {upto: the newest notice id shown} | {ok, upto}; 400 when upto is not a whole number above 0 |
 - GET /api/c2m/state: noticesReadUpto; notices now for every step whose right the role holds (30 days, up to 30).
 - Push 7g (D-168): GET /api/c2m/state adds issuer {name, role}, the price list issuer from c2m-pricelist.js ISSUER, the same one the PDF prints.
+
+## 5.24 The go-live window (17 Nov 2026; owner: Tahir; D-170)
+| Route | Right | Body | Answer |
+|---|---|---|---|
+| POST /api/c2m/golive | the administrator (Tahir) | {until: "YYYY-MM-DD"} to open or move the last day (today or later), or {close: true} to close now | {ok, until, closed: {packs, notCosted} or null}; 403 for anyone else; 400 for a missing or past day, the same day again, or close when not open |
+- GET /api/c2m/state: golive {until, on, opening: [client product ids from Yawar's sheet]} for every role except a KAM (opening empty for a KAM); a recipe's path can be 'golive'.
+- POST /api/c2m/recipes/:id/advance: answer adds golive: true when a draft went straight to the CFO.

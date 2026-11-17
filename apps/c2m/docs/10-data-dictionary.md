@@ -420,3 +420,10 @@ Changed in 0.3.0 and 0.3.1: rs_per_kg fixed (1 rate of 1 kind, labour or FOH). A
 |---|---|---|
 | Notices read | The newest notice id a person has marked as read | c2m_audit entity notices_read; state noticesReadUpto |
 | Price list issuer | The name and role printed under "Issued by" on a price list and its preview | c2m-pricelist.js ISSUER; state issuer |
+
+## 10.29 17 Nov 2026 (D-170)
+| Term | Meaning | Where |
+|---|---|---|
+| Go-live window | The days until golive_until when cost changes go in at once and recipes from the sheet go straight to the CFO | c2m_setting k golive_until; state golive |
+| golive_reset | The last day whose close has run, so the close runs once | c2m_setting k golive_reset |
+| Opening product | A client product with a recipe version imported from Yawar's sheet (note starts "Imported from") | state golive.opening |

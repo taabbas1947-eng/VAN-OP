@@ -1378,13 +1378,34 @@ const CPARTS = { materials: 'Material cost', packing: 'Packing cost', labour: 'L
    Material, packing price, packing bill and freight changes saved Tuesday to Sunday wait for Monday 00:00; saved on a Monday they go
    in at once. A first cost goes in at once. Urgent: a reason, and Tahir approves. For 1 hour after a change goes in, its saver can correct it. */
 const WK = () => ST.weekly || { ready: false };
-const wkHeld = () => !!(WK().ready && !WK().monday);
+const wkHeld = () => !!(WK().ready && !WK().monday && !GLON()); // the go-live window: nothing waits for Monday (D-170)
+/* ---------- Go-live window (Tahir, 17 Nov 2026, D-170) ----------
+   Until the last day Tahir sets, every cost change goes in when saved (no Monday wait, no urgent approval, no re-approval, 1 press of
+   Save), and the Default recipe of a product that came from Yawar's sheet goes from the Production Manager straight to the CFO. The day
+   after the last day, each fully costed pack's cost that day becomes its approved cost. */
+const GLON = () => !!(ST && ST.golive && ST.golive.on);
+function glStrip(where) {
+  const G = (ST && ST.golive) || {}; const adm = !!ST.me.admin;
+  if (!CAN('see.products') && !CAN('see.cost')) return ''; // a KAM sees no recipes and no costs
+  if (!G.on) return adm && where === 'costs' ? `<details class="box form"><summary>Open the go-live window</summary><p class="ans">Until the last day you pick, every cost change goes in when it is saved, with no Monday wait, no urgent approval and no re-approval. A recipe from Yawar's sheet goes from the Production Manager straight to the CFO. The day after the last day, each pack's cost that day becomes its approved cost.</p><div class="row"><label for="gl-d">Last day<input id="gl-d" type="date" min="${ST.today}"></label><button class="btn" data-glset>Open the window</button></div></details>` : '';
+  const f = fmtShort(G.until);
+  const txt = CAN('see.cost') ? `Every cost change goes in when it is saved: no Monday wait, no urgent approval and no re-approval. A recipe from Yawar's sheet goes from the Production Manager straight to the CFO. The day after ${f}, each pack's cost that day becomes its approved cost.` : `A recipe from Yawar's sheet goes from the Production Manager straight to the CFO for its cost; the QC Head and Plant Manager steps are skipped until ${f}.`;
+  return `<div class="next gl"><span><b>Go-live window, open until ${esc(f)}.</b> ${esc(txt)}</span>${adm ? `<span class="acts"><input id="gl-d" type="date" min="${ST.today}" value="${esc(G.until)}" aria-label="Last day of the go-live window"><button class="btn ghost" data-glset>Change the last day</button><button class="btn ghost danger" data-glclose data-confirm="Close the go-live window now">Close the window now</button></span>` : ''}</div>`;
+}
+/* Registered before the main click handler, so its 2-step confirm arms first (Close the window now). */
+document.addEventListener('click', async e => {
+  const t = e.target.closest && e.target.closest('[data-glset],[data-glclose]'); if (!t || !ST) return; const d = t.dataset;
+  if (d.confirm && !d.armed) return; e.preventDefault();
+  if ('glset' in d) { const v = val('gl-d'); if (!v) { toast('Pick the last day of the go-live window.', true); return; } await act('/api/c2m/golive', { until: v }, j => `Go-live window open until ${fmtShort(j.until)}.`); return; }
+  if ('glclose' in d) await act('/api/c2m/golive', { close: true }, j => `Go-live window closed.${j.closed ? ` ${pl(j.closed.packs, 'pack took', 'packs took')} today's cost as its approved cost${j.closed.notCosted ? `; ${pl(j.closed.notCosted, 'pack not fully costed kept', 'packs not fully costed kept')} the old approved cost` : ''}.` : ''}`);
+});
 const PKIND = { rate: 'materials', packing_rate: 'packing', packing_bill: 'packing', packing_assign: 'packing', freight: 'freight' };
 const CORR = { '/api/c2m/rates': 'rate', '/api/c2m/packing/rate': 'price', '/api/c2m/freight': 'rsPerKg' }; // the figure a correction changes
 let corrOpen = null;
 function weekNote(p, first, freight) {
   const W = WK(); if (!W.ready) return '';
   if (first) return `<p class="ans wk">First cost: it goes in when saved.</p>`;
+  if (GLON()) return `<p class="ans wk"><b>Go-live window:</b> this goes in when saved, with no re-approval.</p>`; // D-170
   if (W.monday) return `<p class="ans wk"><b>Today is Monday, cost day:</b> this goes in when saved.</p>`;
   return `<div class="wk"><p class="ans" style="margin:0"><b>Takes effect Monday ${esc(fmtShort(W.next))}.</b> It waits in Next week's costs; you can change or drop it until then.${freight ? ' A From date on or after that Monday keeps its own date. The first freight rate for a region goes in when saved.' : ''}</p><div class="row"><label class="chk"><input type="checkbox" id="${p}-urg"> Urgent: goes in when Tahir approves</label><label for="${p}-why" style="flex:1 1 240px">Reason, if urgent<input id="${p}-why" maxlength="300" placeholder="e.g. the supplier raised the price today"></label></div></div>`;
 }
@@ -1485,6 +1506,10 @@ function vLF(kind) {
 }
 /** The line above the boxes: what waits for Monday (push 2b). */
 function wkStrip() {
+  if (GLON() || ST.me.admin) { const g = glStrip('costs'); if (GLON()) return g + ((ST.pending || []).some(x => x.status === 'waiting') ? `<div class="next wkstrip"><span>${pl((ST.pending || []).filter(x => x.status === 'waiting').length, 'change saved before the window still waits', 'changes saved before the window still wait')} for Monday ${esc(fmtShort(WK().next))}: save it again to put it in now, or drop it.</span><span class="acts"><button class="btn ghost" data-cpart="next">Open next week's costs</button></span></div>` : ''); if (g) return g + wkStrip0(); } // D-170
+  return wkStrip0();
+}
+function wkStrip0() {
   const W = WK(); if (!W.ready) return '';
   const P = (ST.pending || []).filter(x => x.status === 'waiting'), u = P.filter(x => x.urgent).length, f = (ST.pending || []).filter(x => x.status === 'failed').length;
   const due = P.filter(x => x.applyOn <= ST.today).length; // due now: going in at the next check (Monday 00:00, checked every 15 minutes)
@@ -1525,6 +1550,7 @@ function effectHtml(j, body) {
 }
 let dryAt = 0, dryBusy = false;
 async function effectFirst(path, body, slot) {
+  if (GLON()) return true; // go-live window: 1 press saves, nothing waits and no re-approval is written (D-170)
   const key = path + '|' + JSON.stringify(body) + '|' + slot; const el0 = document.getElementById(slot);
   /* Save only when this effect is still on the screen (a redraw or Cancel clears it) and was shown at least 1 second ago, so a double click never saves unseen (review 5 Nov, findings 2 to 4). */
   if (dryKey === key && el0 && el0.querySelector('.effect')) { if (Date.now() - dryAt < 1000) return false; dryKey = null; return true; }
@@ -2027,7 +2053,11 @@ const CHANGELOG = [
  { t: 'The recipe page has 1 title and 1 answer line; missing material data shows only in the amber box. Open to write goes straight to the lines. Delete this draft sits after your step.', for: ['recipe.edit', 'recipe.step.draft', 'recipe.step.review', 'recipe.step.endorse'], guide: null },
  { t: 'Delete and Remove buttons have a red outline. On Materials, Change cost stays in the row; History, Edit and Delete are under More.', for: ['rate.save', 'material.save', 'recipe.start', 'client.add'], guide: null },
  { t: 'The Guide groups your jobs under the place each one starts in.', for: ['all'], guide: null },
- { t: 'On a phone, the recipe line editor puts the kg box and Remove under the material, pack figures carry their labels, and chart text stays readable.', for: ['all'], guide: null }] }
+ { t: 'On a phone, the recipe line editor puts the kg box and Remove under the material, pack figures carry their labels, and chart text stays readable.', for: ['all'], guide: null }] },
+  { ver: '2026-11-17a', date: '2026-11-17', title: 'The go-live window', items: [
+ { t: 'While Tahir keeps the go-live window open, a material, packing item, packing bill, labour, FOH or freight change goes in when it is saved. Nothing waits for Monday, nothing needs urgent approval and no re-approval item is made. A packing bill, labour, FOH or freight change saves with 1 press; a material rate or a packing price still shows its effect first (Change cost), then saves. The strip at the top of Costs says until when.', for: ['rate.save', 'packing.manage', 'labour.manage', 'freight.edit'], guide: null },
+ { t: 'In the window, the Default recipe of a product that came from Yawar\'s sheet is corrected in 1 step: the Production Manager starts a new version, corrects the lines and sends it straight to the CFO, who approves its cost. The QC Head and Plant Manager steps are skipped.', for: ['recipe.edit', 'recipe.step.draft', 'recipe.step.cost'], guide: null },
+ { t: 'The day after the window\'s last day, each fully costed pack\'s cost that day becomes its approved cost, with no re-approval. Tahir and the CFO get a notice naming any pack that was not fully costed.', for: ['see.margin'], guide: null }] }
 ];
 let _wnShown = false, wnGuide = null;
 /* ---------- Push 7e (Tahir, 10 Nov 2026, D-166): the role page, read and signed once per version before C2M opens ----------
@@ -2504,7 +2534,7 @@ function vToday() {
   const G = [[(Object.prototype.hasOwnProperty.call(APH, R) ? APH[R] : 'To approve'), J.map((j, i) => [j, i]).filter(([j]) => j.kind === 'approve')], ['To do', J.map((j, i) => [j, i]).filter(([j]) => j.kind !== 'approve').sort(doSort)]].filter(g => g[1].length);
   const n = J[nm];
   if (!loaded() && CAN('see.margin')) return `${meta([dayName(ST.today), o2sAsOf()])}${head('Today', 'No data in C2M yet.', 'Today fills once the CFO\'s sheets and O2S are loaded: every approval, job and margin line then shows here with its age.')}<div class="nextmove"><div><div class="k">Your next move</div><div class="t">The first load of the CFO's sheets and O2S</div><div class="d">Until it runs, C2M has no clients, products, costs or trucks, so nothing here can be wrong or late.</div></div></div>`;
-  return `${meta([dayName(ST.today), o2sAsOf()])}${head(ST.me.nav[0] === 'approvals' ? 'Approvals' : 'Today', ans, 'The next move is the first approval waiting for you (recipe and cost steps first, then prices, re-approvals and list revisions, then threshold and target changes; the oldest first). Every line shows how long it has waited; an item waiting more than 2 working days (Monday to Saturday) is marked stuck. Each line opens in a panel on this screen.')}${guideHint()}
+  return `${meta([dayName(ST.today), o2sAsOf()])}${head(ST.me.nav[0] === 'approvals' ? 'Approvals' : 'Today', ans, 'The next move is the first approval waiting for you (recipe and cost steps first, then prices, re-approvals and list revisions, then threshold and target changes; the oldest first). Every line shows how long it has waited; an item waiting more than 2 working days (Monday to Saturday) is marked stuck. Each line opens in a panel on this screen.')}${glStrip('today')}${guideHint()}
   ${n ? `<div class="nextmove"><div><div class="k">Your next move</div><div class="t">${esc(n.t)}</div><div class="d">${esc(isoWords(String(n.d)).replace(/([^.!?])$/, '$1.'))} ${n.since ? `<span class="${isStuck(n.since) ? 'over' : ''}">Waiting ${ageTxt(n.since)}${isStuck(n.since) ? ', stuck' : ''}.</span>` : ''}</div></div><button class="btn" data-job="${nm}">${n.go1 || (n.kind === 'approve' && n.pan ? 'Open to approve' : n.btn)}</button></div>` : '<div class="nextmove"><div><div class="k">Your next move</div><div class="t">You are up to date.</div></div></div>'}
   ${homeGrid(J, nm, W)}
   <p class="ans endmark" style="margin:14px 0 0;padding-top:10px;border-top:1px solid var(--line)"><b>${J.length ? 'End of your list.' : 'Nothing needs you today.'}</b>${W.length ? ` ${pl(W.length, 'item is', 'items are')} with others; none needs you now.` : ''}</p>
@@ -2575,7 +2605,7 @@ let custQ = ''; // read by Find (SEARCH cq); the 0.9.0 customer table is gone (1
 const fmtShort = s => { const p = d10(s).split('-'); return p.length === 3 ? `${+p[2]} ${MON[+p[1] - 1]} ${p[0]}` : ''; }; // with the year, as every date (round 4; review r4, findings 8 and 21)
 /** Recipe steps as chips that say who did each step and when (P1, H5: "Himayat reviewed · 17 Oct"); the current step is marked. */
 function stepChips(v) {
-  const order = v.path === 'other' ? ['draft', 'review', 'cost', 'approved'] : ['draft', 'review', 'endorse', 'cost', 'approved']; // push 7b (R64): the short path skips the Plant Manager
+  const order = v.path === 'golive' ? ['draft', 'cost', 'approved'] : v.path === 'other' ? ['draft', 'review', 'cost', 'approved'] : ['draft', 'review', 'endorse', 'cost', 'approved']; // push 7b (R64): the short path skips the Plant Manager; D-170: the go-live correction goes straight to the CFO
   if (v.state === 'closed') { const c = (v.steps || []).slice().reverse().find(x => x.action === 'closed'); return `<div class="steps"><span class="now">Closed${c ? ` by ${esc(personName(c.by_user))}<small>· ${fmtShort(c.at)}</small>` : ''}</span></div>${c && c.note ? `<p class="ans">Why: ${esc(isoWords(c.note))}</p>` : ''}`; }
   const cur = order.indexOf(v.state);
   const DONE = { draft: ['sent', 'resent'], review: ['reviewed'], endorse: ['endorsed'], cost: ['cost_approved'] }; const DV = { draft: 'sent', review: 'checked', endorse: 'endorsed', cost: 'approved cost' };
@@ -3318,8 +3348,8 @@ const myJob = v => v.state === 'draft' && v.sentBack ? 'Revise recipe' : MYJOB[v
 const dot = s => String(s == null ? '' : s).trim().replace(/[.!?]+$/, '');
 const lineSigP = lines => (lines || []).map(l => `${Number(l.gradeId)}:${Number(Number(l.qty).toFixed(8))}`).sort().join('|');
 /** Where a resend goes (copy of lib.resendTo, c2m-lib.js). */
-function resendToP(v) { const sb = v.sentBack; if (!sb || sb.state === 'review') return 'review'; const to = v.backSig == null || v.backSig !== lineSigP(v.lines) ? 'review' : sb.state; return v.path === 'other' && to === 'endorse' ? 'review' : to; }
-const passTxt = v => v.state === 'draft' ? (v.sentBack ? `Resend to the ${ROLE_NAME[STEP_ROLE[resendToP(v)]]}` : 'Send to the QC Head') : v.state === 'review' ? (v.path === 'other' ? 'Pass to the CFO' : 'Pass to the Plant Manager') : v.state === 'endorse' ? 'Endorse' : 'Approve cost';
+function resendToP(v) { if (v.path === 'golive') return 'cost'; const sb = v.sentBack; if (!sb || sb.state === 'review') return 'review'; const to = v.backSig == null || v.backSig !== lineSigP(v.lines) ? 'review' : sb.state; return v.path === 'other' && to === 'endorse' ? 'review' : to; }
+const passTxt = v => v.state === 'draft' ? (v.sentBack ? `Resend to the ${ROLE_NAME[STEP_ROLE[resendToP(v)]]}` : v.path === 'golive' ? 'Send to the CFO' : 'Send to the QC Head') : v.state === 'review' ? (v.path === 'other' ? 'Pass to the CFO' : 'Pass to the Plant Manager') : v.state === 'endorse' ? 'Endorse' : 'Approve cost';
 /** What a material carries, short, for the picker: "N 46, OM 45", "adds no nutrients", "to classify", "nutrients not entered". */
 function matShort(m) { if (!m) return ''; if (m.role === 'none') return 'adds no nutrients'; if (m.role !== 'nutrient') return 'to classify';
   const t = Object.entries(m.nutrients || {}).map(([k, x]) => `${fName(k)} ${Number(x)}`).join(', '); return ST.m014 && m.checked === false ? (t ? t + '; not all entered' : 'nutrients not entered') : t; }
@@ -3414,7 +3444,7 @@ function trialBox() {
   return `<div class="box form" id="trf"><b>Change cost: ${esc(g.name)}</b><p class="ans" style="margin:0">Now ${rs2(g.rate)} (${esc(g.date || '')}).</p>
   <div class="row"><label for="trv">New rate, Rs<input id="trv" type="number" value="${trial.rate}"></label><label for="trs" style="flex:1 1 240px">Source, PO number or quote (required)<input id="trs" value="${esc(trial.source || '')}"></label><button class="btn ghost" data-trcalc>Show effect</button></div>
   ${w.warn && w.pct != null ? `<div class="warnbox"><b>Did you mean ${rs2(trial.rate)}?</b> That is ${w.pct.toFixed(0)}% ${w.pct > 0 ? 'above' : 'below'} the last saved rate. <label style="display:inline-flex;gap:6px;align-items:center;color:var(--ink)"><input type="checkbox" id="trc" ${trial.conf ? 'checked' : ''}> Yes, I meant this rate</label></div>` : ''}
-  <div class="box wrapx"><table><tr><th>Pack</th><th class="r">Cost now</th><th class="r">Cost after</th><th class="r">Change</th><th class="r">Extra cost on open POs, Rs</th><th class="r">Price for target</th></tr>${T.impact.length ? T.impact.map(i => `<tr><td>${esc(i.label)}</td><td class="r num">${rs2(i.now)}</td><td class="r num">${rs2(i.after)}</td><td class="r num ${i.pct > 0 ? 'over' : 'ok'}">${i.pct != null ? i.pct.toFixed(1) + '%' : 'first rate'}${i.reapprove ? ` <span class="pill p-amber">re-approve: ${i.pctApproved > 0 ? '+' : ''}${i.pctApproved.toFixed(1)}% on approved ${rs2(i.approved)}</span>` : ''}</td><td class="r num">${rs(i.rsOnOpen)}</td><td class="r num">${rs2(i.priceForTarget)}</td></tr>`).join('') : '<tr><td colspan="6">Click "Show effect". No approved recipe uses this material if the list stays empty.</td></tr>'}</table></div>
+  <div class="box wrapx"><table><tr><th>Pack</th><th class="r">Cost now</th><th class="r">Cost after</th><th class="r">Change</th><th class="r">Extra cost on open POs, Rs</th><th class="r">Price for target</th></tr>${T.impact.length ? T.impact.map(i => `<tr><td>${esc(i.label)}</td><td class="r num">${rs2(i.now)}</td><td class="r num">${rs2(i.after)}</td><td class="r num ${i.pct > 0 ? 'over' : 'ok'}">${i.pct != null ? i.pct.toFixed(1) + '%' : 'first rate'}${i.reapprove && !GLON() ? ` <span class="pill p-amber">re-approve: ${i.pctApproved > 0 ? '+' : ''}${i.pctApproved.toFixed(1)}% on approved ${rs2(i.approved)}</span>` : ''}</td><td class="r num">${rs(i.rsOnOpen)}</td><td class="r num">${rs2(i.priceForTarget)}</td></tr>`).join('') : '<tr><td colspan="6">Click "Show effect". No approved recipe uses this material if the list stays empty.</td></tr>'}</table></div>
   ${weekNote('tr', g.rate == null)}<div><button class="btn" data-trsave ${(w.warn && !trial.conf) || !(trial.rate > 0) || !String(trial.source || '').trim() ? 'disabled' : ''}>${saveWord('Save cost', g.rate == null)}</button> <button class="btn ghost" data-trdrop>Drop</button> <span class="ans" id="trhint"${String(trial.source || '').trim() ? ' hidden' : ''}>Add the source to save.</span></div></div>`;
 }
 /** Bought per piece, or per kg with pieces per kg (plastic inners, Yawar 26 Oct 2026). p = id prefix. */

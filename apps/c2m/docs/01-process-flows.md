@@ -865,3 +865,18 @@ flowchart LR
 - 6 pages: Production Manager, QC Head, Plant Manager, CFO, Price list viewer (KAM), and a role made on the launcher (built from its places and Guide rows). The COO does not sign; he reads every page and sees who signed on More, Setup, Record and checks, Role sign-offs.
 - Each page: your role in 1 paragraph, 1 where you sit, 2 your places, 3 your jobs, 4 what done looks like, 5 what you do not see or do, 6 always true. About 1 to 2 minutes to read; never more than 5.
 - What changed (at login) waits until the page is signed. The page stays readable any time: Guide, Read your role page.
+
+## 1.43 The go-live window (owner: Tahir rules; Claude built; D-170, 17 Nov 2026)
+```mermaid
+flowchart TD
+  A["Tahir opens the window: a last day (Costs strip)"] --> B["Every cost change goes in when saved: material, packing item, packing bill, labour, FOH, freight. No Monday wait, no urgent approval, no re-approval item"]
+  A --> C["Majid starts a new version of a recipe from Yawar's sheet, corrects the lines"]
+  C --> D["Send to the CFO: the QC Head and the Plant Manager are skipped"]
+  D --> E["Yawar approves the cost: the new version is the Default, its packs get an approved cost"]
+  A --> F["The day after the last day, or Close the window now"]
+  F --> G["Each fully costed pack: its cost that day becomes its approved cost. Packs not fully costed keep theirs and are named to Tahir and Yawar"]
+  G --> H["Back to normal: Monday wait, re-approval, the full recipe path"]
+```
+- A recipe from Yawar's sheet: the product has an approved or old recipe version whose note starts "Imported from" (the day 1 load). A product written in C2M keeps the full path in the window.
+- A version sent to the CFO in the window stays with the CFO after the window ends; he approves it as before.
+- Changes saved before the window that still wait for Monday stay waiting: save again to put one in now, or drop it.

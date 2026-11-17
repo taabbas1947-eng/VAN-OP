@@ -928,3 +928,14 @@ Open idea, not ruled: a label tolerance per nutrient (Himayat). Needs a picture 
 Left on purpose: on a phone, the red Delete on the product page sits full width under the title (within the 7g ruling; Tahir may ask for it smaller).
 Next: Tahir resumes when the team has worked in C2M and given real feedback. Then: walk each screen signed in as Majid, Himayat, Fahim and Yawar (about 1 week from now), collect the feedback, picture first, panel questions, build as push 7h.
 Working notes for the next session: the cloud copy keeps stash entries for 7e and 7f+7g (already pushed; drop them before new work and start from origin/main 8c09d6f). Tests: route harness t2 to t21 (t2 keeps 1 old failure), page tests p9 to p23, pc, no-011.
+
+
+## 17 Nov 2026 - push 9: the go-live window (D-170), MODULE: C2M
+Why: Yawar, Majid and Himayat are taking C2M live. Yawar: the opening recipes from his sheet were taken as approved and must be corrected (packing, FOH and labour too). His Fruitlish 3 L packing bill seemed not to save: it had saved as urgent and was waiting for Tahir or Monday 23 Nov (its carton line was entered per pack, not 4 packs per outer). No pack had a cost today because Labour and FOH Low and High are empty.
+Tahir ruled (panel): a go-live window (every cost change in when saved, no Monday wait, no urgent approval); direct correction of the recipes from the sheet (Production Manager, then the CFO); when the window ends, each pack's cost that day becomes its approved cost; Yawar sets up packing bills himself.
+Files: c2m-routes.js (GL cache and glUntil, q drops re-approval items but keeps first-cost items, weekly() treats the window as Monday, POST /api/c2m/golive, glClose, openingCps, recipe /advance direct path with step note "(D-170)", state golive and path golive, Company settings refuses golive_ keys), c2m.html (glStrip on Approvals, Today and Costs, Tahir's last-day box and Close the window now with 2 taps, 1 press save via effectFirst, weekNote and wkHeld, recipe chips and Send to the CFO, change list 2026-11-17a), docs 01, 03, 05 to 12.
+No migration: setting rows golive_until and golive_reset in c2m_setting.
+Tests (cloud copy, MariaDB 10.11, real code, migrations 001 to 016, scratch harness not in the repo): golive route suite 56 pass, page suite in jsdom 19 pass; both fail on the code before. Independent review: 0 Blocking, 1 Major, 5 Minor, 3 Preference; all fixed except a cap on the last day.
+Not pushed. Delivered to E:\VAN Systems for Tahir to push.
+After the push: Tahir opens the window on Costs (pick the last day). Yawar fills Labour and FOH Low and High, then saves the Fruitlish 3 L bill again (carton as Secondary, 4 packs per outer). Majid corrects recipes; Yawar approves their cost.
+Open for Tahir: what Rs 295 on the Fruitlish bill covers (bottle only, or more); he left it to Yawar.

@@ -17,6 +17,12 @@ Changed in 0.6.0: entry 0.6.0 added.
 Changed in 0.5.0: entry 0.5.0 added; real figures removed from earlier entries (public repo).
 Format: Keep a Changelog, semantic versions. Live: 1.0.0 (pushed 19 Oct about 22:09, checked live by Claude as Tahir the same evening; Yawar's view checked in the cloud copy only); 0.9.3 pushed 19 Oct 14:38, checked live; 0.9.2 pushed 19 Oct 12:43, checked live; first data load 19 Oct 2026 about 13:17, checked live. Before: 0.9.1 (pushed 19 Oct 09:39, checked live). apps/c2m first pushed by Tahir on 17 Oct and the live migration run the same day (39 empty c2m_ tables); 0.6.0 and 0.7.0 pushed on 18 Oct (17:29), 0.8.0 (20:16) and 0.9.0 (22:03), each checked live by Claude. The folder tabs (D-59) were built after the 0.9.0 push and ship in 0.9.1. No data loaded yet: the first data load runs on Monday 19 Oct 2026.
 
+## [Next version, push 9: the go-live window] · 17 Nov 2026 · D-170 · Who: Tahir ruled (panel, with Yawar, Majid and Himayat going live); Claude built and tested; independent review fixed; not pushed · No migration
+### Added
+- The go-live window: Tahir opens it on Costs with a last day, moves the last day, or closes it now (2 taps). While it is open every cost change goes in when saved (no Monday wait, no urgent approval, no re-approval item; a first cost still goes to Approvals); a recipe from Yawar's sheet goes from the Production Manager straight to the CFO. The day after the last day, each fully costed pack's cost that day becomes its approved cost. A strip on Approvals, Today and Costs says until when. POST /api/c2m/golive; state golive; recipe path golive.
+### Changed
+- In the window a packing bill, labour, FOH or freight change saves with 1 press; the "re-approve" pill on a rate's effect is hidden. Company settings refuses the window keys.
+
 ## [Next version, push 8: price lists easy to find, public price page, faster open] · 11 Nov 2026 · Who: Tahir asked; Claude built; not pushed · No migration
 ### Added
 - A top tab **Price lists** for the CFO and the COO: every list (7 VAN brand lists and each white label client) as a card with **Download latest PDF**, which reuses the latest issued document and makes no new VAN/PL number. **Make a new one** opens the builder, 1 click behind. Under the cards: the steps to add a KAM or team member, the KAM lists screen, and a red flag naming anyone who holds the Price list viewer role but sees no list. GET /api/c2m/pricedocs/latest (pricedoc.all).

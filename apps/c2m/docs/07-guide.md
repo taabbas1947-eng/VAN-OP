@@ -152,3 +152,10 @@ Until 7 Nov 2026 the Production Manager, QC Head, Plant Manager and KAMs had a s
 - **Variant**: a form of 1 product (Humi Grow Powder, Humi Grow Pellets). Each variant has its own recipe, packs, cost and rates.
 - **Pack**: 1 size of a product or client product (1 kg, 3 L, 20 L, 25 kg), with its own packing bill (the packing items for that pack), cost and price. A size is never a variant.
 - **Client product**: a product as one client buys it, under the client's brand name. It has its own recipe, or follows one of our products' recipe.
+
+## The go-live window (17 Nov 2026, D-170)
+While Tahir keeps the window open (the strip at the top of Approvals, Today and Costs says until when):
+- Yawar: a material, packing item, packing bill, labour, FOH or freight change goes in when it is saved. Nothing waits for Monday and no re-approval is made. A packing bill, labour, FOH or freight change saves with 1 press; a material rate or packing price still shows its effect first (Change cost).
+- Majid: to correct a recipe from Yawar's sheet, open the product, start a new version of the Default recipe, correct the lines and press Send to the CFO.
+- Yawar: approve its cost on Approvals. Fill Labour and FOH (Low and High) first: no cost is complete without them.
+- The day after the last day, each pack's cost that day becomes its approved cost. Tahir can close the window early with Close the window now (2 taps).

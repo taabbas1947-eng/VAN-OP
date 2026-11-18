@@ -303,3 +303,6 @@ No new action: each list uses the right that adds to it. Delete, Take out of use
 - Only the administrator (Tahir) opens, moves or closes the window (POST /api/c2m/golive). No new action; no right changed.
 - In the window the QC Head and the Plant Manager have no step on a correction of a recipe from Yawar's sheet; the Production Manager sends it to the CFO.
 - A KAM sees no strip and no list of products.
+
+## 11.31 18 Nov 2026 (D-171)
+- In the window the QC Head and the Plant Manager have no step on any recipe the Production Manager sends; it goes to the CFO. No action or right changed.

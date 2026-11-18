@@ -880,3 +880,16 @@ flowchart TD
 - A recipe from Yawar's sheet: the product has an approved or old recipe version whose note starts "Imported from" (the day 1 load). A product written in C2M keeps the full path in the window.
 - A version sent to the CFO in the window stays with the CFO after the window ends; he approves it as before.
 - Changes saved before the window that still wait for Monday stay waiting: save again to put one in now, or drop it.
+
+## 1.44 Every recipe straight to the CFO in the go-live window (owner: Tahir rules; Claude built; D-171, 18 Nov 2026)
+```mermaid
+flowchart TD
+  A["Window open (to 30 Nov 2026)"] --> B["Majid writes a recipe: a new product's first recipe, a new version, or another recipe of a product"]
+  B --> C["Send to the CFO: the QC Head and the Plant Manager are skipped"]
+  C --> D["Yawar approves it and its cost in 1 press, or sends it back to Majid"]
+  D -- sent back --> B
+  E["Window closed"] --> F["Normal paths: Default recipe Majid, Himayat, Fahim, Yawar; another recipe Majid, Himayat, Yawar"]
+```
+- Widens 1.43: in the window the path no longer depends on whether the product came from Yawar's sheet.
+- A version already with the QC Head or the Plant Manager when this went live keeps its path; the one who holds it passes it or sends it back, and a resend in the window goes straight to the CFO.
+- A version sent to the CFO in the window stays with the CFO after the window ends.

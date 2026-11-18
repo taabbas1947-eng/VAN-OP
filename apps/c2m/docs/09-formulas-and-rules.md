@@ -243,3 +243,8 @@ A pack takes 1 labour rate and 1 FOH rate, each the first match of these levels:
 | B-65 | Window open | Open while today (Pakistan date) <= golive_until. Only the administrator sets it. |
 | B-66 | Recipe from the sheet | A product with an approved or old recipe version whose note starts "Imported from". In the window its Default recipe goes draft, then cost, then approved. |
 | B-67 | The close | The day after golive_until: for each pack of a product in use with a complete cost today, if abs(approved - today) >= Rs 0.005, a new approved cost = today's cost (materials + packing + labour + FOH + freight). Once per golive_until. |
+
+## 18 Nov 2026 (D-171)
+| ID | Rule | Detail |
+|---|---|---|
+| B-68 | Every recipe in the window | While the window is open a draft of any recipe of any product goes draft, then cost, then approved. B-66 (recipe from the sheet) no longer limits it. |

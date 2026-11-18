@@ -430,3 +430,7 @@ All below: right see.margin (403 otherwise), registered after the C2M access che
 | POST /api/c2m/golive | the administrator (Tahir) | {until: "YYYY-MM-DD"} to open or move the last day (today or later), or {close: true} to close now | {ok, until, closed: {packs, notCosted} or null}; 403 for anyone else; 400 for a missing or past day, the same day again, or close when not open |
 - GET /api/c2m/state: golive {until, on, opening: [client product ids from Yawar's sheet]} for every role except a KAM (opening empty for a KAM); a recipe's path can be 'golive'.
 - POST /api/c2m/recipes/:id/advance: answer adds golive: true when a draft went straight to the CFO.
+
+## 5.25 18 Nov 2026 (D-171)
+- POST /api/c2m/recipes/:id/advance: in the go-live window every draft goes to 'cost' (answer golive: true), another recipe included (answer other: true as well).
+- GET /api/c2m/state: in the window a draft's path is 'golive'; golive.opening is kept but no longer decides the path.

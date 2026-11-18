@@ -17,6 +17,12 @@ Changed in 0.6.0: entry 0.6.0 added.
 Changed in 0.5.0: entry 0.5.0 added; real figures removed from earlier entries (public repo).
 Format: Keep a Changelog, semantic versions. Live: 1.0.0 (pushed 19 Oct about 22:09, checked live by Claude as Tahir the same evening; Yawar's view checked in the cloud copy only); 0.9.3 pushed 19 Oct 14:38, checked live; 0.9.2 pushed 19 Oct 12:43, checked live; first data load 19 Oct 2026 about 13:17, checked live. Before: 0.9.1 (pushed 19 Oct 09:39, checked live). apps/c2m first pushed by Tahir on 17 Oct and the live migration run the same day (39 empty c2m_ tables); 0.6.0 and 0.7.0 pushed on 18 Oct (17:29), 0.8.0 (20:16) and 0.9.0 (22:03), each checked live by Claude. The folder tabs (D-59) were built after the 0.9.0 push and ship in 0.9.1. No data loaded yet: the first data load runs on Monday 19 Oct 2026.
 
+## [Next version, push 9c: every recipe straight to the CFO, Find on Labour and FOH] · 18 Nov 2026 · D-171 · Who: Tahir ruled (Yawar's text; panel: "Majid, then Yawar", "Every recipe sent in the window"); Claude built and tested; independent review; not pushed · No migration
+### Changed
+- In the go-live window every recipe the Production Manager sends goes straight to the CFO: a new product's first recipe, a new version and another recipe of a product (was: only a recipe from Yawar's sheet). Change list 2026-11-18a.
+### Added
+- Costs, Labour and FOH: a Find box on "Which products are on which rate" (product, client, the tab's rate).
+
 ## [Next version, push 9b: send a corrected recipe in 1 press] · 17 Nov 2026 · D-170 · Who: Tahir asked ("Send to the CFO button directly under Save lines, for the 30 Nov go-live stage"); Claude built and tested; independent review fixed; not pushed · No migration
 ### Added
 - In the go-live window, for a recipe from Yawar's sheet: the line editor has Save lines and send to the CFO (saves the typed lines, then sends); the recipe page has Send to the CFO next to Open to write. Change list 2026-11-17b.

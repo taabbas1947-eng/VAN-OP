@@ -943,3 +943,12 @@ Open for Tahir: what Rs 295 on the Fruitlish bill covers (bottle only, or more);
 Live, 17 Nov 2026 16:10: push 9 is pushed (commit 2fb22f1) and deployed. On Tahir's instruction ("stop the approvals, let it be automatic for go-live") Claude opened the go-live window as Tahir, last day 30 Nov 2026; checked live: the strip shows, nothing is held for Monday, Save reads "Save and approve". Labour and FOH Low and High are filled (labour 5 and 7.5, FOH 15 and 22.5). Yawar's urgent Fruitlish 3 L bill (waiting change 6, carton entered per pack) was left for him to save again, which puts it in at once.
 
 17 Nov 2026 18:20, push 9b (MODULE: C2M, c2m.html only, change list 2026-11-17b): Tahir asked for Send to the CFO directly under Save lines for the go-live stage; Majid could not find the send (it lived only in the panel). Added Save lines and send to the CFO in the editor and Send to the CFO on the recipe page, both only for a draft on the go-live path. Tests: send 18, golive 56, page 19 pass. Independent review: 1 Major (failed send left a dead editor) and 2 Minor, fixed. Docs 07, 08, 12. Not pushed; delivered to E:\VAN Systems for Tahir to push.
+
+## 18 Nov 2026 - push 9c: every recipe straight to the CFO in the go-live window, Find on Labour and FOH (D-171), MODULE: C2M
+Why: Yawar: "when we add new product it follows the standard approval process Production Manager > QC > Onwards" and asked for a search on Costs, Labour and FOH, "Which products are on which rate". Tahir: "allow them to add new products without approval until 30th nov", "solve the search issues"; panel: "Majid, then Yawar" and "Every recipe sent in the window".
+Files: c2m-routes.js (/advance: direct for every draft in the window; lastSendDirect and the marker; typed notes cannot carry "(D-170)"; state path), c2m.html (go-live strip words, the recipe step line, Find box per tab with data-lfs and lfApply, change list 2026-11-18a), docs 01, 03, 05, 06, 07, 08, 09, 11, 12.
+No migration.
+Tests (cloud copy, scratch harness not in the repo): golive171 32 of 32 (5 of 32 on the old code), p171 21 of 21. Independent review: 0 Blocking, 1 Major, 4 Minor, all fixed; 1 Preference accepted. See docs 12.
+Not pushed. Delivered to E:\VAN Systems for Tahir to push.
+After the push: check live as Majid that a new product's draft shows Send to the CFO, and as Yawar that Costs, Labour has the Find box.
+Open: a recipe already with Himayat or Fahim keeps its path until passed or sent back.

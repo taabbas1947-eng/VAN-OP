@@ -160,3 +160,9 @@ While Tahir keeps the window open (the strip at the top of Approvals, Today and 
 - Yawar: approve its cost on Approvals. Fill Labour and FOH (Low and High) first: no cost is complete without them.
 - The day after the last day, each pack's cost that day becomes its approved cost. Tahir can close the window early with Close the window now (2 taps).
 - Majid (from 17 Nov 2026, change list 2026-11-17b): in the window the recipe editor has **Save lines and send to the CFO**, and the recipe page has **Send to the CFO** next to Open to write. 1 press sends the corrected recipe to Yawar.
+
+## Every recipe straight to the CFO (18 Nov 2026, D-171, change list 2026-11-18a)
+Until the go-live window ends (30 Nov 2026):
+- Majid: every recipe you send goes straight to Yawar: the first recipe of a new product, a new version, and another recipe of a product. The button says **Send to the CFO** (or **Resend to the CFO** after Yawar sends it back).
+- Yawar: approve it on Approvals; its cost is approved in the same press. Himayat and Fahim have no step on it until the window ends.
+- Yawar: on Costs, Labour or FOH, **Which products are on which rate** has a Find box. Type a product or a client; on Labour, type High to see the products on Labour rate High (on FOH, the same for FOH).

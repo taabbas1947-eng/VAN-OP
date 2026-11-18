@@ -504,7 +504,7 @@ module.exports = function mountC2mRoutes(app, deps) {
       return { id: v.id, clientProductId: v.client_product_id, customer: cust ? cust.name : '?', brand: cp ? cp.brand : '?', version: v.version_no, state: v.state, note: seeCost ? v.note : lib.noRs(v.note), rname: v.rname || engine.MAIN, isDefault: v.state === 'approved' && (engine.approvedVersion(D, v.client_product_id) || {}).id === v.id, defaultName: engine.defaultName(D, v.client_product_id),
         sentBack: v.sent_back_by ? { by: v.sent_back_by, state: v.sent_back_state, reason: seeCost ? v.sent_back_reason : lib.noRs(v.sent_back_reason), advice: seeCost ? v.sent_back_advice : lib.noRs(v.sent_back_advice) } : null, // no Rs without see.cost (review 7d, M1)
         lines, kgTotal: pr.kgTotal, materials: seeCost ? pr.materials : undefined, nutrients: engine.nutrients(pr, engine.analysisOpts(D, v.client_product_id)), steps: seeCost ? v.steps : v.steps.map(s => ({ ...s, note: lib.noRs(s.note) })), // push 7d: no Rs to a person who does not see cost
-        path: (v.rname || engine.MAIN) !== engine.defaultName(D, v.client_product_id) && engine.approvedVersions(D, v.client_product_id).length > 0 ? 'other' : (v.state === 'draft' && glOn() && openingCps(D).has(Number(v.client_product_id))) || (v.state !== 'draft' && /\(D-170\)/.test((v.steps || []).map(s => s.note || '').join(' '))) ? 'golive' : 'default', // push 7b: other = Majid, Himayat, Yawar (R64); golive = Majid, then Yawar (D-170)
+        path: (v.state === 'draft' && glOn()) || (v.state !== 'draft' && lastSendDirect(v.steps)) ? 'golive' : (v.rname || engine.MAIN) !== engine.defaultName(D, v.client_product_id) && engine.approvedVersions(D, v.client_product_id).length > 0 ? 'other' : 'default', // push 7b: other = Majid, Himayat, Yawar (R64); golive = Majid, then Yawar (D-170): every draft in the window (D-171)
         flags: ['review', 'endorse'].includes(v.state) ? recipeFlags(D, v.id) : [], // R68: why a comment is needed to pass
         backSig: v.sent_back_by && v.state === 'draft' ? (backSigs.get(v.id) ?? null) : undefined }; // R63: the lines as sent back, so the page says where a resend goes
     });
@@ -844,6 +844,9 @@ module.exports = function mountC2mRoutes(app, deps) {
 
   /* ---------- Go-live window (D-170): the products that came from Yawar's sheet, Tahir's control, and the close ---------- */
   /** Client products with a recipe version imported from Yawar's sheet (its note starts "Imported from"): the opening recipes. */
+  /** D-171 (review M1, m1): a version went straight to the CFO when its LAST send (sent or resent) carries the system phrase, never a typed note elsewhere. Steps are in id order. */
+  const GL_MARK = 'straight to the CFO (D-170)';
+  function lastSendDirect(steps) { const s = (steps || []).filter(x => x.action === 'sent' || x.action === 'resent').pop(); return !!(s && String(s.note || '').endsWith(GL_MARK)); } // the system phrase ends the note; a typed note can never carry "(D-170)" (see /advance)
   function openingCps(D) { const out = new Set(); for (const v of D.recipes.byVer.values()) if (['approved', 'old'].includes(v.state) && /^Imported from/i.test(String(v.note || ''))) out.add(Number(v.client_product_id)); return out; } // review m2: a draft's note does not count
   const setRow = (k, v, label, by) => q('INSERT INTO c2m_setting (k, v, label, needs_approval, updated_by, updated_at) VALUES (?,?,?,0,?,?) ON DUPLICATE KEY UPDATE v=VALUES(v), updated_by=VALUES(updated_by), updated_at=VALUES(updated_at)', [k, v, label, by, now()]);
   /** Tahir opens the window to a last day, moves the last day, or closes it now (the last day becomes yesterday, so the close runs at once). */
@@ -853,7 +856,7 @@ module.exports = function mountC2mRoutes(app, deps) {
     if (b.close) { if (!old || old < T) throw bad('The go-live window is not open.'); until = dayBefore(T); }
     else { until = String(b.until || '').slice(0, 10); if (!isDate(until) || new Date(until + 'T00:00:00Z').toISOString().slice(0, 10) !== until) throw bad('Pick the last day of the go-live window.'); if (until < T) throw bad('The last day is today or later. To end the window now, press Close the window now.'); }
     if (old === until) throw bad('The go-live window already ends on that day.');
-    const what = b.close ? `closed by ${req.c2m.name || req.c2m.user}: each pack's cost today becomes its approved cost` : old && old >= T ? `now runs to ${until} (was ${old})` : `opened by ${req.c2m.name || req.c2m.user}, last day ${until}: every cost change goes in when saved, with no Monday wait and no re-approval, and a recipe from Yawar's sheet is corrected by the Production Manager and approved by the CFO in 1 step`;
+    const what = b.close ? `closed by ${req.c2m.name || req.c2m.user}: each pack's cost today becomes its approved cost` : old && old >= T ? `now runs to ${until} (was ${old})` : `opened by ${req.c2m.name || req.c2m.user}, last day ${until}: every cost change goes in when saved, with no Monday wait and no re-approval, and every recipe the Production Manager sends goes straight to the CFO, who approves it and its cost in 1 step`;
     await tx(async () => {
       await setRow('golive_until', until, 'Go-live window, last day', req.c2m.user);
       if (!b.close && (!old || old < T)) await q("DELETE FROM c2m_setting WHERE k='golive_reset'"); // a window opened again closes again (review M1)
@@ -976,9 +979,9 @@ module.exports = function mountC2mRoutes(app, deps) {
     /* D-140 (Tahir, 30 Oct 2026): another recipe of a product that already has its Default takes the short path. Push 7b (R64, D-163):
        the short path is now Majid, Himayat, Yawar (the Plant Manager is skipped), so the QC Head checks every recipe the plant may run. */
     const Dp = await engine.loadAll(q); const vo = Dp.recipes.byVer.get(v.id); const other = vo && vo.rname !== engine.defaultName(Dp, v.client_product_id) && engine.approvedVersions(Dp, v.client_product_id).length > 0;
-    const note = String((req.body || {}).note || '').replace(/\s+/g, ' ').trim().slice(0, 400);
+    const note = String((req.body || {}).note || '').replace(/\s+/g, ' ').replace(/\(\s*D-170\s*\)/gi, 'D-170').trim().slice(0, 400); // the go-live marker is the system's alone (D-171 review m1)
     let next = (other && lib.RECIPE_FLOW_OTHER[v.state]) || lib.RECIPE_FLOW[v.state]; let changed = null, nowSig = null;
-    const direct = !other && glOn() && openingCps(Dp).has(Number(v.client_product_id)); // D-170: go-live correction of a recipe from Yawar's sheet
+    const direct = glOn() && v.state === 'draft'; // D-170, widened by D-171 (Tahir, 18 Nov 2026): in the go-live window every recipe the Production Manager sends goes straight to the CFO (a new product, another recipe, a new version)
     if (v.state === 'draft' && v.sent_back_state) { // R63: a resend goes back to the QC Head when the lines changed since it was sent back; else straight to the sender (ruled 14 Oct)
       const [ln] = await q('SELECT grade_id, qty FROM c2m_recipe_line WHERE recipe_version_id=?', [v.id]); const before = await backSig(v.id); nowSig = lib.lineSig(ln);
       changed = before == null ? null : before !== nowSig; next = lib.resendTo(v.sent_back_state, before, nowSig); if (other && next === 'endorse') next = 'review'; // changed null: not known (sent back before 7b), so the QC Head
@@ -986,14 +989,14 @@ module.exports = function mountC2mRoutes(app, deps) {
     /* R68: passing a recipe with something red (analysis not complete, below the declared grade) needs a comment, kept on its step. */
     if (['review', 'endorse'].includes(v.state)) { const red = recipeFlags(Dp, v.id); if (red.length && !note) throw bad(`Write a comment before you pass it, because ${red.join('; ')}.`); }
     /* Review 30 Oct, finding 3: a version that took the short path as another recipe, whose recipe has since become the Default, goes through Himayat and Fahim. */
-    const [stp] = await q('SELECT action, note FROM c2m_recipe_step WHERE recipe_version_id=?', [v.id]); const checked = stp.some(x => x.action === 'reviewed') && stp.some(x => x.action === 'endorsed');
-    const wentDirect = stp.some(x => /\(D-170\)/.test(x.note || '')); // sent to the CFO in the go-live window: approved by the CFO even after the window ends
+    const [stp] = await q('SELECT action, note FROM c2m_recipe_step WHERE recipe_version_id=? ORDER BY id', [v.id]); const checked = stp.some(x => x.action === 'reviewed') && stp.some(x => x.action === 'endorsed');
+    const wentDirect = lastSendDirect(stp); // sent to the CFO in the go-live window by its last send: approved by the CFO even after the window ends (D-171 review m1)
     if (!other && v.state === 'draft' && v.sent_back_state === 'cost' && !checked) next = 'review';
     /* Review 7b, M1 (R64): a short-path version never reaches the cost step without the QC Head, also one sent on before 7b. */
     const qcDone = stp.some(x => x.action === 'reviewed');
     if (other && v.state === 'draft' && next === 'cost' && !qcDone) next = 'review';
-    if (other && v.state === 'cost' && !qcDone) throw bad('The QC Head now checks every recipe, another recipe of a product too, and this version has not been checked. Send it back to the Production Manager; when he resends it, it goes to the QC Head.');
-    if (direct && v.state === 'draft') next = 'cost'; // D-170: the Production Manager, then the CFO; the QC Head and the Plant Manager are skipped in the go-live window
+    if (other && v.state === 'cost' && !qcDone && !wentDirect) throw bad('The QC Head now checks every recipe, another recipe of a product too, and this version has not been checked. Send it back to the Production Manager; when he resends it, it goes to the QC Head.');
+    if (direct && v.state === 'draft') next = 'cost'; // D-170, D-171: the Production Manager, then the CFO; the QC Head and the Plant Manager are skipped in the go-live window
     if (!other && !direct && !wentDirect && v.state === 'cost' && !checked && engine.approvedVersions(Dp, v.client_product_id).length) throw bad(`"${vo ? vo.rname : ''}" is the Default recipe now, so this version needs the QC Head's review and the Plant Manager's endorsement before its cost is approved. Send it back to the Production Manager; when he resends it, it goes to the QC Head.`);
     if (next === 'approved') {
       const D0 = await engine.loadAll(q); const pr = engine.priceRecipe(D0, D0.recipes.byVer.get(v.id));
@@ -1010,7 +1013,7 @@ module.exports = function mountC2mRoutes(app, deps) {
     if (nowSig != null) { const [[lk]] = await q('SELECT id FROM c2m_recipe_version WHERE id=? FOR UPDATE', [v.id]); if (!lk) throw moved(); const [ln2] = await q('SELECT grade_id, qty FROM c2m_recipe_line WHERE recipe_version_id=?', [v.id]); if (lib.lineSig(ln2) !== nowSig) throw moved(); } // review 7b, minor 1: lines saved from another tab a moment ago
     const [u] = await q('UPDATE c2m_recipe_version SET state=?, sent_back_by=NULL, sent_back_state=NULL WHERE id=? AND state=?', [next, v.id, v.state]);
     if (!u.affectedRows) throw moved();
-    await step(v.id, act, req.c2m.user, direct && v.state === 'draft' ? `${note ? note + ' · ' : ''}Go-live correction: straight to the CFO (D-170)` : note || null);
+    await step(v.id, act, req.c2m.user, direct && v.state === 'draft' ? `${note ? note.slice(0, 350).trim() + ' · ' : ''}Go-live window: straight to the CFO (D-170)` : note || null); /* the note column holds 400: the typed part is cut so the marker always fits (D-171 review) */ // the step note keeps "(D-170)": wentDirect and the state's path read it
     if (next === 'approved') {
       /* D-140: approving a version makes the earlier approved version of the SAME recipe old; the product's other recipes stay approved. */
       const Db = await engine.loadAll(q); const myName = (Db.recipes.byVer.get(v.id) || {}).rname || engine.MAIN; const hadAppr = engine.approvedVersions(Db, v.client_product_id).filter(x => x.id !== v.id);
@@ -1036,7 +1039,7 @@ module.exports = function mountC2mRoutes(app, deps) {
         }
       }
     }
-    await audit(req.c2m.user, 'recipe', v.id, act, v.state, next, other ? 'Another recipe of the product: short path, the Production Manager, the QC Head, then the CFO (R64)' : direct && v.state === 'draft' ? 'Go-live correction of a recipe from Yawar\'s sheet: the Production Manager, then the CFO (D-170)' : null);
+    await audit(req.c2m.user, 'recipe', v.id, act, v.state, next, direct && v.state === 'draft' ? 'Go-live window: the Production Manager, then the CFO (D-170, D-171)' : other ? 'Another recipe of the product: short path, the Production Manager, the QC Head, then the CFO (R64)' : null);
     /* R65: a notice to the next person, and to the Production Manager when the cost is approved (saved with the step or not at all). */
     const rw = recipeWords(Dp, v.id);
     if (next === 'approved') await notice('production', `Approved: ${rw}. Cost approved by ${whoW(req.c2m)}.`, req.c2m.user);

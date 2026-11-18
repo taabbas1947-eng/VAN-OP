@@ -7765,3 +7765,12 @@ Tests: new tests/prodpack1118a.test.js (77; failed against the old file before t
 Independent review (fresh agent): no Blocking; 2 Major fixed (ppView clashed with the People screen's ppView, renamed prp*; Add missing production backfills missing, Tahir: show them, marked); Minor fixed: onclick keys escape ' ( ); a filter in use stays visible; typed at in PKT (localWhenOf); Today link on an empty day; divert pool named, no false 0; packing rows with no batch stay apart; labels keep capitals; From alone to today, To alone no start; file name for To alone; Excel-safe text cells. Re-check: all fixes hold, nothing else changed.
 Known, left as it is: an Add missing production backfill does not record its batch, so it stands as its own row in By batch (marked as a correction) while the batch's Left to pack includes it; a Night shift dated tomorrow shows from tomorrow, as on Production by shift; the order line History now places Add missing packing rows at the time typed (in the change log).
 NEXT: Tahir pushes. Then live check read only: BUILD_ID 2026-11-18a; Reports, Production, Production and packing record for This month in 3 views and both downloads; the More links as Majid (Today, Shift output, Morning view) and as Ali Raza or Jawad Naseer; no console errors. Then tell Majid where it is.
+
+
+## 18 Nov 2026 (2) - build 2026-11-18a pushed by Tahir and checked live; session closed (MODULE: O2S)
+Pushed by Tahir 18 Nov 2026 (origin/main 54e6c0b). Live check about 22:15 PKT in a Chrome tab Tahir signed in to (COO), read only: report functions run in memory, the report state and the role put back, no setScreen, nothing saved; no console errors.
+- BUILD_ID 2026-11-18a served.
+- This month (1 to 18 Nov): 85 entries (33 produced, 52 packed), produced 165,250 Kg/L, the same as Production by shift for the same dates; packed 216,351 Kg/L; By batch 26 batches and By product 12 products add up to the same totals; marks: 3 typed late, 1 moved to another PO; every row this month has a shift, an in-charge, typed by and typed at. All dates: 879 rows. The 3 downloads build (26, 12 and 85 rows).
+- Who may open it: Production, Production Manager, Plant Manager, COO, CFO, Warehouse, Supply Chain yes; QCM, Finance, KAM, QA Inspector no.
+- More links: Today for the COO, Majid and Ali Raza yes, Plant Manager and QCM no; Shift output for Majid yes; Majid's Morning view page yes.
+NEXT: Tahir tells Majid where it is (Reports, Production, Production and packing record, or More on Today, Shift output and his Morning view).

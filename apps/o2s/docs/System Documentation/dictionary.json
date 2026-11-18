@@ -3619,6 +3619,60 @@
      }
     }
    ]
+  },
+  {
+   "id": "DD-39",
+   "title": "Production and packing record: the words (2026-11-18a)",
+   "owner": "COO (Tahir)",
+   "rules": [],
+   "status": "confirmed",
+   "src": [
+    "D-371",
+    "LG-46"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Word",
+       "Meaning in O2S",
+       "Where it comes from"
+      ],
+      "rows": [
+       [
+        "Typed by",
+        "The person signed in when the entry was saved.",
+        "recordedBy, else by"
+       ],
+       [
+        "Typed at",
+        "The date and time the entry was saved in O2S, in plant time (PKT, UTC+5), as the rest of the app.",
+        "recordedAt, else ts; localWhenOf"
+       ],
+       [
+        "Not on record",
+        "The entry was saved before O2S asked for that field (shift and in-charge on packing before 15 Oct 2026). Never filled in later.",
+        "D-371"
+       ],
+       [
+        "Time not saved",
+        "The entry was saved before O2S kept the time it was typed. Never filled in later.",
+        "D-371"
+       ],
+       [
+        "Left to pack now",
+        "Made, minus packed, minus disposed of, on the batch today.",
+        "LG-46"
+       ],
+       [
+        "Counted",
+        "Kg that go into the produced and packed totals. Reversed and voided packing is shown and not counted.",
+        "LG-46"
+       ]
+      ]
+     }
+    }
+   ]
   }
  ]
 }

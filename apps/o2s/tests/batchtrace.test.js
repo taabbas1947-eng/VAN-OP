@@ -74,7 +74,7 @@ ok('pools (no batch number) are not in the list', !/option value=""/.test(sb.rpB
 /* catalogue */
 const cat = html.match(/\{id:'batchtrace'[^\n]*/)[0];
 ok('in the catalogue with the roles of Batches and wastage, read-only view', /kind:'batchtrace'/.test(cat) && /roles:\['Production','Production Manager','Plant Manager','QCM','AQCM','Lab Rep','QA Inspector','COO','CFO'\]/.test(cat));
-ok('sits in the Production group', /ids:\['prodshift','batches','batchtrace','rm'\]/.test(html));
+ok('sits in the Production group', /ids:\['prodshift','prodpack','batches','batchtrace','rm'\]/.test(html));
 ok('opens without the report builder, and renders its own view', /c\.kind==='customer'\|\|c\.kind==='batchtrace'/.test(html) && /if\(c\.kind==='batchtrace'\) return h\+rpBatchTraceHTML/.test(html));
 /* 10 Oct 2026 (10h) — the trace: an open batch is not "unaccounted"; a disposal with no type is amber; runs whose shipping records disagree are named */
 {

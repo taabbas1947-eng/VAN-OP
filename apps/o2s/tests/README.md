@@ -368,3 +368,8 @@ else's work, which must never follow the access matrix. Moving three of them fro
 the Plant Manager to Supply Chain failed that list by name, which is the list
 doing its job: the check is that they stayed hard, and the name is the part that
 was allowed to change.
+
+```
+node apps/o2s/tests/prodpack1118a.test.js   #  61 - the production and packing record (2026-11-18a):
+                                   #       rows, period, by batch, by product, download, More links
+```

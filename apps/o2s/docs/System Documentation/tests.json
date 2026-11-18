@@ -812,6 +812,12 @@
         "2026-11-17a: left to ship is ordered minus shipped and 0 on a closed line; bags left to 1 decimal and blank with no pack size; cleared, ready capped at packed minus shipped and at left to ship, 0 on a closed line; the orders rows carry the new fields and keep left to deliver; Open orders: picker, columns, filter, sum, views, Excel, file name, print line, no bag total; One customer: same rows, 1 row per product, 2 views, Print, CSV, Excel, trucks CSV, no prices, writes nothing; the Warehouse page: who gets it, the 5 questions, its sources, the index-only link, writes nothing, mvWhLeft and mvWhStock run (stock on a closed line is no open order, never ready to load); Guide and change log.",
         "D-368, D-369, D-370",
         "75 passed, 0 failed (17 Nov 2026, after the independent review)"
+       ],
+       [
+        "prodpack1118a.test.js",
+        "2026-11-18a: the production and packing record. Rows: a shift with no output is not shown, a voided batch shows nothing, 1 produced row per shift (also on a multi-PO batch, each PO named once), typed by and typed at with the ts fallback, the late mark; packing: the moved copy is not listed, the entry shows the Kg and packs typed with a Moved to PO mark, correction rows marked with who made them, reversed and voided shown and not counted, old rows not filled in, the base product. Period: This month, a month (February 28 days), a date, From and To swapped, All, To alone, a bad month ignored. By batch: produced, packed, left to pack now, entries oldest first; By product groups by the base product. Screen and download: entries shown when opened, the sentence, the period bar, filters, the 3 downloads, Excel-safe cells, an empty period. Wiring: catalogue roles, Production group, rpOpen on This month, rpReportHTML, the 3 More links, ppGo through rpOpen, Add missing packing saves the time; writes nothing; Guide, change log, BUILD_ID, SYSDOC_VER. After the independent review: Add missing production backfills shown and marked; typed at in plant time; keys with an apostrophe or brackets safe in onclick (a hostile product name cannot break out); evLag unknown on an Add missing packing row; a filter in use stays visible; divert pool named, no false 0; rows with no batch stay apart; the state names cannot clash with the People screen; the Today link on an empty day; From alone, To alone, chip labels; no write into state.",
+        "D-371",
+        "77 passed, 0 failed (18 Nov 2026, after the independent review)"
        ]
       ]
      }

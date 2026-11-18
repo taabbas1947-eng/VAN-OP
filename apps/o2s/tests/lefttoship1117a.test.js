@@ -125,5 +125,5 @@ ok('the link carries an index, never a customer name', /onclick="mvOpenCust\('\+
 ok('the page not set up message no longer says 7 people', /The Morning view has 8 pages, each for a named job/.test(grab('screenMorning')));
 ok('Guide, How the app works: 8 pages, the Warehouse page for the Senior Warehouse Officer and the Supply Chain Officer', /has 8 pages/.test(grab('guideHow')) && /The Warehouse page is seen by the Senior Warehouse Officer and the Supply Chain Officer/.test(grab('guideHow')));
 ok('Guide, My job: Warehouse and Supply Chain Officer are told', /var _n17a=\{'Warehouse':_wh17,'Supply Chain Officer':_wh17/.test(grab('guideMyJob')));
-ok('change log 2026-11-17a and BUILD_ID', /ver:'2026-11-17a'/.test(html) && /var BUILD_ID='2026-11-17a'/.test(html));
+ok('change log 2026-11-17a, and a BUILD_ID of the build form (2026-11-18a since the production and packing record)', /ver:'2026-11-17a'/.test(html) && /var BUILD_ID='2026-\d\d-\d\d[a-z]'/.test(html));
 report('2026-11-17a: left to ship, customer by customer, and the Warehouse Morning view');

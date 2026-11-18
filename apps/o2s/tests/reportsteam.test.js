@@ -40,7 +40,7 @@ const PL = [['production', 'production-manager']];
 { const base = (r) => mk(r, null, {}, true).vis().map(c => c.id);
   const tm = grab('rpTeamMay');
   ok('rpTeamMay never opens a role-for-all report logic and is failure-safe', /c\.roles==='all'/.test(tm) && /catch\(e\)\{ return false; \}/.test(tm));
-  const co = base('COO'); eq('the COO still sees all 21', co.length, 21);
+  const co = base('COO'); eq('the COO still sees all 22 (2026-11-18a: + production and packing record)', co.length, 22);
   ['Warehouse', 'Lab Rep', 'AQCM', 'QA Inspector', 'Supply Chain Officer', 'Finance'].forEach(r => ok(r + ' (not a lead) gets nothing from the rule', mk(r, null, {}, true).vis().every(c => (c.roles === 'all') || c.roles.indexOf(r) > -1 || (c.id === 'invoicing' && r === 'Finance') || (c.kind === 'budget' && r === 'Finance')))); }   /* 11-03a: Finance may look at Sales & Budget (D-363) */
 /* Your reports card */
 { const st = {}; const a = mk('Warehouse', null, st);

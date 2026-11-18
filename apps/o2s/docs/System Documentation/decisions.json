@@ -20905,6 +20905,103 @@
      }
     }
    ]
+  },
+  {
+   "id": "D-371",
+   "title": "The production and packing record: every production and packing entry, who typed it and when (2026-11-18a)",
+   "owner": "Tahir (ruling)",
+   "rules": [
+    "R-019"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir, 18 Nov 2026, panel answers in chat: entry time 'Both times'; records 'Both in 1 report'; views 'Detail plus totals'; corrections 'Include and mark'; More link 'All 3 places'; period 'This report first'; typed at 'Save time, old = not saved'; who opens 'Same as Production by shift'; then: period on arrival 'current month by default', reversed packing shown 'yes', left to pack is the batch position today 'yes', By product 'by base product', shifts with no output shown 'no', Today link for Ali Raza and Jawad Naseer 'yes'",
+    "Abdul Majid (Production Manager), relayed by Tahir 18 Nov 2026: see the production shift record with the entry time and date and the person who entered it, every batch produced and packed, by batch and by product, and download it",
+    "design picture 'O2S Production and Packing Record: design for review', versions 1 and 2, 18 Nov 2026",
+    "o2s.html RP_CATALOGUE prodpack, RP_GROUPS production, fn rpOpen, rpReportHTML, ppRows, ppWindow, ppByBatch, ppByProduct, ppHTML, ppExportData, ppExport, ppGo, ppMay, ppMoreLink, tdDoneToday, renderProdOutput, mvPageMajid, dfSubmitPacking",
+    "tests/prodpack1118a.test.js",
+    "Tahir, 18 Nov 2026, after the independent review: Add missing production backfills 'Show them, marked'"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-11-18"
+       ],
+       [
+        "Ruled by",
+        "Tahir"
+       ],
+       [
+        "Asked by",
+        "Abdul Majid, Production Manager"
+       ],
+       [
+        "What it is",
+        "1 report in Reports, Production, beside Production by shift: every production entry (Log shift output, and Add missing production under Correct a record, shown as Produced and marked as a correction by the role that typed it, with no batch number and no time) and every packing entry, with Kind (Produced or Packed), date, shift, in-charge, batch, product, PO and client, Kg/L, packs, who typed it and the date and time it was typed, and a mark."
+       ],
+       [
+        "Views",
+        "By batch (produced and packed in the period, left to pack now, entries), By product (grouped by the base product made, then its batches, then their entries), Every entry (newest first, with filters for kind, shift, in-charge, product, batch and typed by)."
+       ],
+       [
+        "Period",
+        "This month, Last month, FY to date, All, plus Pick a month, Pick a date and From and To, on this report only (Tahir: this report first). Every way in opens on This month. From alone runs to today; To alone has no start. A Night shift dated tomorrow (the day it ends) shows from tomorrow, as on Production by shift."
+       ],
+       [
+        "Marks",
+        "Correction by (name) on rows from Add missing packing or Write the packing record; Typed n days late with its reason; Moved to PO (n Kg/L); Reversed: not counted; Voided: not counted."
+       ],
+       [
+        "Old rows",
+        "Not filled in: a packing entry saved before 15 Oct 2026 shows its shift and in-charge as not on record; an entry with no saved time shows time not saved (D-271 style: nothing is back-filled)."
+       ],
+       [
+        "Not shown",
+        "A shift saved with no output (Tahir, 18 Nov). A shift entry of a voided batch. The copy a stock move writes on the other PO: the Kg is counted once, on the entry that was typed."
+       ],
+       [
+        "Left to pack now",
+        "The batch's position today, whatever the period: produced minus packed minus disposed of."
+       ],
+       [
+        "Ways in",
+        "A More link: under Done by your team today on Today for the Production Manager and the COO (whose team list holds production entries), under Done by you today for Production, beside the Recent output log on Shift output, and on the Production Manager's Morning view page. Each shows only when the person may open the report."
+       ],
+       [
+        "Who opens it",
+        "Production, Production Manager, Plant Manager, COO, CFO, Warehouse, Supply Chain: the roles of Production by shift (Tahir), plus the department lead rule (12d)."
+       ],
+       [
+        "Also changed",
+        "Correct a record, Add missing packing now saves recordedAt and recordedBy (when and by whom it was typed). It saves no actualDate, so the row is not flagged as an entry recorded late; if its Date actually packed is later amended under Correct, the late check can then work it out, as for any packing entry. On the order line History such a row is placed at the time it was typed, as Write the packing record rows already were."
+       ],
+       [
+        "Download",
+        "CSV and Excel. By batch and By product download their table; Every entry downloads each entry with its filters. A cell that starts with =, + or @ is saved with a leading apostrophe."
+       ],
+       [
+        "Writes",
+        "Nothing. The report reads shiftEntries, packingLog, batches and orders."
+       ],
+       [
+        "Review, 18 Nov 2026",
+        "An independent review found no Blocking fault and 2 Major: the report's state shared the name ppView with the People screen (renamed prpView and the rest prp*), and Add missing production backfills were missing (Tahir: show them, marked). Minor points fixed: keys with an apostrophe or brackets are escaped in onclick; a filter in use stays in its box; typed at in plant time (PKT); the Today link shows on a day with nothing done; a divert pool is named as the pool with no left to pack figure; packing rows with no batch stay apart; chip labels keep their capitals; a text cell starting with -, tab or CR is made safe."
+       ],
+       [
+        "Known, left as it is",
+        "An Add missing production backfill does not record which batch it went into (dfSubmitProduction raises an open bulk batch of that base, or makes a new one with no number), so it stands as its own row in By batch; the batch's own row does not include it in Produced, but its Left to pack now does. The row is marked as a correction. A Night shift dated tomorrow shows from tomorrow, as on Production by shift."
+       ]
+      ]
+     }
+    }
+   ]
   }
  ]
 }

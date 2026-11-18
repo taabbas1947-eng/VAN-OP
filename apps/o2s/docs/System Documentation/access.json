@@ -1435,6 +1435,45 @@
      }
     }
    ]
+  },
+  {
+   "id": "AC-17",
+   "title": "The production and packing record: who opens it (2026-11-18a)",
+   "owner": "COO (Tahir)",
+   "rules": [],
+   "status": "confirmed",
+   "src": [
+    "RP_CATALOGUE prodpack roles",
+    "fn rpMay, rpTeamMay, ppMay",
+    "D-371"
+   ],
+   "blocks": [
+    {
+     "p": "No new right and no new role. The report follows the Reports screen access set on the launcher and the report's own role list, the same as Production by shift."
+    },
+    {
+     "table": {
+      "head": [
+       "Who",
+       "May"
+      ],
+      "rows": [
+       [
+        "Production, Production Manager, Plant Manager, COO, CFO, Warehouse, Supply Chain",
+        "Open the report, change the period and the view, download it"
+       ],
+       [
+        "A department lead whose team holds one of those roles (12d)",
+        "The same"
+       ],
+       [
+        "Everyone else",
+        "Not offered; the More links do not show"
+       ]
+      ]
+     }
+    }
+   ]
   }
  ]
 }

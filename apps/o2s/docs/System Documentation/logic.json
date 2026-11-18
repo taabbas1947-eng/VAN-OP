@@ -3568,6 +3568,82 @@
      }
     }
    ]
+  },
+  {
+   "id": "LG-46",
+   "title": "How the production and packing record builds its rows (2026-11-18a)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-019"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn ppRows, ppKgRun, ppLate, ppByBatch, ppByProduct, ppLeftNow, ppWindow",
+    "D-371"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Part",
+       "Rule",
+       "From"
+      ],
+      "rows": [
+       [
+        "Produced row",
+        "1 per shift entry with output above 0; a voided batch is skipped; a multi-PO batch names each PO once",
+        "shiftEntries (batchId, batchNo, date, shift, incharge, kg, recordedBy or by, recordedAt or ts, enteredLate, lateReason)"
+       ],
+       [
+        "Produced row from a backfill",
+        "Correct a record > Add missing production writes only to productionLog (recon:true): each such row with Kg above 0 is a Produced row marked Correction by (the role it saved), no batch number, no time; it stands as its own row in By batch and joins its base product in By product",
+        "productionLog (recon)"
+       ],
+       [
+        "Packed row",
+        "1 per packing entry with Kg above 0, every form and both correction paths; the copy written by a stock move (movedFrom with its first entry still present) is skipped",
+        "packingLog"
+       ],
+       [
+        "Kg on a packed row",
+        "Voided: voidedKg. Otherwise kg plus every movedOut Kg, so the entry shows what was typed",
+        "ppKgRun"
+       ],
+       [
+        "Packs on a packed row",
+        "packs × pack size; after a move, Kg ÷ pack size, so the packs typed show",
+        "packingLog packs, packSize"
+       ],
+       [
+        "Counted",
+        "Not counted when the entry is reversed or voided; the row is still shown with its mark",
+        "ppRows counted"
+       ],
+       [
+        "Typed by and typed at",
+        "recordedBy, else by; recordedAt, else ts (shift entries); blank shows not on record or time not saved; typed at is shown in plant time (PKT, localWhenOf)",
+        "ppRows"
+       ],
+       [
+        "Period",
+        "On the entry date (the shift or packing date, a Night shift dated the day it ends); a month runs from its 1st to its last day; From and To given the wrong way round are swapped",
+        "ppWindow, ppInPeriod"
+       ],
+       [
+        "By batch",
+        "Grouped by batch id (else batch number); produced and packed are the counted Kg in the period; left to pack now is producedKg minus packedKg minus disposedKg of the batch today; newest activity first; a divert pool is named Divert pool, (base) and has no left to pack figure; a packing row with no batch stands as its own row",
+        "ppByBatch, ppLeftNow"
+       ],
+       [
+        "By product",
+        "The By batch groups, grouped by the batch's base product (else brand)",
+        "ppByProduct"
+       ]
+      ]
+     }
+    }
+   ]
   }
  ]
 }

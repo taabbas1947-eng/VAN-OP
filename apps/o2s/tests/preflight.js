@@ -184,6 +184,8 @@ const MARKERS = [
   ['<h3>A number moves only with its record</h3>', 1, 'the Guide states the invariant (25b)'],
   ['id="cl_ordered_${l.id}" type="number" value="${l.ordered||0}" readonly disabled', 1, 'ordered is locked in Correct a record (25c)'],
   ["function coaApprove(){ if(!(state.role==='QCM'||labCovers('QCM')))", 1, 'the COO does not sign certificates (24u)'],
+  ['function ppRows(',                     1, 'production and packing record (2026-11-18a, D-371)'],
+  ["{id:'prodpack', kind:'prodpack'",      1, 'production and packing record in the catalogue (2026-11-18a)'],
 ];
 
 const [, , mode, freshPath, otherPath] = process.argv;

@@ -952,3 +952,5 @@ Tests (cloud copy, scratch harness not in the repo): golive171 32 of 32 (5 of 32
 Not pushed. Delivered to E:\VAN Systems for Tahir to push.
 After the push: check live as Majid that a new product's draft shows Send to the CFO, and as Yawar that Costs, Labour has the Find box.
 Open: a recipe already with Himayat or Fahim keeps its path until passed or sent back.
+
+Live, 18 Nov 2026 16:00: push 9c is pushed (commit e93a8a8) and deployed. Checked live as Tahir: the page serves change list 2026-11-18a; the window is open to 30 Nov 2026; all 3 drafts (BKK Potash 30% 1 Liter, Tornado, Bio Dividend) show the go-live path (Send to the CFO); Costs, Labour has the Find box (73 products; "high" 2, "syngenta" 2, "tornado" 2). Still on the old path, as ruled: V Germinator Pro, Farm Booster and Ferti Huma-Pellet with the QC Head, Pulsate with the CFO. Tahir's What changed box was left for him to read.

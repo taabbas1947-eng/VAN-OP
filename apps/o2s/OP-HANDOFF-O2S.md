@@ -7816,3 +7816,9 @@ Tests: new tests/batch1119c.test.js (39; crashes on HEAD). batch1119b BUILD_ID c
 Independent review: round 1 NOT SAFE (4 PM jobs the COO cannot do - Tahir ruled they wait; escalations and Morning view - Tahir ruled yes), round 2 NOT SAFE (lab sign-offs and named complaint jobs with dead buttons; I am back logged as cancelled) - fixed; round 3 SAFE.
 Live check of 2026-11-19b still to do: the Chrome tab did not answer from 14:22.
 NEXT: Tahir pushes; live checks of 19b and 19c (read only). Then part B3: F14 reason box; then F17 Start and Close shift.
+
+## 19 Nov 2026 (5) - build 2026-11-19b checked live (MODULE: O2S)
+About 15:17 PKT, in a new Chrome tab (the old O2S tab stopped answering), signed in as COO, read only: nothing saved, no setScreen; no console errors.
+- BUILD_ID 2026-11-19b running. On load the page moved dealers (7), warehouses (3), rmRequests, rmMovements, rawStock (empty) and rmDecision (98 orders) into archive.retired, and none is left in the live data; archive.retired.later is empty. The server copy still has the old keys until the next save by anyone (expected).
+- voidedRows 0. Orders 98, packing runs 456, trucks 376, production rows 333: the same as before the build. Customers 39.
+- Batch trace, an order's History, Today (16 for the COO) and the Morning view old-job count (68, oldest 141 days) all build without error.

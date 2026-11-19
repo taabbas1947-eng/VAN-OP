@@ -202,6 +202,7 @@ const MARKERS = [
   ['function jrPlanAll(',                  1, 'Production asked only when behind its plan (2026-11-19d, D-378)'],
   ['function jrMarkLine(',                  1, 'a client reason follows the marks it wrote (2026-11-19d, D-378)'],
   ['function jrLastMove(',                  1, 'a production run that is being made is moving (2026-11-19d, D-378)'],
+  ['function jrCardItems(',                 1, '1 answer covers the base (2026-11-19d, D-378)'],
   ['x._escalated || x.role===\'COO\' || x._cover', 1, 'the COO sees an away role\'s jobs (2026-11-19c, D-377)'],
 ];
 

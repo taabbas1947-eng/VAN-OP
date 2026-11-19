@@ -19,7 +19,7 @@ const box = (st, role, extra) => { const c = Object.assign({ console, Math, Stri
   vm.createContext(c);
   vm.runInContext(top(/var JR_DAYS=7, tdLastGroups=\[\];/).replace(', tdLastGroups=[]', '') + '\n' + top(/var JR_REASONS=\[[^;]*\];/) + '\n' + top(/var JR_SKIP=\{[^}]*\};/) + '\n'
     + top(/var JR_HIST_DAYS=90, JR_HIST_MIN=3, _jrPMemo=null;/) + '\n' + top(/var JR_RANK=\{[^}]*\};/) + '\n' + top(/var _jrMvMemo=null;/) + '\n'
-    + ['jrText', 'jrToday', 'jrOf', 'jrMarkLine', 'jrDays', 'jrLastMove', 'jrIdle', 'jrCurLine', 'jrAsks', 'jrMay', 'jrAddDays', 'jrBaseLine', 'jrLineOfOL', 'jrRates', 'jrRateOf', 'jrPlanAll', 'jrWorse', 'jrPlanOf', 'jrPlanHTML', 'jrLines', 'jrPoLine', 'jrOrderOf', 'openJobReason', 'renderJobReason', 'jrSave', 'jrBlockHTML', 'acKey'].map(grab).join('\n')
+    + ['jrText', 'jrToday', 'jrOf', 'jrMarkLine', 'jrDays', 'jrLastMove', 'jrIdle', 'jrCurLine', 'jrAsks', 'jrMay', 'jrAddDays', 'jrBaseLine', 'jrLineOfOL', 'jrRates', 'jrRateOf', 'jrPlanAll', 'jrWorse', 'jrPlanOf', 'jrPlanHTML', 'jrLines', 'jrPoLine', 'jrOrderOf', 'jrCardItems', 'openJobReason', 'renderJobReason', 'jrSave', 'jrBlockHTML', 'acKey'].map(grab).join('\n')
     + '\nfunction evToday(){ return TODAY.toISOString().slice(0,10); }\nfunction actTiming(it){ return {days:it.d||0}; }\nfunction itemWaiting(it){ return !!it.wait; }'
     + '\nfunction _plLineOf(o,l){ return !l.closed; }\nfunction lineShortRequested(){ return false; }\nfunction lineWaitClient(l){ var w=lineWaitMark(l); return (w&&w.kind!=="end"&&!l.closed)?w:null; }\nfunction lineWaitMark(l){ var a=(l&&l.waitMarks)||[]; return a.length?a[a.length-1]:null; }'
     + '\nvar _wcN=0; function _wcMark(o,l,kind,why,until){ var m={id:"WC"+(++_wcN),kind:kind,why:why,until:until}; l.waitMarks=(l.waitMarks||[]).concat([m]); return m; }'
@@ -220,6 +220,20 @@ const mkO = (id, brand, ordered, committed, x) => ({ id, po: 'PO' + id, client: 
 }
 ok('F14 (2nd review): the card is wrapped so a bad record never blanks Today', /function jrBlockHTML\(g\)\{ try\{/.test(html) && /return h; \}catch\(e\)\{ return ''; \} \}/.test(grab('jrBlockHTML')));
 ok('F14 (2nd review): the Guide names the lab and dispatch days from Lead times and every job on its own clock', /less the lab and dispatch days set in Lead times/.test(html) && /lab tests and Lab late, complaint jobs, Confirm delivery, Near expiry, Add reason and Truck released/.test(html));
+
+/* ---------- 1 answer covers the base (Tahir, 19 Nov) ---------- */
+{ const mk = (id, base) => ({ id, po: 'P' + id, client: 'C', lines: [{ id: 'L' + id, brand: 'Max Sulfur', base, ordered: 1000, packed: 0 }] });
+  const A = mk('S1', 'Sulfur 70%'), B = mk('S2', 'Sulfur 70%'), Cc = mk('S3', 'Potassium Humate');
+  const st = { orders: [A, B, Cc] }, c = box(st, 'Production');
+  const pf = o => ({ label: 'Pack from base', role: 'Production', o, l: o.lines[0], d: 16 });
+  const a = pf(A), b = pf(B), x = pf(Cc), op = { label: 'Open Production', role: 'Production', o: A, l: A.lines[0], d: 16 };
+  c.tdLastGroups = [{ key: 'one:1', items: [a] }, { key: 'one:2', items: [b] }, { key: 'one:3', items: [x] }, { key: 'prod:Max Sulfur', items: [op] }];
+  c.openJobReason('one:1');
+  ok('F14: a Pack from base card gathers every Pack from base job of its base (2), not another base, not the production run', c.jrForm.n === 2 && /It covers every Pack from base job of Sulfur 70% on your Today \(2\)/.test(c._modal));
+  ok('F14: ...its own PO starts ticked, the other PO of the base does not', c.jrForm.pos.find(p => p.id === 'S1').tick === true && c.jrForm.pos.find(p => p.id === 'S2').tick === false);
+  c.jrForm.reason = 'capacity'; c.jrForm.note = ''; c.jrForm.until = '2026-11-26'; c.jrSave();
+  ok('F14: ...1 answer holds both cards; the other base and the production run still ask', !!c.jrOf(a) && !!c.jrOf(b) && !c.jrOf(x) && c.jrAsks(x) === true && !c.jrOf(op));
+}
 /* ---------- change log, Guide, build, docs ---------- */
 ok('change log 2026-11-19d says it', /ver:'2026-11-19d'/.test(html) && /Why is this waiting\?/.test(html) && /replaces the daily comment on a Ship job/.test(html));
 ok('the Guide rule has its number', /'Why is this waiting\? \(after 7 days\)':'R-054'/.test(html) && /<h3>Why is this waiting\? \(after 7 days\)<\/h3>/.test(html));

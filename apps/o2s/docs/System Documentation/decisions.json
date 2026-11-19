@@ -21322,6 +21322,10 @@
        [
         "Second review fixes",
         "A run counts as moving when anything was packed for its order line, or made or logged on its own batch (jrLastMove); its days with no movement are the lower of its clock and the days since then (jrIdle). A reason belongs to the wait it was given in: it ends when the job's clock has started again since (since), or when a production run moved after it was saved. The queue counts only what is still to make (ordered less the larger of packed and made) and leaves out lines asked to close short. A Supply Chain mark the reason only re-used is never ended by it; unticking a PO ends that PO's reason and the mark it wrote. After a merge while the box is open, the mark lands on the line in the new state. A broken record never blanks Today."
+       ],
+       [
+        "Pack from base (ruled 19 Nov, \"1 answer covers the base\")",
+        "Pack from base shows 1 card per PO line. A reason given on any of them is saved on every Pack from base job of the same base that asks or holds a reason (jrCardItems); the box says how many it covers. Production runs and other bases are not included."
        ]
       ]
      }

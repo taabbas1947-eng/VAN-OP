@@ -7838,5 +7838,5 @@ Tahir ruled 19 Nov 2026 (F14, D-378): panel answers, then for Production "Late a
 - Change log, Guide (R-054, R-045, _n19d), BUILD_ID and SYSDOC_VER 2026-11-19d. Docs D-378, D-372, SC-50, LG-12 note, TS-01.
 Tests: new tests/batch1119d.test.js (88; crashes on the earlier base). dailycomment29a (177) and morningcomments30a (41) follow the new Ship rule; batch1119c BUILD_ID check generic. Full run: 140 files, 16,307 passed, 2 failed (audit17c), truckback17a no result, as before.
 Independent review: round 1 NOT SAFE (XSS in the note, Morning view still asked ship comments, client reason and marks drifting, multi-PO cards); Tahir's rulings then the measure; round 2 NOT SAFE (an old reason came back after the job moved; a run being made read as no movement) - fixed; round 3 SAFE. Left: 2 people saving the same job's reason at the same moment can mix fields (merge3); no pruning of old jobReasons.
-OPEN for Tahir: Pack from base shows 1 card per PO line, so a base run can ask on several cards (Max Sulfur: 4).
+Pack from base shows 1 card per PO line; Tahir ruled "1 answer covers the base": a reason on any of them holds every Pack from base job of that base (jrCardItems); the card's own PO starts ticked. Tests 91.
 NEXT: Tahir pushes (dea201f and this); live check read only. Then F17 Start and Close shift.

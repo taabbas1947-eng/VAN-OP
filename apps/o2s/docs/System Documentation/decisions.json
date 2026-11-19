@@ -21132,6 +21132,92 @@
      }
     }
    ]
+  },
+  {
+   "id": "D-375",
+   "title": "Rows that were removed are kept as voided, in 1 voided-rows list (2026-11-19b)",
+   "owner": "Tahir (ruling)",
+   "rules": [
+    "R-008"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir, 19 Nov 2026, comments on the page O2S Batch 1 (F6 table: all 6 rows agreed) and the panel answer \"Separate voided list\"",
+    "O2S audit, 18 Nov 2026, A6 and F6",
+    "o2s.html voidRowKeep, doRemoveLot, voidProdEntry, dedupePackingLots, dedupeShipmentsV1, healVU26144ProdLog, coaTestsDone, coaSendBack, coaReject, lineHistory, batchVoidedHTML, startNewYearClean",
+    "tests/batch1119b.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-11-19"
+       ],
+       [
+        "Ruled by",
+        "Tahir"
+       ],
+       [
+        "Why",
+        "O2S says nothing is deleted, but 6 steps removed rows (SC-36, finding A6)."
+       ],
+       [
+        "Ruling",
+        "Removed shift output, the unused remove-production-entry step and the duplicate repairs on every load keep each row they take out, whole, in voidedRows, with how, why, who and when. The row leaves its live list, so no total counts it: packed, shipped, produced, stock, Today, the Morning view, the downloads, C2M and the public batch search are as before. Tahir chose a separate voided list over a mark in place (548 places read those lists). The order line History and the Batch trace show the voided rows. COA send-back and reject copy who did each test and when before clearing them. Taken marks are still removed (not a record). The year-end reset is unchanged and also empties voidedRows."
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-376",
+   "title": "Unused lists and fields move to an archive inside the data (2026-11-19b)",
+   "owner": "Tahir (ruling)",
+   "rules": [
+    "R-008"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir, 19 Nov 2026, comments on the page O2S Batch 1 (F7 table)",
+    "O2S audit, 18 Nov 2026, A7 and F7",
+    "o2s.html archiveRetiredV1, ensureState, rmCheck, receivePR, dfSubmitShipment, submitPO, startNewYearClean",
+    "tests/batch1119b.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-11-19"
+       ],
+       [
+        "Ruled by",
+        "Tahir"
+       ],
+       [
+        "Why",
+        "Lists and a field with no live work confused whoever built next (finding A7)."
+       ],
+       [
+        "Ruling",
+        "dealers (retired 27 Aug 2026), warehouses (no longer needed; the 1 place that read it stops), rmRequests, rmMovements, rawStock and the rmDecision field on each order (retired, never read) move whole into archive.retired. Nothing is deleted. ensureState no longer makes them, new orders no longer carry rmDecision, and the year-end reset no longer makes them again. receivePR makes rawStock again only if a purchase request is ever received; rmCheck reads a missing map as 0. After the independent review: rawStock moves only while it is empty or all 0 (it was empty on 19 Nov 2026); a map that holds stock stays live, because it feeds committed dates and the RM Position report. A later, different copy of a retired list (an old page saving its seed) never replaces the kept one; it is kept beside it in archive.retired.later. Removing a production entry also keeps the lot it takes off the batch."
+       ]
+      ]
+     }
+    }
+   ]
   }
  ]
 }

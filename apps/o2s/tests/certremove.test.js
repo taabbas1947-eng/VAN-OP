@@ -598,7 +598,7 @@ const mB = c => run(c, 'state.batches.find(function(b){ return b.id === "B-AP260
   eq('packable 1,010', c.batchPackableKg(mB(c)), 1010);
   const reg = run(c, 'state.corrections[0]');
   ok('the register cascade names both PO lines', reg.cascade.some(x => /PO PO-A · V-AP Bag produced/.test(x)) && reg.cascade.some(x => /PO PO-B · V-AP Bulk produced/.test(x)), JSON.stringify(reg.cascade));
-  ok('...and the two rows', reg.cascade.some(x => /2 production log row\(s\) removed/.test(x)));
+  ok('...and the two rows', reg.cascade.some(x => /2 production log row\(s\) kept as voided/.test(x)));
   ok('...and the superseded certificate', /Rev 0 Q-2 approved by QCM One/.test(reg.changes.find(x => x.field === 'coa').before));
   const last = run(c, 'toasts[toasts.length-1]');
   ok('the toast says so too', /2,020 → 1,010/.test(last) && /PO-A/.test(last) && /PO-B/.test(last), last);

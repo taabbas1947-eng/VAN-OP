@@ -192,6 +192,9 @@ const MARKERS = [
   ["if(it.nearExp)p.push('ne:'",          1, 'Near expiry: 1 job key per packing run (2026-11-19a review)'],
   ['String(p.bagExp||p.expDate',           1, 'Near expiry reads the month printed on the bag (2026-11-19a, D-374)'],
   ['never from planning */',              1, 'Inspect counts from loading start or the dispatch date (2026-11-19a, D-372)'],
+  ['function voidRowKeep(',               1, 'rows taken out are kept as voided (2026-11-19b, D-375)'],
+  ['function archiveRetiredV1(',           1, 'unused lists moved to the archive (2026-11-19b, D-376)'],
+  ['function batchVoidedHTML(',            1, 'Batch trace shows voided rows (2026-11-19b, D-375)'],
 ];
 
 const [, , mode, freshPath, otherPath] = process.argv;

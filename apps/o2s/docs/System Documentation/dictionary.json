@@ -88,7 +88,7 @@
     "R-018",
     "R-020"
    ],
-   "status": "not confirmed",
+   "status": "confirmed",
    "src": [
     "o2s.html SEED.channels, PAY_TERMS, fn genPO, entryFedMode, entryPrintMode, submitPO, e_source options, e_vsub options",
     "SC-03"
@@ -141,7 +141,7 @@
        ],
        [
         "rmDecision",
-        "Always pending at entry; no later value found."
+        "Retired 2026-11-19b (F7, D-376): no longer written; the old values are in archive.retired.rmDecision."
        ],
        [
         "erpSo / so",
@@ -159,13 +159,12 @@
      }
     },
     {
-     "note": "rmDecision is written as pending and never changed. Its meaning is not confirmed."
+     "note": "rmDecision was written as pending and never read; retired 2026-11-19b (D-376)."
     },
     {
      "note": "Corrected 16 Oct 2026 (independent check against the code): there is no CHANNELS constant in the code; PO entry lists SEED.channels and adds Farmer. The close-short reason list is DD-13, not DD-14 (shifts)."
     }
-   ],
-   "ask": "orders.rmDecision is always pending. What is it for? A) Nothing now, it can be dropped B) It was the old raw-material decision, keep as history C) It should be set by the RM check"
+   ]
   },
   {
    "owner": "see each field",

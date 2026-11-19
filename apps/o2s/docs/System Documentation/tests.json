@@ -824,6 +824,12 @@
         "2026-11-19a, batch 1 of the audit fixes, part A: the escalation days run for real (3 days for ordinary jobs, 1 day for a truck already loading, Load 3, Open Production 4, Pack from base 7, Confirm delivery its own steps, roles unchanged); the ERP SO # warnings (no warning for SAL-ORD-YYYY-NNNNN or a -1 suffix, capitals and spaces ignored, a shape warning for zeros, a duplicate warning on erpSo or so, the save never blocked, the warnings under the box as it is typed); the Near expiry job (the 3 month limit across the year end, stock left is packed minus shipped minus voided, shipped and voided runs not listed, the text, the Warehouse role, the button, the Today title, actionItems, the alert server); change log, Guide, BUILD_ID, SYSDOC_VER, D-372 to D-374. After the independent review: a reversed or voided run raises no job, the month printed on the bag counts, 1 job key per run, the Today card keeps the batch, Kg and month, the job waits from the month it came near expiry, Inspect counts from loading start or the dispatch date (never before planning), spaces inside an ERP SO # and cancelled orders ignored, and the FO-26 and LG-10 tables.",
         "D-372, D-373, D-374",
         "92 passed, 0 failed (19 Nov 2026)"
+       ],
+       [
+        "batch1119b.test.js",
+        "2026-11-19b, batch 1 of the audit fixes, part B1: voidRowKeep keeps a row whole with how, why, who and when, 1 entry for the same row kept twice; the repairs on load (dedupePackingLots, dedupeShipmentsV1, healVU26144ProdLog) leave the live totals as before and keep every row they take out, and a second load keeps nothing more; Removed shift output and the remove-production-entry step keep their rows with the reason; COA send-back and reject keep who did each test; the order History and the Batch trace show voided rows; the archive moves the 5 lists and rmDecision, is idempotent, moves a key a merge brings back, and an empty list never overwrites the kept one; ensureState, new orders, the truck backfill and the year-end reset no longer make or read them; rmCheck reads a missing raw-stock map as 0; change log, Guide, BUILD_ID, SYSDOC_VER, D-375, D-376, SC-36, SC-47, SC-48.",
+        "D-375, D-376",
+        "53 passed, 0 failed (19 Nov 2026)"
        ]
       ]
      }

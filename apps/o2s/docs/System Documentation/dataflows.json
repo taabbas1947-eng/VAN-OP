@@ -416,7 +416,7 @@
        [
         "Supply Chain; CFO (older material path)",
         "request per material, approval, receipts (GRN, qty, date), closed early",
-        "prs; rawStock",
+        "prs; rawStock (archived 2026-11-19b; made again only if a PR is received)",
         "raisePR; cfoApprovePR; receivePR; closePR"
        ],
        [

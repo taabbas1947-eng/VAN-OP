@@ -92,7 +92,7 @@ const { ok, eq, report, grab, grabTopVar, html } = H;
 /* ---------- change log, Guide, build and System Documentation ---------- */
 ok('change log 2026-11-19a says all 3 changes', /ver:'2026-11-19a'/.test(html) && /most jobs now escalate after 3 days/.test(html) && /does not look like SAL-ORD-YYYY-NNNNN \(a suffix such as -1 is fine\)/.test(html) && /raises a Near expiry job for the Warehouse/.test(html));
 ok('the Guide tells each role what changed on 19 Nov', /var _n19a=\{'Warehouse':/.test(grab('guideMyJob')) && /New on 19 Nov \(2026-11-19a\)/.test(grab('guideMyJob')));
-ok('BUILD_ID is 2026-11-19a and SYSDOC_VER follows', /var BUILD_ID='2026-11-19a';/.test(html) && /var SYSDOC_VER='2026-11-19a'/.test(html));
+ok('BUILD_ID of the build form (2026-11-19b since part B1) and SYSDOC_VER follows', /var BUILD_ID='2026-\d\d-\d\d[a-z]';/.test(html) && /ver:'2026-11-19a'/.test(html) && (html.match(/var BUILD_ID='([^']+)'/) || [])[1] === (html.match(/var SYSDOC_VER='([^']+)'/) || [])[1]);
 ok('the System Documentation carries D-372, D-373 and D-374', /"id":"D-372"/.test(html) && /"id":"D-373"/.test(html) && /"id":"D-374"/.test(html));
 ok('the System Documentation escalation table says 3 days for Acknowledge', /\["Acknowledge","Supply Chain","3 days","Plant Manager"\]/.test(html));
 

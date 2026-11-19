@@ -374,4 +374,6 @@ node apps/o2s/tests/prodpack1118a.test.js   #  61 - the production and packing r
                                    #       rows, period, by batch, by product, download, More links
 node apps/o2s/tests/batch1119a.test.js      #  92 - batch 1 of the audit fixes, part A (2026-11-19a):
                                    #       escalation days, ERP SO # warnings, Near expiry job
+node apps/o2s/tests/batch1119b.test.js      #  53 - batch 1, part B1 (2026-11-19b): rows kept as voided (F6),
+                                   #       unused lists archived (F7)
 ```

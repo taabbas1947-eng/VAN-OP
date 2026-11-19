@@ -218,17 +218,17 @@
        [
         "dealers",
         "list",
-        "7",
-        "Old dealer list, retired as a write target",
-        "none now",
+        "moved",
+        "Moved whole into archive.retired.lists on 2026-11-19b (F7, D-376); no longer in the live data",
+        "archiveRetiredV1",
         "SC-20"
        ],
        [
         "warehouses",
         "list of text",
-        "3",
-        "Warehouse names",
-        "not confirmed",
+        "moved",
+        "Moved whole into archive.retired.lists on 2026-11-19b (F7, D-376); no longer in the live data",
+        "archiveRetiredV1",
         "SC-21"
        ],
        [
@@ -242,17 +242,17 @@
        [
         "rmRequests",
         "list",
-        "0",
-        "No writer in the code",
-        "not confirmed",
+        "moved",
+        "Moved whole into archive.retired.lists on 2026-11-19b (F7, D-376); no longer in the live data",
+        "archiveRetiredV1",
         "SC-23"
        ],
        [
         "rmMovements",
         "list",
-        "0",
-        "No writer in the code",
-        "not confirmed",
+        "moved",
+        "Moved whole into archive.retired.lists on 2026-11-19b (F7, D-376); no longer in the live data",
+        "archiveRetiredV1",
         "SC-23"
        ],
        [
@@ -362,9 +362,9 @@
        [
         "rawStock",
         "object (map)",
-        "object",
-        "Raw material received, by material",
-        "receivePR",
+        "moved",
+        "Moved whole into archive.retired.lists on 2026-11-19b (F7, D-376); no longer in the live data",
+        "archiveRetiredV1",
         "SC-31"
        ],
        [
@@ -390,6 +390,22 @@
         "One-off migration flags",
         "migrations",
         "SC-32"
+       ],
+       [
+        "voidedRows",
+        "list",
+        "new",
+        "Rows a repair or a removal took out, kept whole with how, why, who and when (F6, D-375)",
+        "voidRowKeep",
+        "SC-47"
+       ],
+       [
+        "archive",
+        "object",
+        "new",
+        "archive.retired: the lists and the order field retired on 2026-11-19b (F7, D-376)",
+        "archiveRetiredV1",
+        "SC-48"
        ]
       ]
      }
@@ -549,10 +565,10 @@
        [
         "rmDecision",
         "text",
-        "yes",
-        "pending",
-        "Written as pending at entry. No later writer found.",
-        "submitPO"
+        "no",
+        "",
+        "Retired 2026-11-19b (F7, D-376): no longer written; the values on existing orders were moved to archive.retired.rmDecision.",
+        "(none since 2026-11-19b)"
        ],
        [
         "printOnPack",
@@ -3397,11 +3413,11 @@
    ]
   },
   {
-   "owner": "not confirmed",
+   "owner": "COO (Tahir)",
    "rules": [
     "R-008"
    ],
-   "status": "not confirmed",
+   "status": "confirmed",
    "src": [
     "o2s.html custSave note: state.dealers is retired as a write target (2026-08-27)",
     "fn custInit, ensureState, ensureRecordIds",
@@ -3409,7 +3425,6 @@
    ],
    "id": "SC-20",
    "title": "dealers: old dealer list, retired",
-   "ask": "The old dealers list (7 rows) is no longer written; dealers live in customers. What should happen to it? A) Keep it as history, read only B) Remove it from the data after a check C) Leave it as it is for now",
    "blocks": [
     {
      "table": {
@@ -3459,19 +3474,21 @@
     },
     {
      "p": "custInit copied every dealer into customers (segment Dealer) once (_custInitV1). Since 2026-08-27 customers is the single source of dealers."
+    },
+    {
+     "note": "2026-11-19b (F7, D-376, Tahir 19 Nov 2026): no live work, so dealers moved whole into archive.retired.lists by archiveRetiredV1. ensureState no longer makes it."
     }
    ]
   },
   {
-   "owner": "not confirmed",
+   "owner": "COO (Tahir)",
    "rules": [],
-   "status": "not confirmed",
+   "status": "confirmed",
    "src": [
     "o2s.html SEED.warehouses, fn ensureState, dfSubmitShipment"
    ],
    "id": "SC-21",
    "title": "warehouses: list of warehouse names",
-   "ask": "The warehouses list holds 3 names from the June seed (Main Warehouse, Lahore WH, Karachi WH) and only Correct a record uses the first one. Is it still needed? A) Yes, keep it B) No, it can go C) It should be used on trucks",
    "blocks": [
     {
      "table": {
@@ -3497,6 +3514,9 @@
     },
     {
      "p": "Only dfSubmitShipment writes a warehouse field, and it takes the first name."
+    },
+    {
+     "note": "2026-11-19b (F7, D-376, Tahir 19 Nov 2026): no live work, so warehouses moved whole into archive.retired.lists by archiveRetiredV1. ensureState no longer makes it; dfSubmitShipment no longer reads it (a backfilled truck row has warehouse blank)."
     }
    ]
   },
@@ -3613,19 +3633,21 @@
    ]
   },
   {
-   "owner": "not confirmed",
+   "owner": "COO (Tahir)",
    "rules": [],
-   "status": "not confirmed",
+   "status": "confirmed",
    "src": [
     "o2s.html fn ensureState (creates both as []), startNewYearClean (empties both)",
     "SCHEMA.md live counts: 0 and 0"
    ],
    "id": "SC-23",
    "title": "rmRequests and rmMovements: lists with no writer",
-   "ask": "rmRequests and rmMovements are created empty and nothing writes to them. What are they for? A) Planned for a raw-material module, keep them B) Left over, they can be removed C) Not sure, leave them",
    "blocks": [
     {
      "p": "Both are lists. ensureState creates them empty on every load and startNewYearClean empties them. No code adds a row. Live count 0."
+    },
+    {
+     "note": "2026-11-19b (F7, D-376, Tahir 19 Nov 2026): no live work, so rmRequests and rmMovements moved whole into archive.retired.lists by archiveRetiredV1. ensureState no longer makes them."
     }
    ]
   },
@@ -4589,9 +4611,9 @@
        [
         "rawStock",
         "map material: Kg/L",
-        "yes",
-        "{}",
-        "Raw material received through PRs. Nothing subtracts from it.",
+        "no",
+        "absent",
+        "Archived 2026-11-19b (F7, D-376): moved to archive.retired.lists.rawStock (it was empty). receivePR makes it again only if a purchase request is ever received; rmCheck reads a missing map as 0.",
         "receivePR"
        ],
        [
@@ -4623,6 +4645,9 @@
     },
     {
      "note": "Corrected 16 Oct 2026 (independent check against the code): report periods are in DD-28; DD-30 is abbreviations."
+    },
+    {
+     "note": "2026-11-19b: rawStock answered by F7 (archived). packedStock and tipsDismissed are unchanged."
     }
    ],
    "ask": "packedStock, rawStock and tipsDismissed are old keys: packedStock is drawn only by allocateStock, rawStock only grows, tipsDismissed is not used. What should they be? A) Keep all 3 as they are B) Mark them retired in the code C) Check each on live first"
@@ -5147,7 +5172,7 @@
         "5",
         "dedupePackingLots",
         "every load",
-        "Removes packing rows that share an id or over-pack a batch (same kg, shift and in-charge).",
+        "Takes out packing rows that share an id or over-pack a batch (same kg, shift and in-charge); since 2026-11-19b each is kept whole in voidedRows (F6).",
         "rule changed 15 Oct 2026"
        ],
        [
@@ -5319,6 +5344,13 @@
         "2026-10-27 (27d)"
        ],
        [
+        "last",
+        "archiveRetiredV1",
+        "every load while a retired key is present (again after a merge brings one back); flag _archiveV1",
+        "Moves dealers, warehouses, rmRequests, rmMovements, rawStock and each order's rmDecision into archive.retired.",
+        "2026-11-19b (D-376)"
+       ],
+       [
         "outside ensureState",
         "custInit",
         "when the customer screen opens",
@@ -5334,6 +5366,9 @@
        ]
       ]
      }
+    },
+    {
+     "note": "2026-11-19b (F6, D-375): dedupePackingLots, dedupeShipmentsV1 and healVU26144ProdLog keep every row they take out in voidedRows (voidRowKeep), with the reason."
     }
    ]
   },
@@ -5443,10 +5478,12 @@
    "rules": [
     "R-008"
    ],
-   "status": "not confirmed",
+   "status": "confirmed",
    "src": [
     "Guide rule Nothing is deleted",
-    "o2s.html fn cancelShip, rejectDC, dispQASubmit, CORRECT_ENTITY reverse/supersede, dfSubmitVoid, dedupeByproductV1, doRemoveLot, voidProdEntry, dedupePackingLots, dedupeShipmentsV1, healVU26144ProdLog, tdTake, startNewYearClean, coaSendBack, coaReject"
+    "o2s.html fn cancelShip, rejectDC, dispQASubmit, CORRECT_ENTITY reverse/supersede, dfSubmitVoid, dedupeByproductV1, doRemoveLot, voidProdEntry, dedupePackingLots, dedupeShipmentsV1, healVU26144ProdLog, tdTake, startNewYearClean, coaSendBack, coaReject",
+    "fn voidRowKeep, archiveRetiredV1, coaTestsDone (2026-11-19b)",
+    "D-375, D-376"
    ],
    "id": "SC-36",
    "title": "What is kept and what is deleted",
@@ -5503,21 +5540,23 @@
      }
     },
     {
-     "p": "Where the code does remove rows today:"
+     "p": "Where a step takes a row out of a live list (since 2026-11-19b, F6, D-375, Tahir 19 Nov 2026: kept whole in voidedRows with how, why, who and when, never deleted):"
     },
     {
      "list": [
-      "doRemoveLot (Removed shift output): removes the lot, its shift entry and its production log row. A corrections row keeps the lot, Kg and COA state.",
-      "voidProdEntry: removes a production log row (COO only; the screen is not reachable).",
-      "Every load: dedupePackingLots, dedupeShipmentsV1 and healVU26144ProdLog remove duplicate rows.",
-      "taken: marks older than 1 day are dropped.",
-      "COA v2 send-back and reject remove doneAt and doneBy from each test.",
-      "startNewYearClean (COO, typed phrase RESET TO ZERO, after a downloaded backup) empties every transaction list, audit and actionLog and sets seq to 1000. Master data stays.",
+      "doRemoveLot (Removed shift output): the lot, its shift entry and its production log row(s) leave their lists and are kept in voidedRows with the reason picked and typed. A corrections row still keeps the lot, Kg and COA state.",
+      "voidProdEntry: the production log row is kept in voidedRows (COO only; the screen is not reachable).",
+      "Every load: dedupePackingLots, dedupeShipmentsV1 and healVU26144ProdLog keep each duplicate they take out in voidedRows. The id is worked out from the list, the row id and the row, so a row kept twice (2 pages, or a load and a merge) is 1 entry.",
+      "taken: 'someone is on it' marks older than 1 day are still dropped (not a record).",
+      "COA v2 send-back and reject: who did each test and when is copied into the send-back (testsDone) or the rejection before doneAt and doneBy are cleared.",
+      "startNewYearClean (COO, typed phrase RESET TO ZERO, after a downloaded backup) empties every transaction list, voidedRows, audit and actionLog and sets seq to 1000. Master data and the archive stay. A deliberate reset, unchanged.",
       "The June purges removed imported orders, shipments, batches and production rows (SC-32)."
      ]
+    },
+    {
+     "p": "A voided row is in no total, report, Today job, download, C2M pull or public batch search, because it has left its live list. The order line History and the Batch trace show it, marked voided."
     }
-   ],
-   "ask": "The rule says nothing is deleted, but these steps remove rows (Removed shift output, duplicate repairs on load, the year-end reset). How should the documentation treat them? A) Accepted exceptions, listed as they are B) Each should become a void or reversal instead C) Decide one by one"
+   ]
   },
   {
    "owner": "COO (Tahir) sets the allowances",
@@ -6337,6 +6376,196 @@
         "absent",
         "A KAM ticked the welcome page; it is never shown to him again.",
         "kamWelcomeDone"
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "SC-47",
+   "title": "voidedRows: rows kept as voided (new in 11-19b)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-008"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn voidRowKeep",
+    "fn lineHistory, batchVoidedHTML",
+    "D-375"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Type",
+       "Required",
+       "Default",
+       "Meaning",
+       "Written by"
+      ],
+      "rows": [
+       [
+        "id",
+        "text",
+        "yes",
+        "VR-<list>-<row id>-<hash of the row>",
+        "The same row kept twice gives the same id, so the merge keeps 1.",
+        "voidRowKeep"
+       ],
+       [
+        "list",
+        "text",
+        "yes",
+        "",
+        "The live list the row left: lots, shiftEntries, productionLog, packingLog or shipments.",
+        "voidRowKeep"
+       ],
+       [
+        "rowId",
+        "text",
+        "no",
+        "",
+        "The row's own id.",
+        "voidRowKeep"
+       ],
+       [
+        "how",
+        "text",
+        "yes",
+        "",
+        "Removed shift output; Duplicate repair on load; Duplicate repair on load (VU26144); Production entry removed by the COO.",
+        "voidRowKeep"
+       ],
+       [
+        "why",
+        "text",
+        "no",
+        "",
+        "The reason: picked and typed for a removed shift output; worked out by the repair on load.",
+        "voidRowKeep"
+       ],
+       [
+        "by, at",
+        "text, ISO time",
+        "yes",
+        "System",
+        "Who and when. Repairs on load are System.",
+        "voidRowKeep"
+       ],
+       [
+        "po, brand, batchNo, kg",
+        "text, number",
+        "no",
+        "",
+        "Copied from the row for the History and the Batch trace.",
+        "voidRowKeep"
+       ],
+       [
+        "batchId, batchNo, lotNo",
+        "text",
+        "no",
+        "",
+        "On a removed shift output: the batch and the lot.",
+        "doRemoveLot"
+       ],
+       [
+        "row",
+        "object",
+        "yes",
+        "",
+        "The whole row as it was, copied.",
+        "voidRowKeep"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Emptied only by startNewYearClean. Nothing else removes an entry."
+    }
+   ]
+  },
+  {
+   "id": "SC-48",
+   "title": "archive.retired: lists and fields with no live work (new in 11-19b)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-008"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn archiveRetiredV1",
+    "D-376"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Type",
+       "Required",
+       "Default",
+       "Meaning",
+       "Written by"
+      ],
+      "rows": [
+       [
+        "at, why",
+        "ISO time, text",
+        "yes",
+        "",
+        "When it was archived, and why.",
+        "archiveRetiredV1"
+       ],
+       [
+        "lists.dealers",
+        "list",
+        "no",
+        "",
+        "The old dealer list (7 rows on 19 Nov 2026); every dealer is in customers.",
+        "archiveRetiredV1"
+       ],
+       [
+        "lists.warehouses",
+        "list of text",
+        "no",
+        "",
+        "Main Warehouse, Lahore WH, Karachi WH.",
+        "archiveRetiredV1"
+       ],
+       [
+        "lists.rmRequests, lists.rmMovements",
+        "list",
+        "no",
+        "[]",
+        "Empty; no writer.",
+        "archiveRetiredV1"
+       ],
+       [
+        "lists.rawStock",
+        "map",
+        "no",
+        "{}",
+        "Empty on 19 Nov 2026. Moved only while empty or all 0; a map that holds stock stays live (it feeds committed dates and RM Position).",
+        "archiveRetiredV1"
+       ],
+       [
+        "rmDecision",
+        "map order id: value",
+        "no",
+        "{}",
+        "The rmDecision each order carried (pending on all 98 on 19 Nov 2026).",
+        "archiveRetiredV1"
+       ],
+       [
+        "later",
+        "list of {key, at, value}",
+        "no",
+        "",
+        "A later, different copy of a retired list (for example an old page saving its seed dealers) is kept here; it never replaces the first.",
+        "archiveRetiredV1"
        ]
       ]
      }

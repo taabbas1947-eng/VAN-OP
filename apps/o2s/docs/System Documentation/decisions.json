@@ -21126,7 +21126,7 @@
        ],
        [
         "Ruling",
-        "A packing run with Kg/L still at the plant (packed minus shipped; a reversed or voided run counts as nothing left) whose expiry month is 3 months away or less raises 1 Near expiry job for the Warehouse (Muhammad Shoaib). The expiry month is the one printed on the bag (bagExp); the older production-based field (expDate) is used only for runs packed before bag expiry was recorded (Tahir, 19 Nov 2026, after the independent review). The job waits from the first day of the month the run came within 3 months of expiry (or its pack date, if later). It ends when the stock ships, is voided or written off. It does not escalate. On 18 Nov 2026 no stock was within 3 months; the earliest expiry in stock was July 2028."
+        "A packing run with Kg/L still at the plant (packed minus shipped; a reversed or voided run counts as nothing left) whose expiry month is 3 months away or less raises 1 Near expiry job for the Warehouse (Muhammad Shoaib). The expiry month is the one printed on the bag (bagExp); the older production-based field (expDate) is used only for runs packed before bag expiry was recorded (Tahir, 19 Nov 2026, after the independent review). The job waits from the first day of the month the run came within 3 months of expiry (or its pack date, if later). It ends when the stock ships, is voided or written off. It does not escalate, and it is not counted in How are we doing or in the Morning view count of old jobs (Tahir, 19 Nov 2026: a standing warning, not late work). On 18 Nov 2026 no stock was within 3 months; the earliest expiry in stock was July 2028."
        ]
       ]
      }

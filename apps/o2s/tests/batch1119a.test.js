@@ -152,4 +152,8 @@ ok('review 2: a Near expiry card does not carry the order\'s delivery-promise la
 ok('review 2: the System Documentation LG-13 clock table has the new Inspect clock and Near expiry', /"Inspect \(truck\)","later of loading start and the dispatch date, never before planning/.test(html) && /\["Near expiry","labAt: the first day of the expiry month/.test(html));
 ok('review 2: the Near expiry window has its own number F-052', /"F-052","Near expiry window"/.test(html) && !/"F-026","Near expiry window"/.test(html));
 
+ok('ruling 3: Near expiry is left out of the How are we doing stuck count', /\.filter\(function\(x\)\{ return !\(x&&x\.nearExp\); \}\)/.test(grab('howStuck')));
+ok('ruling 3: Near expiry is left out of the Morning view old-job count', /!acDeferActive\(x\)&&!x\.nearExp/.test(grab('mvAllOldJobs')));
+ok('ruling 3: the change log and D-374 say so', /not counted in How are we doing or in the Morning view count of old jobs/.test(html) && /not counted in How are we doing or in the Morning view count of old jobs \(Tahir, 19 Nov 2026/.test(html));
+
 report('2026-11-19a batch 1, part A: escalation days, ERP SO checks, expiry warning');

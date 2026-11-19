@@ -6571,6 +6571,51 @@
      }
     }
    ]
+  },
+  {
+   "id": "SC-49",
+   "title": "masters.awayCover and awayNoticeSeen (new in 11-19c)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-053"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn awayMark, awayBack, awayNoticeRead",
+    "D-377"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Type",
+       "Required",
+       "Default",
+       "Meaning",
+       "Written by"
+      ],
+      "rows": [
+       [
+        "masters.awayCover[]",
+        "list of {id, user, name, role, from, backOn, at, endedAt, endedBy}",
+        "no",
+        "absent",
+        "1 row each time the Plant Manager or the CFO marks himself away. Active while from <= today < backOn and not ended.",
+        "awayMark; awayBack sets endedAt and endedBy"
+       ],
+       [
+        "awayNoticeSeen",
+        "object keyed by login: ISO time",
+        "no",
+        "absent",
+        "The Plant Manager or the CFO tapped Read on the New for you card about Away.",
+        "awayNoticeRead"
+       ]
+      ]
+     }
+    }
+   ]
   }
  ]
 }

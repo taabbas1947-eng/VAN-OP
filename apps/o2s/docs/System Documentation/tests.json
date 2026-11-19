@@ -830,6 +830,12 @@
         "2026-11-19b, batch 1 of the audit fixes, part B1: voidRowKeep keeps a row whole with how, why, who and when, 1 entry for the same row kept twice; the repairs on load (dedupePackingLots, dedupeShipmentsV1, healVU26144ProdLog) leave the live totals as before and keep every row they take out, and a second load keeps nothing more; Removed shift output and the remove-production-entry step keep their rows with the reason; COA send-back and reject keep who did each test; the order History and the Batch trace show voided rows; the archive moves the 5 lists and rmDecision, is idempotent, moves a key a merge brings back, and an empty list never overwrites the kept one; ensureState, new orders, the truck backfill and the year-end reset no longer make or read them; rmCheck reads a missing raw-stock map as 0; change log, Guide, BUILD_ID, SYSDOC_VER, D-375, D-376, SC-36, SC-47, SC-48.",
         "D-375, D-376",
         "53 passed, 0 failed (19 Nov 2026)"
+       ],
+       [
+        "batch1119c.test.js",
+        "2026-11-19c, batch 1 of the audit fixes, part B2: the Plant Manager and the CFO mark themselves away (who, role, first day, back-on day), a second mark while away is refused, other roles cannot, the first day not before today and back on after it; I am back ends it and it ends by itself on the back-on day; the banner on their Today; the New for you card once; the COO's Today has the away role's jobs from day 1 tagged cover for the name, not other roles, and not on the back-on day; the name menu, the Guide rule R-053, change log, Guide notes, BUILD_ID, SYSDOC_VER, D-377 and SC-49. After the reviews (Tahir's rulings): Release sample, Name a cover and the 2 complaint read-it jobs wait for the Plant Manager; complaint jobs addressed to him by name wait; a job escalated to the away person comes to the COO, and a lab sign-off escalated to him comes to chase with no button; the COO's Morning view counts the covered jobs; Cancel my away before the first day; I am back logged as back.",
+        "D-377",
+        "39 passed, 0 failed (19 Nov 2026)"
        ]
       ]
      }

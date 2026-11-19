@@ -125,7 +125,7 @@ const base = () => { const c = { console, Math, String, JSON, Date, Object, Arra
 ok('change log 2026-11-19b says the 3 changes', /ver:'2026-11-19b'/.test(html) && /kept, whole, in 1 list of voided rows/.test(html) && /who did each test and when is kept with the send-back/.test(html) && /moved, whole, into an archive inside the data/.test(html));
 ok('the Guide rule Nothing is deleted says rows are kept as voided', /A row taken out of the records \(a removed shift output, or a duplicate found when O2S opens\) is kept whole as <b>voided<\/b>/.test(html));
 ok('the Guide tells each role what changed', /var _n19b=\{'Production Manager':/.test(grab('guideMyJob')) && /New on 19 Nov \(2026-11-19b\)/.test(grab('guideMyJob')));
-ok('BUILD_ID is 2026-11-19b and SYSDOC_VER follows', /var BUILD_ID='2026-11-19b';/.test(html) && /var SYSDOC_VER='2026-11-19b'/.test(html));
+ok('BUILD_ID of the build form (2026-11-19c since part B2) and SYSDOC_VER follows', /var BUILD_ID='2026-\d\d-\d\d[a-z]';/.test(html) && /ver:'2026-11-19b'/.test(html) && (html.match(/var BUILD_ID='([^']+)'/) || [])[1] === (html.match(/var SYSDOC_VER='([^']+)'/) || [])[1]);
 ok('the System Documentation carries D-375, D-376, SC-47 and SC-48', /"id":"D-375"/.test(html) && /"id":"D-376"/.test(html) && /"id":"SC-47"/.test(html) && /"id":"SC-48"/.test(html));
 ok('SC-36 lists the steps that now keep rows as voided', /kept whole in voidedRows with how, why, who and when, never deleted/.test(html));
 

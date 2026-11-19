@@ -195,6 +195,8 @@ const MARKERS = [
   ['function voidRowKeep(',               1, 'rows taken out are kept as voided (2026-11-19b, D-375)'],
   ['function archiveRetiredV1(',           1, 'unused lists moved to the archive (2026-11-19b, D-376)'],
   ['function batchVoidedHTML(',            1, 'Batch trace shows voided rows (2026-11-19b, D-375)'],
+  ['function awayMark(',                   1, 'the Away switch (2026-11-19c, D-377)'],
+  ['x._escalated || x.role===\'COO\' || x._cover', 1, 'the COO sees an away role\'s jobs (2026-11-19c, D-377)'],
 ];
 
 const [, , mode, freshPath, otherPath] = process.argv;

@@ -7806,3 +7806,13 @@ Tahir ruled 19 Nov 2026 (F6 and F7 tables on the page O2S Batch 1; panel answer 
 Tests: new tests/batch1119b.test.js (53; crashes on HEAD). certremove pin follows the new cascade wording; batch1119a BUILD_ID check made generic. Full run: 138 files, 16,183 passed, 2 failed (audit17c), truckback17a no result, as on HEAD.
 Independent review: first round NOT SAFE (rawStock feeds committed dates and RM Position if it holds stock; an old tab could replace the archived dealers; _voidReverseBatch dropped a lot) - all fixed; second round SAFE.
 NEXT: Tahir pushes; live check read only (BUILD_ID, archive.retired present after the first save, no voided rows, Batch trace and History open). Then part B2: F12 Away switch (drafted in ~/pp/b3).
+
+## 19 Nov 2026 (4) - build 2026-11-19c: batch 1 part B2, the Away switch (MODULE: O2S)
+Tahir ruled 19 Nov 2026 (F12, D-377; then 3 panel answers after the review). Committed locally, not pushed.
+- The Plant Manager and the CFO mark themselves away from the name menu (I am going away: From, Back on; Mark me away), kept in state.masters.awayCover (id, user, name, role, from, backOn, at, endedAt, endedBy). Active while from <= today < backOn and not ended; I am back ends it (before the first day it reads Cancel my away). Banner on their Today; New for you card once (state.awayNoticeSeen); Guide rule R-053.
+- tdItems (COO only): every job of an away role, and every job escalated to an away role (x._esc reused), is x._cover = name, kept in Needs me, tagged "cover for <name> (away)". AWAY_WAIT (Release sample, Name a cover, Complaint raised, Complaint closed) and complaint jobs addressed to the away person by name wait for him (Tahir: "They wait for Fahim"). AWAY_CHASE (Lab QC, Review, Approve) reached only by escalation: x._coverChase, tdCanAct false, chase line. mvToday counts covered jobs (Tahir). Phone alerts unchanged (not ruled).
+- Change log, Guide (_n19c), BUILD_ID and SYSDOC_VER 2026-11-19c; docs D-377, SC-49, TS-01.
+Tests: new tests/batch1119c.test.js (39; crashes on HEAD). batch1119b BUILD_ID check made generic. Full run: 139 files, 16,222 passed, 2 failed (audit17c), truckback17a no result, as on HEAD.
+Independent review: round 1 NOT SAFE (4 PM jobs the COO cannot do - Tahir ruled they wait; escalations and Morning view - Tahir ruled yes), round 2 NOT SAFE (lab sign-offs and named complaint jobs with dead buttons; I am back logged as cancelled) - fixed; round 3 SAFE.
+Live check of 2026-11-19b still to do: the Chrome tab did not answer from 14:22.
+NEXT: Tahir pushes; live checks of 19b and 19c (read only). Then part B3: F14 reason box; then F17 Start and Close shift.

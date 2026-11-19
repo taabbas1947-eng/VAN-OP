@@ -21218,6 +21218,49 @@
      }
     }
    ]
+  },
+  {
+   "id": "D-377",
+   "title": "The COO covers the Plant Manager and the CFO while they are away (2026-11-19c)",
+   "owner": "Tahir (ruling)",
+   "rules": [
+    "R-053"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir, 19 Nov 2026, panel answers (\"PM cover: COO (you)\", \"CFO cover: COO (you)\") and comments on the page O2S Batch 1 (\"The person who is going away will mark and he mjst know how and where he will mark away and remove it.\")",
+    "O2S audit, 18 Nov 2026, F12",
+    "o2s.html AWAY_ROLES, AWAY_WAIT, AWAY_CHASE, awayMark, awayBack, awayActive, awayMine, openAway, awayBannerHTML, awayNoticeCard, tdItems, tdTags, tdCanAct, mvToday, renderTopNav (name menu), Guide R-053",
+    "tests/batch1119c.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-11-19"
+       ],
+       [
+        "Ruled by",
+        "Tahir"
+       ],
+       [
+        "Why",
+        "When the Plant Manager or the CFO is away, their jobs reached the COO only once they escalated."
+       ],
+       [
+        "Ruling",
+        "The Plant Manager and the CFO mark themselves away from their name at the top of any screen (I am going away: first day and back-on day). Only the person going away marks it, and only he ends it (I am back); it also ends by itself on the back-on day. While it stands, every job of his role is also on the COO's Today from the first day, tagged cover for his name; the job stays his and he can still act on it. A New for you card (once) and the Guide rule R-053 show the 3 steps. After the independent review (Tahir, 19 Nov 2026): Release sample, Name a cover, Complaint raised and Complaint closed (read it) only the Plant Manager can do, so they wait for him and are not put on the COO's Today; a job escalated to the away person also comes to the COO, tagged cover for; the COO's Morning view counts the covered jobs. Before the first day the button reads Cancel my away. After the 2nd review, on the same ruling: a complaint job addressed to the away person by name (Investigate complaint, Do complaint action, a customer call) waits for him; a lab sign-off (Lab QC, Review, Approve) escalated to him comes to the COO to chase, with no button, because the COO never signs. Phone alerts are unchanged (not part of the ruling)."
+       ]
+      ]
+     }
+    }
+   ]
   }
  ]
 }

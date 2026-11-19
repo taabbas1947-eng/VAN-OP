@@ -7787,3 +7787,12 @@ Independent review: first round NOT SAFE (7 Major: written-off stock never clear
 Known, left as it is: a Near expiry job with no order would show a button that only marks "on it" (cannot happen: packing always has a PO); Near expiry ends when the stock is put on a planned truck (shipKg), comes back if the truck is cancelled; Near expiry counts in How are we doing and Morning view old-job counts like other open jobs (for Tahir to rule); Morning view chase prompts still use 2 days; Warehouse alerts are not held at night; on the first sweep after deploy, managers are alerted again when the same jobs reach 3 days.
 NEXT: Tahir pushes. Then live check read only: BUILD_ID 2026-11-19a; Today escalation tags at 3 days; New order ERP SO # warnings; no Near expiry jobs expected (earliest expiry in stock July 2028). Then batch 1 part B: F14, F17, F12, F6, F7 (F7 on the local DB first).
 Follow-up, same day (Tahir ruled after the commit): Near expiry is a warning, not late work, so it is left out of How are we doing (howStuck, a second filter; the complaint filter text kept for complaints16e) and the Morning view old-job count (mvAllOldJobs). Change log and D-374 say so. batch1119a now 92. Full run: 16,130 passed, 2 failed (as before). Independent re-check: SAFE.
+
+## 19 Nov 2026 (2) - build 2026-11-19a pushed by Tahir and checked live (MODULE: O2S)
+Pushed by Tahir 19 Nov 2026 (origin/main 24219d4). Live check about 13:15 PKT in the Chrome tab Tahir signed in to (COO), read only: functions run in memory, no setScreen, nothing saved; no console errors after the reload.
+- BUILD_ID 2026-11-19a served and running.
+- Escalation: 69 of 94 open jobs escalate. Under the old days the job kinds that changed would have escalated 30; now 26 (4 freed: 1 Ship at 2 days, 3 Lab QC at 1 day). The rest are genuinely old: Open Production 16, Stuck at packing 14, Pack from base 13 and Ship 13 (most Ship jobs 21 to 113 days). No Inspect jobs open.
+- Near expiry: 0 jobs, as expected; limit Feb 2027; 25 runs with stock left, earliest bag expiry July 2028.
+- ERP SO #: no warning for SAL-ORD-2026-00999, shape warning for zeros, duplicate warning for a number already on a live order.
+- Today, groups, Morning view old jobs (68, oldest 141 days), How are we doing (94 jobs, 76 at 3 days or more) and the alert job list (135) all build without error.
+NEXT: batch 1 part B (F14, F17, F12, F6, F7; F7 on the local DB first).

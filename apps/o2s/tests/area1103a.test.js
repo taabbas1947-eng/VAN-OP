@@ -108,7 +108,7 @@ function correctRun(role) {
     if (['Finance', 'Supply Chain', 'Production Manager'].indexOf(role) > -1) { vm.runInContext("state.screen='tracker'", b); ok(role + ': mayMoney stays false elsewhere', !b.mayMoney()); } }); }
 /* 11. escalation */
 { const a = grab('acEscalation');
-  ok("RM Check goes up to the Plant Manager", /'RM Check':\[1,'Plant Manager'\]/.test(a)); ok("Receive goes up to the Plant Manager", /'Receive':\[1,'Plant Manager'\]/.test(a));
+  ok("RM Check goes up to the Plant Manager", /'RM Check':\[3,'Plant Manager'\]/.test(a)); ok("Receive goes up to the Plant Manager", /'Receive':\[3,'Plant Manager'\]/.test(a));   /* 2026-11-19a, F19: 3 days (Tahir, 19 Nov) */
   ok('nothing else goes up to the CFO from these 2', !/'RM Check':\[1,'CFO'\]|'Receive':\[1,'CFO'\]/.test(a));
   const R = require(require('path').join(__dirname, '..', 'notify-routes.js'));
   eq('the alert server sends a late RM Check to the Plant Manager too', R.ESC_TO && R.ESC_TO['RM Check'], 'Plant Manager');

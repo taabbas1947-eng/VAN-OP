@@ -31,7 +31,7 @@ ok('C16: the Review truck job names who may not do it (loaded / passed it out)',
   ok('C18: 2 samples, 2 customers, 2 rejected trucks, 2 moves each get their own key', sb.acKey({ label: 'Issue sample', smp: { id: 'S1' } }) !== sb.acKey({ label: 'Issue sample', smp: { id: 'S2' } }) && sb.acKey({ label: 'Approve customer', cust: { code: 'C1' } }) !== sb.acKey({ label: 'Approve customer', cust: { code: 'C2' } }) && sb.acKey({ label: 'DC rejected', dcr: { id: 'X1' } }) !== sb.acKey({ label: 'DC rejected', dcr: { id: 'X2' } }) && sb.acKey({ label: 'Approve move', mv: 'M1' }) !== sb.acKey({ label: 'Approve move', mv: 'M2' })); }
 /* C19 */
 const esc = grab('acEscalation');
-ok('C19: a waiting move and a close-short request go to the COO after a day; a Pack job to the Production Manager', /'Approve move':\[1,'COO'\],'Approve close short':\[1,'COO'\],'Pack':\[1,'Production Manager'\]/.test(esc));
+ok('C19: a waiting move and a close-short request go to the COO after 3 days (F19, 19 Nov); a Pack job to the Production Manager', /'Approve move':\[3,'COO'\],'Approve close short':\[3,'COO'\],'Pack':\[3,'Production Manager'\]/.test(esc));
 ok('C19: the Plant Manager\'s Guide lists both decisions', /'Plant Manager':\['Release','Approve DC','Release sample','Approve move','Approve close short'\]/.test(H.html) && /var SIGN_JOBS=TD_SIGN_JOBS;/.test(grab('tdRoleJobs')));
 ok('C19: a move card shows its own text (POs and Kg)', /if\(it\.mv\) return _tdEsc\(w\);/.test(grab('_tdWhat')));
 ok('C19: the approval sheet warns about an open purchase request and the RM Check', /has a purchase request open for its raw material/.test(grab('renderMoveApprove')) && /Its RM Check stays as it is/.test(grab('renderMoveApprove')));

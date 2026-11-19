@@ -174,10 +174,10 @@ ok('Add missing packing now saves the time it was typed and who typed it', /reco
 ok('the report writes nothing', !/save\(|saveNow\(|logAction\(/.test(['ppRows', 'ppHTML', 'ppExportData', 'ppByBatch', 'ppByProduct', 'ppSetPer', 'ppExport', 'ppTog', 'ppSetF'].map(grab).join('\n')));
 
 /* ---- Guide and change log ---- */
-ok('BUILD_ID is 2026-11-18a', html.indexOf("var BUILD_ID='2026-11-18a';") > -1);
+ok('BUILD_ID of the build form (2026-11-19a since batch 1 of the audit fixes)', /var BUILD_ID='2026-\d\d-\d\d[a-z]'/.test(html) && /ver:'2026-11-18a'/.test(html));
 ok('the change log has 2026-11-18a', html.indexOf("{ver:'2026-11-18a', date:'2026-11-18'") > -1);
 ok('My job tells the Production Manager where More is', /'Production Manager':_pp18\+' Open it from <b>More<\/b>/.test(grab('guideMyJob')));
 ok('My job tells Production too', /'Production':_pp18\+/.test(grab('guideMyJob')));
-ok('SYSDOC_VER follows the build', html.indexOf("var SYSDOC_VER='2026-11-18a'") > -1);
+ok('SYSDOC_VER follows the build', (html.match(/var BUILD_ID='([^']+)'/) || [])[1] === (html.match(/var SYSDOC_VER='([^']+)'/) || [])[1]);
 
 report('2026-11-18a production and packing record');

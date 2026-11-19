@@ -1137,7 +1137,8 @@
     "tests/authmodel.test.js ('acEscalation was found')",
     "tests/fixesC.test.js (C19)",
     "tests/audit15g.test.js",
-    "tests/shell.test.js (guideEsc reads the table)"
+    "tests/shell.test.js (guideEsc reads the table)",
+    "tests/batch1119a.test.js"
    ],
    "blocks": [
     {
@@ -1153,57 +1154,57 @@
       "rows": [
        [
         "Acknowledge",
-        "1",
+        "3",
         "Plant Manager"
        ],
        [
         "RM Check",
-        "1",
-        "CFO"
+        "3",
+        "Plant Manager"
        ],
        [
         "Receive",
-        "1",
-        "CFO"
+        "3",
+        "Plant Manager"
        ],
        [
         "Lab QC",
-        "1",
+        "3",
         "Plant Manager"
        ],
        [
         "Correct COA",
-        "1",
+        "3",
         "QCM"
        ],
        [
         "Assign sample",
-        "1",
+        "3",
         "Plant Manager"
        ],
        [
         "Review",
-        "1",
+        "3",
         "Plant Manager"
        ],
        [
         "Approve",
-        "1",
+        "3",
         "Plant Manager"
        ],
        [
         "Pack QC",
-        "2",
+        "3",
         "Plant Manager"
        ],
        [
         "Inspect",
-        "2",
+        "1",
         "Plant Manager"
        ],
        [
         "Ship",
-        "2",
+        "3",
         "Supply Chain"
        ],
        [
@@ -1213,7 +1214,7 @@
        ],
        [
         "Approve PR",
-        "1",
+        "3",
         "COO"
        ],
        [
@@ -1223,7 +1224,7 @@
        ],
        [
         "Load",
-        "1",
+        "3",
         "Supply Chain"
        ],
        [
@@ -1247,23 +1248,28 @@
         "COO"
        ],
        [
+        "Truck came back",
+        "1",
+        "COO"
+       ],
+       [
         "Confirm delivery",
         "99",
         "Plant Manager"
        ],
        [
         "Approve move",
-        "1",
+        "3",
         "COO"
        ],
        [
         "Approve close short",
-        "1",
+        "3",
         "COO"
        ],
        [
         "Pack",
-        "1",
+        "3",
         "Production Manager"
        ],
        [
@@ -1272,17 +1278,25 @@
         "Plant Manager"
        ],
        [
+        "Stuck at packing",
+        "3",
+        "COO"
+       ],
+       [
         "Check after move",
-        "2",
+        "3",
         "Plant Manager"
        ],
        [
         "Duplicate number",
-        "1",
+        "3",
         "Plant Manager"
        ]
       ]
      }
+    },
+    {
+     "note": "2026-11-19a (D-372, Tahir 19 Nov 2026): ordinary jobs 3 days; truck jobs (Inspect, Gate Pass, Review truck, Release, Approve DC, Truck came back) 1 day; Load 3 days; Open Production 4; Pack from base 7 (PL_LINE_STUCK_DAYS); RM Check and Receive go to the Plant Manager (since 3 Nov 2026, D-364). Inspect counts from loading start or the dispatch date, whichever is later, and again after a batch change (truckClockStart). Near expiry (D-374) never escalates."
     },
     {
      "note": "Confirm delivery's 99 days means the table never fires; delivery has its own ladder (F-030). Lab test escalates to the QCM by the clock (F-027)."
@@ -2802,101 +2816,101 @@
        [
         "F-026",
         "Escalation: Acknowledge",
-        "1",
+        "3",
         "days",
         "acEscalation TH",
         "R-030",
-        "see LG-12"
+        "D-372"
        ],
        [
         "F-026",
         "Escalation: RM Check",
-        "1",
+        "3",
         "days",
         "acEscalation TH",
         "R-030",
-        "see LG-12"
+        "D-372"
        ],
        [
         "F-026",
         "Escalation: Receive",
-        "1",
+        "3",
         "days",
         "acEscalation TH",
         "R-030",
-        "see LG-12"
+        "D-372"
        ],
        [
         "F-026",
         "Escalation: Lab QC",
-        "1",
+        "3",
         "days",
         "acEscalation TH",
         "R-030",
-        "see LG-12"
+        "D-372"
        ],
        [
         "F-026",
         "Escalation: Correct COA",
-        "1",
+        "3",
         "days",
         "acEscalation TH",
         "R-030",
-        "see LG-12"
+        "D-372"
        ],
        [
         "F-026",
         "Escalation: Assign sample",
-        "1",
+        "3",
         "days",
         "acEscalation TH",
         "R-030",
-        "see LG-12"
+        "D-372"
        ],
        [
         "F-026",
         "Escalation: Review",
-        "1",
+        "3",
         "days",
         "acEscalation TH",
         "R-030",
-        "see LG-12"
+        "D-372"
        ],
        [
         "F-026",
         "Escalation: Approve",
-        "1",
+        "3",
         "days",
         "acEscalation TH",
         "R-030",
-        "see LG-12"
+        "D-372"
        ],
        [
         "F-026",
         "Escalation: Pack QC",
-        "2",
+        "3",
         "days",
         "acEscalation TH",
         "R-030",
-        "see LG-12"
+        "D-372"
        ],
        [
         "F-026",
         "Escalation: Inspect",
-        "2",
+        "1",
         "days",
         "acEscalation TH",
         "R-030",
-        "see LG-12"
+        "D-372"
        ],
        [
         "F-026",
         "Escalation: Ship",
-        "2",
+        "3",
         "days",
         "acEscalation TH",
         "R-030",
-        "see LG-12"
+        "D-372"
        ],
        [
         "F-026",
@@ -2910,11 +2924,11 @@
        [
         "F-026",
         "Escalation: Approve PR",
-        "1",
+        "3",
         "days",
         "acEscalation TH",
         "R-030",
-        "see LG-12"
+        "D-372"
        ],
        [
         "F-026",
@@ -2928,11 +2942,11 @@
        [
         "F-026",
         "Escalation: Load",
-        "1",
+        "3",
         "days",
         "acEscalation TH",
         "R-030",
-        "see LG-12"
+        "D-372"
        ],
        [
         "F-026",
@@ -2982,29 +2996,29 @@
        [
         "F-026",
         "Escalation: Approve move",
-        "1",
+        "3",
         "days",
         "acEscalation TH",
         "R-030",
-        "see LG-12"
+        "D-372"
        ],
        [
         "F-026",
         "Escalation: Approve close short",
-        "1",
+        "3",
         "days",
         "acEscalation TH",
         "R-030",
-        "see LG-12"
+        "D-372"
        ],
        [
         "F-026",
         "Escalation: Pack",
-        "1",
+        "3",
         "days",
         "acEscalation TH",
         "R-030",
-        "see LG-12"
+        "D-372"
        ],
        [
         "F-026",
@@ -3027,20 +3041,20 @@
        [
         "F-026",
         "Escalation: Check after move",
-        "2",
+        "3",
         "days",
         "acEscalation TH",
         "R-030",
-        "see LG-12"
+        "D-372"
        ],
        [
         "F-026",
         "Escalation: Duplicate number",
-        "1",
+        "3",
         "days",
         "acEscalation TH",
         "R-030",
-        "see LG-12"
+        "D-372"
        ],
        [
         "F-027",
@@ -3500,6 +3514,15 @@
         "CMP_CONTAIN_DAYS",
         "R-040",
         "16 Oct 2026, 2026-10-16e (D-310)"
+       ],
+       [
+        "F-052",
+        "Near expiry window",
+        "3",
+        "months",
+        "NEAR_EXPIRY_MONTHS, nearExpiryJobs",
+        "-",
+        "D-374"
        ]
       ]
      }

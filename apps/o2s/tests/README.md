@@ -372,4 +372,6 @@ was allowed to change.
 ```
 node apps/o2s/tests/prodpack1118a.test.js   #  61 - the production and packing record (2026-11-18a):
                                    #       rows, period, by batch, by product, download, More links
+node apps/o2s/tests/batch1119a.test.js      #  89 - batch 1 of the audit fixes, part A (2026-11-19a):
+                                   #       escalation days, ERP SO # warnings, Near expiry job
 ```

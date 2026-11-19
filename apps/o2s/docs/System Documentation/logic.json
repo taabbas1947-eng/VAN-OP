@@ -953,7 +953,7 @@
         "Supply Chain",
         "PO not acknowledged, stage PO Created or RM Check, not sent back (once per PO)",
         "order.acknowledge",
-        "1 d, Plant Manager"
+        "3 d, Plant Manager"
        ],
        [
         "PO sent back",
@@ -967,7 +967,7 @@
         "Plant Manager",
         "a close-short request waits (the only job on that line)",
         "-",
-        "1 d, COO"
+        "3 d, COO"
        ],
        [
         "Refused",
@@ -981,7 +981,7 @@
         "Supply Chain",
         "acknowledged and RM not checked; or 'for the rest' when a part-ready line's PR was dropped and the cleared part is made",
         "rm.check",
-        "1 d, CFO"
+        "3 d, Plant Manager"
        ],
        [
         "PR refused",
@@ -995,21 +995,21 @@
         "CFO",
         "PR open, not approved, not refused",
         "-",
-        "1 d, COO"
+        "3 d, COO"
        ],
        [
         "Receive",
         "Supply Chain",
         "line PR approved; or PR raised, RM not ready and an open PR on its materials",
         "rm.receive",
-        "1 d, CFO"
+        "3 d, Plant Manager"
        ],
        [
         "Stuck at packing",
         "Supply Chain",
         "line stuck 7 d at packing (plStuckJob), from base or its own PO batch",
         "-",
-        "none (known gap)"
+        "3 d, COO (D-332)"
        ],
        [
         "Pack from base",
@@ -1030,7 +1030,7 @@
         "QA Inspector",
         "packed stock waiting for inspection > 0.5",
         "-",
-        "2 d, Plant Manager"
+        "3 d, Plant Manager"
        ],
        [
         "Add reason",
@@ -1044,7 +1044,7 @@
         "Supply Chain",
         "1 per PO: any line with QA-cleared stock not delivered",
         "shipment.plan",
-        "2 d, Supply Chain"
+        "3 d, Supply Chain"
        ],
        [
         "Approve customer",
@@ -1065,7 +1065,7 @@
         "Plant Manager",
         "stock move asked",
         "-",
-        "1 d, COO"
+        "3 d, COO"
        ],
        [
         "Move refused",
@@ -1079,21 +1079,21 @@
         "Supply Chain",
         "move done, raw material check not done",
         "-",
-        "2 d, Plant Manager"
+        "3 d, Plant Manager"
        ],
        [
         "Duplicate number",
         "Supply Chain",
         "a DC or gate pass number on 2 records, one not left",
         "gatepass.issue",
-        "1 d, Plant Manager"
+        "3 d, Plant Manager"
        ],
        [
         "Pack",
         "Production",
         "batch packable now and a PO line on it still short of packed",
         "packing.pack",
-        "1 d, Production Manager (not when all its lines wait for client)"
+        "3 d, Production Manager (not when all its lines wait for client)"
        ],
        [
         "Name a cover",
@@ -1114,7 +1114,7 @@
         "QCM",
         "v2 lab flow: sample not assigned",
         "-",
-        "1 d, Plant Manager"
+        "3 d, Plant Manager"
        ],
        [
         "Lab test",
@@ -1135,35 +1135,35 @@
         "Lab Rep",
         "no COA or draft (not sent back)",
         "-",
-        "1 d, Plant Manager"
+        "3 d, Plant Manager"
        ],
        [
         "Correct COA",
         "Lab Rep (the drafter, if an active Lab Rep)",
         "draft sent back by the AQCM",
         "-",
-        "1 d, QCM"
+        "3 d, QCM"
        ],
        [
         "Review",
         "AQCM",
         "COA analysed (or sent back to him)",
         "-",
-        "1 d, Plant Manager"
+        "3 d, Plant Manager"
        ],
        [
         "Review (UNFIT)",
         "Plant Manager",
         "COA failed",
         "-",
-        "1 d, Plant Manager (same label)"
+        "3 d, Plant Manager (same label)"
        ],
        [
         "Approve",
         "QCM",
         "COA reviewed",
         "-",
-        "1 d, Plant Manager"
+        "3 d, Plant Manager"
        ],
        [
         "Print price",
@@ -1177,7 +1177,7 @@
         "Warehouse",
         "truck planned",
         "shipment.load",
-        "1 d, Supply Chain"
+        "3 d, Supply Chain"
        ],
        [
         "Gate Pass",
@@ -1233,7 +1233,7 @@
         "QA Inspector",
         "truck inspection pending",
         "-",
-        "2 d, Plant Manager"
+        "1 d, Plant Manager (from loading start or the dispatch date, whichever is later)"
        ],
        [
         "Correct",
@@ -1304,6 +1304,13 @@
         "runs not cancelled of 1 product and 1 batch number on the bag (any PO), at least 1 packed from 16b, carry 2 or more months, and no note covers those months",
         "-",
         "none"
+       ],
+       [
+        "Near expiry",
+        "Warehouse",
+        "a packing run with Kg/L still at the plant whose expiry month as printed on the bag is 3 months away or less (1 per run; not reversed or voided)",
+        "-",
+        "none (D-374)"
        ]
       ]
      }
@@ -1426,69 +1433,69 @@
       "rows": [
        [
         "Acknowledge",
-        "1",
+        "3",
         "Plant Manager",
-        "SPEC-04 'locked thresholds'"
+        "D-372 (Tahir, 19 Nov 2026)"
        ],
        [
         "RM Check",
-        "1",
-        "CFO",
-        "SPEC-04"
+        "3",
+        "Plant Manager",
+        "D-372 (Tahir, 19 Nov 2026)"
        ],
        [
         "Receive",
-        "1",
-        "CFO",
-        "not confirmed"
+        "3",
+        "Plant Manager",
+        "D-372 (Tahir, 19 Nov 2026)"
        ],
        [
         "Lab QC",
-        "1",
+        "3",
         "Plant Manager",
-        "SPEC-04"
+        "D-372 (Tahir, 19 Nov 2026)"
        ],
        [
         "Correct COA",
-        "1",
+        "3",
         "QCM",
-        "26a"
+        "D-372 (Tahir, 19 Nov 2026)"
        ],
        [
         "Assign sample",
-        "1",
+        "3",
         "Plant Manager",
-        "24r"
+        "D-372 (Tahir, 19 Nov 2026)"
        ],
        [
         "Review",
-        "1",
+        "3",
         "Plant Manager",
-        "not confirmed"
+        "D-372 (Tahir, 19 Nov 2026)"
        ],
        [
         "Approve",
-        "1",
+        "3",
         "Plant Manager",
-        "not confirmed"
+        "D-372 (Tahir, 19 Nov 2026)"
        ],
        [
         "Pack QC",
-        "2",
+        "3",
         "Plant Manager",
-        "SPEC-04"
+        "D-372 (Tahir, 19 Nov 2026)"
        ],
        [
         "Inspect",
-        "2",
+        "1 (from loading start or the dispatch date, whichever is later; again after a batch change)",
         "Plant Manager",
-        "SPEC-04"
+        "D-372 (Tahir, 19 Nov 2026)"
        ],
        [
         "Ship",
-        "2",
+        "3",
         "Supply Chain",
-        "SPEC-04"
+        "D-372 (Tahir, 19 Nov 2026)"
        ],
        [
         "Open Production",
@@ -1498,9 +1505,9 @@
        ],
        [
         "Approve PR",
-        "1",
+        "3",
         "COO",
-        "not confirmed"
+        "D-372 (Tahir, 19 Nov 2026)"
        ],
        [
         "Print price",
@@ -1510,9 +1517,9 @@
        ],
        [
         "Load",
-        "1",
+        "3",
         "Supply Chain",
-        "2026-08-21 truck pipeline"
+        "D-372 (Tahir, 19 Nov 2026)"
        ],
        [
         "Gate Pass",
@@ -1546,21 +1553,21 @@
        ],
        [
         "Approve move",
-        "1",
+        "3",
         "COO",
-        "07g"
+        "D-372 (Tahir, 19 Nov 2026)"
        ],
        [
         "Approve close short",
-        "1",
+        "3",
         "COO",
-        "07g"
+        "D-372 (Tahir, 19 Nov 2026)"
        ],
        [
         "Pack",
-        "1",
+        "3",
         "Production Manager",
-        "07g"
+        "D-372 (Tahir, 19 Nov 2026)"
        ],
        [
         "Pack from base",
@@ -1576,15 +1583,15 @@
        ],
        [
         "Check after move",
-        "2",
+        "3",
         "Plant Manager",
-        "07i"
+        "D-372 (Tahir, 19 Nov 2026)"
        ],
        [
         "Duplicate number",
-        "1",
+        "3",
         "Plant Manager",
-        "07i"
+        "D-372 (Tahir, 19 Nov 2026)"
        ],
        [
         "Lab test",
@@ -1721,8 +1728,8 @@
        ],
        [
         "Inspect (truck)",
-        "later of planned and the last batch change",
-        "when neither"
+        "later of loading start and the dispatch date, never before planning; a later batch change starts it again (D-372, 19 Nov 2026)",
+        "when there is no loading start, no dispatch date and no batch change"
        ],
        [
         "Gate Pass",
@@ -1758,6 +1765,11 @@
         "Customer",
         "inducted date",
         "always ~"
+       ],
+       [
+        "Near expiry",
+        "labAt: the first day of the expiry month (as printed on the bag) minus 3 months, or the pack date if later (D-374)",
+        "never"
        ]
       ]
      }

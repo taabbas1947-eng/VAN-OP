@@ -21002,6 +21002,136 @@
      }
     }
    ]
+  },
+  {
+   "id": "D-372",
+   "title": "Escalation after 3 days; a truck already loading after 1 day (2026-11-19a)",
+   "owner": "Tahir (ruling)",
+   "rules": [
+    "R-030"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir, 19 Nov 2026, panel answers and comments on the page O2S Batch 1: small fixes, design for review",
+    "O2S audit, 18 Nov 2026 (Claude Docs), fix list",
+    "o2s.html acEscalation (var TH)",
+    "tests/batch1119a.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-11-19"
+       ],
+       [
+        "Ruled by",
+        "Tahir"
+       ],
+       [
+        "Why",
+        "The audit found 70 of 92 open jobs carrying the escalation mark, because most job kinds escalated after 1 day (finding E1)."
+       ],
+       [
+        "Ruling",
+        "Ordinary jobs escalate after 3 days. A truck already loading escalates after 1 day: Inspect, Gate Pass, Review truck, Release, Approve DC, Truck came back. Load (truck planned, not yet loaded) is ordinary, 3 days. Inspect counts its 1 day from loading start or the dispatch date, whichever is later, never from planning (Tahir, 19 Nov 2026, after the independent review), and never before the truck was planned; a batch change starts its clock again. Open Production keeps 4 days (R-025) and Pack from base 7 days (15 Oct ruling). Confirm delivery keeps its own steps. Who is told is unchanged."
+       ],
+       [
+        "Still to build",
+        "F14: a reason on a job waiting 7 days stops its escalation until the reason is changed or its date passes (batch 1, part B)."
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-373",
+   "title": "ERP SO # warnings on New order, never a block (2026-11-19a)",
+   "owner": "Tahir (ruling)",
+   "rules": [],
+   "status": "confirmed",
+   "src": [
+    "Tahir, 19 Nov 2026, panel answers and comments on the page O2S Batch 1: small fixes, design for review",
+    "O2S audit, 18 Nov 2026 (Claude Docs), fix list",
+    "o2s.html ERP_SO_RE, erpSoWarnHTML, erpSoUsedOn, erpSoWarnShow, New order form",
+    "tests/batch1119a.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-11-19"
+       ],
+       [
+        "Ruled by",
+        "Tahir"
+       ],
+       [
+        "Why",
+        "The ERP SO # is typed by hand; of 34 orders entered since 1 Oct 2026, 3 carried strings of zeros (finding P5)."
+       ],
+       [
+        "Ruling",
+        "Warn when the number does not look like SAL-ORD-YYYY-NNNNN, which fits 32 of the 37 orders that carry a number; a suffix such as -1 is accepted with no warning. Warn when the same number is already on another order (capitals and spaces ignored). Never block the save."
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-374",
+   "title": "Near expiry job for the Warehouse, 3 months ahead (2026-11-19a)",
+   "owner": "Tahir (ruling)",
+   "rules": [],
+   "status": "confirmed",
+   "src": [
+    "Tahir, 19 Nov 2026, panel answers and comments on the page O2S Batch 1: small fixes, design for review",
+    "O2S audit, 18 Nov 2026 (Claude Docs), fix list",
+    "o2s.html NEAR_EXPIRY_MONTHS, nearExpiryLimitYM, packRunLeftKg, nearExpiryJobs, TD_LABEL Near expiry, actionItems",
+    "notify-routes.js JOB_ROLES Near expiry",
+    "tests/batch1119a.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-11-19"
+       ],
+       [
+        "Ruled by",
+        "Tahir"
+       ],
+       [
+        "Why",
+        "Nothing warned when packed stock neared its expiry month (finding C3)."
+       ],
+       [
+        "Ruling",
+        "A packing run with Kg/L still at the plant (packed minus shipped; a reversed or voided run counts as nothing left) whose expiry month is 3 months away or less raises 1 Near expiry job for the Warehouse (Muhammad Shoaib). The expiry month is the one printed on the bag (bagExp); the older production-based field (expDate) is used only for runs packed before bag expiry was recorded (Tahir, 19 Nov 2026, after the independent review). The job waits from the first day of the month the run came within 3 months of expiry (or its pack date, if later). It ends when the stock ships, is voided or written off. It does not escalate. On 18 Nov 2026 no stock was within 3 months; the earliest expiry in stock was July 2028."
+       ]
+      ]
+     }
+    }
+   ]
   }
  ]
 }

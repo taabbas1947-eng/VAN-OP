@@ -186,6 +186,12 @@ const MARKERS = [
   ["function coaApprove(){ if(!(state.role==='QCM'||labCovers('QCM')))", 1, 'the COO does not sign certificates (24u)'],
   ['function ppRows(',                     1, 'production and packing record (2026-11-18a, D-371)'],
   ["{id:'prodpack', kind:'prodpack'",      1, 'production and packing record in the catalogue (2026-11-18a)'],
+  ["2026-11-19a, F19 (Tahir, 19 Nov)",     1, 'escalation after 3 days, loaded trucks 1 day (2026-11-19a, D-372)'],
+  ['function erpSoWarnHTML(',              1, 'ERP SO # warnings on New order (2026-11-19a, D-373)'],
+  ['function nearExpiryJobs(',             1, 'Near expiry job for the Warehouse (2026-11-19a, D-374)'],
+  ["if(it.nearExp)p.push('ne:'",          1, 'Near expiry: 1 job key per packing run (2026-11-19a review)'],
+  ['String(p.bagExp||p.expDate',           1, 'Near expiry reads the month printed on the bag (2026-11-19a, D-374)'],
+  ['never from planning */',              1, 'Inspect counts from loading start or the dispatch date (2026-11-19a, D-372)'],
 ];
 
 const [, , mode, freshPath, otherPath] = process.argv;

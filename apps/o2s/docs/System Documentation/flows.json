@@ -25,7 +25,7 @@
     "fn poOwner",
     "fn poReturnFixed",
     "fn actionItems (labels Acknowledge, PO sent back)",
-    "fn acEscalation (Acknowledge: 1 day, Plant Manager)",
+    "fn acEscalation (Acknowledge: 3 days, Plant Manager; 1 day until 2026-11-19a, D-372)",
     "TD_LABEL",
     "TD_RIGHT (Acknowledge = order.acknowledge)",
     "SCREENS entry owners Finance, CFO, COO",
@@ -57,7 +57,7 @@
        },
        {
         "role": "Finance",
-        "text": "Enter each product: quantity, pack size, invoice price (PKR per Kg/L), committed date. Enter payment terms and the ERP SO #. Both are required.",
+        "text": "Enter each product: quantity, pack size, invoice price (PKR per Kg/L), committed date. Enter payment terms and the ERP SO #. Both are required. The ERP SO # box warns, without stopping the save, when the number does not look like SAL-ORD-YYYY-NNNNN (a -1 style suffix is fine) or is already on another order (D-373).",
         "kind": "task",
         "rule": "R-010"
        },
@@ -102,7 +102,7 @@
        },
        {
         "role": "Plant Manager",
-        "text": "An Acknowledge job waiting 1 day or more also shows on the Plant Manager's Today as escalated.",
+        "text": "An Acknowledge job waiting 3 days or more also shows on the Plant Manager's Today as escalated.",
         "kind": "task"
        },
        {
@@ -304,7 +304,7 @@
     "fn openRMReceive",
     "fn rmReceiveSubmit",
     "fn actionItems (labels RM Check, Approve PR, PR refused, Receive)",
-    "fn acEscalation (RM Check 1 d CFO, Receive 1 d CFO, Approve PR 1 d COO)",
+    "fn acEscalation (RM Check 3 d Plant Manager, Receive 3 d Plant Manager, Approve PR 3 d COO; D-364, D-372)",
     "fn guideHow (step Materials)",
     "tests/rmqty.test.js",
     "OP-HANDOFF-O2S.md 26 Sep (26a)"
@@ -364,7 +364,7 @@
        },
        {
         "role": "COO",
-        "text": "Approve PR waiting 1 day reaches the COO. RM Check or Receive waiting 1 day reaches the Plant Manager (since 3 Nov 2026, D-364; before, the CFO).",
+        "text": "Approve PR waiting 3 days reaches the COO. RM Check or Receive waiting 3 days reaches the Plant Manager (3 days since 2026-11-19a, D-372; 1 day before) (since 3 Nov 2026, D-364; before, the CFO).",
         "kind": "task"
        },
        {
@@ -618,7 +618,7 @@
     "fn labLotWaitsRep (LAB_REP_RULE=false)",
     "fn labCopyRep",
     "fn actionItems (labels Assign sample, Lab test, Lab late, Lab QC, Correct COA, Review, Approve, Rework lot)",
-    "fn acEscalation (Lab test late: QCM; Lab QC, Assign sample, Review, Approve: 1 d Plant Manager; Correct COA: 1 d QCM)",
+    "fn acEscalation (Lab test late: QCM; Lab QC, Assign sample, Review, Approve: 3 d Plant Manager; Correct COA: 3 d QCM; 1 d until 2026-11-19a, D-372)",
     "fn guideHow (step Lab)",
     "fn guideRules (Every lot is tested on its own; 2-person rules)",
     "tests/labassign.test.js",
@@ -857,7 +857,7 @@
     "fn bigPackSeen",
     "SHELF_DEFAULT_MONTHS=24, SHELF_OVERRIDE_ROLES=[Production]",
     "fn actionItems (labels Pack, Pack from base, Open Production, Big pack run)",
-    "fn acEscalation (Pack 1 d Production Manager; Pack from base 7 d Plant Manager)",
+    "fn acEscalation (Pack 3 d Production Manager; Pack from base 7 d Plant Manager; D-372)",
     "fn guideRules (Why packing asks for the shift, the in-charge and the packs; Pack from base; Waiting for production)",
     "tests/packshift.test.js",
     "tests/packs.test.js",
@@ -952,7 +952,7 @@
      }
     },
     {
-     "note": "A Pack job not done in 1 day reaches the Production Manager. Shelf life above 24 months is allowed only for the Production role."
+     "note": "A Pack job not done in 3 days reaches the Production Manager (1 day until 2026-11-19a, D-372). Shelf life above 24 months is allowed only for the Production role."
     },
     {
      "note": "A wrong packing record is reversed by its Correct button (Reports, Batch trace: pick the run, Correct; CORRECT_ENTITY packingLot: COO, Plant Manager, Production Manager since 11-03b, the packing area; works with the switch OFF; not once QA has cleared it, while a truck has it or it is on QA hold: withdraw the inspection or settle the hold first; only a truck that took this run blocks it, Tahir 3 Nov; nor when it would leave the line's packed below what has left the gate) or voided under Correct a record (COO, Plant Manager, Production Manager, since 3 Nov 2026); the Guide names both. See PF-18."
@@ -983,7 +983,7 @@
     "fn clearQaHold",
     "fn lotQACorrect",
     "fn actionItems (labels Pack QC, Re-inspect, Correct)",
-    "fn acEscalation (Pack QC 2 d Plant Manager)",
+    "fn acEscalation (Pack QC 3 d Plant Manager; D-372)",
     "fn guideRules (N/A on an inspection; QA checks by pack type)",
     "tests/qana.test.js",
     "OP-HANDOFF-O2S.md 15 Oct (8) QA item 20",
@@ -1090,7 +1090,7 @@
     "fn dcRejectSeen",
     "fn issueGatePass",
     "fn nextGatePassNo",
-    "fn acEscalation (Ship 2 d Supply Chain; Load 1 d Supply Chain; Gate Pass 1 d Supply Chain; Inspect 2 d Plant Manager)",
+    "fn acEscalation (Ship 3 d Supply Chain; Load 3 d Supply Chain; Gate Pass 1 d Supply Chain; Inspect 1 d Plant Manager from loading start or the dispatch date, whichever is later; D-372)",
     "fn guideHow (step Shipped)",
     "fn guideRules (Which batch goes on the truck; Vehicle and driver; Changing a batch at loading)",
     "tests/audit15f.test.js",
@@ -1401,7 +1401,7 @@
     "fn renumberGatePass",
     "fn renumberSampleGatePass",
     "fn _releaseShip",
-    "fn acEscalation (Duplicate number 1 d Plant Manager)"
+    "fn acEscalation (Duplicate number 3 d Plant Manager; D-372)"
    ],
    "blocks": [
     {
@@ -1441,7 +1441,7 @@
        },
        {
         "role": "Plant Manager",
-        "text": "A Duplicate number job waiting 1 day reaches the Plant Manager.",
+        "text": "A Duplicate number job waiting 3 days reaches the Plant Manager.",
         "kind": "task"
        },
        {
@@ -1479,7 +1479,7 @@
     "fn refusalSeen",
     "fn reopenShortClose",
     "fn actionItems (labels Approve close short, Refused)",
-    "fn acEscalation (Approve close short 1 d COO)",
+    "fn acEscalation (Approve close short 3 d COO; D-372)",
     "fn guideRules (Nothing is deleted)",
     "tests/shortclose.test.js",
     "tests/shortcloseactions.test.js",
@@ -1549,7 +1549,7 @@
      }
     },
     {
-     "note": "An Approve close short job waiting 1 day reaches the COO. Who may ask is the right po.shortclose_request; who may approve is po.shortclose_approve."
+     "note": "An Approve close short job waiting 3 days reaches the COO. Who may ask is the right po.shortclose_request; who may approve is po.shortclose_approve."
     },
     {
      "note": "A line with 50 Kg/L or less left follows PF-27 instead: Supply Chain, Finance or Warehouse close it at once, with no request and no approval."
@@ -1674,7 +1674,7 @@
     "fn openMoveCheck",
     "fn doneMoveCheck",
     "fn lotMoveLock",
-    "fn acEscalation (Approve move 1 d COO; Check after move 2 d Plant Manager)",
+    "fn acEscalation (Approve move 3 d COO; Check after move 3 d Plant Manager; D-372)",
     "fn guideRules (Moving packed stock to another PO)",
     "tests/stockmove.test.js",
     "OP-HANDOFF-O2S.md 7 Oct (3)"
@@ -2131,25 +2131,25 @@
        [
         "Acknowledge",
         "Supply Chain",
-        "1 day",
+        "3 days",
         "Plant Manager"
        ],
        [
         "RM Check",
         "Supply Chain",
-        "1 day",
-        "CFO"
+        "3 days",
+        "Plant Manager"
        ],
        [
         "Receive",
         "Supply Chain",
-        "1 day",
-        "CFO"
+        "3 days",
+        "Plant Manager"
        ],
        [
         "Approve PR",
         "CFO",
-        "1 day",
+        "3 days",
         "COO"
        ],
        [
@@ -2161,7 +2161,7 @@
        [
         "Pack",
         "Production",
-        "1 day",
+        "3 days",
         "Production Manager"
        ],
        [
@@ -2173,7 +2173,7 @@
        [
         "Assign sample",
         "QCM",
-        "1 day",
+        "3 days",
         "Plant Manager"
        ],
        [
@@ -2185,49 +2185,49 @@
        [
         "Lab QC",
         "Lab Rep",
-        "1 day",
+        "3 days",
         "Plant Manager"
        ],
        [
         "Correct COA",
         "Lab Rep",
-        "1 day",
+        "3 days",
         "QCM"
        ],
        [
         "Review",
         "AQCM (the UNFIT lot job for the Plant Manager carries the same label)",
-        "1 day",
+        "3 days",
         "Plant Manager"
        ],
        [
         "Approve",
         "QCM",
-        "1 day",
+        "3 days",
         "Plant Manager"
        ],
        [
         "Pack QC",
         "QA Inspector",
-        "2 days",
+        "3 days",
         "Plant Manager"
        ],
        [
         "Inspect",
         "QA Inspector",
-        "2 days",
+        "1 day",
         "Plant Manager"
        ],
        [
         "Ship",
         "Supply Chain",
-        "2 days",
+        "3 days",
         "Supply Chain"
        ],
        [
         "Load",
         "Warehouse",
-        "1 day",
+        "3 days",
         "Supply Chain"
        ],
        [
@@ -2269,32 +2269,41 @@
        [
         "Approve move",
         "Plant Manager",
-        "1 day",
+        "3 days",
         "COO"
        ],
        [
         "Approve close short",
         "Plant Manager",
-        "1 day",
+        "3 days",
         "COO"
        ],
        [
         "Check after move",
         "Supply Chain",
-        "2 days",
+        "3 days",
         "Plant Manager"
        ],
        [
         "Duplicate number",
         "Supply Chain",
-        "1 day",
+        "3 days",
         "Plant Manager"
+       ],
+       [
+        "Near expiry",
+        "Warehouse",
+        "does not escalate",
+        "-"
        ]
       ]
      }
     },
     {
-     "note": "Jobs with no row above (for example Truck released, Stuck at packing, Big pack run, Yield short, samples) do not escalate in acEscalation."
+     "note": "Jobs with no row above (for example Truck released, Big pack run, Yield short, samples) do not escalate in acEscalation. Stuck at packing escalates to the COO after 3 days (D-332)."
+    },
+    {
+     "note": "2026-11-19a (D-372, Tahir 19 Nov): ordinary jobs escalate after 3 days; truck jobs after 1 day (Inspect, Gate Pass, Review truck, Release, Approve DC, Truck came back), Inspect counted from loading start or the dispatch date, whichever is later; Load is ordinary; Open Production keeps 4 days and Pack from base 7 days; Confirm delivery keeps its own steps. Near expiry (D-374) is a Warehouse job that does not escalate."
     }
    ]
   },

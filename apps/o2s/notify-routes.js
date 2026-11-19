@@ -31,7 +31,7 @@ const JOB_ROLES = {
   'Correct': ['Supply Chain'], 'Re-inspect': ['Production Manager'], 'Close batch': ['Production'],
   'Reopened — check first': ['Production'], 'Approve batch fix': ['COO'], 'Reprint DC': ['Supply Chain'],
   'Reprint report': ['QA Inspector'], 'DC rejected': ['Supply Chain'], 'Truck failed': ['Supply Chain'],
-  'Yield short': ['Plant Manager'], 'Big pack run': ['Production Manager'], 'Packed in 2 months': ['Production Manager'],
+  'Yield short': ['Plant Manager'], 'Big pack run': ['Production Manager'], 'Packed in 2 months': ['Production Manager'], 'Near expiry': ['Warehouse'],   /* 2026-11-19a, F11 */
   /* 17c provisional release */ 'Release provisionally': ['AQCM', 'QCM'], 'Provisional lot UNFIT': ['Plant Manager'], 'Provisional lot referred': ['COO'],
   'Approve sample': null, 'Issue sample': null, 'Check sample': null, 'Sample gate pass': null, 'Review sample': null,
   'Release sample': null, 'Sample arrived': null, 'Sample feedback': null, 'Sample not approved': null,

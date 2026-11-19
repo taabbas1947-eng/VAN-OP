@@ -190,7 +190,7 @@ ok('the AQCM\'s review answers any return still open', /coaCloseReturn\(h\.coa,'
   ok('Today: a returned report goes to the analyst who drafted it, with the note, timed from the return', /label:'Correct COA'/.test(ai) && /who:_rtWho/.test(ai) && /labAt:_rt\.at/.test(ai) && /sent back by/.test(ai));
   ok('Today: back with the AQCM it says Review COA again, with the note', /Review COA again/.test(ai)); }
 ok('the report buttons say Send back, one step down the chain', /Send back to the analyst…/.test(html) && /Send back to the AQCM…/.test(html) && !/onclick="coaReject\(/.test(html));
-ok('a return nobody answers reaches the QCM after a day', /'Correct COA':\[1,'QCM'\]/.test(html));
+ok('a return nobody answers reaches the QCM after 3 days (F19, 19 Nov)', /'Correct COA':\[3,'QCM'\]/.test(html));
 
 /* ---------- back paths (Tahir, 26 Sep: "check clearly that acceptance, rejection, approval have a back path") ---------- */
 function bpWorld(role, user) {

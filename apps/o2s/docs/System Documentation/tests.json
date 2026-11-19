@@ -737,9 +737,9 @@
        ],
        [
         "dailycomment29a.test.js",
-        "The daily comment: who needs one (Ship job 15 days as a Ship job, other open PO 15 days from received, deferred none, nothing open none); the list on Today holds only the right POs and is not counted; every refusal writes nothing (no reason, no time, no note, over 600, no right, PO gone); a job marked Waiting for client needs none while the mark stands (Ship job and PO, one waiting line of two does not count); a second save the same day is a new row and the latest shows (the log and the PO keep both); 2 people saving the same day keep both rows through the real merge, with no mixed row; a repeat tap writes nothing; a window left open past midnight or across a change of PO state saves nothing; Same as yesterday only from yesterday and the same kind, marked copied, names the first writer and tapped twice writes 1 row; markup is escaped everywhere; the card, window and PO page; no job and no count reads it.",
+        "The daily comment: who needs one (Ship job 15 days as a Ship job, other open PO 15 days from received, deferred none, nothing open none); the list on Today holds only the right POs and is not counted; every refusal writes nothing (no reason, no time, no note, over 600, no right, PO gone); a job marked Waiting for client needs none while the mark stands (Ship job and PO, one waiting line of two does not count); a second save the same day is a new row and the latest shows (the log and the PO keep both); 2 people saving the same day keep both rows through the real merge, with no mixed row; a repeat tap writes nothing; a window left open past midnight or across a change of PO state saves nothing; Same as yesterday only from yesterday and the same kind, marked copied, names the first writer and tapped twice writes 1 row; markup is escaped everywhere; the card, window and PO page; no job and no count reads it. Since 2026-11-19d (F14): a Ship job takes no daily comment (never required, no button, the window does not open and closes if the PO becomes ready to ship); the checks of the window, the card and Same as yesterday run on a PO not ready to ship.",
         "D-344",
-        "180 passed, 0 failed (29 Oct 2026)"
+        "177 passed, 0 failed (19 Nov 2026)"
        ],
        [
         "printbase29b.test.js",
@@ -755,7 +755,7 @@
        ],
        [
         "morningcomments30a.test.js",
-        "30a: the comments fold on the Morning view of Fahim and Majid: which POs are listed (15 days or more, any PO with a comment today, nothing else), the order (no comment first), each row (reason, note, writer, time, copied from, Ship job or Open PO with days, the open lines of a PO), No comment today with yesterday's comment dated and by whom, Waiting for client and deferred (who and until when) say no comment is needed, markup and the onclick id are escaped, the link has its own class, the fold is closed by default with the count of POs and comments written (no count of missing ones) and stays open once opened, the empty fold, 15 days listed and 14 not, a PO that cannot be worked out is left out and a broken comment list does not blank the page, only Fahim and Majid have it, nothing writes, the changelog and the Guide.",
+        "30a: the comments fold on the Morning view of Fahim and Majid: which POs are listed (15 days or more, any PO with a comment today, nothing else), the order (no comment first), each row (reason, note, writer, time, copied from, Ship job or Open PO with days, the open lines of a PO), No comment today with yesterday's comment dated and by whom, Waiting for client and deferred (who and until when) say no comment is needed, markup and the onclick id are escaped, the link has its own class, the fold is closed by default with the count of POs and comments written (no count of missing ones) and stays open once opened, the empty fold, 15 days listed and 14 not, a PO that cannot be worked out is left out and a broken comment list does not blank the page, only Fahim and Majid have it, nothing writes, the changelog and the Guide. Since 2026-11-19d a PO ready to ship with no comment today is not listed.",
         "D-350",
         "41 passed, 0 failed (30 Oct 2026)"
        ],
@@ -836,6 +836,12 @@
         "2026-11-19c, batch 1 of the audit fixes, part B2: the Plant Manager and the CFO mark themselves away (who, role, first day, back-on day), a second mark while away is refused, other roles cannot, the first day not before today and back on after it; I am back ends it and it ends by itself on the back-on day; the banner on their Today; the New for you card once; the COO's Today has the away role's jobs from day 1 tagged cover for the name, not other roles, and not on the back-on day; the name menu, the Guide rule R-053, change log, Guide notes, BUILD_ID, SYSDOC_VER, D-377 and SC-49. After the reviews (Tahir's rulings): Release sample, Name a cover and the 2 complaint read-it jobs wait for the Plant Manager; complaint jobs addressed to him by name wait; a job escalated to the away person comes to the COO, and a lab sign-off escalated to him comes to chase with no button; the COO's Morning view counts the covered jobs; Cancel my away before the first day; I am back logged as back.",
         "D-377",
         "39 passed, 0 failed (19 Nov 2026)"
+       ],
+       [
+        "batch1119d.test.js",
+        "2026-11-19d, batch 1 of the audit fixes, part B3: a job asks at 7 days, not 6; own-clock jobs and jobs waiting for the client never ask; only the owner or the COO answers; Other needs a note, the date is 1 to 30 days ahead; the reason is kept by the job with who and why, logged, and history kept on a change; it ends on its date and asks again; Waiting for client sets the existing line mark, by the job owner, and is offered only on a job for a PO line; acEscalation returns nothing while a reason stands and escalates again after its date; the card shows the reason or the question, a tag, and an escalated card says why and what to do; the Ship daily comment is never required and has no button; the PO comment stays; the Morning view lists the reasons; change log, Guide R-054, notes, BUILD_ID, SYSDOC_VER, D-378, SC-50. Production is asked only when its run is behind its plan or late (daily output from O2S history, the queue by committed date, the card line); Waiting for client on a packed PO; ticking the POs on a multi-PO card; a reason follows the marks it wrote; the review fixes; a run being made counts as moving; a reason ends once the job has moved; re-used marks; unticked POs; a merge while the box is open.",
+        "D-378",
+        "88 passed, 0 failed (19 Nov 2026)"
        ]
       ]
      }

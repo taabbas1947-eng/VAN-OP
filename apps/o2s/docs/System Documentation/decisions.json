@@ -21042,8 +21042,8 @@
         "Ordinary jobs escalate after 3 days. A truck already loading escalates after 1 day: Inspect, Gate Pass, Review truck, Release, Approve DC, Truck came back. Load (truck planned, not yet loaded) is ordinary, 3 days. Inspect counts its 1 day from loading start or the dispatch date, whichever is later, never from planning (Tahir, 19 Nov 2026, after the independent review), and never before the truck was planned; a batch change starts its clock again. Open Production keeps 4 days (R-025) and Pack from base 7 days (15 Oct ruling). Confirm delivery keeps its own steps. Who is told is unchanged."
        ],
        [
-        "Still to build",
-        "F14: a reason on a job waiting 7 days stops its escalation until the reason is changed or its date passes (batch 1, part B)."
+        "Built since",
+        "F14 (2026-11-19d, D-378): a reason given on a job waiting 7 days stops its escalation until the reason is changed or its date passes."
        ]
       ]
      }
@@ -21256,6 +21256,72 @@
        [
         "Ruling",
         "The Plant Manager and the CFO mark themselves away from their name at the top of any screen (I am going away: first day and back-on day). Only the person going away marks it, and only he ends it (I am back); it also ends by itself on the back-on day. While it stands, every job of his role is also on the COO's Today from the first day, tagged cover for his name; the job stays his and he can still act on it. A New for you card (once) and the Guide rule R-053 show the 3 steps. After the independent review (Tahir, 19 Nov 2026): Release sample, Name a cover, Complaint raised and Complaint closed (read it) only the Plant Manager can do, so they wait for him and are not put on the COO's Today; a job escalated to the away person also comes to the COO, tagged cover for; the COO's Morning view counts the covered jobs. Before the first day the button reads Cancel my away. After the 2nd review, on the same ruling: a complaint job addressed to the away person by name (Investigate complaint, Do complaint action, a customer call) waits for him; a lab sign-off (Lab QC, Review, Approve) escalated to him comes to the COO to chase, with no button, because the COO never signs. Phone alerts are unchanged (not part of the ruling)."
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "D-378",
+   "title": "Why is this waiting? after 7 days (2026-11-19d)",
+   "owner": "Tahir (ruling)",
+   "rules": [
+    "R-054",
+    "R-045",
+    "R-030"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir, 19 Nov 2026, panel answers (F14 days 7; reasons Waiting for client, Raw material, Other with a note, Capacity), comments on the page O2S Batch 1 (\"Replace\"; \"Yes, no conflict to happen. no duplciation\"; \"Yes, make is meaningful and its should not just look like a spam notofication but an infoamtion ot action\") and 4 panel answers on 19 Nov (\"All, except own-clock jobs\"; \"Until a picked date\"; \"Anyone who owns the job\"; PO comment \"Keep it as it is\")",
+    "Tahir, 19 Nov 2026, Production: \"Late against the promise\"; other roles \"Only Production\" (7 days with no movement); long POs: \"we need to figure out a smart soluation for it, may be a data driven hisptorical patterns?\". Then 4 panel answers on the design page O2S F14: when Production is asked why: \"Approve as shown\"; packed POs \"Allow it on packed POs\"; multi-PO cards \"Pick the POs\"; COO \"Yes, COO too\"",
+    "O2S audit, 18 Nov 2026, F14",
+    "o2s.html JR_DAYS, JR_REASONS, JR_SKIP, jrOf, jrMarkLine, jrLastMove, jrIdle, jrCurLine, jrAsks, jrRates, jrRateOf, jrPlanAll, jrPlanOf, jrPlanHTML, jrPoLine, jrMay, jrLines, openJobReason, renderJobReason, jrSave, jrBlockHTML, acEscalation, tdCardHTML, tdTags, tdEscLineHTML, dcState0, dcBtnHTML, openDayComment, renderDayComment, mvWatching, mvReasonsHTML, mvComments, Guide R-054 and R-045",
+    "tests/batch1119d.test.js, tests/dailycomment29a.test.js"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Detail"
+      ],
+      "rows": [
+       [
+        "Date",
+        "2026-11-19"
+       ],
+       [
+        "Ruled by",
+        "Tahir"
+       ],
+       [
+        "Why",
+        "Jobs sat for weeks with no reason on record, and the escalation repeated on them every day (audit F14)."
+       ],
+       [
+        "Ruling",
+        "Every Today job waiting 7 days or more asks Why is this waiting?, except jobs on their own clock: lab tests (and Lab late), complaint jobs, Confirm delivery, Near expiry; and Add reason, which is itself a reason. The person whose job it is (or the COO) picks Waiting for client, Raw material, Capacity, or Other with a note, and a date 1 to 30 days ahead. Until that date the job does not escalate (acEscalation, so also no escalation alert); then it asks again; changing it keeps the old reason as history. Waiting for client is offered on a job for a PO line and sets the line's existing Waiting for client mark (no 2nd record); anyone who owns the job may set it this way. The reason shows on the card (and a tag) and on the Morning view. It replaces the Ship daily comment: a PO ready to ship no longer takes one (old comments stay as history); the daily note on a PO not ready to ship stays. An escalated card now says why it reached the person, how long it has waited, with whom, and what to do."
+       ],
+       [
+        "Production (ruled 19 Nov, design page approved as shown)",
+        "A Production job asks only when its run is behind its own plan or late, AND nothing has been made or packed for 7 days. Each production line's daily output is the median Kg/L of its production days in the last 90 days in O2S (a log row finds its line through its batch, its base, or the 1 line all the base's products are on); with fewer than 3 days, the Lead times rate in Setup. Every open order line on that production line is queued by committed date; latest start = committed date - days to make all the Kg/L due up to it - lab days - dispatch days. Behind: today is past the latest start. Late: today is past the committed date. A Production job with no committed date (a stock batch, rework, closing a batch) keeps the 7 days. The card shows Start by, Behind or Late with the line and its daily output."
+       ],
+       [
+        "Waiting for client (ruled 19 Nov)",
+        "Offered on a Ship job whose PO is fully packed too: the reason holds the job; no line mark is written on a line with nothing left to pack. On a card for more than 1 PO the person ticks the POs that wait; only those are marked and hold the reason. The reason keeps the ids of the marks it wrote: when Supply Chain ends or changes that wait, the reason ends; when the person changes the reason, the marks it wrote are ended."
+       ],
+       [
+        "COO (ruled 19 Nov)",
+        "The COO may give the reason on any job, as built."
+       ],
+       [
+        "Review fixes",
+        "The note is escaped in its field; the Morning view no longer lists a PO ready to ship as No comment today; a reason saved during an earlier wait is ignored once the job has moved; Truck released keeps its own clock; a card key with an apostrophe opens the box; order lines are found by PO and line id on live POs."
+       ],
+       [
+        "Second review fixes",
+        "A run counts as moving when anything was packed for its order line, or made or logged on its own batch (jrLastMove); its days with no movement are the lower of its clock and the days since then (jrIdle). A reason belongs to the wait it was given in: it ends when the job's clock has started again since (since), or when a production run moved after it was saved. The queue counts only what is still to make (ordered less the larger of packed and made) and leaves out lines asked to close short. A Supply Chain mark the reason only re-used is never ended by it; unticking a PO ends that PO's reason and the mark it wrote. After a merge while the box is open, the mark lands on the line in the new state. A broken record never blanks Today."
        ]
       ]
      }

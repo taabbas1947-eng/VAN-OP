@@ -38,11 +38,11 @@ const prod = (id, received) => ({ id, po: 'P' + id, client: 'Maxim Co', received
 { const w = world();
   w.state.orders = [ship('A', '2026-10-14'), ship('B', '2026-10-15'), ship('C', '2026-10-13'), prod('D', '2026-10-14'), prod('E', '2026-10-13')];
   const s = (i) => w.dcState(w.state.orders[i]);
-  eq('Ship job waiting 15 days: a comment is required', s(0).required, true);
+  eq('Ship job waiting 15 days: no daily comment since 2026-11-19d (F14: the Ship card asks why after 7 days)', s(0).required, false);
   eq('...days counted from the oldest ready lot', s(0).days, 15);
   eq('Ship job waiting 14 days: not required', s(1).required, false);
   eq('...but it is still a Ship job (can be commented)', s(1).kind, 'ship');
-  eq('Ship job waiting 16 days: required', s(2).required, true);
+  eq('Ship job waiting 16 days: not required either (19d)', s(2).required, false);
   eq('Other open PO received 15 days ago: required', s(3).required, true);
   eq('...and it is a PO, not a Ship job', s(3).kind, 'po');
   eq('Other open PO received 16 days ago: required', s(4).required, true);
@@ -150,36 +150,34 @@ const prod = (id, received) => ({ id, po: 'P' + id, client: 'Maxim Co', received
   /* a typed save the same day clears the copied mark */
   w.dcSave('A', 'quality-hold', '', 'held', false); eq('a typed update replaces the copy and is not marked copied', w.dcOn(A, '2026-10-29').copied, false);
   /* the window offers it only when yesterday has a matching comment */
-  const x = world(); x.state.orders = [ship('A', '2026-10-01')]; x.openDayComment('A'); ok('no comment yesterday: no button', !/Same as yesterday/.test(x.modalHTML));
-  x.state.orders[0].dayComments = [{ id: 'DC2026-10-27', date: '2026-10-27', kind: 'ship', reason: 'quality-hold', note: 'two days ago', by: 'Z', at: '2026-10-27T06:00:00Z' }];
+  /* 2026-11-19d (F14): the window opens only for a PO not ready to ship; the same rules hold there */
+  const x = world(); x.state.orders = [prod('A', '2026-10-01')]; x.openDayComment('A'); ok('no comment yesterday: no button', !/Same as yesterday/.test(x.modalHTML));
+  x.state.orders[0].dayComments = [{ id: 'DC2026-10-27', date: '2026-10-27', kind: 'po', note: 'two days ago', by: 'Z', at: '2026-10-27T06:00:00Z' }];
   x.openDayComment('A'); ok('a comment from 2 days ago only: no button', !/Same as yesterday/.test(x.modalHTML));
-  x.state.orders[0].dayComments = [{ id: 'DC2026-10-28', date: '2026-10-28', kind: 'ship', reason: 'quality-hold', note: 'yesterday', by: 'Z', at: '2026-10-28T06:00:00Z' }];
+  x.state.orders[0].dayComments = [{ id: 'DC2026-10-28', date: '2026-10-28', kind: 'po', note: 'yesterday', by: 'Z', at: '2026-10-28T06:00:00Z' }];
   x.openDayComment('A'); ok('a comment from yesterday: the button shows', /Same as yesterday/.test(x.modalHTML));
-  x.state.orders[0].dayComments = [{ id: 'DC2026-10-28', date: '2026-10-28', kind: 'po', note: 'was a note only', by: 'Z', at: '2026-10-28T06:00:00Z' }];
-  x.openDayComment('A'); ok('yesterday was a note on a PO not ready to ship, today it is a Ship job: no button (it has no reason to repeat)', !/Same as yesterday/.test(x.modalHTML));
-  eq('...and calling it anyway writes nothing', (x.dcSameAsYesterday('A'), x.state.orders[0].dayComments.length), 1);
-  x.state.orders[0].dayComments.push({ id: 'DC2026-10-29', date: '2026-10-29', kind: 'ship', reason: 'quality-hold', note: 'mine', by: 'S', at: '2026-10-29T05:00:00Z' });
+  const sx = world(); sx.state.orders = [ship('S', '2026-10-01')]; sx.state.orders[0].dayComments = [{ id: 'DC2026-10-28', date: '2026-10-28', kind: 'ship', reason: 'quality-hold', note: 'old', by: 'Z', at: '2026-10-28T06:00:00Z' }];
+  sx.openDayComment('S'); ok('19d: a PO ready to ship: the window does not open, and says why', sx.modalHTML === undefined && /after 7 days its Ship card asks why/.test(sx.toasts[0]));
+  x.state.orders[0].dayComments.push({ id: 'DC2026-10-29', date: '2026-10-29', kind: 'po', note: 'mine', by: 'S', at: '2026-10-29T05:00:00Z' });
   x.openDayComment('A'); ok('already commented today: the window is "Change today\'s comment" and has no Same as yesterday', /Change today/.test(x.modalHTML) && !/Same as yesterday/.test(x.modalHTML));
 }
 
 /* ---------- the window ---------- */
 { const w = world(); w.state.orders = [ship('A', '2026-10-01'), prod('D', '2026-10-01')];
-  w.openDayComment('A'); const s = w.modalHTML;
-  ok('Ship job window has the 5 reasons', ['Waiting for the client\'s vehicle', 'Waiting for truck arrangement', 'Truck committed', 'Quality hold', 'Other'].every(t => s.indexOf(t.replace(/'/g, '&#39;')) > -1 || s.indexOf(t) > -1));
-  ok('...no time box until Truck committed is picked', !/dc_time/.test(s));
-  w.dcForm.reason = 'truck-committed'; w.renderDayComment(); ok('...Truck committed adds the time box', /dc_time/.test(w.modalHTML));
-  w.dcForm.reason = 'other'; w.renderDayComment(); ok('...Other makes the note required (red star)', /dc_note">[^<]*<span style="color:var\(--red\)">\*/.test(w.modalHTML));
+  w.openDayComment('A');
+  ok('19d (F14): a Ship job no longer opens the daily comment window', w.modalHTML === undefined && /no longer takes a daily comment/.test(w.toasts[0]));
   w.openDayComment('D'); ok('a PO not ready to ship: no pick list', !/dc_r/.test(w.modalHTML)); ok('...a note box that is required', /dc_note/.test(w.modalHTML) && /what is the position today/.test(w.modalHTML));
   ok('...the note limit is 600 characters', /maxlength="600"/.test(w.modalHTML));
-  const n = world({ noRight: true }); n.state.orders = [ship('A', '2026-10-01')]; n.openDayComment('A'); ok('without the right: the window does not open', n.modalHTML === undefined && /DENY/.test(n.toasts[0]));
-  w.openDayComment('D'); w.dcForm.note = 'half typed'; w.dcForm.kind = 'ship'; w.state.orders[1].lines[0].clr = 100; w.state.orders[1].lines[0].ready = '2026-10-20'; w.renderDayComment();
-  ok('if the PO turns into a Ship job while the window is open, it redraws as a Ship job and keeps the typed note', /dc_r/.test(w.modalHTML) && /half typed/.test(w.modalHTML));
+  const n = world({ noRight: true }); n.state.orders = [prod('D', '2026-10-01')]; n.openDayComment('D'); ok('without the right: the window does not open', n.modalHTML === undefined && /DENY/.test(n.toasts[0]));
+  const before = w.closed; w.openDayComment('D'); w.dcForm.note = 'half typed'; w.state.orders[1].lines[0].clr = 100; w.state.orders[1].lines[0].ready = '2026-10-20'; w.state.orders[1].lines[0].bucket = 'Shipment'; w.renderDayComment();
+  ok('19d: if the PO turns into a Ship job while the window is open, the window closes and says why', w.dcForm === null && w.closed > before && /now ready for a truck/.test(w.toasts[w.toasts.length - 1]));
 }
 
 /* ---------- the card ---------- */
-{ const w = world(); w.state.orders = [ship('A', '2026-10-01')]; const A = w.state.orders[0];
+{ const w = world(); w.state.orders = [prod('A', '2026-10-01')]; const A = w.state.orders[0];
   eq('no comments: nothing extra on the card', w.dcCardHTML(A), '');
   ok('...the button says Comment for today', /Comment for today/.test(w.dcBtnHTML(A)));
+  eq('19d: a Ship job has no Comment for today button', w.dcBtnHTML(ship('S', '2026-10-01')), '');
   A.dayComments = [25, 26, 27, 28, 29].map(i => ({ id: 'DC2026-10-' + i, date: '2026-10-' + i, kind: 'ship', reason: 'quality-hold', note: 'note ' + i, by: 'Z', at: '2026-10-' + i + 'T06:00:00Z' }));
   const h = w.dcCardHTML(A);
   ok('the card shows today\'s comment first', h.indexOf('Today') > -1 && h.indexOf('Today') < h.indexOf('Earlier'));
@@ -201,10 +199,10 @@ const prod = (id, received) => ({ id, po: 'P' + id, client: 'Maxim Co', received
 
 
 /* ---------- the design review's points ---------- */
-{ const w = world(); w.state.orders = [ship('A', '2026-10-01')]; const A = w.state.orders[0]; A.client = 'DLR-X-1|Kissan Zarai Merkaz';
+{ const w = world(); w.state.orders = [prod('A', '2026-10-01')]; const A = w.state.orders[0]; A.client = 'DLR-X-1|Kissan Zarai Merkaz';
   w.openDayComment('A'); ok('the window names the client, not the dealer code', /Kissan Zarai Merkaz/.test(w.modalHTML) && !/DLR-X-1/.test(w.modalHTML));
   ok('...and says the note is up to 600 characters', /Up to 600 characters/.test(w.modalHTML));
-  A.dayComments = [{ id: 'DC2026-10-29-a', date: '2026-10-29', kind: 'ship', reason: 'client-vehicle', note: 'Client says Friday', by: 'Zain', user: 'zain', at: '2026-10-29T05:02:00Z' }];
+  A.dayComments = [{ id: 'DC2026-10-29-a', date: '2026-10-29', kind: 'po', note: 'Client says Friday', by: 'Zain', user: 'zain', at: '2026-10-29T05:02:00Z' }];
   w.openDayComment('A'); ok('Change today\'s comment shows who wrote the one that is there and says the save goes under the saver\'s name', /Now showing/.test(w.modalHTML) && /written 10:02 by Zain/.test(w.modalHTML) && /under your name/.test(w.modalHTML));
   const long = 'x'.repeat(600); A.dayComments.push({ id: 'DC2026-10-28-b', date: '2026-10-28', kind: 'ship', reason: 'quality-hold', note: long, by: 'Ali', user: 'ali', at: '2026-10-28T05:00:00Z' });
   const c = w.dcCardHTML(A); ok('the card cuts an earlier day\'s long note, the PO page keeps all of it', c.indexOf(long) < 0 && /all of it on the PO page/.test(c) && w.dcPanelHTML(A).indexOf(long) > -1);
@@ -259,19 +257,19 @@ const prod = (id, received) => ({ id, po: 'P' + id, client: 'Maxim Co', received
   /* the PO changes while the window is open */
   const z = world(); z.state.orders = [prod('D', '2026-10-01')]; z.openDayComment('D'); z.state.orders[0].lines[0].clr = 100; z.state.orders[0].lines[0].ready = '2026-10-20'; z.state.orders[0].lines[0].bucket = 'Shipment';
   eq('the PO turns into a Ship job while the window is open: the save is stopped', z.dcSave('D', '', '', 'half typed note', false), false);
-  ok('...the person is told, and the window is drawn again as a Ship job with the note kept', /changed while the window was open/.test(z.toasts[0]) && /dc_r/.test(z.modalHTML));
+  ok('...the person is told, and the window closes (19d: a Ship job takes no daily comment)', /changed while the window was open/.test(z.toasts[0]) && z.dcForm === null);
   eq('...nothing was written', z.state.orders[0].dayComments, undefined);
   /* a window left open past midnight */
-  const d = world(); d.state.orders = [ship('A', '2026-10-01')]; d.openDayComment('A'); d.dcForm.day = '2026-10-28'; d.dcForm.reason = 'quality-hold';
-  eq('a window opened yesterday does not save under today\'s date', d.dcSave('A', 'quality-hold', '', 'held', false), false);
+  const d = world(); d.state.orders = [prod('A', '2026-10-01')]; d.openDayComment('A'); d.dcForm.day = '2026-10-28';
+  eq('a window opened yesterday does not save under today\'s date', d.dcSave('A', '', '', 'held for retest', false), false);
   ok('...and says so', /day has changed/.test(d.toasts[0]));
   /* the Save button reads the screen, so a time picked a moment before the tap is never lost */
-  const t = world(); t.state.orders = [ship('A', '2026-10-01')]; t.openDayComment('A'); t.dcForm.reason = 'truck-committed';
-  t.document = { getElementById: (id) => id === 'dc_time' ? { value: '19:30' } : id === 'dc_note' ? { value: 'Driver called' } : null };
+  const t = world(); t.state.orders = [prod('A', '2026-10-01')]; t.openDayComment('A');
+  t.document = { getElementById: (id) => id === 'dc_note' ? { value: 'Bags arrive in the morning' } : null };
   vm.runInContext('var document = this.document;', t); t.dcFormSave();
-  eq('Save reads the time and note from the screen', t.state.orders[0].dayComments[0].time + '|' + t.state.orders[0].dayComments[0].note, '19:30|Driver called');
+  eq('Save reads the note from the screen', t.state.orders[0].dayComments[0].note, 'Bags arrive in the morning');
   /* the time box keeps what is typed */
-  ok('the time box saves on typing as well as on change', /id="dc_time"[^>]*oninput="dcForm\.time=this\.value" onchange="dcForm\.time=this\.value"/.test((() => { t.dcForm = { oid: 'A', kind: 'ship', day: '2026-10-29', reason: 'truck-committed', time: '', note: '' }; t.renderDayComment(); return t.modalHTML; })()));
+  ok('the time box (old Ship comments) still saves on typing as well as on change in the code', /id="dc_time"[^>]*oninput="dcForm\.time=this\.value" onchange="dcForm\.time=this\.value"/.test(grab('renderDayComment')));
   /* the days a Ship job has waited are counted from the same start as the card */
   const n = world(); eq('a Ship job with no ready date counts from the PO received date (the card does the same)', (n.state.orders = [ship('A', null, { received: '2026-10-01' })], n.dcState(n.state.orders[0]).days), 28);
   eq('a Ship line with only a QC pass date still counts from the PO received date', n.dcState(ship('Q', null, { received: '2026-10-10' })).days, 19);
@@ -327,23 +325,23 @@ const prod = (id, received) => ({ id, po: 'P' + id, client: 'Maxim Co', received
 /* ---------- Tahir 29 Oct: Waiting for client needs no daily comment ---------- */
 { const w = world(); vm.runInContext('function lineWaitClient(l){ return l.wc ? { until: "2026-11-20" } : null; }', w);
   w.state.orders = [ship('A', '2026-10-01'), prod('D', '2026-10-01')];
-  eq('a Ship job needs a comment before the mark', w.dcState(w.state.orders[0]).required, true);
+  eq('19d: a Ship job needs no comment, before or after the mark', w.dcState(w.state.orders[0]).required, false);
   w.state.orders[0].lines[0].wc = true;
   const s1 = w.dcState(w.state.orders[0]); eq('a Ship job marked Waiting for client needs none while the mark stands', s1.required + '|' + s1.waitsClient, 'false|true');
   ok('...it is not missing, so no No comment today label', !w.dcMissing(w.state.orders[0]));
-  ok('...and can still be commented if somebody wants to', !!w.dcBtnHTML(w.state.orders[0]));
-  w.state.orders[0].lines[0].wc = false; eq('when the mark ends the comment is due again', w.dcState(w.state.orders[0]).required, true);
+  ok('...and has no comment button (19d)', !w.dcBtnHTML(w.state.orders[0]));
+  w.state.orders[0].lines[0].wc = false; eq('when the mark ends it is still not due (19d: the Ship card asks why after 7 days instead)', w.dcState(w.state.orders[0]).required, false);
   w.state.orders[1].lines[0].wc = true; const s2 = w.dcState(w.state.orders[1]); eq('a PO not ready to ship, all open lines waiting for the client: none due', s2.required + '|' + w.dcPoDue().length, 'false|0');
   const two = ship('T', '2026-10-01'); two.lines.push({ id: 'L2', brand: 'X', bucket: 'Shipment', clr: 100, ready: '2026-10-01' }); two.lines[0].wc = true; w.state.orders = [two];
-  eq('2 lines on a Ship job and only 1 waiting for the client: the job still needs it', w.dcState(two).required, true);
+  eq('2 lines on a Ship job and only 1 waiting for the client: not required (19d)', w.dcState(two).required, false);
 }
 
 /* ---------- the source: the wiring ---------- */
 { const act = /const _clr=\(o\.lines\|\|\[\]\)\.filter\(l=>lineBucket\(o,l\)!=='Delivered' && lineCleared\(o,l\)>0\.5\);/;
   ok('the Ship job in actionItems uses the same test as dcShipLines', act.test(html) && /function dcShipLines\(o,bs\)\{ return \(\(o&&o\.lines\)\|\|\[\]\)\.filter\(function\(l,i\)\{ var b=bs\?bs\[i\]:lineBucket\(o,l\); return b!=='Delivered' && lineCleared\(o,l\)>0\.5; \}\); \}/.test(html));
-  ok('the Ship card has the Comment for today button', /if\(one\.label==='Ship'&&one\.o\) h\+=dcBtnHTML\(one\.o\);/.test(html));
+  ok('19d: the Ship card no longer has the Comment for today button', !/if\(one\.label==='Ship'&&one\.o\) h\+=dcBtnHTML\(one\.o\);/.test(html));
   ok('the Ship card shows the comments', /if\(one\.label==='Ship'&&one\.o\) h\+=dcCardHTML\(one\.o\);/.test(html));
-  ok('the label "No comment today" sits on the Ship tags', /g\.label==='Ship'&&g\.items\.length===1&&g\.items\[0\]\.o&&may\('shipment\.plan'\)&&dcMissing\(g\.items\[0\]\.o\)/.test(html));
+  ok('19d: the label "No comment today" is gone from the Ship tags', !/g\.label==='Ship'&&g\.items\.length===1&&g\.items\[0\]\.o&&may\('shipment\.plan'\)&&dcMissing\(g\.items\[0\]\.o\)/.test(html));
   ok('Today draws the list only when no filter is picked', /if\(!tdFilter\) h\+=dcDueHTML\(\);/.test(html));
   ok('the PO page draws the comments, view only', /\$\{dcPanelHTML\(o\)\}/.test(html));
   /* the list is drawn AFTER the Waiting on you section, so it can never be inside the count */

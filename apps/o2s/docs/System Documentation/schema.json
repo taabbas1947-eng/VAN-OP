@@ -6616,6 +6616,126 @@
      }
     }
    ]
+  },
+  {
+   "id": "SC-50",
+   "title": "jobReasons: why a job has waited 7 days (new in 11-19d)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-054"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn jrSave, jrOf",
+    "D-378"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Field",
+       "Type",
+       "Required",
+       "Default",
+       "Meaning",
+       "Written by"
+      ],
+      "rows": [
+       [
+        "jobReasons",
+        "object keyed by the job (acKey)",
+        "no",
+        "absent",
+        "1 entry per job given a reason.",
+        "jrSave"
+       ],
+       [
+        ".reason",
+        "text",
+        "yes",
+        "",
+        "client, rm, capacity or other.",
+        "jrSave"
+       ],
+       [
+        ".note",
+        "text",
+        "for other",
+        "",
+        "What it waits for (at least 5 characters for Other).",
+        "jrSave"
+       ],
+       [
+        ".until",
+        "date",
+        "yes",
+        "",
+        "The day to check again, 1 to 30 days ahead. The reason stands while until >= today.",
+        "jrSave"
+       ],
+       [
+        ".by, .user, .role, .at",
+        "text, ISO time",
+        "yes",
+        "",
+        "Who gave it and when.",
+        "jrSave"
+       ],
+       [
+        ".label, .po, .days",
+        "text, number",
+        "yes",
+        "",
+        "The job, its PO and how many days it had had no movement.",
+        "jrSave"
+       ],
+       [
+        ".hist[]",
+        "list of {reason, note, until, by, at}",
+        "no",
+        "[]",
+        "Earlier reasons on the same job.",
+        "jrSave"
+       ],
+       [
+        ".pos[]",
+        "list of PO ids",
+        "for client",
+        "",
+        "The POs ticked as waiting for the client (1 PO: ticked by itself).",
+        "jrSave"
+       ],
+       [
+        ".marks[]",
+        "list of {oid, lid, mid, own}",
+        "for client",
+        "",
+        "The line marks this reason wrote (own: true) or re-used from Supply Chain (own: false); mid = waitMarks row id. The reason stands only while one of them is still the line's latest mark and not ended. Only own marks are ended when the reason changes.",
+        "jrSave"
+       ],
+       [
+        ".since",
+        "date",
+        "yes",
+        "",
+        "The day the job's wait began when the reason was given (today less its days with no movement). The reason ends when the job's clock starts after this day.",
+        "jrSave"
+       ],
+       [
+        ".endedAt, .endedBy",
+        "ISO time, text",
+        "no",
+        "",
+        "Set when the PO was unticked on a later Waiting for client save; the reason no longer stands.",
+        "jrSave"
+       ]
+      ]
+     }
+    },
+    {
+     "p": "Waiting for client writes the line's waitMarks row (as Supply Chain's mark does) on each ticked line that still has something to pack, so lineWaitClient reads it everywhere it did before. A fully packed line gets no mark; the reason alone holds its Ship job. Changing the reason writes an end row on the marks it wrote."
+    }
+   ]
   }
  ]
 }

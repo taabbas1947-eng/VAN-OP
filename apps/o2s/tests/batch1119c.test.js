@@ -103,6 +103,6 @@ ok('F12: Today shows the banner and the card', /h\+=awayBannerHTML\(\); h\+=away
 ok('F12: the Guide rule has its number', /'When the Plant Manager or the CFO is away':'R-053'/.test(html) && /<h3>When the Plant Manager or the CFO is away<\/h3>/.test(html));
 ok('change log 2026-11-19c says it', /ver:'2026-11-19c'/.test(html) && /tap I am going away, pick the first day and the day you are back/.test(html) && /every job of yours, and every job escalated to you, is also on the COO's Today/.test(html));
 ok('the Guide tells the Plant Manager, the CFO and the COO', /var _n19c=\{'Plant Manager':_aw19,'CFO':_aw19,'COO':/.test(grab('guideMyJob')) && /New on 19 Nov \(2026-11-19c\)/.test(grab('guideMyJob')));
-ok('BUILD_ID is 2026-11-19c and SYSDOC_VER follows', /var BUILD_ID='2026-11-19c';/.test(html) && /var SYSDOC_VER='2026-11-19c'/.test(html));
+ok('BUILD_ID of the build form (2026-11-19d since part B3) and SYSDOC_VER follows', /var BUILD_ID='2026-\d\d-\d\d[a-z]';/.test(html) && /ver:'2026-11-19c'/.test(html) && (html.match(/var BUILD_ID='([^']+)'/) || [])[1] === (html.match(/var SYSDOC_VER='([^']+)'/) || [])[1]);
 ok('the System Documentation carries D-377 and SC-49', /"id":"D-377"/.test(html) && /"id":"SC-49"/.test(html));
 report('2026-11-19c batch 1, part B2: the Away switch');

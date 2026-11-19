@@ -196,6 +196,12 @@ const MARKERS = [
   ['function archiveRetiredV1(',           1, 'unused lists moved to the archive (2026-11-19b, D-376)'],
   ['function batchVoidedHTML(',            1, 'Batch trace shows voided rows (2026-11-19b, D-375)'],
   ['function awayMark(',                   1, 'the Away switch (2026-11-19c, D-377)'],
+  ['function jrSave(',                     1, 'Why is this waiting? after 7 days (2026-11-19d, D-378)'],
+  ['if(typeof jrOf===\'function\'&&jrOf(it)) return null;', 1, 'a reason stops the escalation (2026-11-19d, D-378)'],
+  ['function tdEscLineHTML(',               1, 'an escalated card says why (2026-11-19d, D-378)'],
+  ['function jrPlanAll(',                  1, 'Production asked only when behind its plan (2026-11-19d, D-378)'],
+  ['function jrMarkLine(',                  1, 'a client reason follows the marks it wrote (2026-11-19d, D-378)'],
+  ['function jrLastMove(',                  1, 'a production run that is being made is moving (2026-11-19d, D-378)'],
   ['x._escalated || x.role===\'COO\' || x._cover', 1, 'the COO sees an away role\'s jobs (2026-11-19c, D-377)'],
 ];
 

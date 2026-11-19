@@ -2,6 +2,8 @@
    a read-only fold "Truck and PO comments today" on the Morning view of Fahim (Plant Manager) and Majid (Production Manager),
    near the bottom, closed, with the count. Lists every PO the daily comment covers that has waited 15 days or more, and any
    newer PO with a comment today. No comment yet: the label No comment today, with yesterday's comment under it, dated.
+   2026-11-19d (F14, D-378): a PO ready to ship takes no daily comment any more, so one with no comment today is not listed
+   (it was shown as No comment today, Waiting for client or Deferred); one with a comment written today still shows.
    Run: node morningcomments30a.test.js */
 const H = require('./harness.js');
 const vm = require('vm');
@@ -48,10 +50,10 @@ const states = {
 const sb = box(orders, states);
 const L = sb.mvComments(M);
 const ids = L.map(r => r.o.id).join();
-eq('POs listed: 15 d or more, plus newer ones with a comment today; nothing else', ids.split(',').sort().join(), 'A,B,C,D,F,G,I');
+eq('POs listed: 15 d or more, plus newer ones with a comment today; nothing else (19d: no Ship PO without a comment today)', ids.split(',').sort().join(), 'A,B,C,D,I');
 ok('a newer PO with no comment today is left out (E, 9 d)', !/E/.test(ids));
 ok('a PO with nothing open and no comment is left out (H)', !/H/.test(ids));
-eq('order: no comment yet first (oldest first), then written, then waiting for client and deferred', ids, 'B,C,A,D,I,F,G');
+eq('order: no comment yet first (oldest first), then written', ids, 'B,C,A,D,I');
 
 /* ---- the rows ---- */
 const row = id => sb.mvCommentRow(L.find(r => r.o.id === id));
@@ -70,8 +72,8 @@ const b = row('B');
 ok('no comment today or yesterday says so', /No comment today/.test(b) && /none yesterday either/.test(b));
 const d = row('D');
 ok('truck committed shows the time at the plant', /Truck committed, at the plant by 04:00 PM\./.test(d));
-ok('a waiting-for-client PO says no comment is needed', /mv-good">Waiting for client/.test(row('F')) && /no comment needed while the mark stands/.test(row('F')) && !/No comment today/.test(row('F')));
-ok('a deferred Ship job says who put it off, until when, and that no comment is needed', /Deferred/.test(row('G')) && /put off by Saad Jamal until 5 Nov; no comment needed until it comes back/.test(row('G')) && !/No comment today/.test(row('G')));
+ok('19d: a PO ready to ship waiting for the client, with no comment today, is not listed', !/F/.test(ids));
+ok('19d: a deferred Ship job with no comment today is not listed', !/G/.test(ids));
 ok('a PO closed since the comment shows nothing open now', /nothing open now/.test(row('I')) && /Last truck left at 9\./.test(row('I')));
 
 /* ---- escaping ---- */
@@ -83,18 +85,18 @@ ok('a PO closed since the comment shows nothing open now', /nothing open now/.te
 /* ---- the fold ---- */
 const f = sb.mvCommentsFold(M);
 ok('one fold called Truck and PO comments today, closed by default', /<details class="mv-more" data-t="Truck and PO comments today"/.test(f) && !/ open>/.test(f.slice(0, 200)));
-ok('the heading count: POs listed and comments written; a missing comment is not counted (Tahir, 29 Oct)', /7 POs · 3 written<\/span>/.test(f) && !/not yet/.test(f));
+ok('the heading count: POs listed and comments written; a missing comment is not counted (Tahir, 29 Oct)', /5 POs · 3 written<\/span>/.test(f) && !/not yet/.test(f));
 ok('the PO link has its own class, not the Client POs table class mv-po', /class="mv-polink"/.test(a) && !/class="mv-po"/.test(a));
 sb.MV_OPEN['Truck and PO comments today'] = true; ok('once opened it stays open on the next draw', / open><summary>/.test(sb.mvCommentsFold(M)));
 { const s3 = box([], {}); const e = s3.mvCommentsFold(M); ok('nothing to list: the fold says so', /none/.test(e) && /No PO has waited 15 days or more, and no comment was written today\./.test(e)); }
-{ const s4 = box([{ id: 'Q', po: 'Q', client: 'Q', dayComments: [] }], { Q: { kind: 'ship', days: 15, required: true } });
+{ const s4 = box([{ id: 'Q', po: 'Q', client: 'Q', dayComments: [] }], { Q: { kind: 'po', days: 15, required: true } });
   ok('exactly 15 days is listed', s4.mvComments(M).length === 1);
   const s5 = box([{ id: 'Q', po: 'Q', client: 'Q', dayComments: [] }], { Q: { kind: 'ship', days: 14, required: false } });
   ok('14 days with no comment is not listed', s5.mvComments(M).length === 0); }
 { const s6 = box([{ id: 'Z', po: 'Z', client: 'Z', dayComments: [c('2026-10-30')] }, { id: 'Y', po: 'Y', client: 'Y', dayComments: [c('2026-10-30')] }], { Y: { kind: 'ship', days: 20, required: true } }); s6.dcState0 = o => { if (o.id === 'Z') throw new Error('boom'); return { kind: 'ship', days: 20, required: true }; };
   let threw = false, L6 = []; try { L6 = s6.mvComments(M); } catch (e) { threw = true; } ok('a PO whose state cannot be worked out does not break the page', !threw);
   eq('...and that PO is left out, even with a comment today; the others stay', L6.map(r => r.o.id).join(), 'Y'); }
-{ const s7 = box([{ id: 'W', po: 'W', client: 'W', dayComments: { bad: 1 } }, { id: 'V', po: 'V', client: 'V', dayComments: [] }], { W: { kind: 'ship', days: 20, required: true }, V: { kind: 'ship', days: 20, required: true } });
+{ const s7 = box([{ id: 'W', po: 'W', client: 'W', dayComments: { bad: 1 } }, { id: 'V', po: 'V', client: 'V', dayComments: [] }], { W: { kind: 'po', days: 20, required: true }, V: { kind: 'po', days: 20, required: true } });
   let threw = false, L7 = []; try { L7 = s7.mvComments(M); } catch (e) { threw = true; } ok('a broken comment list on one PO does not blank the page', !threw && L7.map(r => r.o.id).join() === 'V'); }
 
 /* ---- wiring ---- */

@@ -377,4 +377,5 @@ node apps/o2s/tests/batch1119a.test.js      #  92 - batch 1 of the audit fixes, 
 node apps/o2s/tests/batch1119b.test.js      #  53 - batch 1, part B1 (2026-11-19b): rows kept as voided (F6),
                                    #       unused lists archived (F7)
 node apps/o2s/tests/batch1119c.test.js      #  39 - batch 1, part B2 (2026-11-19c): the Away switch (F12)
+node apps/o2s/tests/batch1119d.test.js      #  88 - batch 1, part B3 (2026-11-19d): Why is this waiting? after 7 days (F14); Production asked only when behind its plan
 ```

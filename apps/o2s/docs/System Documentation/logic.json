@@ -1612,6 +1612,12 @@
     },
     {
      "note": "Stuck at packing (Supply Chain) had no escalation until 27a (OP-HANDOFF-O2S.md 15 Oct (11) recorded it as not built). From 27a it escalates to the COO after 3 days: see the Stuck at packing row above and D-332."
+    },
+    {
+     "note": "2026-11-19d (F14, D-378): while a reason given after 7 days stands (jobReasons, until >= today), acEscalation returns nothing for that job, so it neither escalates nor sends an escalation alert."
+    },
+    {
+     "note": "2026-11-19d (F14, D-378): a Production job is asked why (and so can be paused) only when its run is behind its plan or late (jrPlanOf); the escalation table itself is unchanged."
     }
    ]
   },

@@ -7840,3 +7840,7 @@ Tests: new tests/batch1119d.test.js (88; crashes on the earlier base). dailycomm
 Independent review: round 1 NOT SAFE (XSS in the note, Morning view still asked ship comments, client reason and marks drifting, multi-PO cards); Tahir's rulings then the measure; round 2 NOT SAFE (an old reason came back after the job moved; a run being made read as no movement) - fixed; round 3 SAFE. Left: 2 people saving the same job's reason at the same moment can mix fields (merge3); no pruning of old jobReasons.
 Pack from base shows 1 card per PO line; Tahir ruled "1 answer covers the base": a reason on any of them holds every Pack from base job of that base (jrCardItems); the card's own PO starts ticked. Tests 91.
 NEXT: Tahir pushes (dea201f and this); live check read only. Then F17 Start and Close shift.
+
+## 19 Nov 2026 (8) - build 2026-11-19d checked live (MODULE: O2S)
+About 18:05 PKT, signed in as COO, read only: nothing saved. BUILD_ID 2026-11-19d running. 95 Today jobs in all, 60 ask Why is this waiting?; Production 37 jobs, 25 ask (the plan measure); 0 reasons given yet; 0 Ship POs need the daily comment. The COO's Today draws with the plan line and the question; no error.
+NEXT: F17 Start and Close shift (design page first), the last of batch 1.

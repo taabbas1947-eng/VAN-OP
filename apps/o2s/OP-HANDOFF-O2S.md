@@ -7822,3 +7822,9 @@ About 15:17 PKT, in a new Chrome tab (the old O2S tab stopped answering), signed
 - BUILD_ID 2026-11-19b running. On load the page moved dealers (7), warehouses (3), rmRequests, rmMovements, rawStock (empty) and rmDecision (98 orders) into archive.retired, and none is left in the live data; archive.retired.later is empty. The server copy still has the old keys until the next save by anyone (expected).
 - voidedRows 0. Orders 98, packing runs 456, trucks 376, production rows 333: the same as before the build. Customers 39.
 - Batch trace, an order's History, Today (16 for the COO) and the Morning view old-job count (68, oldest 141 days) all build without error.
+
+## 19 Nov 2026 (6) - build 2026-11-19c checked live (MODULE: O2S)
+About 15:25 PKT, signed in as COO, read only: nothing saved; the away check ran with awayActive swapped in memory for a test entry and put back (no awayCover row written).
+- BUILD_ID 2026-11-19c running; no away rows yet; the COO sees no banner or New for you card (right).
+- If the Plant Manager were away today: the COO's Today goes from 16 to 59 jobs, 43 tagged "cover for": Open Production 16, Pack from base 13, Add reason 4, Receive 4, Lab QC 3 (chase only, no button), Acknowledge 1, Check after move 1, Review 1. Every covered job except the 3 chase ones has a working button. Morning view counts 51 groups. The tag reads "cover for <name> (away)" beside the other tags.
+NEXT: batch 1 part B3, F14 reason box.

@@ -1203,3 +1203,7 @@ To correct a mistake: a price not yet in force is withdrawn or sent back; a rate
 ## 2026-11-20f, push 10f: C2M keeps your place, and redraws faster (D-177)
 - After a press the focus stays on the button; folds stay as you left them; a long table keeps its scroll.
 - Lists are worked out once per redraw: Clients with many sales redraws about 20 times faster.
+
+## 2026-11-20g, push 10g: C2M opens faster and keeps itself up to date (D-178)
+- Opening C2M and coming back after a save are faster; a second person in the same half minute uses the data already read.
+- C2M reads its data again when you come back to the tab and the data is more than a minute old, every 2 minutes while open, and on a new day, but not while you are typing, have typed something not yet saved, are saving or have a panel open. Approvals shows when it was last updated.

@@ -445,3 +445,9 @@ All below: right see.margin (403 otherwise), registered after the C2M access che
 - POST /api/c2m/pricedocs: the number comes from the counter (C-33); with migration 017 a clash fails the save as "someone else changed this".
 - Every save (not GET) runs the go-live close first once the window's last day has passed (C-21).
 - POST /api/c2m/pricedocs/preview is not counted as a save: it keeps everyone's kept state answers and does not run the go-live close. A list revision applied on its date (by any read) drops the kept answers.
+
+## 5.27 Push 10g (20 Nov 2026; owner: Tahir; D-178)
+No route added or removed.
+- GET /api/c2m/state: builtAt (milliseconds since 1970, the server's clock when the answer was built) for every role; the page shows it as "Updated hh:mm" in Pakistan time. A kept answer (30 seconds) keeps its builtAt.
+- POST /api/c2m/lists/master/preview is not counted as a save (as POST /pricedocs/preview): it keeps everyone's kept state answers.
+- The nutrient copy after migration 014 now drops the kept state answers once it has run.

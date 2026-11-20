@@ -1042,3 +1042,14 @@ Independent review: 1 Blocking (every row's More menu opened together), 2 Major 
 Not pushed. Delivered to E:\VAN Systems for Tahir to push.
 After the push: check live as Tahir that a press keeps focus, a fold stays open after a save, and Clients opens fast.
 Next: the other Majors (C-03 speed of the server state with C-24 the file split; C-04 refresh; C-27 tests into the repo), then C-25, C-28, C-29, C-34. Migration 017 still to run on production by Tahir.
+
+Live, 20 Nov 2026 22:05: push 10f is pushed (commit 862b18a) and deployed; checked live as Tahir in Chrome, read only: change list 2026-11-20f; a draw takes Approvals 10 ms, Clients 19 ms, Costs 14 ms, Margin 77 ms on live data; a fold opened on Approvals stays open after a redraw. Nothing was changed.
+
+## 20 Nov 2026, push 10g: C2M opens faster and keeps itself up to date (audit C-03, C-04; D-178)
+- Module: C2M. Files: apps/c2m/c2m.html, apps/c2m/c2m-routes.js, docs 03 (3.58), 05 (5.27), 06 (D-178), 08 (2026-11-20g), 12, 13. No migration. server.js and package.json not touched.
+- C-03: reads outside a transaction also use C2M's own pool (1 connection always kept for saves); applyDueRevisions, loadAll and the admins read run together; the margin roles' steps start early; 1 loadAll shared for 30 seconds, dropped by any save. Simulated 150 ms per read: after a save 4,266 ms to about 2,740 ms; the next person about 1,980 ms. State answers same before and after; seeded check of the reordered writes: same rows written.
+- C-04: the page reads again when the tab is shown and the data is more than 1 minute old, every 2 minutes while shown, and on a new day; never while a save, panel, editor, preview, typed-not-saved text, changed date or armed button is in progress; "Updated hh:mm" on Approvals from the server's clock.
+- Independent review: 2 rounds; round 1 Not ready (B-1, M-1 and Minors), all fixed; round 2 Ready to push, its 2 Minors (m-8, m-9) fixed in this push.
+- Tests (scratch harness): page10g 27, page10a to page10f, render, routes10a 21, routes10e 22 pass.
+- Not pushed. Ready to push. After the push: live check (speed figures from Server-Timing, Updated line, refresh after 2 minutes).
+- Next: C-24 file split with C-23, C-27 tests into the repo, C-03 item 2 (answer with only what changed after a save).

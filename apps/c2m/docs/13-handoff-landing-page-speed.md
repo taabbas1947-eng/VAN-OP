@@ -50,3 +50,10 @@ Readings 1 and 2 are before push 795a59c. Readings 3 and 4 are after it. All val
 - apps/c2m/c2m-routes.js: `stateCache`, the early reads and `build()`, the GET /api/c2m/state route
 - apps/c2m/c2m-engine.js: `loadAll`
 - server.js: the pools (lines 94, 109 and 114)
+
+## Done in push 10g (20 Nov 2026, D-178)
+- Item 1 (share loadAll): done, 30 seconds, also while it is being read, dropped by any save, a copy per build.
+- Item 4 (reads one after another): applyDueRevisions first and beside loadAll; listMaster, wlListData, monthEndState, masterOn, savedOf and pendReady started early, applyDue after pendReady; 2 more reads prefetched for the margin roles.
+- New: reads outside a transaction also use C2M's own pool while its reads and open transactions hold fewer than 2 of its 3 connections, so up to 7 reads run at once instead of 5 and 1 connection always stays for a save.
+- Measured with a simulated 150 ms round trip: 4,266 ms to about 2,740 ms after a save; about 1,980 ms for the next person. Measure live as above after the push; the apply_due and load_all marks changed meaning (doc 03, 3.58), so compare build and the total.
+- Still open: item 2 (raise the shared pool, platform), item 3 (keep warm), item 5 (sales read), and a reply with only what changed after a save.

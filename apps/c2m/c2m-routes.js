@@ -60,15 +60,21 @@ module.exports = function mountC2mRoutes(app, deps) {
     if (!dry && glOn() && /^\s*INSERT INTO c2m_reapproval\b/i.test(sql)) { // go-live window: no re-approval item; a first cost (a pack with none approved) is still written (D-170, review m5)
       let it = []; try { it = JSON.parse((p || [])[1] || '[]'); } catch (_) {} const first = it.filter(i => i && i.first);
       if (!first.length) return Promise.resolve([{ insertId: 0, affectedRows: 0 }]); p = [p[0], JSON.stringify(first), ...p.slice(2)]; }
-    const c = txStore.getStore(); return c ? c.execute(sql, clean(p)) : deps.pdq(sql, clean(p)); };
+    const c = txStore.getStore(); return c ? c.execute(sql, clean(p)) : readQ(sql, clean(p)); };
+  /* Push 10g (audit C-03): a read outside a transaction also uses C2M's own pool while at least 2 of its 3 connections are free, so 1
+     always stays for a save (reads and open transactions together hold at most 2), a cold state build sends its reads over up to 7
+     connections, not 5, and O2S waits less on the shared pool. Writes outside a transaction stay on the shared pool, as before. */
+  let ownBusy = 0, sharedBusy = 0, txHeld = 0; const OWN_READS = 2, SHARED = 5;
+  const readQ = (sql, p) => { if (ownBusy < OWN_READS && ownBusy + txHeld < OWN_READS && ownBusy / OWN_READS <= sharedBusy / SHARED && deps.pool && typeof deps.pool.execute === 'function' && /^\s*(SELECT|SHOW)\b/i.test(sql) && !/\bFOR\s+UPDATE\b|\bLOCK\s+IN\s+SHARE\s+MODE\b/i.test(sql)) { ownBusy++; return deps.pool.execute(sql, p).finally(() => { ownBusy--; }); }
+    sharedBusy++; return deps.pdq(sql, p).finally(() => { sharedBusy--; }); }; // each read goes where fewer of C2M's reads wait
   /** Placeholders for a list, e.g. IN (?,?,?): prepared statements (the platform's pool.execute) cannot take an array for 1 ?. */
   const qs = a => a.map(() => '?').join(',');
   async function tx(fn) {
     if (!deps.pool || txStore.getStore()) return fn();
-    const c = await deps.pool.getConnection();
+    txHeld++; let c; try { c = await deps.pool.getConnection(); } catch (e) { txHeld--; throw e; } // push 10g (review m-1): reads leave 1 connection for saves
     try { await c.beginTransaction(); const r = await txStore.run(c, fn); await c.commit(); return r; }
     catch (e) { await c.rollback().catch(() => {}); throw e; }
-    finally { c.release(); }
+    finally { c.release(); txHeld--; }
   }
   const moved = () => Object.assign(new Error('Someone else changed this a moment ago. Check before retrying.'), { status: 409 });
   /* Effect before saving (Tahir and Yawar, 5 Nov 2026, R14; push 2a). A cost save called with ?dry=1 runs exactly as a real
@@ -315,7 +321,7 @@ module.exports = function mountC2mRoutes(app, deps) {
   };
 
   const STATE_TTL = 30000; const stateCache = new Map(); let writeVer = 0;
-  const readOnlyPost = req => /\/pricedocs\/preview$/.test(req.path); // push 10e (review P-2): the preview saves nothing
+  const readOnlyPost = req => /\/pricedocs\/preview$|\/lists\/master\/preview$/.test(req.path); // push 10e (review P-2): the preview saves nothing; push 10g (review m-5): nor does the carry-over preview
   app.use('/api/c2m', (req, res, next) => { if (req.method !== 'GET' && !readOnlyPost(req)) { writeVer++; const done = () => { writeVer++; }; res.on('finish', done); res.on('close', done); } next(); }); // any save, roles included: the kept answers are no longer current
   /* ---------- Page ---------- */
   app.get(['/c2m', '/c2m/'], (req, res) => { res.set('Cache-Control', 'no-cache'); /* the browser keeps its copy and checks it is current (ETag) instead of downloading 560 KB on every open (D-145) */ res.sendFile(path.join(__dirname, 'c2m.html')); });
@@ -430,12 +436,23 @@ module.exports = function mountC2mRoutes(app, deps) {
   app.get('/api/c2m/me', (req, res) => res.json({ ...meOf(req.c2m, req.c2m.user), name: req.c2m.name }));
 
   /* ---------- Shared data builder ---------- */
+  /* push 10g (audit C-03, doc 13 item 1): 1 loadAll is shared for 30 seconds, also while it is still being read (review p-2); any save
+     (writeVer) ends it; each build gets its own copy. Without structuredClone (Node before 17) nothing is shared. */
+  let LA = null;
+  async function loadAllShared() {
+    if (typeof structuredClone !== 'function') return engine.loadAll(q);
+    if (LA && LA.ver === writeVer && Date.now() - LA.at < STATE_TTL) return structuredClone(await LA.p);
+    const v = writeVer, p = engine.loadAll(q); const me = { ver: v, at: Date.now(), p }; LA = me;
+    try { const D = await p; if (v !== writeVer && LA === me) LA = null; return structuredClone(D); } catch (e) { if (LA === me) LA = null; throw e; }
+  }
+  const OO_SQL = "SELECT c.id, c.brand, cu.name customer FROM c2m_client_product c JOIN c2m_customer cu ON cu.id=c.customer_id WHERE c.active=0 AND c.channel='White label' ORDER BY cu.name, c.brand"; // white label products out of use (Setup)
   async function build(acc, user, tmArg) {
     const role = acc.role, has = a => acc.can.has(a);
     const tm = tmArg || []; let tl = Date.now(); const T = n => { const x = Date.now(); tm.push(n + ';dur=' + (x - tl)); tl = x; }; // timing marks for Server-Timing (11 Nov 2026): where the cold open spends its time
     /* Speed (11 Nov 2026, push 8b): a cold open spent most of its time on reads that wait for each other, each costing about 150 ms.
        The reads below need nothing from the others, so they start now, together with loadAll, and are awaited where they were read before. Same SQL, same result.
        A failed read is raised where it is awaited, as before (the catch here only stops a second, unhandled report of it). */
+    const eApply = applyDueRevisions(); eApply.catch(() => {}); // push 10g (C-03): its read goes first, so the reads that wait for it start sooner
     const earlyQ = (sql, p) => { const pr = q(sql, p); pr.catch(() => {}); return pr; };
     const earlySoft = (sql, p) => { const pr = softQ(sql, p); pr.catch(() => {}); return pr; };
     const noticeKeys = acc.admin ? [role] : [...new Set([role, ...(has('recipe.edit') || has('recipe.step.draft') ? ['production'] : []), ...(has('recipe.step.review') ? ['qc'] : []), ...(has('recipe.step.endorse') ? ['plant'] : []), ...(has('recipe.step.cost') && has('see.margin') ? ['cfo'] : [])])]; // cfo notices also carry prices and lists: only a finance role reads them (review 7f, 1)
@@ -450,13 +467,10 @@ module.exports = function mountC2mRoutes(app, deps) {
     const eNextDoc = has('see.margin') ? earlyQ("SELECT GREATEST(COALESCE((SELECT MAX(CAST(SUBSTRING_INDEX(ref, '/', -1) AS UNSIGNED)) FROM c2m_price_doc WHERE ref LIKE ?), 0), COALESCE((SELECT CAST(v AS UNSIGNED) FROM c2m_setting WHERE k=?), 0)) n", [`VAN/PL/${today().slice(0, 4)}/%`, 'pl_seq_' + today().slice(0, 4)]) : null; // push 10e (C-33): the last number used, not a count
     if (has('see.materials') || has('see.products')) await nutBackfill(); // push 7a: copies the old class fields once, after migration 014
     if (has('see.margin')) await glClose().catch(e => console.error('[c2m] go-live close failed: ' + (e && e.message))); // D-170: a window that has ended resets the approved costs before they are read (no query while no window is set)
-    const D = await engine.loadAll(q);
-    T('load_all');
-    const S = D.settings.values; const AD = await adminUsers(acc.roles); const byAd = u => AD.has(String(u).toLowerCase());
-    T('admins');
-    const seeCost = has('see.cost'), seePrice = has('see.price');
-    const match = engine.matcher(D);
-    await applyDueRevisions();
+    /* push 10g (audit C-03): loadAll, the admins read and applyDueRevisions run together; applyDueRevisions writes only the price lists
+       and list revisions, which loadAll does not read. The reads below wait for applyDueRevisions, as before, not for loadAll. */
+    const eD = loadAllShared(); eD.catch(() => {}); const eAD = adminUsers(acc.roles); eAD.catch(() => {});
+    await eApply;
     // the notices wait for applyDueRevisions (it can write one), then start together with the reads below
     const eNoticesRole = !has('see.margin') && noticeKeys.some(k => ['production', 'qc', 'plant', 'cfo'].includes(k)) ? earlySoft(`SELECT * FROM c2m_notice WHERE for_role IN (${noticeKeys.map(() => '?').join(',')}) AND at >= DATE_SUB(?, INTERVAL 30 DAY) ORDER BY id DESC LIMIT 200`, [...noticeKeys, now()]) : null; // push 10a (C-02): was 30; unread notices must not fall off the list
     /* push 10a (C-02, review m7): every unread notice of the last 30 days (id above the person's read mark), then the newest 30 read ones,
@@ -490,11 +504,23 @@ module.exports = function mountC2mRoutes(app, deps) {
       'SELECT id, list_name, data_json FROM c2m_list_price ORDER BY id',
       "SELECT * FROM c2m_list_revision WHERE (status='approved' AND applied=0) OR id > (SELECT COALESCE(MAX(id), 0) - 30 FROM c2m_list_revision) ORDER BY id DESC",
       "SELECT entity_id FROM c2m_audit WHERE entity='list_revision' AND action='replaced' AND why LIKE 'Closed at the carry-over%'",
-      "SELECT id, list_name, items_json, valid_from, decided_at FROM c2m_list_revision WHERE status='approved' AND applied=1 ORDER BY id"]) { const pr = q(sql); pr.catch(() => {}); pre.set(sql, pr); }
+      "SELECT id, list_name, items_json, valid_from, decided_at FROM c2m_list_revision WHERE status='approved' AND applied=1 ORDER BY id",
+      ...(has('see.margin') ? ["SELECT entity, entity_id, why FROM c2m_audit WHERE action='urgent' AND entity IN ('price','list_revision')", OO_SQL] : [])]) { const pr = q(sql); pr.catch(() => {}); pre.set(sql, pr); }
+    const D = await eD;
+    T('load_all');
+    const S = D.settings.values; const AD = await eAD; const byAd = u => AD.has(String(u).toLowerCase());
+    T('admins');
+    const seeCost = has('see.cost'), seePrice = has('see.price');
+    const match = engine.matcher(D);
     const [prices] = await pq('SELECT * FROM c2m_price ORDER BY id');
     const approvedPrice = inForce(prices, today()); const nextPrice = new Map();
     prices.filter(p => p.status === 'approved' && String(p.valid_from).slice(0, 10) > today()).sort((a, b) => String(b.valid_from).localeCompare(String(a.valid_from))).forEach(p => nextPrice.set(p.client_pack_id, p)); // earliest wins
     const [poLines] = await pq('SELECT * FROM c2m_o2s_po_line ORDER BY received, po');
+    /* push 10g (audit C-03): the margin roles' read-only steps start here together and are awaited where they were read before:
+       listMaster, wlListData, monthEndState, masterOn, savedOf, pendReady. Same reads, same answers; a failure is raised where it was. */
+    const soft0 = pr => { pr.catch(() => {}); return pr; };
+    const early = has('see.margin') ? { lm: soft0(listMaster()), wl: soft0(wlListData(D, approvedPrice, D.customers.filter(c => c.grp !== 'VAN brand').map(c => c.name))), me: soft0(monthEndState(D, poLines, match)), mo: soft0(masterOn()), sv: soft0(savedOf(user)), pr: soft0(pendReady()) } : null;
+    if (early) early.ad = soft0(early.pr.then(r => (r ? applyDue() : 0))); // due Monday changes go in before the list is read, as before, now beside the other reads
     const enteredAt = new Map(poLines.filter(l => l.entered_at).map(l => [l.line_id, String(l.entered_at).slice(0, 19)])); // when each PO came in (migration 008; empty before it)
     const lastPo = new Map(); poLines.forEach(l => { const p = match(l.customer_name, l.brand, l.channel, l.pack); if (p && l.net_price > 0 && !engine.isVanBrand(D.cpById.get(p.client_product_id))) lastPo.set(p.id, Number(l.net_price)); }); // a VAN brand pack is priced per channel by its lists (D-44)
 
@@ -685,11 +711,11 @@ module.exports = function mountC2mRoutes(app, deps) {
       const [nt] = await eNoticesMargin; out.notices = nt; // push 7f: by the step rights held, last 30 days (review 7f, 5)
       const [gr] = await pq('SELECT * FROM c2m_list_grant ORDER BY username'); out.grants = gr;
       const [people] = await pq("SELECT a.username, a.name, r.role FROM user_module_roles r JOIN auth_users a ON a.username=r.username WHERE r.module='c2m'"); const RR = acc.roles || await loadRoles(); out.people = people.map(p => { const r = RR.get(p.role); return { ...p, roleLabel: r ? r.label : p.role, grantee: isViewerRole(r) }; });
-      const [lp] = await pq('SELECT list_name, data_json, issued, valid_till FROM c2m_list_price ORDER BY id'); const LM = await listMaster(); out.lists = groupLists(lp, null, LM);
+      const [lp] = await pq('SELECT list_name, data_json, issued, valid_till FROM c2m_list_price ORDER BY id'); const LM = await (early ? early.lm : listMaster()); out.lists = groupLists(lp, null, LM);
       { const LP = groupLists(lp, null, LM, true); out.mrpIssues = lib.mrpIssues(LP); out.mrpMissing = LM ? lib.mrpMissing(LP) : []; } /* every farmer row is checked against its own MRP; the dealer and distributor checks, and the packs with no MRP, need rows linked to packs */ // list prices above the printed MRP, and packs with none (D-122)
-      out.wlLists = await wlListData(D, approvedPrice, D.customers.filter(c => c.grp !== 'VAN brand').map(c => c.name));
+      out.wlLists = await (early ? early.wl : wlListData(D, approvedPrice, D.customers.filter(c => c.grp !== 'VAN brand').map(c => c.name)));
       const [ma] = await pq('SELECT * FROM c2m_monthly_actual ORDER BY month'); out.actuals = ma;
-      try { out.monthEnd = await monthEndState(D, poLines, match); } catch (e) { console.error('[c2m] month end not read: ' + (e.code || e.message)); out.monthEnd = null; } /* push 4 (D-154) */
+      try { out.monthEnd = await (early ? early.me : monthEndState(D, poLines, match)); } catch (e) { console.error('[c2m] month end not read: ' + (e.code || e.message)); out.monthEnd = null; } /* push 4 (D-154) */
       const [mc] = await pq('SELECT month, kind, data_json, done_by, done_at FROM c2m_monthly_check ORDER BY month'); out.checks = mc.map(c => ({ ...c, data: (() => { try { return c.data_json ? JSON.parse(c.data_json) : null; } catch (_) { return null; } })(), data_json: undefined }));
       const [src] = await pq('SELECT * FROM c2m_source ORDER BY id'); out.sources = src;
       const [fm] = await pq('SELECT * FROM c2m_field_map ORDER BY id'); out.fieldMap = fm;
@@ -708,12 +734,12 @@ module.exports = function mountC2mRoutes(app, deps) {
       } else out.lf = { ready: false };
       /* Next week's costs (push 2b, D-149): waiting changes, and those that failed or went in during the last 8 days. */
       T('margin_misc');
-      { const ready = await pendReady(); if (ready) await applyDue().catch(() => {}); /* due Monday changes go in before the list is read (review 2b, finding 8) */ const T = today(); out.weekly = { ready, monday: isMonday(T), next: nextMonday(T) }; out.pending = [];
+      { const ready = await (early ? early.pr : pendReady()); if (ready) await (early ? early.ad : applyDue()).catch(() => {}); /* due Monday changes go in before the list is read (review 2b, finding 8) */ const T = today(); out.weekly = { ready, monday: isMonday(T), next: nextMonday(T) }; out.pending = [];
         if (ready) { const since = new Date(Date.parse(T + 'T00:00:00Z') - 8 * 864e5).toISOString().slice(0, 10);
           const [pr] = await q("SELECT id, kind, target, label, now_value, new_value, effect_json, apply_on, urgent, reason, status, saved_by, saved_at, decided_by, decided_at, result_text, body_json FROM c2m_cost_pending WHERE status IN ('waiting','failed') OR (status='applied' AND decided_at>=?) ORDER BY urgent DESC, id DESC LIMIT 200", [since]);
           out.pending = pr.map(x => ({ id: x.id, kind: x.kind, target: x.target, label: x.label, now: x.now_value == null ? null : Number(x.now_value), next: x.new_value == null ? null : Number(x.new_value), effect: (() => { try { return JSON.parse(x.effect_json || 'null'); } catch (_) { return null; } })(), applyOn: String(x.apply_on).slice(0, 10), urgent: !!x.urgent, reason: x.reason, status: x.status, by: x.saved_by, at: x.saved_at, decidedBy: x.decided_by, decidedAt: x.decided_at, result: x.result_text, body: (() => { try { return JSON.parse(x.body_json || '{}'); } catch (_) { return {}; } })() })); } }
       const [li0] = await pq('SELECT id, list_name, data_json FROM c2m_list_price ORDER BY id'); const li = li0.filter(r => MASTER_LISTS.includes(r.list_name)); out.listItems = li.map(r => ({ id: r.id, list: r.list_name, data: JSON.parse(r.data_json) }));
-      out.listMaster = { carried: await masterOn(), old: li0.length - li.length }; // 1.0.3 (D-87): the carry-over, and the rows kept read only that left the lists
+      out.listMaster = { carried: await (early ? early.mo : masterOn()), old: li0.length - li.length }; // 1.0.3 (D-87): the carry-over, and the rows kept read only that left the lists
       out.listOld = li0.filter(r => !MASTER_LISTS.includes(r.list_name)).map(r => { const d = JSON.parse(r.data_json); const l = String(r.list_name).replace(/_old$/, ''); const pk1 = d.packId != null ? D.packs.find(k => Number(k.id) === Number(d.packId)) : null; const c1 = pk1 ? D.cps.find(c => Number(c.id) === Number(pk1.client_product_id)) : null; const z1 = lib.rowSize(l, d); const fitsP = pk1 && (!z1 || !c1 || (Math.abs(z1.v - Number(pk1.pack_size)) < 1e-6 && z1.u === (c1.sold_per || 'kg')));
         return { id: r.id, list: l, packId: fitsP ? Number(d.packId) : null, name: `${d.p || ''}${l !== 'farmer' && d.pack ? ' ' + d.pack : ''}`, prices: Object.fromEntries((LIST_FIELDS[l] || []).map(f => [f, d[f] ?? null])), left: d.left || null }; }); // rows off the lists, with their prices, read only (Tahir, 20 Oct 2026)
       const [lr] = await pq("SELECT * FROM c2m_list_revision WHERE (status='approved' AND applied=0) OR id > (SELECT COALESCE(MAX(id), 0) - 30 FROM c2m_list_revision) ORDER BY id DESC"); const liById = new Map(li.map(r => [r.id, JSON.parse(r.data_json)]));
@@ -722,8 +748,8 @@ module.exports = function mountC2mRoutes(app, deps) {
       out.listRevisions = lr.map(r => { const open = r.status === 'proposed' || r.status === 'sent_back' || (r.status === 'approved' && !Number(r.applied));
         return { ...r, urgent: urgOf('list_revision', r.id), byAdmin: byAd(r.proposed_by), items: JSON.parse(r.items_json).map(it => open ? itemNow(D, liById, it) : it), items_json: undefined }; }); /* a revision still open shows each row under its name today (review 1.0.2, design finding 5) */
       out.customers = D.customers.map(c => ({ id: c.id, name: c.name, grp: c.grp, segment: c.segment, priceRule: c.price_rule, cycle: c.price_cycle, region: c.region, o2sNames: c.o2s_names, printName: c.print_name || '' })); out.printNameReady = D.customers.length > 0 && 'print_name' in D.customers[0];
-      { const [oo] = await pq("SELECT c.id, c.brand, cu.name customer FROM c2m_client_product c JOIN c2m_customer cu ON cu.id=c.customer_id WHERE c.active=0 AND c.channel='White label' ORDER BY cu.name, c.brand"); out.outOfUse = oo; }
-      try { out.savedReports = await savedOf(user); } catch (e) { console.error('[c2m] saved reports not read: ' + (e.code || e.message)); out.savedReports = { ready: false, message: 'Saved reports could not be read just now.', rows: [] }; } /* push 5b (D-158): this person's own only */
+      { const [oo] = await pq(OO_SQL); out.outOfUse = oo; }
+      try { out.savedReports = await (early ? early.sv : savedOf(user)); } catch (e) { console.error('[c2m] saved reports not read: ' + (e.code || e.message)); out.savedReports = { ready: false, message: 'Saved reports could not be read just now.', rows: [] }; } /* push 5b (D-158): this person's own only */
       const [docs] = [fs.readdirSync(path.join(__dirname, 'docs')).filter(f => f.endsWith('.md')).sort()]; out.docs = docs;
     } else {
       out.docs = fs.readdirSync(path.join(__dirname, 'docs')).filter(f => docAllowed(acc, f)).sort();
@@ -781,7 +807,7 @@ module.exports = function mountC2mRoutes(app, deps) {
     const ver = writeVer, t0 = Date.now();
     if (!as && (mayDo(req, 'reapproval.decide') || req.c2m.admin)) await sweepOnce(user).catch(e => console.error('[c2m] first-cost sweep', e.message));
     const t1 = Date.now();
-    const tm = []; const out = await build(acc, user, tm); out.me.name = acc.name; if (as) out.preview = { user: as, name: acc.name };
+    const tm = []; const out = await build(acc, user, tm); out.me.name = acc.name; out.builtAt = t0; /* push 10g (review m-2): the server's clock, for "Updated hh:mm" */ if (as) out.preview = { user: as, name: acc.name };
     const tj = Date.now(); const body = JSON.stringify(out); tm.push('json;dur=' + (Date.now() - tj)); stateCache.set(ckey, { ver, at: Date.now(), body }); if (stateCache.size > 60) stateCache.delete(stateCache.keys().next().value);
     res.set('Server-Timing', `sweep;dur=${t1 - t0}, build;dur=${Date.now() - t1}, ` + tm.join(', ')); res.type('json').send(body);
   }));
@@ -2150,6 +2176,7 @@ module.exports = function mountC2mRoutes(app, deps) {
         await audit('C2M', 'nutrient', null, 'copy', null, { nutrients: B.labels, fields: B.map, values: B.rows.length, checked: B.checked.length, notCopied: B.skipped.slice(0, 200) },
           `The class fields and the % already entered, copied into the nutrient list once.${B.skipped.length ? ` ${B.skipped.length} value(s) were not made live (a field of an earlier class, or not a %): listed here.` : ''}`);
       });
+      writeVer++; // push 10g (review p-1): the kept answers and the shared loadAll no longer hold the copied nutrients
       nutFilled = true; nutCopyFailed = null;
     })().catch(e => { nutCopyFailed = String(e && e.message || e).slice(0, 200); console.error('[c2m] nutrient copy', nutCopyFailed); }).finally(() => { nutFilling = null; });
     return nutFilling;
@@ -3007,7 +3034,7 @@ module.exports = function mountC2mRoutes(app, deps) {
   const planOut = P => ({ ready: P.ready, sig: P.sig, counts: P.counts, groups: P.groups, conflicts: P.conflicts, leave: P.leave, linked: P.linked, stale: P.stale, nameWarn: P.nameWarn, noDesc: P.noDesc, sentBack: P.sentBack });
   app.post('/api/c2m/lists/master/preview', can('lists.carry'), wrap(async (req, res) => {
     const on = await masterOn(); if (on) return res.json({ carried: on });
-    const D = await engine.loadAll(q); const [rows] = await q("SELECT id, list_name, data_json FROM c2m_list_price WHERE list_name IN ('dist','dealer','farmer') ORDER BY id");
+    const D = await loadAllShared(); const [rows] = await q("SELECT id, list_name, data_json FROM c2m_list_price WHERE list_name IN ('dist','dealer','farmer') ORDER BY id");
     const [pend] = await q("SELECT DISTINCT list_name FROM c2m_list_revision WHERE status='proposed' OR (status='approved' AND applied=0)");
     const [sb] = await q("SELECT id, list_name FROM c2m_list_revision WHERE status='sent_back' ORDER BY id");
     res.json({ ...planOut(planCarry(D, rows, req.body || {}, sb)), revisions: pend.map(r => r.list_name) });

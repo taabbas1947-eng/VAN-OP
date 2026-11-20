@@ -280,6 +280,18 @@ input.np{width:90px;text-align:right;font-family:var(--mono);padding:3px 6px}inp
 /* Top bar fits (4 Nov 2026, D-143): below 1301 px the tab icons and the Find word go, tabs pad less; below 901 px the first name goes */
 @media (min-width:761px) and (max-width:1300px){.hdr nav button svg{display:none}.hdr .findbtn span{display:none}.hdr nav button{padding:8px 8px}.hdr .more.desk{padding:8px 8px}}
 @media (min-width:761px) and (max-width:900px){.hdr .foot b{display:none}}
+/* push 10b: 1 page head, ? Help, the top bar never printed, Approvals list groups and the notice digest */
+.phd{display:flex;align-items:flex-start;justify-content:space-between;gap:6px 16px;flex-wrap:wrap;margin:0 0 12px}.phd .phm{flex:1 1 420px;min-width:0}.phd h1.topic{margin:0 0 2px}.phd .answer{margin:0}
+.phr{display:flex;align-items:center;gap:10px;flex-wrap:wrap;color:var(--muted);font-size:12.5px}.phmeta{white-space:nowrap}
+.helpb{font:inherit;font-size:13px;color:var(--blue);background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:4px 12px;cursor:pointer;min-height:30px;white-space:nowrap}.helpb[aria-expanded="true"]{background:var(--blue);color:var(--surface);border-color:var(--blue)}
+.helpx{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:10px 14px;margin:-4px 0 12px;color:var(--muted);font-size:13.5px;max-width:110ch}.helpx b{color:var(--ink)}
+@media print{.hdr{display:none!important}.shell{padding-top:0!important;margin-left:0!important}.helpb,.helpx{display:none!important}}
+.next.gl.one{align-items:center}.next.gl.one>span:first-child{flex:1 1 320px}
+.jgh{display:flex;justify-content:space-between;font-size:12px;font-weight:600;color:var(--muted);padding:7px 14px;background:color-mix(in srgb,var(--ink) 4%,var(--surface));border-top:1px solid var(--line)}
+.jchips{padding:0 14px 8px}.jsub{flex-basis:100%;margin:6px 0 0;border-left:2px solid var(--line);padding-left:10px}.jsub>div{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:4px 0;font-size:13px}.jsub[hidden]{display:none}
+.jrow.hasx{flex-wrap:wrap}.jx{background:none;border:0;color:var(--blue);cursor:pointer;padding:0;font:inherit;font-size:12.5px}
+.vlegend{display:flex;flex-wrap:wrap;gap:2px 14px;font-size:12px;color:var(--muted);margin:2px 0 0}.vlegend i{display:inline-block;width:16px;border-top:2px solid var(--blue);vertical-align:middle;margin-right:5px}.vlegend i.d{border-top:2px dashed var(--muted)}
+.dg summary{cursor:pointer}.dg .jobs{margin-top:6px}
 /* thin dim table lines, text left, numbers right, bolder tabs, smaller product headings */
 th,td{border-bottom:1px solid var(--line)}th{font-weight:600}
 h1.topic{font-size:17px;letter-spacing:.04em}
@@ -447,7 +459,11 @@ const pl = (n, a, b) => n + ' ' + (n === 1 ? a : b);
 const SET = k => { const r = (ST.settings || []).find(x => x.k === k); return r ? Number(r.v) : null; };
 const FEDP = () => ST.fedPct || 5; // FED %, the only tax on VAN, for every role
 /** Screen head (ruling 7, 18 Oct 2026): the topic, then 1 answer line; long explanations fold under "How this works". answer and how are HTML (callers escape). */
-const head = (topic, answer, howHtml) => `<h1 class="topic">${esc(topic)}</h1><p class="answer">${answer}</p>${howHtml ? how(howHtml) : ''}`;
+/* Push 10b (Tahir, 20 Nov 2026): 1 page head on every screen: the title and the answer line on the left, a small "? Help" at the right
+   that opens "How this works" under the head; meta (date, data as of) sits beside the button. Open helps stay open across redraws. */
+const helpOpen = new Set();
+const head = (topic, answer, howHtml, metaTxt) => { const on = helpOpen.has(topic), id = 'hx-' + String(topic).toLowerCase().replace(/[^a-z0-9]+/g, '-');
+  return `<div class="phd"><div class="phm"><h1 class="topic">${esc(topic)}</h1><p class="answer">${answer}</p></div><div class="phr">${metaTxt ? `<span class="phmeta">${esc(metaTxt)}</span>` : ''}${howHtml ? `<button class="helpb" data-help="${esc(topic)}" aria-expanded="${on}" aria-controls="${id}">? Help</button>` : ''}</div></div>${howHtml ? `<div class="helpx" id="${id}"${on ? '' : ' hidden'}><b>How this works.</b> ${howHtml}</div>` : ''}`; };
 const how = h => `<details class="how"><summary>How this works</summary><div>${h}</div></details>`;
 /** The line above a screen's topic carries only facts about the data (date, period, O2S time), never the topic again (UX review M10). */
 const meta = t => { const x = Array.isArray(t) ? t.filter(Boolean).join(' · ') : t; return x ? `<p class="kick meta"><span></span><span>${esc(x)}</span></p>` : ''; };
@@ -564,6 +580,7 @@ const daysSince = from => from ? Math.max(0, Math.round((new Date(ST.today + 'T0
 function wdays(from) { if (!from) return 0; let n = 0; const d = new Date(d10(from) + 'T00:00:00Z'), end = new Date(ST.today + 'T00:00:00Z'); while (d < end) { d.setUTCDate(d.getUTCDate() + 1); if (d.getUTCDay() !== 0) n++; } return n; }
 /** An item waiting more than 2 working days is stuck (ruling 20). */
 const isStuck = from => !!from && wdays(from) > 2;
+const calDays = (a, b) => { const x = new Date(String(a).slice(0, 10) + 'T00:00:00Z'), y = new Date(String(b).slice(0, 10) + 'T00:00:00Z'); return Math.round((y - x) / 864e5); }; // calendar days from a to b (push 10b)
 const ageTxt = from => { const n = daysSince(from); return n == null ? '' : n === 0 ? 'today' : pl(n, 'day', 'days'); };
 const ageHtml = (from, plain) => from ? `<span class="age ${isStuck(from) ? 'stuck' : ''}" title="Waiting since ${esc(fmtD(d10(from)))}">${ageTxt(from)}${isStuck(from) ? '<span class="stuckp">stuck</span>' : ''}</span>` : (plain ? `<span class="age">${plain}</span>` : '');
 const lastStep = v => (v.steps || []).length ? v.steps[v.steps.length - 1] : null;
@@ -616,12 +633,12 @@ function jobs() {
   {
     if (ADM() && GLON() && ST.golive.until && ST.today >= addDays(ST.golive.until, -7)) { const R = glRevRows(); const day = fmtShort(addDays(ST.golive.until, 1)); // push 10a (Tahir, 20 Nov 2026): the review list, from 7 days before the last day
       if (R.n) J.push({ t: `Costs that become approved on ${day}: ${pl(R.n, 'pack', 'packs')}`, d: `${R.moved.length ? `${pl(R.moved.length, 'pack moved', 'packs moved')} more than ${SET('reapprove_pct') == null ? 3 : SET('reapprove_pct')}% from the approved cost` : `No pack moved more than ${SET('reapprove_pct') == null ? 3 : SET('reapprove_pct')}%`}${R.first.length ? `; ${R.first.length} ${R.first.length === 1 ? 'takes its' : 'take their'} first approved cost` : ''}${R.left.length ? `; ${R.left.length} not fully costed ${R.left.length === 1 ? 'keeps its' : 'keep their'} approved cost` : ''}${R.none.length ? `; ${R.none.length} with no cost ${R.none.length === 1 ? 'stays' : 'stay'} without an approved cost` : ''}. Check them before the window closes on ${fmtShort(ST.golive.until)}.`, btn: 'See the list', pan: { k: 'glrev' }, kind: 'do', pri: 1, since: addDays(ST.golive.until, -7) }); }
-    if (ADM()) (ST.recipes || []).filter(v => STEP_ROLE[v.state]).forEach(v => { const ls = lastStep(v); if (ls && isStuck(ls.at)) J.push({ t: `Recipe stuck ${wdays(ls.at)} working days: ${v.brand} for ${v.customer}`, d: `With ${ROLE_NAME[STEP_ROLE[v.state]]} at "${stepTxt(v.state)}" since ${fmtD(d10(ls.at))}.`, btn: 'Open recipe', pan: { k: 'rec', id: v.id }, kind: 'red', pri: 4, since: ls.at }); });
+    if (ADM()) (ST.recipes || []).filter(v => STEP_ROLE[v.state]).forEach(v => { const ls = lastStep(v); if (ls && isStuck(ls.at)) J.push({ t: `Recipe stuck ${wdays(ls.at)} working days: ${v.brand} for ${v.customer}`, d: `With the ${ROLE_NAME[STEP_ROLE[v.state]]} since ${fmtD(d10(ls.at))}, not sent on (step: ${MYJOB[v.state] || stepTxt(v.state)}).`, btn: 'Open recipe', pan: { k: 'rec', id: v.id }, kind: 'red', pri: 4, since: ls.at, with: ROLE_NAME[STEP_ROLE[v.state]] }); });
     const wait = (ST.proposals || []).filter(p => p.status === 'proposed' && (ADM() || p.byAdmin));
     if (CAN('price.approve')) wait.forEach(p => J.push({ t: `${p.urgent ? 'Urgent price' : 'Approve price'}: ${packName(p.packId)}`, d: (() => { const k = packIdx().get(p.packId); const c = k && k.cost ? k.cost.total : null; return `${p.prev != null ? 'Rs ' + n2(p.prev) + ' to ' : ''}Rs ${n2(p.price)} per ${k ? k.product.soldPer : 'kg'}${p.urgent ? ', in force when you approve it. Why urgent: ' + p.urgent : p.from ? ', from Monday ' + fmtD(monFrom(d10(p.from) > ST.today ? d10(p.from) : ST.today)) : ''}. GP ${pc(c != null ? (p.price - c) / p.price * 100 : null)} against target ${pc(k && k.product.target)}.${p.belowReason ? ' Below target: ' + p.belowReason : ''}`; })(), btn: 'Open proposal', pan: { k: 'prop', id: p.id }, kind: 'approve', pri: p.urgent ? 0 : 2, since: p.at }));
     if (CAN('list.approve')) (ST.listRevisions || []).filter(r => r.status === 'proposed' && (ADM() || r.byAdmin)).forEach(r => J.push({ t: `${r.urgent ? 'Urgent list revision' : 'Approve list revision'}: ${LISTNAME[r.list_name]}`, d: `${pl(r.items.length, 'price', 'prices')} ${r.urgent ? 'in force when you approve it. Why urgent: ' + r.urgent + '.' : 'from Monday ' + fmtD(monFrom(d10(r.valid_from) > ST.today ? d10(r.valid_from) : ST.today)) + '.'} ${r.reason}`, btn: 'Open revision', pan: { k: 'lrev', id: r.id }, kind: 'approve', pri: r.urgent ? 0 : 3, since: r.proposed_at }));
     if (CAN('settings.approve')) (ST.settingRequests || []).filter(r => r.status === 'open' && (ADM() || r.byAdmin)).forEach(r => J.push({ t: 'Approve setting change', d: r.summary + '. Proposed by ' + personName(r.by_user) + '.', btn: 'Open the change', pan: { k: 'setreq', id: r.id }, kind: 'approve', pri: 5, since: r.at }));
-    if (CAN('targets.approve')) (ST.targetRequests || []).filter(r => r.status === 'open' && (ADM() || r.byAdmin)).forEach(r => J.push({ t: `Approve target: ${r.brand} for ${r.customer}`, d: `${r.from_gp == null ? `company target ${SET('budget_gp')}%` : r.from_gp + '%'} to ${tgtTo(r)}. ${r.reason}`, btn: 'Open the request', pan: { k: 'treq', id: r.id }, kind: 'approve', pri: 5, since: r.at }));
+    if (CAN('targets.approve')) (ST.targetRequests || []).filter(r => r.status === 'open' && (ADM() || r.byAdmin)).forEach(r => J.push({ t: `Approve target: ${r.brand} for ${r.customer}`, d: `${tgtVerb(r)} ${r.from_gp == null ? `the company target ${SET('budget_gp')}%` : r.from_gp + '%'} to ${tgtTo(r)}. ${r.reason}`, btn: 'Open the request', pan: { k: 'treq', id: r.id }, kind: 'approve', pri: 5, since: r.at }));
     const lastM = addDays(firstOfMonth(), -1).slice(0, 7); const goME = () => { scr = 'costs'; cpart = 'month'; meM = lastM; saved = null; window.scrollTo(0, 0); };
     if (CAN('actuals.ratecheck') && loaded() && !(ST.checks || []).some(c => c.month === lastM && c.kind === 'rate_check')) J.push({ t: `Check ${mon(lastM)} rates against the purchase register`, d: 'Second-person check of the top 15 material rates by Rs used: type each register rate.', btn: 'Open Month end', go: goME, kind: 'do', pri: 7, since: monthSince() });
     // the Margin rule: white label client lines, FY to date, each truck at the cost approved on its date
@@ -630,6 +647,17 @@ function jobs() {
   }
   return J;
 }
+/** Push 10b: the topic of a job, for the chips on Approvals (Recipes, Prices and targets, Costs and month end, Margin, Setup). */
+const JTOPICS = ['Recipes', 'Prices and targets', 'Costs and month end', 'Margin', 'Setup'];
+function jobTopic(j) { const k = j.pan && j.pan.k, t = String(j.t); if (j.topic) return j.topic; // review 10b, M4: the panel first, then the title from its start
+  if (['reapp', 'notcosted', 'mats', 'glrev', 'actuals'].includes(k)) return 'Costs and month end';
+  if (['prop', 'propose', 'tochange', 'lrev', 'treq', 'carry'].includes(k) || j.propose) return 'Prices and targets';
+  if (['names', 'imports', 'setreq'].includes(k)) return 'Setup';
+  if (k === 'rec' || /^(Recipe stuck|Write the first recipe|Approve cost:)/.test(t)) return 'Recipes';
+  if (/^\d+ white label clients? flagged red on margin/.test(t)) return 'Margin';
+  if (/^(Fill |Certify labour|Urgent cost change|Check .* rates against|COO check of|Lock |Enter .* actual|Tie .* to the books|\d+ materials? (needs?|waits?))/.test(t)) return 'Costs and month end';
+  if (/^(Approve price|Urgent price|Approve list revision|Urgent list revision|Approve target|List revision sent back|Price sent back|\d+ client prices? to change|\d+ packs? costed with no price|\d+ VAN brand (list price|pack))/.test(t)) return 'Prices and targets';
+  return 'Setup'; }
 /** The next move: the first approval, in this order: recipe and cost steps, prices, re-approvals and list revisions, then
  *  threshold and target changes; within a kind the oldest first. With no approval: the first red item, then the oldest job. */
 function nextMove(J) {
@@ -1391,10 +1419,18 @@ function glStrip(where) {
   if (!CAN('see.products') && !CAN('see.cost')) return ''; // a KAM sees no recipes and no costs
   if (!G.on) return adm && where === 'costs' ? `<details class="box form"><summary>Open the go-live window</summary><p class="ans">Until the last day you pick, every cost change goes in when it is saved, with no Monday wait, no urgent approval and no re-approval. Every recipe the Production Manager sends goes straight to the CFO. The day after the last day, each pack's cost that day becomes its approved cost.</p><div class="row"><label for="gl-d">Last day<input id="gl-d" type="date" min="${ST.today}"></label><button class="btn" data-glset>Open the window</button></div></details>` : '';
   const f = fmtShort(G.until);
+  if (where === 'today') { const left = Math.max(0, calDays(ST.today, G.until)); return `<div class="next gl one"><span><b>Go-live window open until ${esc(f)}</b> · ${left ? pl(left, 'day', 'days') + ' left' : 'last day today'}. ${CAN('see.cost') ? 'Costs go in when saved; recipes' : 'Recipes'} go straight to the CFO.</span>${navHas('costs') ? '<button class="btn ghost" data-scr="costs">Open on Costs</button>' : ''}</div>`; } // push 10b: 1 line here; the controls are on Costs only
   const txt = CAN('see.cost') ? `Every cost change goes in when it is saved: no Monday wait, no urgent approval and no re-approval. Every recipe the Production Manager sends, a new product's too, goes straight to the CFO. The day after ${f}, each pack's cost that day becomes its approved cost.` : `Every recipe the Production Manager sends, a new product's too, goes straight to the CFO for its cost; the QC Head and Plant Manager steps are skipped until ${f}.`;
   const rev = CAN('see.cost') ? `<button class="btn ghost" data-panopen="glrev">See the costs that become approved</button>` : ''; // push 10a
   return `<div class="next gl"><span><b>Go-live window, open until ${esc(f)}.</b> ${esc(txt)}</span>${rev}${adm ? `<span class="acts"><input id="gl-d" type="date" min="${ST.today}" value="${esc(G.until)}" aria-label="Last day of the go-live window"><button class="btn ghost" data-glset>Change the last day</button><button class="btn ghost danger" data-glclose data-confirm="Close the go-live window now">Close the window now</button></span>` : ''}</div>`;
 }
+/* push 10b: ? Help on every page head; Approvals topic chips and grouped rows */
+let jtopic = 'All'; const jxOpen = new Set();
+document.addEventListener('click', e => { const t = e.target.closest && e.target.closest('[data-help],[data-jtopic],[data-jx]'); if (!t || !ST) return; const d = t.dataset;
+  if (d.help != null) { const on = !helpOpen.has(d.help); on ? helpOpen.add(d.help) : helpOpen.delete(d.help); t.setAttribute('aria-expanded', on); const x = document.getElementById(t.getAttribute('aria-controls')); if (x) x.hidden = !on; return; }
+  if (d.jtopic != null) { jtopic = d.jtopic; render(); return; }
+  if (d.jx != null) { const on = !jxOpen.has(d.jx); on ? jxOpen.add(d.jx) : jxOpen.delete(d.jx); render(); }
+});
 /* Registered before the main click handler, so its 2-step confirm arms first (Close the window now). */
 document.addEventListener('click', async e => {
   const t = e.target.closest && e.target.closest('[data-glset],[data-glclose]'); if (!t || !ST) return; const d = t.dataset;
@@ -2071,7 +2107,12 @@ const CHANGELOG = [
  { t: 'Costs that become approved: on the go-live line, a list of every pack whose cost today differs from its approved cost, largest moves first; packs not fully costed keep their approved cost, or stay without one. From 7 days before the last day it is also a job on Approvals for Tahir.', for: ['see.cost'], guide: null },
  { t: 'For your information keeps every unread notice of the last 30 days on the list, so Mark as read marks only what you saw.', for: ['see.margin'], guide: null },
  { t: 'Price lists: Download gives the latest issued list, with its own VAN/PL number, so no new number is made each time. A list never issued is made once. A list that has ended is not given out: ask the CFO for the current one.', for: ['see.granted_lists'], guide: null },
- { t: 'In the go-live window the Guide and your role page say Send to the CFO, the button you see.', for: ['recipe.edit', 'recipe.step.draft'], guide: null }] }
+ { t: 'In the go-live window the Guide and your role page say Send to the CFO, the button you see.', for: ['recipe.edit', 'recipe.step.draft'], guide: null }] },
+  { ver: '2026-11-20b', date: '2026-11-20', title: 'Approvals in 3 groups, and 1 page head everywhere', items: [
+ { t: 'Approvals: the badge counts only your decisions. The answer line says what else is on your list. The list has topic chips (Recipes, Prices and targets, Costs and month end, Margin, Setup) and 3 groups: To approve, Stuck with others and To do. Recipes stuck with 1 person are 1 line that opens.', for: ['price.approve'], guide: null },
+ { t: 'The margin card names its period and target: the chip says how many points below or above, the target is each product\'s target weighted by sales, and a month not finished is marked with *.', for: ['see.margin'], guide: null },
+ { t: 'For your information: 3 or more updates by 1 person on 1 day fold into 1 line that opens.', for: ['see.margin'], guide: null },
+ { t: 'Most screens open with their title and answer line, with "How this works" behind a small ? Help at the top right. The top bar is not printed.', for: ['all'], guide: null }] }
 ];
 let _wnShown = false, wnGuide = null;
 /* ---------- Push 7e (Tahir, 10 Nov 2026, D-166): the role page, read and signed once per version before C2M opens ----------
@@ -2222,12 +2263,13 @@ function lfApply(only) {
       const rows = [...box.rows].filter(r => !r.querySelector('th') && !(r.parentElement && r.parentElement.tagName === 'TFOOT') && r.dataset.total == null && !empty(r));
       rows.forEach(r => { if (att(r) && groups.length) groups[groups.length - 1].push(r); else if (!att(r)) groups.push([r]); });
     } else groups = [...box.querySelectorAll('.jrow, .job, .item, .gj')].map(el => [el]);
-    const run = w => { let n = 0; groups.forEach(g => { const t = g.map(r => r.dataset.lfs != null ? r.dataset.lfs : r.textContent).join(' ').toLowerCase(); /* data-lfs: the row's own search words (D-171) */ const ok = w.every(x => t.includes(x)); g.forEach(r => r.classList.toggle('lfh', !ok)); if (ok) n++; }); return n; };
+    const run = w => { let n = 0; groups.forEach(g => { const t = g.map(r => r.dataset.lfs != null ? r.dataset.lfs : r.textContent).join(' ').toLowerCase(); /* data-lfs: the row's own search words (D-171) */ const ok = w.every(x => t.includes(x)); g.forEach(r => r.classList.toggle('lfh', !ok)); if (ok) n += Number(g[0].dataset.lfn || 1); /* push 10b: a folded group counts its items */ if (ok && w.length) g.forEach(r => r.querySelectorAll('.jsub[hidden]').forEach(x => { x.hidden = false; const b = r.querySelector('.jx'); if (b) { b.textContent = 'Hide'; b.setAttribute('aria-expanded', 'true'); if (b.dataset.jx) jxOpen.add(b.dataset.jx); } })); }); return n; };
+    const total = groups.reduce((a, g) => a + Number(g[0].dataset.lfn || 1), 0);
     let shown = run(words);
     /* A filter set by Start or Find that matches no row is not kept: the whole list shows (review 6b, M1) */
     if (LFSET.has(key) && words.length && !shown) { LFQ[key] = ''; LFSET.delete(key); const inp = document.querySelector(`[data-lf="${key}"]`); if (inp) inp.value = ''; words = []; shown = run(words); }
-    const c = document.querySelector(`[data-lfc="${key}"]`); if (c) c.textContent = words.length ? `${shown} of ${groups.length}` : `${groups.length} in the list`;
-    lfOnly(box, key, groups.length - shown);
+    const c = document.querySelector(`[data-lfc="${key}"]`); if (c) c.textContent = words.length ? `${shown} of ${total}` : `${total} in the list`;
+    lfOnly(box, key, total - shown);
     box.querySelectorAll('.gjg').forEach(h => { let n = h.nextElementSibling, any = false; while (n && !n.classList.contains('gjg')) { if (!n.classList.contains('lfh')) any = true; n = n.nextElementSibling; } h.classList.toggle('lfh', !any); }); // push 7g: a place heading with no job shown hides
   });
 }
@@ -2246,6 +2288,7 @@ document.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === 
 document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target && e.target.id === 'audq') { e.preventDefault(); aud.q = e.target.value; aud.data = null; audLoad(); } });
 /** Draw the page, then record the move for the phone Back button (push 6c, D-161). */
 function render() { renderPage(); navSync(); if (editLines) elLive(); } // push 7b: the editor's live total and analysis
+const badgeN = J => ADM() ? J.filter(j => j.kind === 'approve').length : J.length; // push 10b (Tahir, 20 Nov 2026): for the administrator the badge counts only his decisions
 function renderPage() {
   if (scr !== 'guide') wnGuide = null; // the Guide row mark lasts while the Guide is open (D-141)
   const M = ST.me; const J = jobs();
@@ -2258,7 +2301,7 @@ function renderPage() {
   behind = !!pan; const mainHtml = (V[scr] || V[M.nav[0]])(); behind = false;
   const over = pan || moreOpen || finder; const p4 = phone4(M.nav, M.more); let g0 = null; const hasMore = (M.more || []).length > 0 || M.nav.length > 5;
   const navHtml = M.nav.map(k => { const g = (M.more || []).length ? '' : RAILG[k] || ''; const lab = g && g !== g0 ? `<span class="g" aria-hidden="true">${g}</span>` : ''; g0 = g || g0;
-    return `${lab}<button data-scr="${k}" aria-current="${k === scr}" class="${p4.includes(k) ? '' : 'far'}">${ICON[k] || ''}${NAV[k]}${(k === 'today' || k === 'approvals') && J.length ? `<span class="n">${J.length}</span>` : ''}</button>`; }).join('');
+    return `${lab}<button data-scr="${k}" aria-current="${k === scr}" class="${p4.includes(k) ? '' : 'far'}">${ICON[k] || ''}${NAV[k]}${(k === 'today' || k === 'approvals') && badgeN(J) ? `<span class="n" title="${ADM() ? 'Decisions waiting for you' : 'Things waiting for you'}">${badgeN(J)}</span>` : ''}</button>`; }).join('');
   app.innerHTML = `<aside class="hdr${hasMore ? ' has-more' : ''}" aria-label="C2M" ${over ? 'inert' : ''}><a class="brand" href="/" title="Back to the VAN launcher"><i aria-hidden="true"></i><span><b>C2M</b><small>Cost to Margin</small></span></a>
   <nav aria-label="Screens">${navHtml}</nav>${hasMore ? `<button class="more${(M.more || []).length ? ' desk' : ''}" data-more aria-label="More places" aria-expanded="${moreOpen}"${(M.more || []).includes(scr) ? ' aria-current="true"' : ''}>${ICON.more}More</button>` : ''}
   <button class="findbtn" data-finder title="Find anything (Ctrl K)" aria-label="Find anything">${ICON.search}<span>Find anything</span><kbd>Ctrl K</kbd></button>
@@ -2540,7 +2583,9 @@ function vToday() {
   const J = jobs(); const R = ST.me.role; const nm = nextMove(J); const W = waitingOn();
   const notices = (ST.notices || []).slice();
   const ages = J.filter(j => j.since).map(j => daysSince(j.since)); const oldest = ages.length ? Math.max(...ages) : null;
-  const ans = J.length ? `${pl(J.length, 'thing needs', 'things need')} you.${oldest ? ` The oldest has waited ${pl(oldest, 'day', 'days')}.` : ''}` : 'Nothing needs you today.';
+  const nA = J.filter(j => j.kind === 'approve').length, nS = J.filter(j => /^Recipe stuck /.test(j.t) && j.with).length, nD = J.length - nA - nS;
+  const ans = !J.length ? 'Nothing needs you today.' : ADM() ? `${nA ? pl(nA, 'decision needs', 'decisions need') + ' you.' : 'No decision waits for you.'}${nS || nD ? ` Also on your list: ${[nS ? pl(nS, 'recipe', 'recipes') + ' stuck with others' : '', nD ? pl(nD, 'job', 'jobs') + ' to do' : ''].filter(Boolean).join(' and ')}.` : ''}` // push 10b (Tahir, 20 Nov 2026): the decisions first
+    : `${pl(J.length, 'thing needs', 'things need')} you.${oldest ? ` The oldest has waited ${pl(oldest, 'day', 'days')}.` : ''}`;
   const line = (j, i) => `<div class="item k-${j.kind}"><div><div class="t">${esc(j.t)}</div><div class="d">${i === nm ? 'Your next move, above.' : esc(isoWords(j.d))}</div></div>${ageHtml(j.since, j.plain)}${i === nm ? '' : `<button class="btn ghost" data-job="${i}">${j.btn}</button>`}</div>`;
   /* To do: red first, then stuck, then the oldest (UX review S3) */
   const t0 = j => j.since ? d10(j.since) : '9999'; const doSort = (a, b) => ((b[0].kind === 'red') - (a[0].kind === 'red')) || (isStuck(b[0].since) - isStuck(a[0].since)) || t0(a[0]).localeCompare(t0(b[0])) || (a[0].pri - b[0].pri);
@@ -2548,14 +2593,17 @@ function vToday() {
   const G = [[(Object.prototype.hasOwnProperty.call(APH, R) ? APH[R] : 'To approve'), J.map((j, i) => [j, i]).filter(([j]) => j.kind === 'approve')], ['To do', J.map((j, i) => [j, i]).filter(([j]) => j.kind !== 'approve').sort(doSort)]].filter(g => g[1].length);
   const n = J[nm];
   if (!loaded() && CAN('see.margin')) return `${meta([dayName(ST.today), o2sAsOf()])}${head('Today', 'No data in C2M yet.', 'Today fills once the CFO\'s sheets and O2S are loaded: every approval, job and margin line then shows here with its age.')}<div class="nextmove"><div><div class="k">Your next move</div><div class="t">The first load of the CFO's sheets and O2S</div><div class="d">Until it runs, C2M has no clients, products, costs or trucks, so nothing here can be wrong or late.</div></div></div>`;
-  return `${meta([dayName(ST.today), o2sAsOf()])}${head(ST.me.nav[0] === 'approvals' ? 'Approvals' : 'Today', ans, 'The next move is the first approval waiting for you (recipe and cost steps first, then prices, re-approvals and list revisions, then threshold and target changes; the oldest first). Every line shows how long it has waited; an item waiting more than 2 working days (Monday to Saturday) is marked stuck. Each line opens in a panel on this screen.')}${glStrip('today')}${guideHint()}
-  ${n ? `<div class="nextmove"><div><div class="k">Your next move</div><div class="t">${esc(n.t)}</div><div class="d">${esc(isoWords(String(n.d)).replace(/([^.!?])$/, '$1.'))} ${n.since ? `<span class="${isStuck(n.since) ? 'over' : ''}">Waiting ${ageTxt(n.since)}${isStuck(n.since) ? ', stuck' : ''}.</span>` : ''}</div></div><button class="btn" data-job="${nm}">${n.go1 || (n.kind === 'approve' && n.pan ? 'Open to approve' : n.btn)}</button></div>` : '<div class="nextmove"><div><div class="k">Your next move</div><div class="t">You are up to date.</div></div></div>'}
+  return `${head(ST.me.nav[0] === 'approvals' ? 'Approvals' : 'Today', ans, 'The next move is the first approval waiting for you (recipe and cost steps first, then prices, re-approvals and list revisions, then threshold and target changes; the oldest first). Every line shows how long it has waited; an item waiting more than 2 working days (Monday to Saturday) is marked stuck. Each line opens in a panel on this screen.', [dayName(ST.today), o2sAsOf()].filter(Boolean).join(' · '))}${glStrip('today')}${guideHint()}
+  ${n ? `<div class="nextmove"><div><div class="k">Your next move</div><div class="t">${esc(n.t)}</div><div class="d">${esc(isoWords(String(n.d)).replace(/([^.!?])$/, '$1.'))} ${n.since ? `<span class="${isStuck(n.since) ? 'over' : ''}">Waiting ${wdays(n.since) ? pl(wdays(n.since), 'working day', 'working days') : 'since today'}${isStuck(n.since) ? ', stuck' : ''}.</span>` : ''}</div></div><button class="btn" data-job="${nm}">${n.go1 || (n.kind === 'approve' && n.pan ? 'Open to approve' : n.btn)}</button></div>` : '<div class="nextmove"><div><div class="k">Your next move</div><div class="t">You are up to date.</div></div></div>'}
   ${homeGrid(J, nm, W)}
   <p class="ans endmark" style="margin:14px 0 0;padding-top:10px;border-top:1px solid var(--line)"><b>${J.length ? 'End of your list.' : 'Nothing needs you today.'}</b>${W.length ? ` ${pl(W.length, 'item is', 'items are')} with others; none needs you now.` : ''}</p>
   ${W.length ? `<details class="box" style="margin-top:10px"><summary><b>With others: ${W.length}.</b> <span class="ans">${(() => { const c = {}; W.forEach(w => { const k = String(w.w).split(',')[0]; c[k] = (c[k] || 0) + 1; }); return Object.entries(c).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${v} ${esc(k)}`).join(', '); })()}</span></summary><div class="items">${W.map(w => `<div class="item k-wait"><div><div class="t">${esc(w.t)} · <span style="font-weight:400">${esc(w.w)}</span></div></div>${ageHtml(w.since)}${w.open ? `<button class="btn ghost" ${Object.entries(w.open).map(([k, v]) => `data-${k}="${v}"`).join(' ')}>Open</button>` : ''}</div>`).join('')}</div></details>` : ''}
   ${(() => { const lcm = listCheckMark(), up = Number(ST.noticesReadUpto) || 0, nw = notices.filter(x => !(Number(x.id) <= up)), old = notices.filter(x => Number(x.id) <= up); /* push 7f: read notices fold away, per person */
     const one = x => `<div class="job"><div><div class="t">${esc(isoWords(x.text))}</div><div class="d">${esc(personName(x.by_user))}, ${esc(fmtD(d10(x.at)))}. No approval needed.</div></div></div>`;
-    return nw.length || old.length || lcm ? `<h2>For your information${nw.length ? ` <span class="c">${nw.length} new</span>` : ''}</h2>${nw.length || lcm ? `<div class="box jobs">${lcm}${nw.map(one).join('')}${nw.length ? `<div class="job"><div></div><button class="btn ghost" data-nread="${Math.max(...nw.map(x => Number(x.id) || 0))}">Mark as read</button></div>` : ''}</div>` : ''}${old.length ? `<details class="box" style="margin-top:8px"><summary>Read notices, last 30 days: ${old.length}</summary><div class="jobs">${old.slice(0, 30).map(one).join('')}${old.length > 30 ? `<div class="job"><div class="d">The newest 30 are shown.</div></div>` : ''}</div></details>` : ''}` : ''; })()}`;
+    /* push 10b (C-30, A-08): 3 or more notices by 1 person on 1 day fold into 1 line that opens */
+    const digest = L => { const G = new Map(); L.forEach(x => { const k = String(x.by_user).toLowerCase() + '|' + d10(x.at); (G.get(k) || G.set(k, []).get(k)).push(x); });
+      return [...G.values()].map(g => g.length < 3 ? g.map(one).join('') : `<div class="job"><details class="dg" style="flex:1 1 auto"><summary><b>${pl(g.length, 'update', 'updates')} by ${esc(personName(g[0].by_user))}, ${esc(fmtD(d10(g[0].at)))}</b> <span class="ans">${(() => { const x = isoWords(g[0].text); return esc(x.length > 110 ? x.slice(0, 110).replace(/\s+\S*$/, '') + '…' : x); })()} No approval needed.</span></summary><div class="jobs">${g.map(one).join('')}</div></details></div>`).join(''); };
+    return nw.length || old.length || lcm ? `<h2>For your information${nw.length ? ` <span class="c">${nw.length} new</span>` : ''}</h2>${nw.length || lcm ? `<div class="box jobs">${lcm}${digest(nw)}${nw.length ? `<div class="job"><div></div><button class="btn ghost" data-nread="${Math.max(...nw.map(x => Number(x.id) || 0))}">Mark as read</button></div>` : ''}</div>` : ''}${old.length ? `<details class="box" style="margin-top:8px"><summary>Read notices, last 30 days: ${old.length}</summary><div class="jobs">${old.slice(0, 30).map(one).join('')}${old.length > 30 ? `<div class="job"><div class="d">The newest 30 are shown.</div></div>` : ''}</div></details>` : ''}` : ''; })()}`;
 }
 
 /** Home (D-99 B, D-100): the verdict and the 6-month trend on the left, the jobs on the right, oldest first. */
@@ -2573,24 +2621,45 @@ function homeTrend(pts) {
   const W = 380, H = 150, L = 30, R = 106, T = 10, B = 22; const x = i => L + (W - L - R) * i / (pts.length - 1), y = v => T + (H - T - B) * (1 - (v - lo) / (hi - lo));
   const grid = []; for (let v = lo; v <= hi + 0.001; v += 5) grid.push(`<line class="og" x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}"/><text class="oa" x="${L - 5}" y="${y(v) + 3}" text-anchor="end">${v}%</text>`);
   const z = pts[pts.length - 1]; let yg = y(z.pct), yt = y(z.tgt); if (Math.abs(yg - yt) < 13) { const mid = (yg + yt) / 2; if (yg >= yt) { yg = mid + 7; yt = mid - 7; } else { yg = mid - 7; yt = mid + 7; } }
-  return `<svg class="vt" viewBox="0 0 ${W} ${H}" role="img" aria-label="White label GP % by month against target, last ${pts.length} months">${grid.join('')}<polyline class="tl" points="${pts.map((p, i) => `${x(i)},${y(p.tgt)}`).join(' ')}"/><polyline class="gl" points="${pts.map((p, i) => `${x(i)},${y(p.pct)}`).join(' ')}"/>${pts.map((p, i) => `<circle class="gd" cx="${x(i)}" cy="${y(p.pct)}" r="3"/><text class="oa" x="${x(i)}" y="${H - 6}" text-anchor="middle">${MON[+p.m.slice(5) - 1]}</text>`).join('')}<text class="lab" fill="var(--blue)" x="${W - R + 6}" y="${yg + 3}">${MON[+z.m.slice(5) - 1]} GP ${z.pct.toFixed(1)}%</text><text class="lab" fill="var(--muted)" x="${W - R + 6}" y="${yt + 3}">${MON[+z.m.slice(5) - 1]} target ${z.tgt.toFixed(1)}%</text></svg>`;
+  const part = z.m === ST.today.slice(0, 7) && ST.today.slice(8) !== String(new Date(Date.UTC(+ST.today.slice(0, 4), +ST.today.slice(5, 7), 0)).getUTCDate()); const ml = m => MON[+m.slice(5) - 1] + (part && m === z.m ? '*' : ''); // push 10b (U-06): a month not finished is marked
+  return `<svg class="vt" viewBox="0 0 ${W} ${H}" role="img" aria-label="White label GP % by month against target, last ${pts.length} months">${grid.join('')}<polyline class="tl" points="${pts.map((p, i) => `${x(i)},${y(p.tgt)}`).join(' ')}"/><polyline class="gl" points="${pts.map((p, i) => `${x(i)},${y(p.pct)}`).join(' ')}"/>${pts.map((p, i) => `<circle class="gd" cx="${x(i)}" cy="${y(p.pct)}" r="3"/><text class="oa" x="${x(i)}" y="${H - 6}" text-anchor="middle">${ml(p.m)}</text>`).join('')}<text class="lab" fill="var(--blue)" x="${W - R + 6}" y="${yg + 3}">${ml(z.m)} GP ${z.pct.toFixed(1)}%</text><text class="lab" fill="var(--muted)" x="${W - R + 6}" y="${yt + 3}">${ml(z.m)} target ${z.tgt.toFixed(1)}%</text></svg><div class="vlegend"><span><i></i>GP % in the month</span><span><i class="d"></i>Target % in the month: each product's target, weighted by what was sold</span>${part ? `<span>* ${MON[+z.m.slice(5) - 1]} is 1 to ${+ST.today.slice(8)} ${MON[+z.m.slice(5) - 1]}</span>` : ''}</div>`;
 }
 function homeGrid(J, nm0, W) {
   const stuckN = J.filter(j => j.since && isStuck(j.since)).length; const ages = J.filter(j => j.since).map(j => daysSince(j.since)); const oldest = ages.length ? Math.max(...ages) : null;
   let left = '';
   const V = CAN('see.margin') && loaded() ? homeVerdict() : null;
   if (V) { const o = V.tot, w = { red: 'Act', amber: 'Watch', green: 'On target' }[o.st];
-    left = `<div class="verdict"><div class="vk">White label GP, FY to date</div><div class="vbig">${pc(o.pct)}<span class="st ${o.st}">${w}</span></div><p class="vsub">${o.tgt > 0 ? `Against a ${pc(o.tgt)} target: ${o.dir === 'on' ? 'on target' : `${o.dir} ${rsM2(Math.abs(o.ag))}`}.` : 'No target set.'}</p>${homeTrend(V.pts)}
-      <div class="vstats"><div><b>${rsM2(o.sales)}</b><span>Sales</span></div><div><b>${rsM2(o.gp)}</b><span>GP</span></div><div><b>${J.length}</b><span>${pl(J.length, 'job', 'jobs').replace(/^\d+ /, '')} for you</span></div></div>
+    const gp1 = o.jPct != null ? o.jPct : o.pct, gap = o.tgt > 0 && gp1 != null ? Math.round(o.tgt * 10) / 10 - Math.round(gp1 * 10) / 10 : null; const chip = gap == null || o.dir === 'none' ? w : o.dir === 'on' || Math.abs(gap) < 0.05 ? 'On target' : o.dir === 'short' ? `${Math.abs(gap).toFixed(1)} points below` : `${Math.abs(gap).toFixed(1)} points above`; // review 10b, m7: the GP the status uses // push 10b (U-05): the chip says what it means
+    left = `<div class="verdict"><div class="vk">White label GP · FY to date (${esc(fmtShort(fyStart()))} to ${esc(fmtShort(ST.today))})</div><div class="vbig">${pc(o.pct)}<span class="st ${o.st}">${esc(chip)}</span></div><p class="vsub">${o.tgt > 0 ? `Target ${pc(o.tgt)}${o.dir === 'on' ? '' : ` · ${o.dir} by ${rsM2(Math.abs(o.ag))}`}.` : 'No target set.'}</p>${homeTrend(V.pts)}
+      <div class="vstats" style="grid-template-columns:repeat(2,minmax(0,1fr))"><div><b>${rsM2(o.sales)}</b><span>Sales, FY to date</span></div><div><b>${rsM2(o.gp)}</b><span>GP, FY to date</span></div></div>
       <p class="vfoot">Trucks out, each at the cost approved on its date. <button class="btn ghost" data-scr="margin">Open margin</button></p></div>`; }
   else { const k = stuckN ? 'red' : J.length ? 'amber' : 'green', w = stuckN ? `${stuckN} stuck` : J.length ? 'Waiting' : 'Clear';
     left = `<div class="verdict"><div class="vk">Your day</div><div class="vbig">${J.length}<span class="st ${k}">${w}</span></div><p class="vsub">${J.length ? `${pl(J.length, 'thing needs', 'things need')} you.` : 'Nothing needs you today.'}</p>
       <div class="vstats"><div><b>${oldest == null ? '–' : oldest ? oldest + 'd' : 'today'}</b><span>Oldest waiting</span></div><div><b>${stuckN}</b><span>Stuck</span></div><div><b>${W.length}</b><span>With others</span></div></div></div>`; }
+  if (!ADM()) { /* review 10b, m12: other roles keep their Today list as it was; the new list is the administrator's Approvals (Tahir's ruling) */
   const t0 = j => j.since ? d10(j.since) : '9999';
-  const rows = J.map((j, i) => [j, i]).sort((a, b) => { const r = j => (j.kind === 'red' || (j.since && isStuck(j.since))) ? 0 : 1; return r(a[0]) - r(b[0]) || t0(a[0]).localeCompare(t0(b[0])) || (a[0].pri - b[0].pri); });
-  const st = j => (j.kind === 'red' || (j.since && isStuck(j.since))) ? ['red', j.since && isStuck(j.since) ? `Stuck ${wdays(j.since)} working days` : 'Act now'] : j.since ? ['amber', `Waiting ${ageTxt(j.since)}`] : ['grey', 'To do'];
-  const nmi = nextMove(J);
-  const right = `<div class="jl" data-lft="jobs"><h2 class="gh">${J.length > 1 && nmi >= 0 ? 'Then' : 'Needs you'} <span class="c">${J.length > 1 && nmi >= 0 ? J.length - 1 : J.length}</span></h2>${J.length > 2 || LFQ.jobs ? findBox('jobs', 'Find a job, product or client') : ''}${rows.filter(([j, i]) => i !== nmi || J.length === 1).map(([j, i]) => { const [c, w] = st(j); return `<div class="jrow ${c}"><div><div class="t">${esc(j.t)}</div><div class="d">${i === nmi ? 'Your next move, above.' : esc(isoWords(j.d))}</div></div><span class="sw">${esc(w)}</span>${i === nmi ? '' : `<button class="btn ghost" data-job="${i}">${j.btn}</button>`}</div>`; }).join('') || '<div class="jrow green"><div class="t">Nothing needs you today.</div><span class="sw">Clear</span></div>'}</div>`;
+    const rows = J.map((j, i) => [j, i]).sort((a, b) => { const r = j => (j.kind === 'red' || (j.since && isStuck(j.since))) ? 0 : 1; return r(a[0]) - r(b[0]) || t0(a[0]).localeCompare(t0(b[0])) || (a[0].pri - b[0].pri); });
+    const st = j => (j.kind === 'red' || (j.since && isStuck(j.since))) ? ['red', j.since && isStuck(j.since) ? `Stuck ${wdays(j.since)} working days` : 'Act now'] : j.since ? ['amber', `Waiting ${ageTxt(j.since)}`] : ['grey', 'To do'];
+    const nmi = nextMove(J);
+    const right = `<div class="jl" data-lft="jobs"><h2 class="gh">${J.length > 1 && nmi >= 0 ? 'Then' : 'Needs you'} <span class="c">${J.length > 1 && nmi >= 0 ? J.length - 1 : J.length}</span></h2>${J.length > 2 || LFQ.jobs ? findBox('jobs', 'Find a job, product or client') : ''}${rows.filter(([j, i]) => i !== nmi || J.length === 1).map(([j, i]) => { const [c, w] = st(j); return `<div class="jrow ${c}"><div><div class="t">${esc(j.t)}</div><div class="d">${i === nmi ? 'Your next move, above.' : esc(isoWords(j.d))}</div></div><span class="sw">${esc(w)}</span>${i === nmi ? '' : `<button class="btn ghost" data-job="${i}">${j.btn}</button>`}</div>`; }).join('') || '<div class="jrow green"><div class="t">Nothing needs you today.</div><span class="sw">Clear</span></div>'}</div>`;
+    return `<div class="home">${left}${right}</div>`; }
+  /* Push 10b (Tahir, 20 Nov 2026; picture "C2M Approvals redesign"): chips by topic whose counts add up to the list, then 3 groups
+     (to approve, stuck with others, to do); recipes stuck with 1 person are 1 line that opens; ages in working days. */
+  const t0 = j => j.since ? d10(j.since) : '9999';
+  const age = j => j.kind === 'red' && !(j.since && isStuck(j.since)) ? ['red', j.since && wdays(j.since) ? `Act now · ${pl(wdays(j.since), 'working day', 'working days')}` : 'Act now'] : j.since ? (isStuck(j.since) ? ['red', `Stuck ${pl(wdays(j.since), 'working day', 'working days')}`] : ['amber', `Waiting ${wdays(j.since) ? pl(wdays(j.since), 'working day', 'working days') : 'since today'}`]) : j.kind === 'red' ? ['red', 'Act now'] : ['grey', 'To do'];
+  const ord = (a, b) => ((b[0].kind === 'red' || isStuck(b[0].since)) - (a[0].kind === 'red' || isStuck(a[0].since))) || t0(a[0]).localeCompare(t0(b[0])) || (a[0].pri - b[0].pri);
+  const all = J.map((j, i) => [j, i]); const tps = ['All', ...JTOPICS.filter(t => all.some(([j]) => jobTopic(j) === t))]; if (!tps.includes(jtopic)) jtopic = 'All';
+  const inT = ([j]) => jtopic === 'All' || jobTopic(j) === jtopic;
+  const chipsH = tps.length > 2 ? `<div class="chips jchips" role="group" aria-label="Topic">${tps.map(t => `<button data-jtopic="${esc(t)}" aria-pressed="${t === jtopic}">${esc(t)} ${t === 'All' ? J.length : all.filter(([j]) => jobTopic(j) === t).length}</button>`).join('')}</div>` : '';
+  const stuckOf = j => /^Recipe stuck /.test(j.t) && j.with ? j.with : null; // the administrator's stuck recipes, by the role that holds them
+  const row = ([j, i]) => { const [c, w] = age(j); return `<div class="jrow ${c}"><div><div class="t">${esc(j.t)}</div><div class="d">${i === nm0 ? 'Your next move, above.' : esc(isoWords(j.d))}</div></div><span class="sw">${esc(w)}</span>${i === nm0 ? '' : `<button class="btn ghost" data-job="${i}">${j.btn}</button>`}</div>`; };
+  const L = all.filter(inT); const appr = L.filter(([j]) => j.kind === 'approve').sort(ord), stuck = L.filter(([j]) => stuckOf(j)), todo = L.filter(([j]) => j.kind !== 'approve' && !stuckOf(j)).sort(ord);
+  const byW = new Map(); stuck.forEach(x => { const k = stuckOf(x[0]); (byW.get(k) || byW.set(k, []).get(k)).push(x); });
+  const stuckH = [...byW].map(([who, xs]) => { if (xs.length === 1) return row(xs[0]); xs.sort(ord); const open = jxOpen.has(who), mx = Math.max(...xs.map(([j]) => wdays(j.since)));
+    return `<div class="jrow red hasx" data-lfn="${xs.length}"><div><div class="t">${pl(xs.length, 'recipe', 'recipes')} stuck with the ${esc(who)}</div><div class="d">Not sent on. <button class="jx" data-jx="${esc(who)}" aria-expanded="${open}">${open ? 'Hide' : 'Show ' + xs.length}</button></div></div><span class="sw">Stuck up to ${pl(mx, 'working day', 'working days')}</span><div class="jsub"${open ? '' : ' hidden'}>${xs.map(([j, i]) => `<div><span>${esc(j.t.replace(/^Recipe stuck \d+ working days?: /, ''))} · ${esc(fmtShort(d10(j.since)))}</span><button class="btn ghost" data-job="${i}">${j.btn}</button></div>`).join('')}</div></div>`; }).join('');
+  const grpH = (label, n, body) => n ? `<div class="jgh gjg"><span>${label}</span><span>${n}</span></div>${body}` : '';
+  const APH = { qc: 'To review', plant: 'To endorse' }; const R0 = ST.me.role;
+  const right = `<div class="jl" data-lft="jobs"><h2 class="gh">Your list <span class="c">${J.length}</span></h2>${J.length > 2 || LFQ.jobs ? findBox('jobs', 'Find a job, product or client') : ''}${chipsH}${grpH(Object.prototype.hasOwnProperty.call(APH, R0) ? APH[R0] : 'To approve', appr.length, appr.map(row).join(''))}${grpH('Stuck with others', stuck.length, stuckH)}${grpH('To do', todo.length, todo.map(row).join(''))}${J.length ? '' : '<div class="jrow green"><div class="t">Nothing needs you today.</div><span class="sw">Clear</span></div>'}</div>`;
   return `<div class="home">${left}${right}</div>`;
 }
 /* ---------- Margin ---------- */
@@ -2969,6 +3038,7 @@ function setReqBox(id) {
   return open.length ? open.map(r => `<div class="warnbox"><b>${esc(r.summary)}</b><br>Proposed by ${esc(personName(r.by_user))}. ${CAN('settings.approve') && (ADM() || r.byAdmin) ? `<div style="margin-top:6px"><button class="btn" data-setok="${r.id}" data-confirm="Confirm: approve">Approve</button> <button class="btn ghost" data-setno="${r.id}">Refuse</button></div>` : 'Waiting for the COO.'}</div>`).join('') : '<p class="ans">No threshold change is waiting.</p>';
 }
 const tgtTo = r => Number(r.to_gp) > 0 ? Number(r.to_gp) + '%' : `company target ${SET('budget_gp')}%`;
+const tgtVerb = r => { const a = r.from_gp == null ? Number(SET('budget_gp')) : Number(r.from_gp), b = Number(r.to_gp) > 0 ? Number(r.to_gp) : Number(SET('budget_gp')); return b > a ? 'Raise' : b < a ? 'Lower' : 'Set'; }; // push 10b (A-05): a target change says which way, so "23.2% to 34.3%" does not read as a range
 function tgtEffTxt(r) { const e = tgtEffect(r.client_product_id, Number(r.to_gp) > 0 ? Number(r.to_gp) : SET('budget_gp')); return e ? ` Margin, FY to date: ${shortTxt(e.now)} now, ${shortTxt(e.after)} with the new target; it applies to ${e.months.map(mon).join(', ')} too.` : ' No trucks yet, so Margin does not move.'; }
 function tReqBox(id) {
   const open = (ST.targetRequests || []).filter(r => r.status === 'open' && (id == null || r.id === id));

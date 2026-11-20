@@ -597,3 +597,12 @@ Built 10 Nov 2026, not pushed. No migration. 25 findings from the screens check 
 - A KAM list tick that was not saved (another save running, or refused) goes back (C-05).
 - VAN Brands answer line counts packs only; a product with no pack is said apart (C-08). The PO price check mark on Approvals opens its report on All dates, the period the mark counts (C-06).
 - In the go-live window the Guide rows and the role page's job lines say Send to the CFO (glGuide); the role page version is not changed, so nobody signs again (A-24).
+
+## 3.53 Push 10b: 1 page head and Approvals in 3 groups (owner: Tahir; D-173, 20 Nov 2026)
+- head(topic, answer, how, meta): title and answer line at the left; meta (date, O2S data as of) and "? Help" at the right; Help opens "How this works" under the head and stays open across redraws (helpOpen, by topic). Screens that build their own heading (product, VAN list, client, Costs parts, Labour, Month end) are not changed yet (review 10b, m6; next push).
+- Badge: for the administrator, the number of jobs of kind approve (his decisions); for every other role, all its jobs, as before.
+- Approvals (administrator only): answer line "N decisions need you. Also on your list: …"; topic chips (jobTopic: by panel first, then the start of the title; counts add up to the list); groups To approve, Stuck with others (recipes stuck with 1 role fold into 1 line that opens; Find opens a group when a word matches inside), To do; ages in working days; a red job not yet stuck reads "Act now".
+- Verdict card: period named (FY start to today); the chip says points below or above from the same GP the status uses (o.jPct), rounded as shown; legend explains the 2 lines; a month not finished is marked *.
+- Notices: 3 or more by 1 person on 1 day fold into 1 line that opens; Mark as read still marks up to the highest id shown.
+- Go-live line on Approvals is 1 line with "Open on Costs"; the date box and Close are on Costs only. On the last day it reads "last day today".
+- Print: the top bar and Help are not printed.

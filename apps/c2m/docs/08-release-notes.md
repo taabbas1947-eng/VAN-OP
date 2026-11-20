@@ -1178,3 +1178,9 @@ To correct a mistake: a price not yet in force is withdrawn or sent back; a rate
 - For your information keeps every unread notice of the last 30 days, so Mark as read marks only what was shown.
 - Price list viewers: Download gives the latest issued list with its own VAN/PL number; a list never issued is made once. A list that has ended is not given out: the viewer is told to ask the CFO for the current list (Tahir, 20 Nov 2026).
 - A KAM list tick that did not save goes back. VAN Brands counts packs only. The PO price check opens on the same dates it counts. In the window the Guide says Send to the CFO.
+
+## 2026-11-20b, push 10b: Approvals in 3 groups, and 1 page head (D-173)
+- Approvals: the badge counts only Tahir's decisions; the answer line says what else is on his list; topic chips and 3 groups (To approve, Stuck with others, To do); recipes stuck with 1 person are 1 line that opens; ages on the list in working days.
+- The margin card names its period, says how many points below or above target, explains the 2 lines and marks a month not finished with *.
+- For your information: 3 or more updates by 1 person on 1 day fold into 1 line.
+- Every screen built with the standard head has ? Help at the top right; the top bar is not printed.

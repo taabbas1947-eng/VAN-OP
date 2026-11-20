@@ -166,3 +166,6 @@ Until the go-live window ends (30 Nov 2026):
 - Majid: every recipe you send goes straight to Yawar: the first recipe of a new product, a new version, and another recipe of a product. The button says **Send to the CFO** (or **Resend to the CFO** after Yawar sends it back).
 - Yawar: approve it on Approvals; its cost is approved in the same press. Himayat and Fahim have no step on it until the window ends.
 - Yawar: on Costs, Labour or FOH, **Which products are on which rate** has a Find box. Type a product or a client; on Labour, type High to see the products on Labour rate High (on FOH, the same for FOH).
+
+## Approvals in 3 groups (20 Nov 2026, D-173, change list 2026-11-20b)
+For Tahir: the red number on Approvals counts only your decisions. The list under Your next move has topic chips and 3 groups: To approve, Stuck with others (recipes held by 1 person fold into 1 line; Show opens it) and To do. Each line says how long it has waited in working days. Every screen has ? Help at the top right for How this works.

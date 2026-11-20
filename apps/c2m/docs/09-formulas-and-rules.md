@@ -248,3 +248,11 @@ A pack takes 1 labour rate and 1 FOH rate, each the first match of these levels:
 | ID | Rule | Detail |
 |---|---|---|
 | B-68 | Every recipe in the window | While the window is open a draft of any recipe of any product goes draft, then cost, then approved. B-66 (recipe from the sheet) no longer limits it. |
+
+## 20 Nov 2026 (D-173)
+| ID | Rule | Detail |
+|---|---|---|
+| B-69 | Badge | Administrator: decisions only (kind approve). Other roles: all their jobs. |
+| B-70 | Job topic | Panel first (re-approval, not costed, materials, review list, actuals: Costs and month end; price, proposal, list revision, target, carry: Prices and targets; names, sheet items, settings: Setup; recipe: Recipes), then the start of the title; anything else Setup. |
+| B-71 | Notice digest | 3 or more notices by 1 person on 1 day fold into 1 line; fewer show 1 by 1. |
+| B-72 | Verdict chip | Points = target minus GP on sales with a target, each rounded to 1 decimal; "On target" when the status says on target. |

@@ -850,3 +850,9 @@ File: apps/c2m/migrations/015_c2m_basis_density.sql (local) and 015_c2m_basis_de
 
 ## 4.23 Migration 016 (10 Nov 2026, D-167): the CFO no longer enters nutrients
 File: apps/c2m/migrations/016_c2m_cfo_nutrients.sql and .PRODUCTION.sql. Takes "nutrient.edit" off c2m_role.actions_json for role_key cfo; safe to run twice; ends with a check query (empty = done). c2m_audit rows with entity notices_read, entity_id the username, new_value {"upto": newest notice id read}.
+## 4.24 Migration 017 (20 Nov 2026, D-176): price list numbers once only, public holidays
+File: apps/c2m/migrations/017_c2m_pl_numbers_holidays.sql and .PRODUCTION.sql. Safe to run twice. Starts with a check query: any ref listed is held by 2 documents (stop and tell Claude). Then:
+- c2m_price_doc: UNIQUE KEY uq_price_doc_ref (ref), added only when missing.
+- c2m_holiday (new): day DATE PRIMARY KEY, name VARCHAR(80), added_by VARCHAR(64), added_at DATETIME. Kept by the COO.
+- c2m_setting rows pl_seq_<year> (written by the code, no migration): the last VAN/PL number used that year.
+Local first (van_platform); production later by hand (Tahir, 23 Sept 2026 rule). Until 017 runs, the counter still works; the holiday list says it is not switched on.

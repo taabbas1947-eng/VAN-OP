@@ -40,12 +40,12 @@ function rows(aud, data, reasons = {}) {
     const ch = r.prev ? (r.cur - r.prev) / r.prev * 100 : null; // null = a new price, no previous
     const k = 'p' + r.packId;
     const sz = packSize(r); return { product: r.brand, spec: r.spec || '', pack: r.pack, cur: r.cur.toFixed(2), ppack: sz != null ? money2(Math.round(r.cur * sz * 100) / 100) : '', prev: r.prev != null ? r.prev.toFixed(2) : '', chg: ch == null ? 'new' : (ch > 0 ? '+' : '') + ch.toFixed(1) + '%',
-      reason: reasons[k] != null ? reasons[k] : (r.reason || (ch == null ? 'New price' : Math.abs(ch) > 0.01 ? 'Raw material cost change' : 'No change')), eff: fmtD(data.eff), _k: k, _fam: r.fam || null, _famName: r.famName || null };
+      reason: reasons[k] != null ? reasons[k] : (r.reason || (ch == null ? 'New price' : Math.abs(ch) > 0.01 ? 'Raw material cost change' : 'No change')), eff: fmtD(data.eff), _k: k, _ch: ch, _fam: r.fam || null, _famName: r.famName || null }; // _ch: the page's reasons list (push 10e)
   });
   if (aud === 'dist') return data.list.map((d, i) => {
     const ch = d.prev ? (d.now - d.prev) / d.prev * 100 : null; const k = 'd:' + d.p + '|' + (d.pack || ''), k0 = 'd' + i; if (reasons[k] == null && reasons[k0] != null) reasons = { ...reasons, [k]: reasons[k0] }; /* keyed by product and pack (1.0.3: the list re-sorts A to Z); documents issued before keep their reasons by position */ const noPrice = d.now == null; // null = no previous price: "new", never "0.0%" (defect 12)
     return { product: d.p, spec: d.d, pack: d.pack, cur: rs(d.now), fed: rs(d.fed), prev: rs(d.prev), chg: noPrice ? '' : ch == null ? 'new' : (ch > 0 ? '+' : '') + ch.toFixed(1) + '%',
-      reason: reasons[k] != null ? reasons[k] : (noPrice ? '' : ch == null ? 'New price' : Math.abs(ch) > 0.01 ? 'Price revised' : 'No change'), mrp: rs(d.mrp), terms: d.terms === 'TBD' ? 'As agreed' : d.terms, _k: k };
+      reason: reasons[k] != null ? reasons[k] : (noPrice ? '' : ch == null ? 'New price' : Math.abs(ch) > 0.01 ? 'Price revised' : 'No change'), mrp: rs(d.mrp), terms: d.terms === 'TBD' ? 'As agreed' : d.terms, _k: k, _ch: noPrice ? undefined : ch };
   });
   if (aud === 'dealer') return data.list.map(d => ({ product: d.p, spec: d.d, pack: d.pack, cur: rs(d.net), disc: d.disc ? (d.disc * 100).toFixed(1) + '%' : '', netfed: rs(d.netfed), frp: rs(d.frp), mrp: rs(d.mrp) }));
   if (aud === 'mrp') return mrpRows(data.list);

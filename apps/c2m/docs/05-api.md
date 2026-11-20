@@ -435,3 +435,13 @@ All below: right see.margin (403 otherwise), registered after the C2M access che
 ## 5.25 18 Nov 2026 (D-171)
 - POST /api/c2m/recipes/:id/advance: in the go-live window every draft goes to 'cost' (answer golive: true), another recipe included (answer other: true as well).
 - GET /api/c2m/state: in the window a draft's path is 'golive'; golive.opening is kept but no longer decides the path.
+
+## 5.26 Push 10e (20 Nov 2026; owner: Tahir; D-176)
+| Route | Right | Body | Answer |
+|---|---|---|---|
+| POST /api/c2m/pricedocs/preview | pricedoc.all | {audience, client, eff, till, reasons} | {eff, rows}: the rows the PDF would print on eff, built as POST /pricedocs does; nothing saved, no number; 400 for a bad date or audience, 403 for anyone else |
+| POST /api/c2m/holidays | the administrator (the COO) | {day: "YYYY-MM-DD", name} to add or rename; {day, remove: true} to remove | {ok} (remove: {ok, removed}); 403 for anyone else; 400 for a bad date or no name; in the change record (entity holiday) |
+- GET /api/c2m/state: holidays [{day, name}] and holidaysReady (false until migration 017) for every role; Company settings no longer lists pl_seq_ rows; nextDocRef is the counter's next number.
+- POST /api/c2m/pricedocs: the number comes from the counter (C-33); with migration 017 a clash fails the save as "someone else changed this".
+- Every save (not GET) runs the go-live close first once the window's last day has passed (C-21).
+- POST /api/c2m/pricedocs/preview is not counted as a save: it keeps everyone's kept state answers and does not run the go-live close. A list revision applied on its date (by any read) drops the kept answers.

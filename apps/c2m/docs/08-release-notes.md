@@ -1192,3 +1192,10 @@ To correct a mistake: a price not yet in force is withdrawn or sent back; a rate
 ## 2026-11-20d, push 10d: Price lists in 2 tabs (D-175)
 - Price lists: 2 tabs, Lists and Who can see them. Lists: issued lists first, each with its number, dates and state, Download PDF and Issue a new PDF; the lists never issued in 1 table with Make the first one; Make a list at the top; the public price page in 1 line.
 - Who can see them: 1 table of people against lists; a tick saves at once; Change opens a person's white label clients under the row; a cell marked missing is a list the 11 Nov ruling gives the person; See what they see. Also Setup, Settings, KAM lists.
+
+## 2026-11-20e, push 10e: small fixes from the audit, and public holidays (D-176)
+- Public holidays: the COO keeps a list in Company settings; working days on Approvals (how long a job is stuck) skip them.
+- A price list dated ahead shows the prices in force on its From date before the PDF is made; 2 price lists can never share a number.
+- Labour and FOH first figures and first moves follow the go-live window's last day.
+- An error shows over every box and is read out; money never shows -0 or Rs NaN; the margin card says Not judged when there is no target; a price of 0 shows no GP; a job opens the job it was drawn for; each prices-to-change job opens only its own packs; an older load never replaces a newer one.
+- Needs migration 017 (local first; production by hand later).

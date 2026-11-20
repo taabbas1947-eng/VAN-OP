@@ -351,3 +351,8 @@ Built 10 Nov 2026, not pushed. Migration 015.
 ## 2.39 The role page, push 7e (owner: Tahir; D-166, 10 Nov 2026)
 - Sign: POST /api/c2m/signoff {page, version} writes 1 c2m_audit row (entity signoff, entity_id "production:1", action signed, new_value {role, label}); a second sign of the same page and version writes none. The COO's sign is skipped.
 - State: signed (the page ids this person has signed); for the COO, signoffs {rows: every sign, people: every C2M person with role label and whether the role is the administrator}.
+
+## 2.40 Push 10e: public holidays, price list numbers and the dated-ahead preview (owner: Tahir; D-176, 20 Nov 2026)
+- Holidays: the COO, Company settings → POST /api/c2m/holidays → c2m_holiday (+ c2m_audit entity holiday) → state holidays for every role → wdays on Approvals (stuck) skips them.
+- Numbers: Create PDF → POST /api/c2m/pricedocs → in 1 transaction: lock c2m_setting pl_seq_<year>, next = 1 + the larger of it and the highest issued number, write it, insert c2m_price_doc (UNIQUE ref) → state nextDocRef shows the counter's next.
+- Preview: a document dated ahead → POST /api/c2m/pricedocs/preview {audience, client, eff and till as Create PDF sends} → docData on the From date → rows (nothing saved, no number, not counted as a save) → the page shows them in step 4 and lists their changed rows in step 2 for reasons.

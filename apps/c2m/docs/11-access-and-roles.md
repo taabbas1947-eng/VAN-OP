@@ -116,6 +116,8 @@ Anything else returns 403 "Not available to your role." Known limit: a viewer's 
 - Sign out: the "Sign out" link in the header clears the platform token on this device.
 - List and client grants for KAMs (D-97, D-175): Tahir or Yawar, Price lists, Who can see them (also Setup, KAM lists). 1 table of people against lists (since 20 Nov 2026); each tick saves at once and is in the change record. Copy from another manager replaces his ticks with another manager's. See what they see (was See what this person sees) opens that manager's own screen, read only: only for a manager given price lists, never for Tahir or Yawar, and every save is refused while it shows. A KAM is a person whose role holds see.granted_lists and not see.products; anyone who sees every list is not listed. A KAM is not told when something is granted. A KAM's PDF download checks the grant again.
 
+- Public holidays (D-176): only the administrator (the COO) adds or removes them (POST /api/c2m/holidays); every role reads them. The preview of a price list dated ahead (POST /api/c2m/pricedocs/preview) needs pricedoc.all.
+
 ## 11.7 What each role can never do
 - Nobody can print cost or margin on a price list; those fields do not exist for any audience.
 - A KAM (viewer) never receives cost, margin, settings, products, recipes, or list columns he is not granted. He cannot set notes, dates or reasons on a document.

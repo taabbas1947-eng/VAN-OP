@@ -161,7 +161,7 @@ function contributionFloor(b) { return (Number(b.materials) || 0) + (Number(b.pa
 
 /** FED % from the setting fed_pct (D-72): the only tax on VAN, charged on every product and client. A missing,
  * blank or out-of-range value (not above 0 and below 100) is taken as 5, the rate ruled by Tahir on 19 Oct 2026. */
-function fedPct(v) { const n = Number(v); return v != null && v !== '' && n > 0 && n < 100 ? n : 5; }
+function fedPct(v) { const n = Number(v); return v != null && String(v).trim() !== '' && isFinite(n) && n >= 0 && n < 100 ? n : 5; } // push 10e (C-13): a real 0% FED is 0, a blank one 5
 
 /** Net PO price from O2S (O2S rule): FED-inclusive lines divided by (1 + FED %); free lines 0. */
 function netPoPrice(invoicePrice, fedMode, foc, fed = 5) {

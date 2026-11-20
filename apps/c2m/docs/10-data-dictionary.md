@@ -427,3 +427,10 @@ Changed in 0.3.0 and 0.3.1: rs_per_kg fixed (1 rate of 1 kind, labour or FOH). A
 | Go-live window | The days until golive_until when cost changes go in at once and recipes from the sheet go straight to the CFO | c2m_setting k golive_until; state golive |
 | golive_reset | The last day whose close has run, so the close runs once | c2m_setting k golive_reset |
 | Opening product | A client product with a recipe version imported from Yawar's sheet (note starts "Imported from") | state golive.opening |
+
+## 10.30 20 Nov 2026 (D-176)
+| Term | Meaning | Where |
+|---|---|---|
+| Public holiday | A day the COO lists; working days skip it | c2m_holiday (day, name, added_by, added_at); state holidays |
+| pl_seq_<year> | The last VAN/PL number used in that year | c2m_setting k pl_seq_2026 and so on; not shown in Company settings |
+| targetOwn, targetDefault | On a product, sale or open PO in the page: the server's own target, and true when the page filled it from the company target | page state only |

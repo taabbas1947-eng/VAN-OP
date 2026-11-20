@@ -127,7 +127,10 @@ module.exports = function mountC2mRoutes(app, deps) {
     const R = roles || await loadRoles(); const [h] = await q("SELECT username, role FROM user_module_roles WHERE module='c2m'");
     return new Set(h.filter(x => R.get(x.role) && R.get(x.role).admin).map(x => String(x.username).toLowerCase()));
   }
-  const wrap = fn => (req, res) => glUntil().then(() => mvStore.run({}, () => fn(req, res))).catch(e => { // the go-live window is known before every request (D-170)
+  /* push 10e (C-21): once the window's last day has passed, a save first runs the close, so a cost saved on the first day after it
+     is not baselined by a later close run and left with a stale re-approval item. GL.doneFor stops the check once the close is recorded. */
+  const glPre = req => req.method !== 'GET' && !/\/pricedocs\/preview$/.test(req.path) && GL.until && today() > GL.until && GL.doneFor !== GL.until ? glClose().catch(e => console.error('[c2m] go-live close before a save failed: ' + (e && e.message))) : null;
+  const wrap = fn => (req, res) => glUntil().then(() => glPre(req)).then(() => mvStore.run({}, () => fn(req, res))).catch(e => { // the go-live window is known before every request (D-170)
     if (e && (e.errno === 1213 || e.errno === 1205 || e.code === 'ER_LOCK_DEADLOCK' || e.code === 'ER_LOCK_WAIT_TIMEOUT')) e = moved();
     if (e && e.code === 'ER_NO_SUCH_TABLE') { e = Object.assign(new Error('C2M is not switched on yet: IT has 1 step to run. Nothing was saved; try again after IT has run it.'), { status: 503 }); }
     if (!e.status) console.error('[c2m]', e);
@@ -312,7 +315,8 @@ module.exports = function mountC2mRoutes(app, deps) {
   };
 
   const STATE_TTL = 30000; const stateCache = new Map(); let writeVer = 0;
-  app.use('/api/c2m', (req, res, next) => { if (req.method !== 'GET') { writeVer++; const done = () => { writeVer++; }; res.on('finish', done); res.on('close', done); } next(); }); // any save, roles included: the kept answers are no longer current
+  const readOnlyPost = req => /\/pricedocs\/preview$/.test(req.path); // push 10e (review P-2): the preview saves nothing
+  app.use('/api/c2m', (req, res, next) => { if (req.method !== 'GET' && !readOnlyPost(req)) { writeVer++; const done = () => { writeVer++; }; res.on('finish', done); res.on('close', done); } next(); }); // any save, roles included: the kept answers are no longer current
   /* ---------- Page ---------- */
   app.get(['/c2m', '/c2m/'], (req, res) => { res.set('Cache-Control', 'no-cache'); /* the browser keeps its copy and checks it is current (ETag) instead of downloading 560 KB on every open (D-145) */ res.sendFile(path.join(__dirname, 'c2m.html')); });
   app.get('/c2m/assets/van-logo.png', (req, res) => res.sendFile(path.join(__dirname, 'assets', 'van-logo.png')));
@@ -442,7 +446,8 @@ module.exports = function mountC2mRoutes(app, deps) {
     const eGrants = !has('see.products') && has('see.granted_lists') ? earlyQ('SELECT grant_kind, grant_value FROM c2m_list_grant WHERE username=?', [user]) : null;
     const eSales = has('see.margin') ? earlyQ(`SELECT t.id, t.truck_date, t.kg, t.po, t.dc, p.line_id, p.received, p.customer_name, p.channel, p.brand, p.pack, p.net_price FROM c2m_o2s_truck t JOIN c2m_o2s_po_line p ON p.line_id=t.line_id ORDER BY t.truck_date`) : null;
     const eRegion = has('see.margin') ? earlyQ("SHOW COLUMNS FROM c2m_o2s_po_line LIKE 'region'") : null;
-    const eNextDoc = has('see.margin') ? earlyQ('SELECT COUNT(*) n FROM c2m_price_doc WHERE ref LIKE ?', [`VAN/PL/${today().slice(0, 4)}/%`]) : null;
+    const eHol = earlyQ('SELECT day, name FROM c2m_holiday ORDER BY day'); // push 10e (review M-5): read beside the others
+    const eNextDoc = has('see.margin') ? earlyQ("SELECT GREATEST(COALESCE((SELECT MAX(CAST(SUBSTRING_INDEX(ref, '/', -1) AS UNSIGNED)) FROM c2m_price_doc WHERE ref LIKE ?), 0), COALESCE((SELECT CAST(v AS UNSIGNED) FROM c2m_setting WHERE k=?), 0)) n", [`VAN/PL/${today().slice(0, 4)}/%`, 'pl_seq_' + today().slice(0, 4)]) : null; // push 10e (C-33): the last number used, not a count
     if (has('see.materials') || has('see.products')) await nutBackfill(); // push 7a: copies the old class fields once, after migration 014
     if (has('see.margin')) await glClose().catch(e => console.error('[c2m] go-live close failed: ' + (e && e.message))); // D-170: a window that has ended resets the approved costs before they are read (no query while no window is set)
     const D = await engine.loadAll(q);
@@ -534,7 +539,7 @@ module.exports = function mountC2mRoutes(app, deps) {
     });
 
     // Settings (budget and ambition GP, thresholds) go to Yawar and Tahir only (review S9)
-    const out = { m007: D.m007, outOfUseKeys: [...D.outOfUse], variantsReady: D.variantsReady, families: D.families.map(f => ({ id: f.id, name: f.name, variants: D.pvariants.filter(v => v.family_id === f.id).map(v => ({ id: v.id, name: v.name })) })), me: meOf(acc, user), settings: has('see.settings') ? D.settings.rows.filter(r => !/^golive_/.test(r.k)) : has('see.margin') ? D.settings.rows.filter(r => MARGIN_SETTINGS.includes(r.k) || isListSet(r.k)).map(r => ({ k: r.k, v: r.v })) : [], fedPct: lib.fedPct(D.settings.values.fed_pct), products, recipes, today: today() };
+    const out = { m007: D.m007, outOfUseKeys: [...D.outOfUse], variantsReady: D.variantsReady, families: D.families.map(f => ({ id: f.id, name: f.name, variants: D.pvariants.filter(v => v.family_id === f.id).map(v => ({ id: v.id, name: v.name })) })), me: meOf(acc, user), settings: has('see.settings') ? D.settings.rows.filter(r => !/^golive_|^pl_seq_/.test(r.k)) : has('see.margin') ? D.settings.rows.filter(r => MARGIN_SETTINGS.includes(r.k) || isListSet(r.k)).map(r => ({ k: r.k, v: r.v })) : [], fedPct: lib.fedPct(D.settings.values.fed_pct), products, recipes, today: today() };
     out.m014 = D.m014; // push 7a (D-162): the nutrient list and declared grades; false until migration 014
     out.m015 = !!D.m015; // push 7c (D-164): a basis on each value, densities; false until migration 015
     if (D.m015 && (has('see.materials') || has('see.products'))) out.productDensity = Object.fromEntries([...D.density.product].filter(([k]) => D.cpById.has(k)));
@@ -554,6 +559,7 @@ module.exports = function mountC2mRoutes(app, deps) {
     { const [ns] = await eReadUpto; let up = 0; try { up = Number(JSON.parse((ns && ns[0] && ns[0].new_value) || '{}').upto) || 0; } catch (_) {} out.noticesReadUpto = up; }
     out.issuer = PL.ISSUER; // push 7g: the price list preview names the issuer from the same place as the PDF
     if (!has('see.margin') && noticeKeys.some(k => ['production', 'qc', 'plant', 'cfo'].includes(k))) { const [nt] = await eNoticesRole; out.notices = (nt || []).map(n => has('see.cost') ? n : { ...n, text: lib.noRs(n.text) }); } // push 7b (R65), 7f: by the step rights held
+    { try { const [hd] = await eHol; out.holidays = hd.map(h => ({ day: String(h.day).slice(0, 10), name: h.name })); out.holidaysReady = true; } catch (e) { if (e && e.code !== 'ER_NO_SUCH_TABLE') throw e; out.holidays = []; out.holidaysReady = false; } } /* push 10e (C-35): public holidays, kept by the COO; every role counts working days without them */
     { const gu = await glUntil(); out.golive = { until: gu, on: !!gu && today() <= gu, opening: viewerOnly ? [] : [...openingCps(D)] }; } /* D-170: everyone sees the window */
     if (has('see.materials')) {
       // Material master without rates: Himayat's screen (ruled 16 Oct)
@@ -842,7 +848,7 @@ module.exports = function mountC2mRoutes(app, deps) {
           await audit('c2m', 'freight_case', k.slice(0, 60), 'checked', null, { spellings: spell, reapproval: re }, 'Freight region spellings joined (fault A7)'); n++;
         });
       }
-    } catch (e) { console.error('[c2m] freight date check failed: ' + (e && e.message)); } finally { freightBusy = false; }
+    } catch (e) { console.error('[c2m] freight date check failed: ' + (e && e.message)); } finally { freightBusy = false; if (n) writeVer++; } // push 10e (C-32): kept answers are no longer current
     return n;
   }
   let autoBusy = false;
@@ -852,7 +858,7 @@ module.exports = function mountC2mRoutes(app, deps) {
     try {
       const [[last]] = await q('SELECT MAX(finished_at) f FROM c2m_sync_run');
       if (!autoPullDue(last && last.f ? String(last.f).slice(0, 19) : null, nowPk || now(), atStart)) return 'not due';
-      const r = await pullOnce('c2m-auto', 'Daily pull');
+      const r = await pullOnce('c2m-auto', 'Daily pull'); writeVer++; // push 10e (C-32)
       console.log(`[c2m] daily pull: ${r.poLines} PO lines, ${r.trucks} trucks, ${r.issues.length} issues`);
       return 'pulled';
     } catch (e) {
@@ -861,8 +867,8 @@ module.exports = function mountC2mRoutes(app, deps) {
     } finally { autoBusy = false; }
   }
   if (!deps.noAutoPull) {
-    const t1 = setTimeout(() => { glUntil(true).then(() => autoPull(null, true)).catch(() => {}).then(() => applyDue()).catch(() => {}); }, AUTO.firstMs); if (t1.unref) t1.unref();
-    const t2 = setInterval(() => { glUntil(true).then(() => autoPull()).catch(() => {}).then(() => applyDue()).catch(() => {}).then(() => freightDueSweep()).catch(() => {}).then(() => glClose()).catch(e => console.error('[c2m] go-live close failed: ' + (e && e.message))); }, AUTO.everyMs); if (t2.unref) t2.unref(); // Monday costs go in before the freight check (push 2b)
+    const t1 = setTimeout(() => { glUntil(true).then(() => glClose()).catch(e => console.error('[c2m] go-live close failed: ' + (e && e.message))).then(() => autoPull(null, true)).catch(() => {}).then(() => applyDue()).catch(() => {}); }, AUTO.firstMs); if (t1.unref) t1.unref();
+    const t2 = setInterval(() => { glUntil(true).then(() => glClose()).catch(e => console.error('[c2m] go-live close failed: ' + (e && e.message))).then(() => autoPull()).catch(() => {}).then(() => applyDue()).catch(() => {}).then(() => freightDueSweep()).catch(() => {}); }, AUTO.everyMs); /* push 10e (review M-1): the close runs first, before Monday costs and freight */ if (t2.unref) t2.unref(); // Monday costs go in before the freight check (push 2b)
   }
   module.exports._test = Object.assign(module.exports._test || {}, { autoPullDue, autoPull, freightDueSweep, applyDue: (...a) => applyDue(...a), nextMonday: d => nextMonday(d) });
 
@@ -874,6 +880,16 @@ module.exports = function mountC2mRoutes(app, deps) {
   function openingCps(D) { const out = new Set(); for (const v of D.recipes.byVer.values()) if (['approved', 'old'].includes(v.state) && /^Imported from/i.test(String(v.note || ''))) out.add(Number(v.client_product_id)); return out; } // review m2: a draft's note does not count
   const setRow = (k, v, label, by) => q('INSERT INTO c2m_setting (k, v, label, needs_approval, updated_by, updated_at) VALUES (?,?,?,0,?,?) ON DUPLICATE KEY UPDATE v=VALUES(v), updated_by=VALUES(updated_by), updated_at=VALUES(updated_at)', [k, v, label, by, now()]);
   /** Tahir opens the window to a last day, moves the last day, or closes it now (the last day becomes yesterday, so the close runs at once). */
+  /** Push 10e (C-35; Tahir, 20 Nov 2026): the COO keeps the list of public holidays; "stuck" and "waiting" ages skip them. */
+  app.post('/api/c2m/holidays', wrap(async (req, res) => {
+    if (!req.c2m.admin) throw Object.assign(new Error('Only the COO keeps the list of public holidays.'), { status: 403 });
+    const b = req.body || {}; const day = String(b.day || '').slice(0, 10); if (!isDate(day)) throw bad('Pick the date of the holiday.');
+    if (b.remove) { const [[h0]] = await q('SELECT name FROM c2m_holiday WHERE day=?', [day]); const [r] = await q('DELETE FROM c2m_holiday WHERE day=?', [day]); if (r.affectedRows) await audit(req.c2m.user, 'holiday', day, 'remove', { name: h0 ? h0.name : null }, null, 'Public holiday removed'); return res.json({ ok: true, removed: r.affectedRows }); }
+    const name = String(b.name || '').trim().slice(0, 80); if (!name) throw bad('Type the name of the holiday, e.g. Eid ul Fitr.');
+    await q('INSERT INTO c2m_holiday (day, name, added_by, added_at) VALUES (?,?,?,?) ON DUPLICATE KEY UPDATE name=VALUES(name), added_by=VALUES(added_by), added_at=VALUES(added_at)', [day, name, req.c2m.user, now()]);
+    await audit(req.c2m.user, 'holiday', day, 'save', null, { name }, 'Public holiday');
+    res.json({ ok: true });
+  }));
   app.post('/api/c2m/golive', wrap(async (req, res) => {
     if (!req.c2m.admin) throw Object.assign(new Error('Only Tahir sets the go-live window.'), { status: 403 });
     const T = today(); const b = req.body || {}; const old = await glUntil(true); let until;
@@ -894,10 +910,13 @@ module.exports = function mountC2mRoutes(app, deps) {
   let glBusy = false;
   /** The day after the last day: each fully costed pack whose cost differs from its approved cost gets that cost as its approved cost,
    *  once per window (setting golive_reset holds the last day it was done for). A pack not fully costed keeps its approved cost and is named. */
-  async function glClose() {
+  /* push 10e (review M-1): 1 close at a time; a save that arrives while a close runs waits for it (glPre) instead of running beside it */
+  let glRunP = null;
+  function glClose() { if (glRunP) return glRunP; glRunP = glClose0().finally(() => { glRunP = null; }); return glRunP; }
+  async function glClose0() {
     const until = await glUntil(); const T = today();
     if (!until || T <= until || glBusy) return null;
-    { const [rows] = await deps.pdq("SELECT v FROM c2m_setting WHERE k='golive_reset'"); if (rows && rows[0] && String(rows[0].v).slice(0, 10) === until) return null; }
+    { const [rows] = await deps.pdq("SELECT v FROM c2m_setting WHERE k='golive_reset'"); if (rows && rows[0] && String(rows[0].v).slice(0, 10) === until) { GL.doneFor = until; return null; } }
     glBusy = true; let n = 0; const left = []; let ran = false;
     try {
       await tx(async () => {
@@ -917,7 +936,8 @@ module.exports = function mountC2mRoutes(app, deps) {
         const txt = `Go-live window closed (last day ${until}): ${n} pack(s) took the cost that day as their approved cost.${left.length ? ` ${left.length} pack(s) not fully costed were left as they were, e.g. ${left.slice(0, 4).join('; ')}.` : ''}`;
         for (const r of ['coo', 'cfo']) await notice(r, txt, who);
       });
-    } finally { glBusy = false; }
+      if (ran) GL.doneFor = until; // push 10e (C-21): recorded only once the close is saved
+    } finally { glBusy = false; if (ran) writeVer++; } // push 10e (C-32)
     return ran ? { packs: n, notCosted: left.length } : null;
   }
 
@@ -1303,7 +1323,7 @@ module.exports = function mountC2mRoutes(app, deps) {
  await q("UPDATE c2m_cost_pending SET status='failed', waiting_key=NULL, decided_by='monday', decided_at=?, result_text=? WHERE id=? AND status='waiting'", [now(), String(e.message || e).slice(0, 400), r.id]).catch(() => {}); }
       }
       if (n || bad1) { const t = `Monday costs: ${n} change(s) went in${bad1 ? `, ${bad1} could not (see Costs, Next week's costs)` : ''}.`; await notice('coo', t, 'C2M'); if (bad1) await notice('cfo', t, 'C2M'); }
-    } finally { applyBusy = false; }
+    } finally { applyBusy = false; if (n || bad1) writeVer++; } // push 10e (C-32)
     return n;
   }
   const save_rate = async (req, res) => {
@@ -1949,7 +1969,8 @@ module.exports = function mountC2mRoutes(app, deps) {
   /* ---------- Settings: thresholds need Tahir's approval; budget lines notify Tahir (ruled 14 to 15 Oct) ---------- */
   app.post('/api/c2m/settings', can('settings.edit'), wrap(async (req, res) => {
     const ch = (req.body || {}).changes || {};
-    if (Object.keys(ch).some(k => /^golive_/.test(k))) throw bad('The go-live window is set by Tahir on Costs, not in Company settings.'); // review m1
+    if (Object.keys(ch).some(k => /^golive_/.test(k))) throw bad('The go-live window is set by Tahir on Costs, not in Company settings.');
+    if (Object.keys(ch).some(k => /^pl_seq_/.test(k))) throw bad('Price list numbers are given by C2M, not set in Company settings.'); // push 10e (review P-5) // review m1
     const [rows] = await q('SELECT k, v, label, needs_approval FROM c2m_setting'); rows.forEach(r => { if (r.k === 'budget_gp') { r.needs_approval = 1; r.label = 'Company GP target, %'; } if (isListSet(r.k)) r.needs_approval = 1; });
     for (const L of LIST_ROWS) if (!rows.some(r => r.k === L.k)) rows.push({ ...L }); /* a list's target and freight: not set until first approved (D-153) */
     for (const [k, v] of Object.entries(ch)) if (/^lt_/.test(k) && isListSet(k) && String(v).trim() !== '' && !(strictNum(v) > 0 && strictNum(v) < 100)) throw bad('A list target is a % above 0 and below 100.'); // D-75: waits for Tahir, under the name Setup shows (no SQL needed)
@@ -2370,7 +2391,7 @@ module.exports = function mountC2mRoutes(app, deps) {
      change and every move goes to re-approval as usual (ruled after the review: "Go-live only"). When the last of the go-live
      rates is filled, each pack's cost that day becomes its approved cost, with no re-approval ("New cost becomes approved"),
      so later changes compare with it. Not in the weekly cycle: reviewed monthly (R15). */
-  const KN = { labour: 'Labour', foh: 'FOH' }; const LF_FREE_TILL = '2026-12-01';
+  const KN = { labour: 'Labour', foh: 'FOH' }; // push 10e (C-14): first figures are free while the go-live window is open (glOn), not until a fixed date
   const dWords = d => { const p = String(d).slice(0, 10).split('-'); const M = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']; return p.length === 3 ? `${+p[2]} ${M[+p[1] - 1]} ${p[0]}` : String(d); };
   /** Once, when every named rate has a figure during go-live: each pack's cost today becomes its approved cost (no re-approval). */
   async function lfBaseline(user) {
@@ -2392,7 +2413,7 @@ module.exports = function mountC2mRoutes(app, deps) {
     const name = String(b.name || '').trim().replace(/\s+/g, ' '); if (!/^[A-Za-z0-9 ]{1,40}$/.test(name)) throw bad('Name the rate in a few letters or digits, e.g. Low, High or Average.');
     const rs = strictNum(b.rsPerKg); if (!(rs > 0) || rs > 100000) throw bad('Type the rate in Rs per kg or L, digits above 0.');
     const known = D.lf.names[kind].find(n => n.toLowerCase() === name.toLowerCase()); const nm = known || name; // "low" is the same rate as "Low"
-    const T = today(), vf = T; const cur = engine.lfRateOf(D, kind, nm, T); const first = (!cur || cur.rsPerKg == null) && T < LF_FREE_TILL;
+    const T = today(), vf = T; const cur = engine.lfRateOf(D, kind, nm, T); const first = (!cur || cur.rsPerKg == null) && glOn();
     if (cur && cur.rsPerKg === rs) throw bad(`${KN[kind]} rate ${nm} is already Rs ${lib.fmtRs2(rs)}.`);
     const label = `${KN[kind]} rate ${nm}`; let re = 0, base = 0;
     await tx(async () => {
@@ -2413,7 +2434,7 @@ module.exports = function mountC2mRoutes(app, deps) {
     const name = String(b.name || '').trim(); if (!D.lf.names[kind].includes(name)) throw bad(`There is no ${KN[kind]} rate named ${name}.`);
     const T = today(), vf = T; const was = engine.lfPickOf(D, cp.id, kind, T); if (was === name) throw bad(`${cp.brand} is already on ${KN[kind]} rate ${name}.`);
     const to = engine.lfRateOf(D, kind, name, T); if (!to || to.rsPerKg == null) throw bad(`Fill ${KN[kind]} rate ${name} first: it has no figure yet.`);
-    const first = !D.lf.P.has(cp.id + '|' + kind) && T < LF_FREE_TILL; let re = 0; // free only at go-live (ruled 5 Nov)
+    const first = !D.lf.P.has(cp.id + '|' + kind) && glOn(); let re = 0; // free only at go-live (ruled 5 Nov)
     await tx(async () => {
       await q('INSERT INTO c2m_lf_pick (client_product_id, kind, rate_name, valid_from, set_by, set_at) VALUES (?,?,?,?,?,?)', [cp.id, kind, name, vf, req.c2m.user, now()]);
       await audit(req.c2m.user, 'lf_pick', `${cp.id}:${kind}`, 'save', { name: was }, { name, validFrom: vf }, null);
@@ -3194,7 +3215,8 @@ module.exports = function mountC2mRoutes(app, deps) {
   /** Revisions approved ahead of their date take effect on it (checked whenever C2M loads). */
   async function applyDueRevisions() {
     const [due] = await q("SELECT * FROM c2m_list_revision WHERE status='approved' AND applied=0 AND valid_from<=? ORDER BY valid_from, id", [today()]);
-    for (const r of due) await tx(async () => { if (await applyRevision(r)) await audit('c2m', 'list_revision', r.id, 'applied', null, { list: r.list_name }, 'From date reached'); });
+    let n = 0; for (const r of due) await tx(async () => { if (await applyRevision(r)) { n++; await audit('c2m', 'list_revision', r.id, 'applied', null, { list: r.list_name }, 'From date reached'); } });
+    if (n) writeVer++; // push 10e (review M-4): kept state answers are no longer current
   }
   app.post('/api/c2m/lists/revisions/:id/sendback', can('list.approve'), wrap(async (req, res) => {
     const reason = String((req.body || {}).reason || '').trim(); if (!reason) throw bad('Write a reason.');
@@ -3241,6 +3263,23 @@ module.exports = function mountC2mRoutes(app, deps) {
     if (aud === 'wl') return g.some(x => x.grant_kind === 'client' && x.grant_value === client);
     return g.some(x => x.grant_kind === 'list' && (x.grant_value === aud || (aud === 'web' && x.grant_value === 'farmer_pb')));
   }
+  /** Push 10e (C-33): the next VAN/PL number of a year. A counter row (setting pl_seq_<year>) is locked and moved on inside the
+   *  document's own transaction, never below the highest number already issued, so a deleted or failed document never gives its
+   *  number again. Migration 017 adds UNIQUE(ref); a clash then fails the save, which is said as "someone else changed this". */
+  async function plNextRef(yr) {
+    const k = 'pl_seq_' + yr; const [[c]] = await q('SELECT v FROM c2m_setting WHERE k=? FOR UPDATE', [k]);
+    const [[m]] = await q("SELECT MAX(CAST(SUBSTRING_INDEX(ref, '/', -1) AS UNSIGNED)) m FROM c2m_price_doc WHERE ref LIKE ?", [`VAN/PL/${yr}/%`]);
+    const n = Math.max(c ? Number(c.v) || 0 : 0, Number(m && m.m) || 0) + 1;
+    await q('INSERT INTO c2m_setting (k, v, label, needs_approval, updated_at) VALUES (?,?,?,0,?) ON DUPLICATE KEY UPDATE v=VALUES(v), updated_at=VALUES(updated_at)', [k, String(n), `Price list numbers, ${yr}: last number used`, now()]);
+    return `VAN/PL/${yr}/${String(n).padStart(3, '0')}`;
+  }
+  /** Push 10e (C-20): the rows a PDF dated ahead will print, built exactly as the PDF (docData on the From date), with nothing saved and no number. */
+  app.post('/api/c2m/pricedocs/preview', can('pricedoc.all'), wrap(async (req, res) => {
+    const b = req.body || {}; const aud = b.audience; if (!PL.AUDIENCES[aud]) throw bad('Pick who the list is for.');
+    if (b.eff && !isDate(b.eff)) throw bad('From must be a date.');
+    const data = await docData(aud, { client: b.client, eff: b.eff, till: b.till && isDate(b.till) ? b.till : null });
+    res.json({ eff: data.eff, rows: PL.rows(aud, data, b.reasons && typeof b.reasons === 'object' ? b.reasons : {}) });
+  }));
   app.post('/api/c2m/pricedocs', wrap(async (req, res) => {
     const b = req.body || {}; const aud = b.audience;
     if (!PL.AUDIENCES[aud]) throw bad('Pick who the list is for.');
@@ -3259,8 +3298,7 @@ module.exports = function mountC2mRoutes(app, deps) {
     const reasons = viewer ? {} : (b.reasons && typeof b.reasons === 'object' ? b.reasons : {});
     const id = await tx(async () => {
       const yr = today().slice(0, 4);
-      const [[n]] = await q("SELECT COUNT(*) n FROM c2m_price_doc WHERE ref LIKE ? FOR UPDATE", [`VAN/PL/${yr}/%`]);
-      const ref = `VAN/PL/${yr}/${String(n.n + 1).padStart(3, '0')}`;
+      const ref = await plNextRef(yr); // push 10e (C-33): a counter per year, never a count
       const data = await docData(aud, { ...opts, ref });
       const [r] = await q('INSERT INTO c2m_price_doc (ref, audience, addressee, fields_json, effective, valid_till, created_by, created_at) VALUES (?,?,?,?,?,?,?,?)',
         [ref, aud, data.addressee || PL.title(aud, data).to, JSON.stringify({ fields, client: b.client || null, reasons, note: data.note, snapshot: data }), data.eff, data.till, req.c2m.user, now()]);
@@ -3336,7 +3374,7 @@ module.exports = function mountC2mRoutes(app, deps) {
     costs: ['recipe:cost_approved', 'client_pack:cost_approved', 'client_product:cost_approved', 'reapproval', 'rate', 'packing_bill', 'packing_item', 'packing_rate', 'conversion_rule', 'freight', 'monthly_actual', 'monthly_check', 'first_cost_sweep', 'import_item', 'client_pack:packing_bill'],
     prices: ['price', 'list_revision', 'list_price', 'list_master', 'price_doc', 'target', 'target_request'],
     products: ['client_product', 'client_pack', 'customer', 'product_family', 'product_variant', 'product_name'],
-    settings: ['setting', 'setting_request', 'role', 'sync', 'grant'],
+    settings: ['setting', 'setting_request', 'role', 'sync', 'grant', 'holiday'],
   };
   const has0 = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
   const auditKindOf = a => { for (const [k, L] of Object.entries(AUDIT_KIND)) if (L.includes(a.entity + ':' + a.action)) return k;

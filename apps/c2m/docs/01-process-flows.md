@@ -385,7 +385,7 @@ flowchart TB
     B -- no --> C{Any red item? · D-54}
     C -- yes --> N2[Next move = first red item by priority, oldest first · B-12]
     C -- no --> N3[Next move = first job by priority, oldest first; undated last · B-12]
-    N1 --> G[Then To approve, To do, Waiting on others; every line shows its age; stuck after more than 2 working days, Monday to Saturday · D-54]
+    N1 --> G[Then To approve, To do, Waiting on others; every line shows its age; stuck after more than 2 working days, Monday to Saturday less public holidays · D-54, D-176]
     N2 --> G
     N3 --> G
   end
@@ -698,7 +698,7 @@ flowchart LR
 
 ## 1.29 Labour and FOH, Low and High (owner: Tahir and Yawar rule; Yawar sets; D-150, 5 Nov 2026)
 - At the switch (migration 011) every product is on Labour Low and FOH Low and the 4 rates are not filled. Approvals tells Yawar to fill them; until then packs have no labour or FOH cost.
-- Yawar fills or changes a rate on Costs, Labour or FOH (effect first). In force from the day saved. Go-live (until 30 Nov 2026), the first figure: no re-approval; when all the rates are filled, each pack's cost that day becomes its approved cost. Later changes: packs over the re-approval % go to re-approval; Tahir is told.
+- Yawar fills or changes a rate on Costs, Labour or FOH (effect first). In force from the day saved. Go-live (while the window is open, until its last day), the first figure: no re-approval; when all the rates are filled, each pack's cost that day becomes its approved cost. Later changes: packs over the re-approval % go to re-approval; Tahir is told.
 - Yawar moves a product to High (or back) in the product list; effect first; in force from the day saved. Go-live first move: no re-approval. Later moves, and every move from 1 Dec: its packs go to re-approval.
 - From the 1st of each month Approvals asks Yawar to certify the month before (starting with the month of the switch); due by the 5th, overdue after. No change, or Changed and then change the rates.
 ```mermaid

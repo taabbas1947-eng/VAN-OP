@@ -1188,3 +1188,7 @@ To correct a mistake: a price not yet in force is withdrawn or sent back; a rate
 ## 2026-11-20c, push 10c: VAN Brands boxes and rows, Costs boxes that say their state (D-174)
 - VAN Brands, Products: 4 boxes filter the table; the whole row opens the product; name once, pack muted, packs small to large; 1 state per row; no Standard margin %.
 - Costs: Problem, To do, Not set up, Waiting or Up to date on each box with a coloured edge and an icon, problems first, the whole box opens; month end shows its 5 steps and the next one; packing's last change includes bills; labour and FOH say per kg or L; the go-live line is 1 line.
+
+## 2026-11-20d, push 10d: Price lists in 2 tabs (D-175)
+- Price lists: 2 tabs, Lists and Who can see them. Lists: issued lists first, each with its number, dates and state, Download PDF and Issue a new PDF; the lists never issued in 1 table with Make the first one; Make a list at the top; the public price page in 1 line.
+- Who can see them: 1 table of people against lists; a tick saves at once; Change opens a person's white label clients under the row; a cell marked missing is a list the 11 Nov ruling gives the person; See what they see. Also Setup, Settings, KAM lists.

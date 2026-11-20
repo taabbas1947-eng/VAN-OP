@@ -546,10 +546,10 @@ flowchart TD
 
 ```mermaid
 flowchart LR
-  T[Tahir or Yawar: Setup, KAM lists] --> P[Pick a manager]
+  T[Tahir or Yawar: Price lists, Who can see them, or Setup, KAM lists] --> P[1 row per person]
   P --> A[Tick price lists and client chips: each tick saves at once]
   P --> B[Copy from another manager: replaces his ticks]
-  P --> C[See what this person sees: read only]
+  P --> C[See what they see: read only]
   A --> G[(c2m_list_grant)]
   B --> G
   G --> K[The KAM opens Price lists: only what is ticked, approved prices only]

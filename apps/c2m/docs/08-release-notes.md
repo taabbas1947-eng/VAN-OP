@@ -1171,3 +1171,10 @@ Setup, Customers, Edit, box "Customer name in C2M". The new name shows on all C2
 4. Margin: opens on the whole company for this month; change the group or month in the line at the top.
 5. Setup: rates, packing, labour and targets, clients, variants, product names, KAM lists, the record of every change. Back office no longer exists: its Customers is Setup, Client details; System documentation is in Setup too.
 To correct a mistake: a price not yet in force is withdrawn or sent back; a rate is saved again with the right value; a white label product is renamed, taken out of use or has a pack removed on its own page, Correct a mistake; a client is renamed in Setup, Client details, Edit.
+
+## 2026-11-20a, push 10a: true counts in the go-live window, and lists downloaded without a new number (D-172)
+- In the go-live window each cost notice says how many packs moved more than the re-approval %, and that their cost that day becomes the approved cost when the window closes. Before, it said no pack moved, which was not checked in the window.
+- Costs that become approved: a button on the go-live line opens the list of every pack whose cost differs from its approved cost, largest moves first; from 7 days before the last day it is also a job for Tahir on Approvals.
+- For your information keeps every unread notice of the last 30 days, so Mark as read marks only what was shown.
+- Price list viewers: Download gives the latest issued list with its own VAN/PL number; a list never issued is made once. A list that has ended is not given out: the viewer is told to ask the CFO for the current list (Tahir, 20 Nov 2026).
+- A KAM list tick that did not save goes back. VAN Brands counts packs only. The PO price check opens on the same dates it counts. In the window the Guide says Send to the CFO.

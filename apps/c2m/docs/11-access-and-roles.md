@@ -306,3 +306,5 @@ No new action: each list uses the right that adds to it. Delete, Take out of use
 
 ## 11.31 18 Nov 2026 (D-171)
 - In the window the QC Head and the Plant Manager have no step on any recipe the Production Manager sends; it goes to the CFO. No action or right changed.
+
+- 20 Nov 2026 (D-172, C-07): a Price list viewer (pricedoc.granted) may download the latest issued document of a list or white label client granted to him, whoever issued it (before: only documents he made); not an older one, and not one that has ended (Tahir, 20 Nov 2026); he may issue only the first document of a list. The MRP printing list stays with pricedoc.all only.

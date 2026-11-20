@@ -51,6 +51,7 @@ module.exports = function mountC2mRoutes(app, deps) {
    * transaction's connection. Without deps.pool C2M answers 503 (mountFault above); the check in tx() is only a guard. */
   const txStore = new AsyncLocalStorage();
   const dryStore = new AsyncLocalStorage(); // effect before saving (push 2a): set only inside a ?dry=1 save
+  const mvStore = new AsyncLocalStorage(); // push 10a (C-01): per request, the last re-approval count of moved packs, for the cost notice
   const clean = p => Array.isArray(p) ? p.map(v => (v === undefined ? null : v)) : p;
   const q = (sql, p) => {
     /* Effect before saving (push 2a): in a dry run every re-approval item a save would write is listed instead (review 5 Nov, finding 1:
@@ -126,7 +127,7 @@ module.exports = function mountC2mRoutes(app, deps) {
     const R = roles || await loadRoles(); const [h] = await q("SELECT username, role FROM user_module_roles WHERE module='c2m'");
     return new Set(h.filter(x => R.get(x.role) && R.get(x.role).admin).map(x => String(x.username).toLowerCase()));
   }
-  const wrap = fn => (req, res) => glUntil().then(() => fn(req, res)).catch(e => { // the go-live window is known before every request (D-170)
+  const wrap = fn => (req, res) => glUntil().then(() => mvStore.run({}, () => fn(req, res))).catch(e => { // the go-live window is known before every request (D-170)
     if (e && (e.errno === 1213 || e.errno === 1205 || e.code === 'ER_LOCK_DEADLOCK' || e.code === 'ER_LOCK_WAIT_TIMEOUT')) e = moved();
     if (e && e.code === 'ER_NO_SUCH_TABLE') { e = Object.assign(new Error('C2M is not switched on yet: IT has 1 step to run. Nothing was saved; try again after IT has run it.'), { status: 503 }); }
     if (!e.status) console.error('[c2m]', e);
@@ -151,7 +152,9 @@ module.exports = function mountC2mRoutes(app, deps) {
     })().catch(e => { sweepRun = null; throw e; });
     return sweepRun;
   }
-  async function reapprovalFor(cause, filter) {
+  /** info (optional, push 10a, C-01): filled with moved (packs past the re-approval %, not first costs), first and pct, so the notice
+   *  can tell the truth in the go-live window, when no re-approval item is written for a moved pack (D-170). */
+  async function reapprovalFor(cause, filter, info) {
     const D = await engine.loadAll(q); const S = D.settings.values;
     const [open] = await q("SELECT items_json FROM c2m_reapproval WHERE status='open'");
     const waiting = new Set(); open.forEach(r => JSON.parse(r.items_json).forEach(i => waiting.add(i.packId)));
@@ -165,6 +168,8 @@ module.exports = function mountC2mRoutes(app, deps) {
       // A costed pack with no approved cost yet (e.g. a packing bill just assigned) waits here for its first approved cost (D-41)
       items.push(av ? { packId: p.id, label, from: Number(av.total), to: c.total, pct: (c.total - Number(av.total)) / Number(av.total) * 100 } : { packId: p.id, label, from: null, to: c.total, pct: null, first: true });
     }
+    { const got = { moved: items.filter(i => !i.first).length, first: items.filter(i => i.first).length, pct: Number(S.reapprove_pct) };
+      if (info) Object.assign(info, got); const st = mvStore.getStore(); if (st) st.last = got; }
     if (items.length) await q('INSERT INTO c2m_reapproval (cause, items_json, created_at) VALUES (?,?,?)', [cause.slice(0, 300), JSON.stringify(items), now()]);
     return glOn() && !dryStore.getStore() ? items.filter(i => i.first).length : items.length; // in the window only first costs are written (D-170)
   }
@@ -280,7 +285,22 @@ module.exports = function mountC2mRoutes(app, deps) {
   async function notice(forRole, text, by) { await q('INSERT INTO c2m_notice (for_role, text, by_user, at) VALUES (?,?,?,?)', [forRole, String(text).slice(0, 400), by, now()]); } // the column holds 400
   /** A cost input that moves GP (labour and FOH rates, packing bills, product type, reprocessed) is saved by Yawar alone;
    *  Tahir is told each time, with how many packs moved (cost review 18 Oct 2026, D-63; ruling 12). */
-  async function costNotice(by, what, re) { await notice('coo', `${what}. ${re ? `${re} pack(s) moved more than the re-approval % and wait in a re-approval item for the CFO.` : 'No pack moved more than the re-approval %.'}`, by); }
+  async function costNotice(by, what, re, info) { const st = mvStore.getStore(); const last = st ? st.last : null; if (st) st.last = null; await notice('coo', `${what}. ${costNoticeTail(re, info || last)}`, by); } // review 10a, m1: a count is used once
+  /** The second half of a cost notice (push 10a, C-01): in the go-live window no re-approval item is written for a moved pack, so the
+   *  notice says how many packs moved and that their cost becomes the approved cost when the window closes; it never says "no pack moved"
+   *  unless that was counted. Outside the window it reads as before. */
+  function costNoticeTail(re, info) {
+    if (glOn() && !dryStore.getStore()) {
+      const pct = info && info.pct != null && isFinite(info.pct) ? ` (${info.pct}%)` : '', closeDay = dWords(addDay(GL.until, 1));
+      const mv = info && Number.isFinite(info.moved) ? info.moved : null;
+      const first = re ? ` ${re} pack(s) with no approved cost wait in a re-approval item for the CFO.` : '';
+      if (mv == null) return `Go-live window: no re-approval now. Packs moved are not counted on this notice; see "Costs that become approved" on Approvals.${first}`;
+      if (!mv) return `No pack moved more than the re-approval %${pct}.${first}`;
+      return `Go-live window: ${mv} pack(s) moved more than the re-approval %${pct}. No re-approval now: on ${closeDay} the cost that day becomes the approved cost.${first}`;
+    }
+    return re ? `${re} pack(s) moved more than the re-approval % and wait in a re-approval item for the CFO.` : 'No pack moved more than the re-approval %.';
+  }
+  const addDay = (d, n) => { const t = new Date(String(d).slice(0, 10) + 'T00:00:00Z'); t.setUTCDate(t.getUTCDate() + n); return t.toISOString().slice(0, 10); };
   /** The person who proposed never approves (ruling 19; cost review 18 Oct 2026, D-63). */
   const notSelf = async (proposer, req) => {
     if (req.c2m.admin) return; // the administrator role is exempt from ruling 19 (D-89)
@@ -433,8 +453,12 @@ module.exports = function mountC2mRoutes(app, deps) {
     const match = engine.matcher(D);
     await applyDueRevisions();
     // the notices wait for applyDueRevisions (it can write one), then start together with the reads below
-    const eNoticesRole = !has('see.margin') && noticeKeys.some(k => ['production', 'qc', 'plant', 'cfo'].includes(k)) ? earlySoft(`SELECT * FROM c2m_notice WHERE for_role IN (${noticeKeys.map(() => '?').join(',')}) AND at >= DATE_SUB(?, INTERVAL 30 DAY) ORDER BY id DESC LIMIT 30`, [...noticeKeys, now()]) : null;
-    const eNoticesMargin = has('see.margin') ? earlyQ(`SELECT * FROM c2m_notice WHERE for_role IN (${noticeKeys.map(() => '?').join(',')}) AND at >= DATE_SUB(?, INTERVAL 30 DAY) ORDER BY id DESC LIMIT 20`, [...noticeKeys, now()]) : null;
+    const eNoticesRole = !has('see.margin') && noticeKeys.some(k => ['production', 'qc', 'plant', 'cfo'].includes(k)) ? earlySoft(`SELECT * FROM c2m_notice WHERE for_role IN (${noticeKeys.map(() => '?').join(',')}) AND at >= DATE_SUB(?, INTERVAL 30 DAY) ORDER BY id DESC LIMIT 200`, [...noticeKeys, now()]) : null; // push 10a (C-02): was 30; unread notices must not fall off the list
+    /* push 10a (C-02, review m7): every unread notice of the last 30 days (id above the person's read mark), then the newest 30 read ones,
+       so none is cut and Mark as read marks only what was shown; read as soon as the read mark is in. */
+    const eNoticesMargin = has('see.margin') ? (() => { const pr = eReadUpto.then(([ns]) => { let up = 0; try { up = Number(JSON.parse((ns && ns[0] && ns[0].new_value) || '{}').upto) || 0; } catch (_) {}
+      const W = `FROM c2m_notice WHERE for_role IN (${noticeKeys.map(() => '?').join(',')}) AND at >= DATE_SUB(?, INTERVAL 30 DAY)`;
+      return Promise.all([q(`SELECT * ${W} AND id > ? ORDER BY id DESC LIMIT 5000`, [...noticeKeys, now(), up]), q(`SELECT * ${W} AND id <= ? ORDER BY id DESC LIMIT 30`, [...noticeKeys, now(), up])]).then(([[a], [b]]) => [a.concat(b)]); }); pr.catch(() => {}); return pr; })() : null;
     T('apply_due');
     // Speed: the reads below do not depend on each other, so all are sent together (one wait, not one after another).
     // They start after applyDueRevisions so they see what it applied. A read nobody uses is harmless; its error is ignored. A list-only role (it returns early) prefetches nothing and reads as before.
@@ -800,8 +824,8 @@ module.exports = function mountC2mRoutes(app, deps) {
         await tx(async () => {
           const [[done]] = await q("SELECT id FROM c2m_audit WHERE entity='freight_due' AND entity_id=? LIMIT 1 FOR UPDATE", [key]); if (done) return;
           const [[atSave]] = await q("SELECT id FROM c2m_audit WHERE entity='freight' AND entity_id=? AND action='save' AND at>=? AND new_value LIKE ? LIMIT 1", [`${r.segment}|${r.region}`, vf + ' 00:00:00', `%"validFrom":"${vf}"%`]);
-          const re = atSave ? 0 : await reapprovalFor(`Freight ${r.segment} ${r.region} from ${vf} reached its date`, freightPacks(r.segment, r.region));
-          if (re) await costNotice('c2m', `Freight ${r.segment} ${r.region} dated ${vf} is in force from today`, re);
+          const mvi = {}; const re = atSave ? 0 : await reapprovalFor(`Freight ${r.segment} ${r.region} from ${vf} reached its date`, freightPacks(r.segment, r.region), mvi);
+          if (re || mvi.moved) await costNotice('c2m', `Freight ${r.segment} ${r.region} dated ${vf} is in force from today`, re, mvi); // push 10a: in the go-live window re counts first costs only
           await audit('c2m', 'freight_due', key, 'checked', null, { reapproval: re }, 'Freight rate reached its date'); n++;
         });
       }
@@ -813,8 +837,8 @@ module.exports = function mountC2mRoutes(app, deps) {
       for (const [k, spell] of grp) { if (new Set(spell).size < 2) continue; const seg = k.split('|')[0];
         await tx(async () => {
           const [[done]] = await q("SELECT id FROM c2m_audit WHERE entity='freight_case' AND entity_id=? LIMIT 1 FOR UPDATE", [k.slice(0, 60)]); if (done) return;
-          const re = await reapprovalFor(`Freight ${seg} ${spell[0]}: rows saved in other capitals (${spell.join(', ')}) now count, ${t}`, freightPacks(seg, spell[0]));
-          if (re) await costNotice('c2m', `Freight ${seg} ${spell[0]}: rows saved in other capitals now count`, re);
+          const mvi = {}; const re = await reapprovalFor(`Freight ${seg} ${spell[0]}: rows saved in other capitals (${spell.join(', ')}) now count, ${t}`, freightPacks(seg, spell[0]), mvi);
+          if (re || mvi.moved) await costNotice('c2m', `Freight ${seg} ${spell[0]}: rows saved in other capitals now count`, re, mvi);
           await audit('c2m', 'freight_case', k.slice(0, 60), 'checked', null, { spellings: spell, reapproval: re }, 'Freight region spellings joined (fault A7)'); n++;
         });
       }
@@ -2334,7 +2358,7 @@ module.exports = function mountC2mRoutes(app, deps) {
       // A rate dated ahead moves nothing today; freightDueSweep checks it on the day it starts (review 4 Nov).
       const reg = region;
       re = vf > today() ? 0 : await reapprovalFor(`Freight ${segment} ${reg} saved, ${today()}`, freightPacks(segment, reg));
-      await costNotice(req.c2m.user, `Freight ${segment} ${reg} saved at Rs ${lib.fmtRs2(strictNum(rsPerKg))} per kg from ${vf} by the ${req.c2m.label}`, re);
+      await costNotice(req.c2m.user, `Freight ${segment} ${reg} saved at Rs ${lib.fmtRs2(strictNum(rsPerKg))} per kg from ${vf} by the ${req.c2m.label}`, re, vf > today() ? { moved: 0, first: 0 } : undefined); // review 10a, m1: dated ahead, nothing moves today
     });
     res.json({ ok: true, reapproval: re });
   };
@@ -3224,6 +3248,11 @@ module.exports = function mountC2mRoutes(app, deps) {
     const allowed = PL.fieldsFor(aud).map(f => f[0]);
     const fields = (Array.isArray(b.fields) ? b.fields : allowed).filter(f => allowed.includes(f)); if (!fields.length) throw bad('Pick at least 1 field.');
     const viewer = !mayDo(req, 'pricedoc.all');
+    if (viewer) { // push 10a (C-07; Tahir 11 and 20 Nov 2026): a viewer makes only the first document of a list; after that he downloads the latest, and an ended one is not given out
+      const [ex] = await q('SELECT id, valid_till, fields_json FROM c2m_price_doc WHERE audience=? ORDER BY id DESC', [aud]);
+      const last = ex.find(x => aud !== 'wl' || (() => { try { return (JSON.parse(x.fields_json).client || null) === (b.client || null); } catch (_) { return false; } })());
+      if (last && last.valid_till && String(last.valid_till).slice(0, 10) < today()) throw Object.assign(new Error(`This list ended on ${dWords(last.valid_till)}. Ask the CFO for the current list.`), { status: 409 });
+      if (last) throw Object.assign(new Error('This list is already issued. Press Refresh and download it.'), { status: 409 }); }
     if (!viewer && b.eff && !isDate(b.eff)) throw bad('From must be a date.');
     if (!viewer && b.till && (!isDate(b.till) || (b.eff && b.till < b.eff))) throw bad('Till must be a date after the From date.');
     const opts = viewer ? { client: b.client } : { client: b.client, eff: b.eff, till: b.till, note: b.note };
@@ -3256,11 +3285,28 @@ module.exports = function mountC2mRoutes(app, deps) {
       docs.push({ id: Number(d.id), ref: d.ref, audience: d.audience, client, effective: d.effective ? String(d.effective).slice(0, 10) : null, till: d.valid_till ? String(d.valid_till).slice(0, 10) : null, by: d.created_by, at: String(d.created_at).slice(0, 19) }); }
     res.json({ docs });
   }));
+  /** A Price list viewer's lists (push 10a, C-07; Tahir 11 Nov 2026): the latest issued document of each list granted to the person,
+   *  whoever issued it, so a download makes no new VAN/PL number. */
+  app.get('/api/c2m/pricedocs/latest-mine', wrap(async (req, res) => {
+    if (!mayDo(req, 'pricedoc.all') && !mayDo(req, 'pricedoc.granted')) throw Object.assign(new Error('No price list is granted to you.'), { status: 403 });
+    const all = mayDo(req, 'pricedoc.all'); const [G] = all ? [[]] : await q('SELECT grant_kind, grant_value FROM c2m_list_grant WHERE username=?', [req.c2m.user]); // the grants read once (review 10a, m3); same rule as viewerMay
+    const mayG = (aud, client) => aud !== 'mrp' && (aud === 'wl' ? G.some(x => x.grant_kind === 'client' && x.grant_value === client) : G.some(x => x.grant_kind === 'list' && (x.grant_value === aud || (aud === 'web' && x.grant_value === 'farmer_pb'))));
+    const [rows] = await q('SELECT id, ref, audience, effective, valid_till, fields_json FROM c2m_price_doc ORDER BY id DESC');
+    const seen = new Set(), docs = [];
+    for (const d of rows) { let client = null; if (d.audience === 'wl') { try { client = JSON.parse(d.fields_json).client || null; } catch (_) {} }
+      const k = d.audience + '|' + (client || ''); if (seen.has(k)) continue; seen.add(k);
+      if (!all && !mayG(d.audience, client)) continue;
+      docs.push({ id: Number(d.id), ref: d.ref, audience: d.audience, client, effective: d.effective ? String(d.effective).slice(0, 10) : null, till: d.valid_till ? String(d.valid_till).slice(0, 10) : null }); }
+    res.json({ docs });
+  }));
   app.get('/api/c2m/pricedocs/:id/pdf', wrap(async (req, res) => {
     const [[d]] = await q('SELECT * FROM c2m_price_doc WHERE id=?', [req.params.id]); if (!d) throw bad('This price list document is no longer in C2M. Press Refresh and open it again from the list of documents.');
     const meta = JSON.parse(d.fields_json);
-    if (!mayDo(req, 'pricedoc.all') && (d.created_by !== req.c2m.user || !(await viewerMay(req.c2m.user, d.audience, meta.client))))
-      throw Object.assign(new Error('This document is not yours, or the list is no longer granted to you.'), { status: 403 });
+    if (!mayDo(req, 'pricedoc.all')) { // push 10a (C-07): the latest issued document of a list granted to the person, whoever issued it
+      if (!(mayDo(req, 'pricedoc.granted') && await viewerMay(req.c2m.user, d.audience, meta.client))) throw Object.assign(new Error('This list is no longer granted to you.'), { status: 403 });
+      const [later] = await q('SELECT id, fields_json FROM c2m_price_doc WHERE audience=? AND id>?', [d.audience, d.id]);
+      if (later.some(x => d.audience !== 'wl' || (() => { try { return (JSON.parse(x.fields_json).client || null) === (meta.client || null); } catch (_) { return false; } })())) throw Object.assign(new Error('A newer list has been issued. Press Refresh and download it.'), { status: 409 });
+      if (d.valid_till && String(d.valid_till).slice(0, 10) < today()) throw Object.assign(new Error(`This list ended on ${dWords(d.valid_till)}. Ask the CFO for the current list.`), { status: 409 }); } // Tahir, 20 Nov 2026: an ended list is not given out
     // The document prints exactly as issued: the rows were saved with it (older documents rebuild from today's prices).
     const data = meta.snapshot || await docData(d.audience, { client: meta.client, ref: d.ref, eff: String(d.effective).slice(0, 10), till: d.valid_till ? String(d.valid_till).slice(0, 10) : null, note: meta.note });
     PL.pdf(res, d.audience, data, meta.fields, meta.reasons || {});

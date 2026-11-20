@@ -533,6 +533,11 @@ async function act0(path, body, okMsg) { { const pn = document.querySelector('as
 
 /* ---------- Lookups ---------- */
 let _pi = null, _piST = null; /** Every pack with its product, built once per state load (review 18 Oct, finding 2). */
+/* Push 10f (audit C-22): work done once per draw. RSEQ moves on at the start of every draw; memo also compares ST itself, so a new
+   ST is worked out again. A value worked out for this draw is used again by everything in it (and by a click on what it drew), never by
+   the next draw. Each key (e.g. the history basis) keeps its own answer within the draw (review 10f, P1). */
+let RSEQ = 0;
+const memo = (f, keyFn) => { let s0, q0, M = new Map(); return (...a) => { const kk = keyFn ? keyFn(...a) : ''; if (s0 !== ST || q0 !== RSEQ) { s0 = ST; q0 = RSEQ; M = new Map(); } if (M.has(kk)) return M.get(kk); const v = f(...a); M.set(kk, v); return v; }; };
 const packIdx = () => { if (_piST === ST && _pi) return _pi; const m = new Map(); (ST.products || []).forEach(p => p.packs.forEach(k => m.set(k.id, { ...k, product: p }))); _pi = m; _piST = ST; return m; };
 const packLabel = k => `${k.product.brand} ${packTxt(k.size, k.product.soldPer)}`;
 function inP(d) { if (period === 'fy') return d >= fyStart(); if (period === 'month') return d.slice(0, 7) === ST.today.slice(0, 7); if (period === '3m') return d >= addDays(ST.today, -91); return d.slice(0, 7) === month; }
@@ -560,23 +565,26 @@ function flag(g) {
   return ['p-green', 'on target'];
 }
 /* Exposure per white label client pack (ruling 14 Oct, 5f) */
-function exposure() {
+const exposure = memo(exposure0, () => fbasis + '|' + SET('forward_months')); // push 10f (C-22)
+function exposure0() {
   const P = packIdx(); const out = [];
+  const since0 = addDays(ST.today, -91), SB = new Map(), OB = new Map(); /* push 10f (C-22): sales of the last 3 months and open POs by pack, once */
+  (ST.sales || []).forEach(x => { if (x.date >= since0) (SB.get(x.packId) || SB.set(x.packId, []).get(x.packId)).push(x); }); (ST.open || []).forEach(o => (OB.get(o.packId) || OB.set(o.packId, []).get(o.packId)).push(o));
   const first = (ST.sales || []).length ? ST.sales[0].date : ST.today;
   const months = Math.max(1, (new Date(ST.today) - new Date(first < addDays(ST.today, -91) ? addDays(ST.today, -91) : first)) / (30.44 * 864e5));
   const since = addDays(ST.today, -91);
   for (const [id, k] of P) {
     if (k.product.grp !== 'White label' || !k.cost || !(k.price > 0)) continue; // a price of 0 is no price (re-review)
-    const shipped = (ST.sales || []).filter(s => s.packId === id && s.date >= since).reduce((s, x) => s + x.kg, 0);
-    const openKg = (ST.open || []).filter(o => o.packId === id).reduce((s, x) => s + x.kg, 0);
+    const shipped = (SB.get(id) || []).reduce((s, x) => s + x.kg, 0);
+    const openKg = (OB.get(id) || []).reduce((s, x) => s + x.kg, 0);
     // Expected kg: the budget's annual kg spread over the horizon, shared across the product's packs by kg shipped; else the last 3 months' run rate.
-    const sibs = k.product.packs.map(x => x.id); const sibKg = (ST.sales || []).filter(s => sibs.includes(s.packId) && s.date >= since).reduce((s, x) => s + x.kg, 0);
+    const sibs = k.product.packs.map(x => x.id); const sibKg = sibs.reduce((t, sid) => t + (SB.get(sid) || []).reduce((s, x) => s + x.kg, 0), 0);
     const share = sibs.length === 1 ? 1 : sibKg ? shipped / sibKg : 1 / sibs.length;
     const byBudget = fbasis === 'budget' && k.product.budgetKg > 0; const kg3 = Math.round(byBudget ? k.product.budgetKg / 12 * SET('forward_months') * share : shipped / months * SET('forward_months'));
     const c = k.cost.total, t = k.product.target, price = k.price;
     const tp = t == null ? null : c / (1 - t / 100); const gap = tp == null ? 0 : Math.max(tp - price, 0);
     const gp = (price - c) / price * 100;
-    const locked = tp == null ? 0 : (ST.open || []).filter(o => o.packId === id).reduce((s, o) => s + Math.max(tp - o.price, 0) * o.kg, 0);
+    const locked = tp == null ? 0 : (OB.get(id) || []).reduce((s, o) => s + Math.max(tp - o.price, 0) * o.kg, 0);
     /* A price already approved for a later date counts from its date (cost review 18 Oct 2026, D-62) */
     const newKg = Math.max(kg3 - openKg, 0), nx = k.nextPrice, fa = nx ? fracAfter(nx.from) : 0;
     const gapN = nx && tp != null ? Math.max(tp - nx.price, 0) : gap, lossN = nx ? Math.max(c - nx.price, 0) : Math.max(c - price, 0);
@@ -609,7 +617,8 @@ const firstOfMonth = () => ST.today.slice(0, 7) + '-01';
 /** A monthly job waits from the 1st of the month, but never from before C2M held data (UX review M5: on the first live day
  *  it must not read "18 days, stuck" for a system that did not exist). */
 const monthSince = () => { const f = firstOfMonth(), g = ST.importedAt ? d10(ST.importedAt) : null; return g && g > f ? g : f; };
-function jobs() {
+const jobs = memo(jobs0); // push 10f (C-22)
+function jobs0() {
   const R = ST.me.role, J = [];
   (ST.recipes || []).forEach(v => { if (!myStep(v)) return; const ls = lastStep(v); const prod = (ST.products || []).find(p => p.id === v.clientProductId); const appr = prod && prod.approvedVersionId && prod.approvedVersionId !== v.id ? (ST.recipes || []).find(x => x.id === prod.approvedVersionId) : null;
     let d = v.sentBack && v.state === 'draft' ? `Sent back by ${personName(v.sentBack.by)}: ${dot(v.sentBack.reason)}. Advice: ${dot(v.sentBack.advice)}.` : (v.note || '');
@@ -688,7 +697,8 @@ function nextMove(J) {
   return ix.length ? ix.sort(by)[0] : -1;
 }
 /** What waits on someone else, with who has it and how long it has waited (ruling 20). */
-function waitingOn() {
+const waitingOn = memo(waitingOn0); // push 10f (C-22)
+function waitingOn0() {
   const R = ST.me.role, W = [];
   if (CAN('see.products')) (ST.recipes || []).filter(v => STEP_ROLE[v.state] && !myStep(v)).forEach(v => { const ls = lastStep(v); if (R === 'coo' && ls && isStuck(ls.at)) return; W.push({ t: `${v.brand} for ${v.customer}`, w: `with ${ROLE_NAME[STEP_ROLE[v.state]]}, ${MYJOB[v.state].split(' ')[0].toLowerCase()}`, since: ls ? ls.at : null, open: { rec: v.id } }); });
   if (CAN('price.propose') && !ADM()) {
@@ -748,7 +758,7 @@ function nmMonthEnd(costed) {
     out.push(`<div class="next${Math.abs(ds) > 1 || Math.abs(dc) > 1 ? ' warn' : ''}"><span><b>${mon(m)} is locked</b> by ${esc(personName(lock.done_by))}: sales Rs ${n0(L.sales)}, cost Rs ${n0(L.cogs)} as locked. ${Math.abs(ds) > 1 || Math.abs(dc) > 1 ? `<b>Changed since the lock:</b> sales ${ds >= 0 ? '+' : '−'}Rs ${n0(Math.abs(ds))}, cost ${dc >= 0 ? '+' : '−'}Rs ${n0(Math.abs(dc))} (a truck added or changed in O2S, or a cost approved later).` : 'No change since the lock.'}</span></div>`); }
   return out.join('');
 }
-const nmRows = () => (ST.sales || []).filter(r => nmCost(r) != null);
+const nmRows = memo(() => (ST.sales || []).filter(r => nmCost(r) != null), () => nm.hist); // push 10f (C-22): once per draw and history basis
 /** R59 (Tahir, 7 Nov 2026, D-159): farmer sales with no region in O2S are taken as on the Farmer list, Punjab; Margin says how many in the view. */
 function nmDefaultNote() { const n = (ST.sales || []).filter(r => nmIn(r) && nmGrp(r) && r.lkeyDefault).length; return n ? `<p class="basis" data-nm-dflt>${pl(n, 'farmer sale had', 'farmer sales had')} no region in O2S and ${n === 1 ? 'is' : 'are'} taken as on the Farmer list, Punjab.</p>` : ''; }
 const nmUnit = r => { const k = r.packId ? packIdx().get(r.packId) : null; return k && k.product.soldPer === 'L' ? 'L' : 'kg'; };
@@ -2174,7 +2184,10 @@ const CHANGELOG = [
  { t: 'Public holidays: the COO keeps a list on More, Setup, Settings, Company settings. Working days on Approvals (how long a job has been stuck) skip those days.', for: ['all'], guide: null },
  { t: 'A price list dated ahead now shows, before you create the PDF, the prices in force on its From date, exactly as the PDF prints them. 2 price lists can never share a number, and a deleted one never gives its number again.', for: ['pricedoc.all'], guide: null },
  { t: 'Labour and FOH: the first figure of a rate and a product\'s first move are free while the go-live window is open, so they follow its last day if it moves.', for: ['labour.manage'], guide: null },
- { t: 'Smaller fixes: an error message now shows over every box and is read out; money never shows as -0 or Rs NaN; a margin card with no target says Not judged; a price of 0 shows no GP; a job opens the job it was drawn for; each prices-to-change job opens only its own packs.', for: ['all'], guide: null }] }
+ { t: 'Smaller fixes: an error message now shows over every box and is read out; money never shows as -0 or Rs NaN; a margin card with no target says Not judged; a price of 0 shows no GP; a job opens the job it was drawn for; each prices-to-change job opens only its own packs.', for: ['all'], guide: null }] },
+  { ver: '2026-11-20f', date: '2026-11-20', title: 'C2M keeps your place, and redraws faster', items: [
+ { t: 'After you press a button, a tab or a tick, the focus stays on it, so the keyboard carries on from there. A fold you opened (or closed) stays that way after a save or a redraw, and a long table you scrolled inside keeps its place.', for: ['all'], guide: null },
+ { t: 'Screens work out their lists once per redraw: Clients with many sales redraws about 20 times faster.', for: ['all'], guide: null }] }
 ];
 let _wnShown = false, wnGuide = null;
 /* ---------- Push 7e (Tahir, 10 Nov 2026, D-166): the role page, read and signed once per version before C2M opens ----------
@@ -2351,7 +2364,33 @@ document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target &&
 /** Draw the page, then record the move for the phone Back button (push 6c, D-161). */
 function render() { renderPage(); navSync(); if (editLines) elLive(); } // push 7b: the editor's live total and analysis
 const badgeN = J => ADM() ? J.filter(j => j.kind === 'approve').length : J.length; // push 10b (Tahir, 20 Nov 2026): for the administrator the badge counts only his decisions
+/* ---------- Push 10f (audit C-09, with C-23): a redraw keeps the place. The button pressed keeps the focus, an open or closed fold stays
+   as the person left it, and a box scrolled inside keeps its scroll, on the same screen. ---------- */
+let drawnScr = null, drawnView = null, drawnPan = ''; const FOLD = new Map(), FCODE = new Map(); // drawnView, drawnPan: the place and panel the page on screen was drawn for
+/* review 10f (M2, m1): a place is the screen and its part (as navBase, plus the Price lists tab); a panel is its kind and item */
+const viewKey = () => { try { return navBase(navSnap()) + (scr === 'pricelists' ? '|' + plTab : scr === 'margin' ? '|' + nm.by : scr === 'inputs' && typeof mtab !== 'undefined' ? '|' + mtab : ''); } catch (_) { return String(scr); } }; // re-check 10f: Margin's view and the Inputs tab are places too
+const panKey = () => { if (!pan) return ''; try { return JSON.stringify(pan); } catch (_) { return navOv({ pan }); } };
+const MONRX = /\b\d{1,2} (jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]* \d{4}\b/g;
+function foldKey(d) { if (d.dataset.nofold != null || d.matches('.rowmenu, .newm') || d.closest('tr, .rowmenu, .newm')) return null; /* review 10f (B1, M1): a menu or a fold in a row is never kept */ if (d.dataset.fold) return d.dataset.fold; const sm = d.querySelector(':scope > summary'); const dates = []; const t = (sm ? sm.textContent : '').replace(/\s+/g, ' ').trim().toLowerCase().replace(MONRX, m => { dates.push(m); return '@' + String.fromCharCode(97 + dates.length - 1) + '@'; }).replace(/\d+([.,]\d+)*/g, '#').replace(/@([a-z])@/g, (_, c) => dates[c.charCodeAt(0) - 97]); /* counts change after a save, a date names the fold */
+  return (d.closest('aside.panel') ? 'pan:' + drawnPan : 'view:' + drawnView) + ':' + t; }
+document.addEventListener('click', e => { const sm = e.target.closest && e.target.closest('summary'); if (!sm) return; const d = sm.parentElement; if (!d || d.tagName !== 'DETAILS' || !d.closest('#app')) return; setTimeout(() => { const k = foldKey(d); if (k) FOLD.set(k, d.open); }, 0); }, true); // read after the browser has opened or closed it
+function applyFolds() { document.querySelectorAll('#app details').forEach(d => { const k = foldKey(d); if (!k) return; const code = d.open; /* review 10f (m1): when the code changes how it draws a fold (it opens it on purpose), the code wins */ if (FCODE.has(k) && FCODE.get(k) !== code) FOLD.delete(k); FCODE.set(k, code); if (FOLD.has(k) && d.open !== FOLD.get(k)) d.open = FOLD.get(k); }); }
+const fText = x => x.textContent.replace(/\s+/g, ' ').trim().slice(0, 80);
+const fMatch = k => x => !x.closest('aside.panel') && !!x.closest('.hdr') === k.inNav && k.data.every(([n, v]) => x.getAttribute(n) === v) && (x.getAttribute('aria-label') || '') === k.label && (k.data.length || fText(x) === k.text);
+function focusKey(el) { const app = $('app'); if (!el || el === document.body || !app || !app.contains(el) || el.closest('aside.panel') || /^(TEXTAREA|SELECT)$/.test(el.tagName) || (el.tagName === 'INPUT' && !/^(checkbox|radio)$/.test(el.type))) return null; // review 10f (m2): a tick keeps focus too
+  const data = [...el.attributes].filter(a => a.name.startsWith('data-') && a.name !== 'data-jk' && a.name !== 'data-armed').map(a => [a.name, a.value]);
+  const k = { tag: el.tagName, id: el.id || null, data, text: fText(el), label: el.getAttribute('aria-label') || '', inNav: !!el.closest('.hdr') };
+  k.idx = Math.max(0, [...app.querySelectorAll(k.tag)].filter(fMatch(k)).filter(x => fText(x) === k.text).indexOf(el)); return k; } // review 10f (m4): the same button in row 3 stays row 3
+function focusBack(k) { if (!k) return false; const app = $('app'); let el = k.id ? $(k.id) : null;
+  if (!el) { const C = [...app.querySelectorAll(k.tag)].filter(fMatch(k)); const T = C.filter(x => fText(x) === k.text); el = T[Math.min(k.idx || 0, T.length - 1)] || C[0]; }
+  if (el && !el.disabled && !el.closest('[hidden]')) { el.focus({ preventScroll: true }); return document.activeElement === el; } return false; }
+/* review 10f (M2, m3): main's boxes are kept by place, the side panel by its kind and item, each on its own */
+const keepScroll = () => { const pn = document.querySelector('#app aside.panel'); return { v: drawnView, main: [...document.querySelectorAll('#app main .wrapx')].map(b => [b.scrollTop, b.scrollLeft]), p: drawnPan, pan: pn ? pn.scrollTop : 0 }; };
+function putScroll(S) { if (!S) return; if (S.v != null && S.v === drawnView) { const B = [...document.querySelectorAll('#app main .wrapx')]; if (B.length === S.main.length) B.forEach((b, i) => { if (S.main[i][0]) b.scrollTop = S.main[i][0]; if (S.main[i][1]) b.scrollLeft = S.main[i][1]; }); }
+  const pn = document.querySelector('#app aside.panel'); if (pn && S.p && S.p === drawnPan && S.pan) pn.scrollTop = S.pan; }
 function renderPage() {
+  RSEQ++; // push 10f (C-22): a new draw works everything out again, once
+  const fk0 = focusKey(document.activeElement), sc0 = keepScroll(); // push 10f (C-09)
   if (scr !== 'guide') wnGuide = null; // the Guide row mark lasts while the Guide is open (D-141)
   const M = ST.me; const J = jobs();
   const app = $('app');
@@ -2375,11 +2414,12 @@ function renderPage() {
     if (sh && mb && innerWidth > 760) { const r = mb.getBoundingClientRect(); sh.classList.add('pop'); sh.style.left = Math.max(8, Math.min(r.left, innerWidth - 280)) + 'px'; if (r.bottom + 330 > innerHeight && r.top > 330) { sh.style.top = 'auto'; sh.style.bottom = (innerHeight - r.top + 6) + 'px'; } else sh.style.top = (r.bottom + 6) + 'px'; }
     const b = document.querySelector('.sheet button'); if (b) b.focus({ preventScroll: true }); return; }
   document.querySelectorAll('input[type=date]').forEach(dateWords);
-  enhanceTables(); lfApply(); markReq();
+  enhanceTables(); lfApply(); markReq(); drawnView = viewKey(); drawnPan = panKey(); applyFolds(); if (sc0) putScroll(sc0); const scr1 = drawnScr; drawnScr = scr; // push 10f (C-09)
   if (fid && !panFocus) { const el = $(fid); if (el) { el.focus({ preventScroll: true }); try { if (sel && sel[0] != null) el.setSelectionRange(sel[0], sel[1]); } catch (_) {} return; } }
   if (pan && panFocus) { panFocus = false; const pn = document.querySelector('aside.panel'); const f = pn ? panItems(pn) : []; const h = document.querySelector('.panel-h b');
     if (panAt != null && f.length) f[Math.min(panAt, f.length - 1)].focus(); else if (h) h.focus(); panAt = null; } // after a save, stay where you were (review 18 Oct)
   else if (!pan && panReturn) { const r = panReturn; panReturn = null; const el = document.querySelector(`main [data-${r.k}="${r.v}"]`); if (el) el.focus(); }
+  else if (!pan && fk0 && (scr1 === scr || fk0.inNav)) focusBack(fk0); // push 10f (C-09): the button pressed keeps the focus
 }
 /** Under every date box, the date in words, so 01/11 cannot be read as 11 Jan or 1 Nov (UX review M6). */
 function dateWords(inp) { let w = inp.nextElementSibling; if (!w || !w.classList || !w.classList.contains('dw')) { w = document.createElement('span'); w.className = 'dw'; w.setAttribute('aria-live', 'polite'); inp.after(w); } w.textContent = inp.value ? (() => { const d = new Date(inp.value + 'T00:00:00Z'); return isNaN(d) ? '' : `${WDAY[d.getUTCDay()]} ${fmtD(inp.value)}`; })() : ''; }
@@ -3663,9 +3703,11 @@ function priceState(k, target, gp) {
   return gp < target - 0.05 ? (gpTone(gp, target) === 'red' ? ['p-red', 'well below target'] : ['p-amber', 'below target']) : ['p-green', 'on target'];
 }
 /** White label packs with a full cost and no price (T6, D7): they cannot be sold at a checked price. */
-function noPrice() { const out = []; for (const [id, k] of packIdx()) { if (k.product.grp !== 'White label' || !k.cost || k.price > 0 || k.waitingProposal || k.nextPrice) continue; const t = k.product.target;
+const noPrice = memo(noPrice0); // push 10f (C-22)
+function noPrice0() { const out = []; for (const [id, k] of packIdx()) { if (k.product.grp !== 'White label' || !k.cost || k.price > 0 || k.waitingProposal || k.nextPrice) continue; const t = k.product.target;
   out.push({ id, cust: k.product.customer, prod: packLabel(k), brand: k.product.brand, pack: k.size, price: null, c: k.cost.total, tp: t == null ? null : k.cost.total / (1 - t / 100), gp: null, target: t, gapPts: 0, kg3: 0, openKg: 0, fwd: 0, fwdLoss: 0, floor: k.floor, unit: k.product.soldPer === 'L' ? 'L' : 'kg', why: ['no price'], k }); } return out; }
-function toChange() {
+const toChange = memo(toChange0, () => fbasis + '|' + SET('forward_months')); // push 10f (C-22)
+function toChange0() {
   const ex = exposure(); const out = []; const P = packIdx();
   for (const x of ex) {
     const k = P.get(x.id); const cust = (ST.customers || []).find(c => c.name === x.cust) || {};

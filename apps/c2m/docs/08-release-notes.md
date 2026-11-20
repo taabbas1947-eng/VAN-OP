@@ -1199,3 +1199,7 @@ To correct a mistake: a price not yet in force is withdrawn or sent back; a rate
 - Labour and FOH first figures and first moves follow the go-live window's last day.
 - An error shows over every box and is read out; money never shows -0 or Rs NaN; the margin card says Not judged when there is no target; a price of 0 shows no GP; a job opens the job it was drawn for; each prices-to-change job opens only its own packs; an older load never replaces a newer one.
 - Needs migration 017 (local first; production by hand later).
+
+## 2026-11-20f, push 10f: C2M keeps your place, and redraws faster (D-177)
+- After a press the focus stays on the button; folds stay as you left them; a long table keeps its scroll.
+- Lists are worked out once per redraw: Clients with many sales redraws about 20 times faster.

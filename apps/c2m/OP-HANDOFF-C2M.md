@@ -1029,3 +1029,16 @@ Migration 017: run on the local database first; production later by hand (017_c2
 Not pushed. Delivered to E:\VAN Systems for Tahir to push.
 After the push: check live as Tahir that C2M opens, Company settings shows Public holidays (after 017), the change list shows 2026-11-20e; and that a non-admin role still opens C2M.
 Next: the Major pushes (C-03 speed with the file split C-24; C-04 refresh; C-09 focus and folds with the redraw C-23; C-22 repeated work; C-27 tests into the repo), then C-25, C-28, C-29, C-34.
+
+Live, 20 Nov 2026 21:10: push 10e is pushed (commit 3c74059) and deployed; checked live as Tahir in Chrome, read only: change list 2026-11-20e; C2M opens; Approvals answer line and badge label ("Approvals, 2 waiting"); no "undefined" or NaN on Approvals; margin chip "3.1 points below"; every job has a key; the change list reads without error for a non-admin role (37 lines); next price list number VAN/PL/2026/002. Migration 017 not yet run on production (holidaysReady false): the holiday box says it is not switched on until Tahir runs 017_c2m_pl_numbers_holidays.PRODUCTION.sql. Nothing was changed.
+
+
+## 20 Nov 2026, push 10f: C2M keeps the place, and works lists out once per draw (MODULE: C2M, D-177)
+Tahir picked C-09 and C-22 from the Majors ("lets work them").
+Files changed: apps/c2m/c2m.html; docs 03 (3.57), 06 (D-177), 08, 12.
+What: C-22: memo() with a draw counter (RSEQ) keeps 1 answer per draw for jobs, waitingOn, exposure, toChange, noPrice and nmRows; exposure indexes sales and open POs by pack. Clients redraw 679 ms to 31 ms on a test copy with 20,000 sales (exposure identical to before for all 240 packs). C-09 (with the short-term part of C-23): the button or tick pressed keeps the focus (the same row's button among look-alikes); folds stay as the person left them, kept by place and panel (menus and row folds never kept; the code wins when it changes a fold on purpose); scrolled boxes keep their scroll on the same place, the side panel on the same panel. Change list 2026-11-20f.
+Tests (scratch harness, not in the repo): page10f 23, page10e 35, page10d 42, page10c 34, page10b 26, page10a 18, render 3; Chrome scripts perf10f and ui10f.
+Independent review: 1 Blocking (every row's More menu opened together), 2 Major (+ New stayed open; scroll into the wrong table or panel), 4 Minor, 1 Preference, all fixed; re-check: ready to push; its last Minor (Margin view and Inputs tab in the place key) fixed the same hour.
+Not pushed. Delivered to E:\VAN Systems for Tahir to push.
+After the push: check live as Tahir that a press keeps focus, a fold stays open after a save, and Clients opens fast.
+Next: the other Majors (C-03 speed of the server state with C-24 the file split; C-04 refresh; C-27 tests into the repo), then C-25, C-28, C-29, C-34. Migration 017 still to run on production by Tahir.

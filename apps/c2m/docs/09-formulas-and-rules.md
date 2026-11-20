@@ -179,7 +179,7 @@ A pack takes 1 labour rate and 1 FOH rate, each the first match of these levels:
 |---|---|---|
 | F-36 | GP after freight, VAN list | (list price without FED − cost per pack − freight per pack) ÷ list price without FED. Freight per pack = the list's Rs per kg × pack size. Dealer, Sindh: NSV before the additional discount (R40). Farmer lists: price ÷ (1 + FED %). |
 | F-37 | Price for target, VAN list | (cost + freight) ÷ (1 − list target), × (1 + FED %) on a farmer list, rounded up to the next whole rupee (R41). |
-| B-47 | Which target on a list | The list's target judges every pack on that list (R39); Products shows each product's own standard margin. |
+| B-47 | Which target on a list | The list's target judges every pack on that list (R39). Products no longer shows a standard margin (Tahir, 20 Nov 2026, push 10c). |
 | B-48 | List target and freight | Set by the CFO with a reason, approved by the COO, the first figures too (R42). Until both are set: GP shown before freight, no pack judged, no price for target. Changed only on the list's page (not Setup, Settings). A pack sold per L: freight per L = the Rs per kg figure. |
 
 ## 6 Nov 2026 (D-154)
@@ -256,3 +256,10 @@ A pack takes 1 labour rate and 1 FOH rate, each the first match of these levels:
 | B-70 | Job topic | Panel first (re-approval, not costed, materials, review list, actuals: Costs and month end; price, proposal, list revision, target, carry: Prices and targets; names, sheet items, settings: Setup; recipe: Recipes), then the start of the title; anything else Setup. |
 | B-71 | Notice digest | 3 or more notices by 1 person on 1 day fold into 1 line; fewer show 1 by 1. |
 | B-72 | Verdict chip | Points = target minus GP on sales with a target, each rounded to 1 decimal; "On target" when the status says on target. |
+
+## 20 Nov 2026 (D-174)
+| ID | Rule | Detail |
+|---|---|---|
+| B-73 | VAN brand pack boxes | All packs = Cannot be costed + Costed (Costed includes Follows, when the pack has a cost, and Cost moved); Recipe waiting = recipe not approved, inside Cannot be costed (its box says so). A pack that follows another recipe but has no cost is Cost missing. |
+| B-74 | Cost box state | Problem when the box has a problem; To do when month end is not locked, a labour or FOH certificate is due, or (in the go-live window) a change saved before the window waits for Monday; Not set up for freight with no rate in force today; Waiting when only a later-dated freight rate or (outside the window) a Monday change waits (not counted as needing attention); else Up to date (Locked for a locked month). Order: Problem, To do, Not set up, Waiting, Up to date. |
+| B-75 | Packing last change | The latest of the packing item rate dates and the packing bill saves. |

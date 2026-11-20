@@ -38,9 +38,9 @@ async function loadPacking(q) {
      LEFT JOIN c2m_packing_rate r ON r.id = (SELECT r2.id FROM c2m_packing_rate r2 WHERE r2.packing_item_id=i.id ORDER BY r2.rate_date DESC, r2.id DESC LIMIT 1)
      ORDER BY i.kind, i.name`);
   const itemById = new Map(items.map(i => [i.id, { id: i.id, name: i.name, kind: i.kind, price: i.price_per_piece == null ? null : Number(i.price_per_piece), date: i.rate_date, source: lib.sourceText(i.source), buy: lib.buyOf(i.source) }]));
-  const [bills] = await q('SELECT id, name, status FROM c2m_packing_bill ORDER BY name');
+  const [bills] = await q('SELECT id, name, status, approved_at FROM c2m_packing_bill ORDER BY name'); // approved_at: the last save of the bill (push 10c, Costs shows the last packing change)
   const [lines] = await q('SELECT id, packing_bill_id, packing_item_id, level, pieces, packs_per_outer FROM c2m_packing_bill_line ORDER BY packing_bill_id, level, id');
-  const billById = new Map(bills.map(b => [b.id, { id: b.id, name: b.name, status: b.status, lines: [] }]));
+  const billById = new Map(bills.map(b => [b.id, { id: b.id, name: b.name, status: b.status, at: b.approved_at ? String(b.approved_at).slice(0, 19) : null, lines: [] }]));
   for (const l of lines) {
     const b = billById.get(l.packing_bill_id); if (!b) continue;
     const it = itemById.get(l.packing_item_id);

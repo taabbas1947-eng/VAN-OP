@@ -1184,3 +1184,7 @@ To correct a mistake: a price not yet in force is withdrawn or sent back; a rate
 - The margin card names its period, says how many points below or above target, explains the 2 lines and marks a month not finished with *.
 - For your information: 3 or more updates by 1 person on 1 day fold into 1 line.
 - Every screen built with the standard head has ? Help at the top right; the top bar is not printed.
+
+## 2026-11-20c, push 10c: VAN Brands boxes and rows, Costs boxes that say their state (D-174)
+- VAN Brands, Products: 4 boxes filter the table; the whole row opens the product; name once, pack muted, packs small to large; 1 state per row; no Standard margin %.
+- Costs: Problem, To do, Not set up, Waiting or Up to date on each box with a coloured edge and an icon, problems first, the whole box opens; month end shows its 5 steps and the next one; packing's last change includes bills; labour and FOH say per kg or L; the go-live line is 1 line.

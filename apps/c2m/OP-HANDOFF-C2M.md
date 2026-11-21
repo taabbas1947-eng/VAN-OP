@@ -1083,3 +1083,12 @@ Live, 20 Nov 2026 22:05: push 10f is pushed (commit 862b18a) and deployed; check
 - Independent review: not ready at first (B-1: a write outside a transaction could let a read keep the old table for 5 minutes); fixed and retested (race test passes); Minors fixed.
 - Tests (scratch harness): cache10j 9, race10j, gate10i 4, routes10a 21, routes10e 22, shell10h 20, page tests; snap10g and the seeded check equal push 10i.
 - Not pushed. Ready to push. After the push: live check (rc "kept" mark in Server-Timing, build time after a save and for the next person).
+- Live, 21 Nov 2026 16:50: push 10j deployed (commit 89704f6; change list 2026-11-21b). State build after the 30 second kept answer ran out, read only: 559 and 575 ms (push 10i 2,464 to 2,877 ms); rc 71 of 73 reads kept; about 1.3 to 1.4 s in the browser, most of it sending the 653 KB answer. The open right after a save was not measured (it needs a save).
+
+## 21 Nov 2026, push 10k: the C2M checks are in the repo (audit C-27; D-182)
+- Module: C2M. Files: NEW folder apps/c2m/tests (20 files: README.md, run.js, _db.js, _page.js, fixture-state.js, 9 page-*.test.js, 6 routes-*.test.js), docs 06 (D-182), 08, 12. No app code, no migration; package.json and server.js not touched.
+- 305 checks, all passing in the session (jsdom 31.0.1, Node 22.23.5, MariaDB 10.11). Page checks need jsdom: npm install --no-save jsdom@31.0.1 in the repo folder. Route checks run only on a throwaway database on this computer whose name ends in _test (CREATE DATABASE c2m_test), with C2M_TEST_DB=throwaway and C2M_TEST_DATABASE_URL set (README.md); each file empties and rebuilds it.
+- On this PC (no jsdom, no test database yet): run.js says "Nothing ran", exit 0; every file passes node --check.
+- Independent review: 2 rounds; round 1 not ready (a check tied to the year 2026; a crash with Windows line endings), fixed; round 2 ready to push.
+- Note: the session's push of 10k was delayed because the computer was offline on 21 Nov evening; written here at 22:05.
+- Not pushed. Ready to push. Next: C-23 (redraw only the part of the screen that changed), then the reply with only what changed after a save.

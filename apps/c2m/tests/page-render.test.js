@@ -1,0 +1,11 @@
+// Push 10b/10c render checks in jsdom: Approvals, Costs and the go-live review panel draw. Run: node apps/c2m/tests/page-render.test.js
+const fs=require('fs');const { JSDOM, html: PAGE } = require('./_page.js');const html=fs.readFileSync(process.argv[2] || PAGE,'utf8');
+const dom=new JSDOM(html,{runScripts:'dangerously',url:'https://x.test/c2m',beforeParse(w){w.localStorage.setItem('van_token','t');w.fetch=()=>new Promise(()=>{});}});const w=dom.window;const E=s=>w.eval(s);
+setTimeout(()=>{let f=0;const t=(n,fn)=>{try{fn();console.log('ok',n)}catch(e){f++;console.log('FAIL',n,e.message,e.stack.split('\n')[1])}};
+const pack=(id,size,cost,ap,gaps)=>({id,size,unit:'kg',cost:cost==null?null:{total:cost,materials:cost},approvedCost:ap,costGaps:gaps||[]});
+w.__ST={today:'2026-11-24',me:{role:'coo',admin:true,label:'COO',actions:['see.cost','see.margin','see.products','see.price','price.approve'],nav:['approvals','costs'],more:[],user:'tahir',name:'Tahir'},settings:[{k:'reapprove_pct',v:'3'}],golive:{on:true,until:'2026-11-30'},products:[{id:1,brand:'Alpha',customer:'LCI',soldPer:'kg',channel:'White label',grp:'White label',packs:[pack(11,25,110,100)],target:23}],recipes:[],pending:[],reapprovals:[],proposals:[],listRevisions:[],settingRequests:[],targetRequests:[],checks:[],actuals:[],imports:[],notices:Array.from({length:40},(_,i)=>({id:i+1,text:'N'+i,by_user:'yawar',at:'2026-11-18 10:00:00'})),noticesReadUpto:5,sales:[],open:[],rates:[],materials:[],listItems:[],packingItems:[],packingBills:[],rules:[],freight:[]};
+E('ST=window.__ST;_pi=null;scr="approvals"');
+t('approvals render',()=>{E('renderPage()');const h=w.document.body.innerHTML;if(!/Costs that become approved/.test(h))throw Error('no job');if(!/Read notices, last 30 days: 5/.test(h))throw Error('read fold');if(!/data-nread="40"/.test(h))throw Error('mark read upto '+(h.match(/data-nread="\d+"/)||[])[0]);});
+t('costs render',()=>{E('scr="costs";renderPage()');if(!/data-panopen="glrev"/.test(w.document.body.innerHTML))throw Error('no button')});
+t('panel render',()=>{E('openPanel({k:"glrev"});renderPage()');if(!/Moved more than 3%: 1/.test(w.document.body.innerHTML))throw Error('panel')});
+console.log(`page-render: ${3-f} pass, ${f} fail`);process.exit(f?1:0)},300);

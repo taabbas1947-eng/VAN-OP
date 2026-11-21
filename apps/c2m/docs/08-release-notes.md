@@ -1217,3 +1217,6 @@ To correct a mistake: a price not yet in force is withdrawn or sent back; a rate
 ## 2026-11-21b, push 10j: C2M opens faster again (D-181)
 - C2M opens and comes back after a save faster: it keeps what it has read for up to 5 minutes and reads again only what was changed in C2M.
 - For the COO: a change made by hand in the database (phpMyAdmin, a migration) shows in C2M within 5 minutes.
+
+## 21 Nov 2026, push 10k: the C2M checks are in the repo (D-182)
+- Nothing changes in the app, so there is no new version of the page and no line in What is new. The checks written since push 10a are now in apps/c2m/tests and anyone can run them (apps/c2m/tests/README.md).

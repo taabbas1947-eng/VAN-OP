@@ -1,0 +1,9 @@
+// every screen after render: busyNow() must be false (else the refresh never runs there)
+const fs = require('fs'); const { JSDOM, html: PAGE, fixture: FIXTURE } = require('./_page.js');
+const dom = new JSDOM(fs.readFileSync(process.argv[2] || PAGE, 'utf8'), { runScripts: 'dangerously', url: 'https://x.test/c2m', beforeParse(w) { w.localStorage.setItem('van_token', 't'); w.fetch = () => new Promise(() => {}); w.matchMedia = () => ({ matches: false, addEventListener() {}, removeEventListener() {} }); } });
+const w = dom.window; const E = s => w.eval(s);
+setTimeout(async () => { w.eval(fs.readFileSync(FIXTURE, 'utf8')); w.Element.prototype.checkVisibility = () => true;
+  E("api = () => Promise.resolve(JSON.parse(JSON.stringify(window.__STF)))"); E("localStorage.setItem('c2m_changelog_seen_tahir', CHANGELOG[CHANGELOG.length - 1].ver)"); await E('load()');
+  const L = ["scr='approvals'", "scr='costs'", "scr='costs';cpart='materials'", "scr='costs';cpart='packing'", "scr='costs';cpart='labour'", "scr='costs';cpart='freight'", "scr='costs';cpart='next'", "scr='costs';cpart='month'", "scr='clients'", "scr='margin'", "scr='prices'", "scr='prices';sub='lists'", "scr='setup';nsu='settings'", "scr='setup';nsu='clients'", "scr='setup';nsu='people'", "scr='products'", "scr='guide'", "scr='notices'"];
+  let bad = 0; for (const x of L) { try { E(x + "; saved=null; dryKey=null; render()"); } catch (e) { bad++; console.log('FAIL draw', x, e.message); continue; } const b = E('busyNow()'); if (b) { bad++; const dd = [...w.document.querySelectorAll('#app input[type=date], #app input[type=month]')].filter(i => i.value !== i.defaultValue).map(i => i.id || i.outerHTML.slice(0, 80)); console.log('BUSY', x, E('scr'), dd.join(' ')); } }
+  console.log(`page-idle: ${L.length - bad} pass, ${bad} fail (screens with nothing in progress after a draw)`); process.exit(bad ? 1 : 0); }, 300);

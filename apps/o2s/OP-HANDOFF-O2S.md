@@ -7844,3 +7844,29 @@ NEXT: Tahir pushes (dea201f and this); live check read only. Then F17 Start and 
 ## 19 Nov 2026 (8) - build 2026-11-19d checked live (MODULE: O2S)
 About 18:05 PKT, signed in as COO, read only: nothing saved. BUILD_ID 2026-11-19d running. 95 Today jobs in all, 60 ask Why is this waiting?; Production 37 jobs, 25 ask (the plan measure); 0 reasons given yet; 0 Ship POs need the daily comment. The COO's Today draws with the plan line and the question; no error.
 NEXT: F17 Start and Close shift (design page first), the last of batch 1.
+
+## 21 Nov 2026 (9) - F17 Start shift and Close shift: design agreed, waiting for Majid (MODULE: O2S)
+No code written. Tahir ruled 19 Nov 2026: nothing goes into code or git (except this handoff) until every part is documented and the final flow is agreed on the design page.
+Pages (claude.ai artifacts):
+- "O2S F17: Start shift and Close shift" (claude.ai/artifact/MWt2jT4e5aKxAaaro4qX1b), version 3, the final flow with all rulings.
+- "O2S F17: independent audit of the shift design" (claude.ai/artifact/TTyGackSN6LrQLhtbqtcBW).
+- "Start shift and Close shift in O2S: how the change will work" (claude.ai/artifact/XKoWFtxAqrkSRn1K7VwYSr), plain English, public link; Tahir sent it to Abdul Majid (Production Manager) to confirm.
+Rulings (Tahir, 19 to 20 Nov 2026):
+- A shift is 1 in-charge's team at work. Each team starts and closes its own shift; teams start and stop at different times. Batch to shift is many to many, through the output entries.
+- 1 open production shift and 1 open packing shift per in-charge at a time.
+- Production users and the Production Manager tap Start and Close shift.
+- A shift keeps start and end date and hour and asks "ends tomorrow?"; a shift that ends the next day is dated the day it ends. End before start only when it ends the next day; over 16 hours asks to confirm; 0 hours is refused.
+- Every output entry is linked to a shift. Output may be offered the open shift; hand typing is kept (linked, or the shift started late). Nothing typed at close: type it now or give a reason.
+- An open shift is offered for 16 hours; at 24 hours it goes to the Production Manager on Today.
+- Lots, production log rows, packing runs and moved runs carry shiftId and entryId; lots are handled by id.
+- Totals are worked out live; an edit after close shows "changed after close".
+- Morning, Evening and Night stay as labels. A product change mid-shift is 1 shift with 2 entries.
+- In-charges get ids and an active mark; retire, never rename.
+- A clash check runs after merge and makes a Today job for the Production Manager.
+- Add missing production needs a shift and an in-charge (no Morning default) and writes an entry and a lot; 0 Kg entries can be removed.
+- Close shift adds downtime, a handover note, and rework shown apart.
+- Entries saved before the change stay as they are and show "not on record" (ruled 20 Nov).
+Audit doc (Claude Docs F2A2V6Q2zLnbrWgxgJigvR) U1 corrected: 84 of 198 production entries (42%) and 54 of 298 packing runs (18%) typed late; Jawad 68 of 152; a Night shift typed before noon the next day is not counted late (method note added).
+Open: is each packing in-charge always on the same packing line on the floor? (Majid's point 4.)
+Majid is asked to confirm 8 points: teams start and stop at different times; each in-charge's team is 1 shift; at most 1 production and 1 packing shift open per in-charge; each packing in-charge on the same floor line; next-day shift dated the day it ends; Jawad, Ali and Majid can tap; 16 hours to pick a shift; open shift to Majid on Today after 24 hours.
+NEXT: on Majid's reply, record his answers on the F17 design page (version 4) and settle the packing line point; Tahir's final agreement; then build F17 under the safe-edit sequence with tests, docs and independent review. After F17: batch 2 (medium), batch 3 (large), then labour tracking.

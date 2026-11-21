@@ -92,6 +92,7 @@ async function api(path, body) {
   let r; try { r = await fetch(path, body === undefined ? { headers: authH() } : { method: 'POST', headers: { 'Content-Type': 'application/json', ...authH() }, body: JSON.stringify(body) }); }
   catch (_) { throw new Error(body === undefined ? 'C2M could not reach the server. Check the internet connection and try again.' : 'C2M could not reach the server. Nothing was saved. Check the internet connection and try again.'); } // not the browser's Failed to fetch (push 2a)
   const j = await r.json().catch(() => ({}));
+  if (j && typeof j === 'object') { const b = Number(r.headers.get('X-C2M-Built')); if (b) Object.defineProperty(j, '_built', { value: b }); } // push 10l: when the server built it
   if (r.status === 401) { location.href = '/'; throw new Error('Sign in first.'); }
   if (!r.ok) throw new Error(j.error || 'Something went wrong and nothing was saved. Press Refresh and try again; if it happens again, tell IT the time.');
   return j;
@@ -104,7 +105,7 @@ async function savePdf(id) {
   setTimeout(() => URL.revokeObjectURL(url), 30000);
 }
 let loadSeq = 0, loadedAt = 0; // push 10e (C-19): only the newest load lands; an older, slower reply is dropped. loadedAt: push 10g (C-04)
-async function load(soft) { const my = soft ? loadSeq : ++loadSeq; /* push 10g (review m-9): a refresh never cancels a load the person asked for */ const S1 = await api('/api/c2m/state' + (PV ? '?as=' + encodeURIComponent(PV) : '')); if (my !== loadSeq || (soft && busyNow())) return false; /* push 10g (review B-1): a refresh whose person started something meanwhile is dropped; the next tick tries again */ loadedAt = Date.now(); PLX = null; VPLX = null; PLPV = { key: null, rows: null, err: null }; ST = S1; const B = SET('budget_gp'); if (B != null) { (ST.products || []).forEach(p => { p.targetOwn = p.target; if (p.target == null || Number(p.target) <= 0) { p.target = B > 0 ? B : null; p.targetDefault = B > 0; } }); (ST.sales || []).concat(ST.open || []).forEach(r => { r.targetOwn = r.target; if (r.target == null || Number(r.target) <= 0) { r.target = B > 0 ? B : 0; r.targetDefault = true; } }); } /* push 10e (C-31): a filled-in target is marked, and the server's own value kept in targetOwn, so nothing sends an invented target back */ // D-75: no target set = the company GP target
+async function load(soft) { const my = soft ? loadSeq : ++loadSeq; /* push 10g (review m-9): a refresh never cancels a load the person asked for */ const S1 = await api('/api/c2m/state' + (PV ? '?as=' + encodeURIComponent(PV) : '')); if (my !== loadSeq || (soft && busyNow())) return false; /* push 10g (review B-1): a refresh whose person started something meanwhile is dropped; the next tick tries again */ loadedAt = Date.now(); PLX = null; VPLX = null; PLPV = { key: null, rows: null, err: null }; ST = S1; ST.builtAt = S1._built || Date.now(); const B = SET('budget_gp'); if (B != null) { (ST.products || []).forEach(p => { p.targetOwn = p.target; if (p.target == null || Number(p.target) <= 0) { p.target = B > 0 ? B : null; p.targetDefault = B > 0; } }); (ST.sales || []).concat(ST.open || []).forEach(r => { r.targetOwn = r.target; if (r.target == null || Number(r.target) <= 0) { r.target = B > 0 ? B : 0; r.targetDefault = true; } }); } /* push 10e (C-31): a filled-in target is marked, and the server's own value kept in targetOwn, so nothing sends an invented target back */ // D-75: no target set = the company GP target
   if (navAfter) { const s = navAfter; navAfter = null; navLand(s); } /* Back out of a preview: the step is put back with this person's own rights (review 6c, M1) */
   if (!ST.me.nav.concat(ST.me.more || []).includes(scr)) scr = ST.me.nav[0]; if (navI < 0 && location.hash.length > 1) navFromHash(location.hash); /* an address with #place opens that place, if this person can (push 6c) */ render(); if (!checkSignoff()) checkWhatsNew(); if (lm.open && !lmDone()) lmLoad(); } // the carry-over plan follows every change made meanwhile (a rename in Product names; review 1.0.3 re-check, finding 5)
 let actBusy = false;
@@ -1591,7 +1592,7 @@ function enhanceTables() {
     });
     const st = SORTS[key];
     if (flat && st && ths[st.i]) { const par = rows[0].parentElement; const g = r => { const c = r.cells[st.i]; if (!c) return ''; const t = c.textContent.trim(); return c.dataset.v || dateKey(t) || t; }; /* data-v: a date cell sorts by its ISO date */
-      rows.slice().sort((a, b) => { if (st.n) { const x = numOf(g(a)), y = numOf(g(b)); return ((x == null ? -Infinity : x) - (y == null ? -Infinity : y)) * st.d; } return g(a).localeCompare(g(b)) * st.d; }).forEach(r => { par.appendChild(r); (kids.get(r) || []).forEach(x => par.appendChild(x)); }); tots.forEach(r => r.parentElement === par && par.appendChild(r)); }
+      rows.forEach((r, i) => { if (r._o === undefined) r._o = i; }); const SR = rows.slice().sort((a, b) => { let c; if (st.n) { const x = numOf(g(a)), y = numOf(g(b)); c = ((x == null ? -Infinity : x) - (y == null ? -Infinity : y)) * st.d; } else c = g(a).localeCompare(g(b)) * st.d; return c || a._o - b._o; }); if (SR.some((r, i) => r !== rows[i])) { SR.forEach(r => { par.appendChild(r); (kids.get(r) || []).forEach(x => par.appendChild(x)); }); tots.forEach(r => r.parentElement === par && par.appendChild(r)); } }
     const wrap = tb.closest('.wrapx'); if (wrap && rows.length > 15 && !wrap.style.maxHeight) wrap.classList.add('tall');
     if (tb.classList.contains('cards')) { tb.classList.add('short'); const keyed = ths.filter(th => th.dataset.key != null); const pri = keyed.length ? keyed.sort((a, b) => +a.dataset.key - +b.dataset.key).map(th => ths.indexOf(th)) : ths.map((th, i) => { const t = th.textContent; return { i, p: i === 0 ? 0 : /state|to do/i.test(t) ? 1 : /new price|new gp|price now|^price|mrp/i.test(t) ? 2 : /gp|target|cost|sales|rs/i.test(t) ? 3 : 9 }; }).filter(x => x.p < 9).sort((a, b) => a.p - b.p).slice(0, 4).map(x => x.i);
       rows.forEach(r => [...r.cells].forEach((c, i) => { if (pri.includes(i) || c.querySelector('input,select,button,textarea')) c.classList.add('k'); })); all0.filter(att).forEach(r => { r.classList.add('att'); r.cells[0].classList.add('k'); }); if (tb.tFoot) [...tb.tFoot.rows].forEach(r => { const c = [...r.cells]; if (c[0]) c[0].classList.add('k'); if (c.length > 1) c[c.length - 1].classList.add('k'); }); }
@@ -1783,7 +1784,9 @@ const CHANGELOG = [
   { ver: '2026-11-21a', date: '2026-11-21', title: 'C2M opens faster', items: [
  { t: 'C2M opens faster, and comes back faster after a save. A save does not wait behind someone else opening C2M.', for: ['all'], guide: null }] },
   { ver: '2026-11-21b', date: '2026-11-21', title: 'C2M opens faster again', items: [
- { t: 'C2M opens and comes back after a save faster: it keeps what it has read for up to 5 minutes and reads again only what was changed in C2M.', for: ['all'], guide: null }] }
+ { t: 'C2M opens and comes back after a save faster: it keeps what it has read for up to 5 minutes and reads again only what was changed in C2M.', for: ['all'], guide: null }] },
+  { ver: '2026-11-21c', date: '2026-11-21', title: 'Presses redraw only what changed', items: [
+ { t: 'A press in C2M now redraws only the part of the screen that changed, so text you selected and the place you scrolled to stay. When C2M reads its data again and nothing is new, nothing is downloaded; only the Updated time on Approvals is redrawn there.', for: ['all'], guide: null }] }
 ];
 let _wnShown = false, wnGuide = null;
 /* ---------- Push 7e (Tahir, 10 Nov 2026, D-166): the role page, read and signed once per version before C2M opens ----------
@@ -1958,7 +1961,7 @@ document.addEventListener('click', e => { const th = e.target.closest && e.targe
 document.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.classList && e.target.classList.contains('srt')) { e.preventDefault(); e.target.click(); } });
 document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target && e.target.id === 'audq') { e.preventDefault(); aud.q = e.target.value; aud.data = null; audLoad(); } });
 /** Draw the page, then record the move for the phone Back button (push 6c, D-161). */
-function render() { renderPage(); navSync(); if (editLines) elLive(); } // push 7b: the editor's live total and analysis
+function render() { renderPage(); navSync(); if (editLines) elLive(); paintSettled(); } // push 7b: the editor's live total and analysis; push 10l: what the redraw itself changed is not "touched"
 const badgeN = J => ADM() ? J.filter(j => j.kind === 'approve').length : J.length; // push 10b (Tahir, 20 Nov 2026): for the administrator the badge counts only his decisions
 /* ---------- Push 10f (audit C-09, with C-23): a redraw keeps the place. The button pressed keeps the focus, an open or closed fold stays
    as the person left it, and a box scrolled inside keeps its scroll, on the same screen. ---------- */
@@ -1970,7 +1973,7 @@ const MONRX = /\b\d{1,2} (jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*
 function foldKey(d) { if (d.dataset.nofold != null || d.matches('.rowmenu, .newm') || d.closest('tr, .rowmenu, .newm')) return null; /* review 10f (B1, M1): a menu or a fold in a row is never kept */ if (d.dataset.fold) return d.dataset.fold; const sm = d.querySelector(':scope > summary'); const dates = []; const t = (sm ? sm.textContent : '').replace(/\s+/g, ' ').trim().toLowerCase().replace(MONRX, m => { dates.push(m); return '@' + String.fromCharCode(97 + dates.length - 1) + '@'; }).replace(/\d+([.,]\d+)*/g, '#').replace(/@([a-z])@/g, (_, c) => dates[c.charCodeAt(0) - 97]); /* counts change after a save, a date names the fold */
   return (d.closest('aside.panel') ? 'pan:' + drawnPan : 'view:' + drawnView) + ':' + t; }
 document.addEventListener('click', e => { const sm = e.target.closest && e.target.closest('summary'); if (!sm) return; const d = sm.parentElement; if (!d || d.tagName !== 'DETAILS' || !d.closest('#app')) return; setTimeout(() => { const k = foldKey(d); if (k) FOLD.set(k, d.open); }, 0); }, true); // read after the browser has opened or closed it
-function applyFolds() { document.querySelectorAll('#app details').forEach(d => { const k = foldKey(d); if (!k) return; const code = d.open; /* review 10f (m1): when the code changes how it draws a fold (it opens it on purpose), the code wins */ if (FCODE.has(k) && FCODE.get(k) !== code) FOLD.delete(k); FCODE.set(k, code); if (FOLD.has(k) && d.open !== FOLD.get(k)) d.open = FOLD.get(k); }); }
+function applyFolds() { document.querySelectorAll('#app details').forEach(d => { const k = foldKey(d); if (!k) return; if (d._fc === undefined) d._fc = d.open; const code = d._fc; /* review 10f (m1): when the code changes how it draws a fold (it opens it on purpose), the code wins */ if (FCODE.has(k) && FCODE.get(k) !== code) FOLD.delete(k); FCODE.set(k, code); if (FOLD.has(k) && d.open !== FOLD.get(k)) d.open = FOLD.get(k); }); }
 const fText = x => x.textContent.replace(/\s+/g, ' ').trim().slice(0, 80);
 const fMatch = k => x => !x.closest('aside.panel') && !!x.closest('.hdr') === k.inNav && k.data.every(([n, v]) => x.getAttribute(n) === v) && (x.getAttribute('aria-label') || '') === k.label && (k.data.length || fText(x) === k.text);
 function focusKey(el) { const app = $('app'); if (!el || el === document.body || !app || !app.contains(el) || el.closest('aside.panel') || /^(TEXTAREA|SELECT)$/.test(el.tagName) || (el.tagName === 'INPUT' && !/^(checkbox|radio)$/.test(el.type))) return null; // review 10f (m2): a tick keeps focus too
@@ -1984,7 +1987,38 @@ function focusBack(k) { if (!k) return false; const app = $('app'); let el = k.i
 const keepScroll = () => { const pn = document.querySelector('#app aside.panel'); return { v: drawnView, main: [...document.querySelectorAll('#app main .wrapx')].map(b => [b.scrollTop, b.scrollLeft]), p: drawnPan, pan: pn ? pn.scrollTop : 0 }; };
 function putScroll(S) { if (!S) return; if (S.v != null && S.v === drawnView) { const B = [...document.querySelectorAll('#app main .wrapx')]; if (B.length === S.main.length) B.forEach((b, i) => { if (S.main[i][0]) b.scrollTop = S.main[i][0]; if (S.main[i][1]) b.scrollLeft = S.main[i][1]; }); }
   const pn = document.querySelector('#app aside.panel'); if (pn && S.p && S.p === drawnPan && S.pan) pn.scrollTop = S.pan; }
-function renderPage() {
+/* Push 10l (audit C-23): a redraw writes only the parts of the page whose HTML changed (the side bar, main, the panels and sheets), so a
+   press that changes only a panel, or a refresh with nothing new, leaves the rest as it was: text selection, scroll and the browser's own
+   state stay. A part is written again anyway when anything touched it since the last redraw (a sort, a filter, an edit by code: seen by
+   a MutationObserver) or when a box in it holds typed text, a changed tick or choice, or an armed 2-step button, so what shows is always
+   what a full redraw would show. The steps after a redraw (sort, filters, folds, focus) run as before. */
+const PAINT = { app: null, hdr: null, main: null, over: null, dirty: { hdr: true, main: true, over: true } }; let paintObs = null;
+function paintWhere(n) { const el = n && (n.nodeType === 1 ? n : n.parentElement); if (!el) return 'over'; return el.closest('aside.hdr') ? 'hdr' : el.closest('.shell') ? 'main' : 'over'; }
+function paintTouched(recs) { recs.forEach(r => { PAINT.dirty[paintWhere(r.target)] = true; }); }
+function paintTyped(root) { if (!root) return false; for (const x of root.querySelectorAll('input, textarea, select')) {
+  if (x.tagName === 'SELECT') { const O = [...x.options]; if (!x.multiple && !O.some(o => o.defaultSelected)) { if (x.selectedIndex !== Math.max(0, O.findIndex(o => !o.disabled))) return true; } else if (O.some(o => o.selected !== o.defaultSelected)) return true; }
+  else if (x.type === 'checkbox' || x.type === 'radio') { if (x.checked !== x.defaultChecked) return true; } else if (x.value !== x.defaultValue) return true; }
+  return !!root.querySelector('.armed, [data-armed]'); }
+function paint(app, hdr, main, over, overHtml) {
+  const H = app.querySelector(':scope > aside.hdr'), S = app.querySelector(':scope > .shell'), Mn = S && S.querySelector(':scope > main');
+  if (paintObs) paintTouched(paintObs.takeRecords());
+  const full = PAINT.app !== app || !H || !Mn;
+  const mainAttr = over ? ' inert aria-hidden="true"' : '';
+  if (full) { app.innerHTML = `${hdr}\n  <div class="shell"><main${mainAttr}>${main}</main></div>${overHtml}`; }
+  else {
+    const oldOver = [...app.children].filter(x => x !== H && x !== S);
+    if (hdr !== PAINT.hdr || PAINT.dirty.hdr || paintTyped(H)) H.outerHTML = hdr;
+    if (main !== PAINT.main || PAINT.dirty.main || paintTyped(Mn)) Mn.innerHTML = main;
+    if (over) { Mn.setAttribute('inert', ''); Mn.setAttribute('aria-hidden', 'true'); } else { Mn.removeAttribute('inert'); Mn.removeAttribute('aria-hidden'); }
+    if (overHtml !== PAINT.over || PAINT.dirty.over || oldOver.some(paintTyped)) { oldOver.forEach(x => x.remove()); app.insertAdjacentHTML('beforeend', overHtml); }
+  }
+  PAINT.ran = true; PAINT.app = app; PAINT.hdr = hdr; PAINT.main = main; PAINT.over = overHtml; PAINT.dirty = { hdr: false, main: false, over: false };
+  if (!paintObs && typeof MutationObserver === 'function') { paintObs = new MutationObserver(paintTouched); paintObs.observe(app, { subtree: true, childList: true, attributes: true, characterData: true }); }
+}
+/** After the steps that follow a redraw, their own changes are not "touched by something else". */
+function paintSettled() { if (paintObs) paintObs.takeRecords(); }
+function renderPage() { PAINT.ran = false; try { renderPage0(); } finally { if (PAINT.ran) paintSettled(); else if (paintObs) paintTouched(paintObs.takeRecords()); } } // review 10l m-5: a redraw that stopped before paint keeps its changes as "touched"
+function renderPage0() {
   RSEQ++; // push 10f (C-22): a new draw works everything out again, once
   const fk0 = focusKey(document.activeElement), sc0 = keepScroll(); // push 10f (C-09)
   if (scr !== 'guide') wnGuide = null; // the Guide row mark lasts while the Guide is open (D-141)
@@ -1999,15 +2033,15 @@ function renderPage() {
   const over = pan || moreOpen || finder; const p4 = phone4(M.nav, M.more); let g0 = null; const hasMore = (M.more || []).length > 0 || M.nav.length > 5;
   const navHtml = M.nav.map(k => { const g = (M.more || []).length ? '' : RAILG[k] || ''; const lab = g && g !== g0 ? `<span class="g" aria-hidden="true">${g}</span>` : ''; g0 = g || g0;
     return `${lab}<button data-scr="${k}" aria-current="${k === scr}" class="${p4.includes(k) ? '' : 'far'}"${(k === 'today' || k === 'approvals') && badgeN(J) ? ` aria-label="${NAV[k]}, ${badgeN(J)} waiting"` : ''}>${ICON[k] || ''}${NAV[k]}${(k === 'today' || k === 'approvals') && badgeN(J) ? `<span class="n" title="${ADM() ? 'Decisions waiting for you' : 'Things waiting for you'}">${badgeN(J)}</span>` : ''}</button>`; }).join('');
-  app.innerHTML = `<aside class="hdr${hasMore ? ' has-more' : ''}" aria-label="C2M" ${over ? 'inert' : ''}><a class="brand" href="/" title="Back to the VAN launcher"><i aria-hidden="true"></i><span><b>C2M</b><small>Cost to Margin</small></span></a>
+  const hdrHtml = `<aside class="hdr${hasMore ? ' has-more' : ''}" aria-label="C2M" ${over ? 'inert' : ''}><a class="brand" href="/" title="Back to the VAN launcher"><i aria-hidden="true"></i><span><b>C2M</b><small>Cost to Margin</small></span></a>
   <nav aria-label="Screens">${navHtml}</nav>${hasMore ? `<button class="more${(M.more || []).length ? ' desk' : ''}" data-more aria-label="More places" aria-expanded="${moreOpen}"${(M.more || []).includes(scr) ? ' aria-current="true"' : ''}>${ICON.more}More</button>` : ''}
   <button class="findbtn" data-finder title="Find anything (Ctrl K)" aria-label="Find anything">${ICON.search}<span>Find anything</span><kbd>Ctrl K</kbd></button>
   <span class="skins" role="group" aria-label="Choose your look">${SKINS.map(([k, l]) => `<button data-skin="${k}" aria-pressed="${skin === k}" title="${l}" aria-label="${l}"></button>`).join('')}</span>
-  <div class="foot"><b>${esc(String(M.name || M.user).trim().split(/\s+/)[0])}</b><span class="who2">${esc(M.label)}</span><a href="/" class="launch" title="Back to the VAN Systems launcher" aria-label="Back to the VAN Systems launcher"><span class="lw">Back to launcher</span><span class="ls">Launcher</span><svg class="li" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg></a><a href="/" data-signout>Sign out</a></div></aside>
-  <div class="shell"><main ${over ? 'inert aria-hidden="true"' : ''}>${ST.preview ? vPvBar() : ''}${mainHtml}</main></div>${pan ? vPanel() : ''}${moreOpen ? vMore(p4) : ''}${finder ? vFinder() : ''}`;
+  <div class="foot"><b>${esc(String(M.name || M.user).trim().split(/\s+/)[0])}</b><span class="who2">${esc(M.label)}</span><a href="/" class="launch" title="Back to the VAN Systems launcher" aria-label="Back to the VAN Systems launcher"><span class="lw">Back to launcher</span><span class="ls">Launcher</span><svg class="li" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg></a><a href="/" data-signout>Sign out</a></div></aside>`;
+  paint(app, hdrHtml, (ST.preview ? vPvBar() : '') + mainHtml, over, (pan ? vPanel() : '') + (moreOpen ? vMore(p4) : '') + (finder ? vFinder() : '')); // push 10l (C-23)
   if (finder) { const f = $('fq'); if (f && document.activeElement !== f) { f.focus(); f.setSelectionRange(f.value.length, f.value.length); } return; }
   if (moreOpen) { const sh = document.querySelector('.sheet'), mb = document.querySelector('[data-more]'); /* D-113: on a wide screen More opens as a menu under its own button, not as a sheet at the foot of the page */
-    if (sh && mb && innerWidth > 760) { const r = mb.getBoundingClientRect(); sh.classList.add('pop'); sh.style.left = Math.max(8, Math.min(r.left, innerWidth - 280)) + 'px'; if (r.bottom + 330 > innerHeight && r.top > 330) { sh.style.top = 'auto'; sh.style.bottom = (innerHeight - r.top + 6) + 'px'; } else sh.style.top = (r.bottom + 6) + 'px'; }
+    if (sh) { sh.classList.remove('pop'); sh.removeAttribute('style'); } if (sh && mb && innerWidth > 760) { const r = mb.getBoundingClientRect(); sh.classList.add('pop'); sh.style.left = Math.max(8, Math.min(r.left, innerWidth - 280)) + 'px'; if (r.bottom + 330 > innerHeight && r.top > 330) { sh.style.top = 'auto'; sh.style.bottom = (innerHeight - r.top + 6) + 'px'; } else sh.style.top = (r.bottom + 6) + 'px'; }
     const b = document.querySelector('.sheet button'); if (b) b.focus({ preventScroll: true }); return; }
   document.querySelectorAll('input[type=date]').forEach(dateWords);
   enhanceTables(); lfApply(); markReq(); drawnView = viewKey(); drawnPan = panKey(); applyFolds(); if (sc0) putScroll(sc0); const scr1 = drawnScr; drawnScr = scr; // push 10f (C-09)

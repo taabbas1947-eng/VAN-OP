@@ -1220,3 +1220,6 @@ To correct a mistake: a price not yet in force is withdrawn or sent back; a rate
 
 ## 21 Nov 2026, push 10k: the C2M checks are in the repo (D-182)
 - Nothing changes in the app, so there is no new version of the page and no line in What is new. The checks written since push 10a are now in apps/c2m/tests and anyone can run them (apps/c2m/tests/README.md).
+
+## 2026-11-21c, push 10l: presses redraw only what changed (D-183)
+- A press in C2M now redraws only the part of the screen that changed, so text you selected and the place you scrolled to stay. When C2M reads its data again and nothing is new, nothing is downloaded; only the Updated time on Approvals is redrawn there.

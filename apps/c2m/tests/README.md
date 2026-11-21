@@ -36,7 +36,7 @@ Each file can also run alone, for example `node apps/c2m/tests/page-10g.test.js`
 `<name>: <n> pass, <m> fail`; run.js adds them up, shows why a file gave no result, and ends with exit code 1 if any
 check failed.
 
-## What they check (21 Nov 2026: 305 checks)
+## What they check (21 Nov 2026: 336 checks)
 
 | File | Checks | What |
 |---|---|---|
@@ -47,10 +47,12 @@ check failed.
 | page-10e.test.js | 35 | The audit Minors: rounding, blank settings, FED, toasts and more (push 10e) |
 | page-10f.test.js | 25 | Focus, open folds and scroll kept after each press; lists worked out once per draw (push 10f) |
 | page-10g.test.js | 27 | The page reads its data again when shown, every 2 minutes and on a new day, never while someone is busy (push 10g) |
+| page-10l.test.js | 22 | A redraw writes only what changed; typed text, changes by code and armed buttons still get a full redraw; folds and sorted tables stay (push 10l) |
 | page-idle.test.js | 18 | On every screen, nothing counts as "in progress" after a draw, so the refresh can run |
 | page-render.test.js | 3 | Approvals, Costs and the go-live review panel draw |
 | routes-10a.test.js | 21 | Price list downloads for viewers and the COO, notices (push 10a) |
 | routes-10e.test.js | 22 | Price list numbers from the counter, the FED setting, holidays (push 10e) |
+| routes-304.test.js | 9 | The state answer's ETag, X-C2M-Built and 304 when nothing is new (push 10l) |
 | routes-shell.test.js | 20 | The page shell, its hashed CSS and JS, cache rules, "could not load" (push 10h) |
 | routes-gate.test.js | 4 | Plain reads leave 1 database connection free for a save (push 10i) |
 | routes-cache.test.js | 9 | Kept read answers: kept, read fresh, forgotten after a C2M save (push 10j) |

@@ -851,12 +851,15 @@ module.exports = function mountC2mRoutes(app, deps) {
     /* Speed (11 Nov 2026): the answer is kept 30 seconds for the same person and thrown away at once when anyone saves anything in C2M,
        so a second open or a tab switch does not rebuild 565 KB. A save that starts while a build is running makes that build's answer unusable (version check). */
     const ckey = user + '|' + as + '|' + acc.role, hit = stateCache.get(ckey);
-    if (hit && hit.ver === writeVer && Date.now() - hit.at < STATE_TTL) { res.set('Server-Timing', 'cache;dur=0'); res.type('json').send(hit.body); return; }
+    /* push 10l: the answer carries no time of its own (X-C2M-Built says when it was built), so the same data gives the same answer and
+       the browser, asking with its ETag, gets 304 and nothing to download (a refresh with nothing new costs no transfer) */
+    res.set('Cache-Control', 'private, no-cache'); res.set('Vary', 'Authorization'); // review 10l p-1
+    if (hit && hit.ver === writeVer && Date.now() - hit.at < STATE_TTL) { res.set('Server-Timing', 'cache;dur=0'); res.set('X-C2M-Built', String(hit.built)); res.type('json').send(hit.body); return; }
     const ver = writeVer, t0 = Date.now();
     if (!as && (mayDo(req, 'reapproval.decide') || req.c2m.admin)) await sweepOnce(user).catch(e => console.error('[c2m] first-cost sweep', e.message));
     const t1 = Date.now();
-    const tm = []; const RS = { h: 0, n: 0 }; const out = await rcStore.run(RS, () => build(acc, user, tm)); if (acc.admin || acc.can.has('see.cost')) tm.push(`rc;desc="${RS.h} of ${RS.n} kept";dur=0`); out.me.name = acc.name; out.builtAt = t0; /* push 10g (review m-2): the server's clock, for "Updated hh:mm" */ if (as) out.preview = { user: as, name: acc.name };
-    const tj = Date.now(); const body = JSON.stringify(out); tm.push('json;dur=' + (Date.now() - tj)); stateCache.set(ckey, { ver, at: Date.now(), body }); if (stateCache.size > 60) stateCache.delete(stateCache.keys().next().value);
+    const tm = []; const RS = { h: 0, n: 0 }; const out = await rcStore.run(RS, () => build(acc, user, tm)); if (acc.admin || acc.can.has('see.cost')) tm.push(`rc;desc="${RS.h} of ${RS.n} kept";dur=0`); out.me.name = acc.name; res.set('X-C2M-Built', String(t0)); /* push 10l: was out.builtAt (push 10g, review m-2): the server's clock, for "Updated hh:mm" */ if (as) out.preview = { user: as, name: acc.name };
+    const tj = Date.now(); const body = JSON.stringify(out); tm.push('json;dur=' + (Date.now() - tj)); stateCache.set(ckey, { ver, at: Date.now(), body, built: t0 }); if (stateCache.size > 60) stateCache.delete(stateCache.keys().next().value);
     res.set('Server-Timing', `sweep;dur=${t1 - t0}, build;dur=${Date.now() - t1}, ` + tm.join(', ')); res.type('json').send(body);
   }));
 

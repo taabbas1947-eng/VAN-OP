@@ -71,3 +71,8 @@ Readings 1 and 2 are before push 795a59c. Readings 3 and 4 are after it. All val
 - Live after push 10i: build 2,464 to 2,877 ms, load_all 1,776 to 2,007 ms; reads still waited in turn.
 - Done: item 3 in another form: C2M keeps the answers of its own table reads for up to 5 minutes and reads a table again when C2M writes to it (doc 03, 3.61). Simulated: 2,590 to 630 to 783 ms after a save, 1,680 to about 465 ms for the next person.
 - Still open: a reply with only what changed after a save; the first open after a deploy or a restart reads everything.
+
+## Push 10l (21 Nov 2026, D-183)
+- Live after push 10j: build 559 to 575 ms; about 1.3 to 1.4 s in the browser, most of it sending the 653 KB answer.
+- Done: a refresh with nothing new gets 304 and downloads nothing (the build time moved to the header X-C2M-Built); the page redraws only what changed (C-23).
+- Still open: after a save the whole answer is sent again (a reply with only what changed).

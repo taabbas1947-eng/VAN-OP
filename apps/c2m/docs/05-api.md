@@ -462,3 +462,7 @@ No route added or removed.
 ## 5.29 Push 10j (21 Nov 2026; owner: Tahir; D-181)
 No route added or removed.
 - GET /api/c2m/state: Server-Timing adds rc;desc="h of n kept" (reads this build could keep, and how many came from the kept answers), for the administrator and the roles that see cost. The answer is unchanged, except that a change made outside C2M may take up to 5 minutes to show (doc 03, 3.61).
+
+## 5.30 Push 10l (21 Nov 2026; owner: Tahir; D-183)
+No route added or removed.
+- GET /api/c2m/state: builtAt is no longer in the answer; header X-C2M-Built (milliseconds since 1970, the server's clock when the answer was built) instead. Cache-Control: private, no-cache; Vary: Authorization. With If-None-Match equal to the ETag of the same answer: 304 and no body (X-C2M-Built still sent).

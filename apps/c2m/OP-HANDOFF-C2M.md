@@ -1092,3 +1092,10 @@ Live, 20 Nov 2026 22:05: push 10f is pushed (commit 862b18a) and deployed; check
 - Independent review: 2 rounds; round 1 not ready (a check tied to the year 2026; a crash with Windows line endings), fixed; round 2 ready to push.
 - Note: the session's push of 10k was delayed because the computer was offline on 21 Nov evening; written here at 22:05.
 - Not pushed. Ready to push. Next: C-23 (redraw only the part of the screen that changed), then the reply with only what changed after a save.
+
+## 21 Nov 2026, push 10l: presses redraw only what changed; a refresh with nothing new downloads nothing (audit C-23, C-03; D-183)
+- Module: C2M. Files: apps/c2m/c2m.js (paint: only changed parts of the page are written; folds, sorts, choice boxes and More made safe for a kept part; change list 2026-11-21c), apps/c2m/c2m-routes.js (state answer: build time in header X-C2M-Built, Cache-Control private, no-cache, Vary Authorization, so the same data gives 304), NEW tests page-10l.test.js (22) and routes-304.test.js (9), tests/README.md, docs 03 (3.62), 05 (5.30), 06 (D-183), 08, 12, 13. No migration.
+- Independent review: not ready at first (B-1: an opened fold closed again after quiet redraws); fixed with its Minors; the fold and sort checks pass in Chrome too.
+- Tests: apps/c2m/tests/run.js 336 pass, 0 fail (session, test database).
+- Not pushed. Ready to push. After the push: live check (a refresh with nothing new gets 304; a fold opened on Costs stays open after a refresh).
+- Next: after a save, send only what changed (the last open item of the speed work); C-23's longer term (screens as modules) is not planned yet.

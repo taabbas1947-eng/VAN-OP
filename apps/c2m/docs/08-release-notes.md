@@ -1213,3 +1213,7 @@ To correct a mistake: a price not yet in force is withdrawn or sent back; a rate
 
 ## 2026-11-21a, push 10i: C2M opens faster (D-180)
 - C2M opens faster, and comes back faster after a save. A save does not wait behind someone else opening C2M. (C2M now reads over up to 8 database connections instead of 3.)
+
+## 2026-11-21b, push 10j: C2M opens faster again (D-181)
+- C2M opens and comes back after a save faster: it keeps what it has read for up to 5 minutes and reads again only what was changed in C2M.
+- For the COO: a change made by hand in the database (phpMyAdmin, a migration) shows in C2M within 5 minutes.

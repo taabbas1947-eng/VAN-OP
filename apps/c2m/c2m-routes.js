@@ -60,7 +60,30 @@ module.exports = function mountC2mRoutes(app, deps) {
     if (!dry && glOn() && /^\s*INSERT INTO c2m_reapproval\b/i.test(sql)) { // go-live window: no re-approval item; a first cost (a pack with none approved) is still written (D-170, review m5)
       let it = []; try { it = JSON.parse((p || [])[1] || '[]'); } catch (_) {} const first = it.filter(i => i && i.first);
       if (!first.length) return Promise.resolve([{ insertId: 0, affectedRows: 0 }]); p = [p[0], JSON.stringify(first), ...p.slice(2)]; }
-    const c = txStore.getStore(); return c ? c.execute(sql, clean(p)) : readQ(sql, clean(p)); };
+    const c = txStore.getStore(); let wt = null; if (!/^\s*(SELECT|SHOW)\b/i.test(sql)) { wt = writtenIn(sql); rcTouch(wt); if (c) { const set = txWrote.get(c); if (set) wt.forEach(x => set.add(x)); } } // push 10j: a write ends the kept answers of its tables
+    if (c) return c.execute(sql, clean(p));
+    const r = readQ(sql, clean(p)); return wt && wt.length ? r.finally(() => rcTouch(wt)) : r; }; // and again once it has landed: a read sent meanwhile may have seen the table before it (review 10j B-1)
+  /* Push 10j (Tahir's choice, 21 Nov 2026, "keep answers 5 min"; D-181): the answer of a plain read of C2M's own tables (c2m_*) is kept
+     in this server for at most 5 minutes and given again while no write by C2M has touched any table it reads. Every write statement
+     (outside or inside a transaction) ends the kept answers of each c2m_ table named in it; a transaction does it again when it commits
+     or rolls back. Reads inside a transaction, reads of other tables (sign-in, roles, O2S data) and reads that name the clock are never
+     kept. A change made outside C2M (by hand in phpMyAdmin, a migration) shows within 5 minutes. */
+  const RC = new Map(), TV = new Map(), RC_TTL = 300000, RC_MAX = 800; const txWrote = new WeakMap(); const rcStore = new AsyncLocalStorage();
+  app.locals.c2mForgetKept = () => RC.clear(); // for tests that write to the database directly, as a hand change in phpMyAdmin would
+  const writtenIn = sql => [...new Set(sql.match(/\bc2m_\w+/g) || [])];
+  const readFrom = sql => { const t = []; const re = /\b(?:FROM|JOIN)\s+`?(\w+)`?/gi; let m; while ((m = re.exec(sql))) t.push(m[1]); return [...new Set(t)]; };
+  const rcTouch = t => { for (const x of t) TV.set(x, (TV.get(x) || 0) + 1); };
+  const CLOCK = /\b(NOW|CURDATE|CURTIME|CURRENT_DATE|CURRENT_TIME|CURRENT_TIMESTAMP|UTC_DATE|UTC_TIME|UTC_TIMESTAMP|SYSDATE|RAND|UUID|LAST_INSERT_ID|FOUND_ROWS)\b/i;
+  const hasBuf = rows => rows.some(r => r && typeof r === 'object' && Object.values(r).some(v => v && typeof v === 'object' && (Buffer.isBuffer(v) || ArrayBuffer.isView(v))));
+  const rcRead = (sql, p, run) => {
+    const tabs = readFrom(sql); const st = rcStore.getStore();
+    if (typeof structuredClone !== 'function' || !tabs.length || !tabs.every(t => /^c2m_/.test(t)) || CLOCK.test(sql)) return run();
+    if (st) st.n++;
+    const key = sql + '\u0000' + JSON.stringify(p || []), e = RC.get(key), now = Date.now();
+    if (e && now - e.at < RC_TTL && e.tabs.every((t, i) => (TV.get(t) || 0) === e.v[i])) { if (st) st.h++; RC.delete(key); RC.set(key, e); return Promise.resolve([structuredClone(e.rows), e.f]); } // a used answer moves to the back
+    const v = tabs.map(t => TV.get(t) || 0);
+    return run().then(r => { if (Array.isArray(r) && Array.isArray(r[0]) && tabs.every((t, i) => (TV.get(t) || 0) === v[i]) && !hasBuf(r[0])) {
+      RC.delete(key); RC.set(key, { at: now, tabs, v, rows: structuredClone(r[0]), f: r[1] }); if (RC.size > RC_MAX) RC.delete(RC.keys().next().value); } return r; }); };
   /* Push 10g/10i (audit C-03): C2M has 1 pool (deps.pdq and deps.pool are the same pool in server.js; 8 connections from 21 Nov 2026,
      3 before). A plain read (SELECT or SHOW outside a transaction) waits its turn here, so plain reads never take more than the pool's
      size less 1 less what transactions and other statements already hold: they always leave at least 1 connection free for a save.
@@ -74,15 +97,16 @@ module.exports = function mountC2mRoutes(app, deps) {
   const pdqOther = (sql, p) => { otherIn++; return Promise.resolve().then(() => deps.pdq(sql, p)).finally(() => { otherIn--; nextRead(); }); };
   const readQ = (sql, p) => {
     if (!/^\s*(SELECT|SHOW)\b/i.test(sql) || /\bFOR\s+UPDATE\b|\bLOCK\s+IN\s+SHARE\s+MODE\b/i.test(sql)) return pdqOther(sql, p);
-    return new Promise(go => { readWait.push(go); nextRead(); }).then(() => deps.pdq(sql, p)).finally(() => { readsIn--; nextRead(); }); };
+    return rcRead(sql, p, () => new Promise(go => { readWait.push(go); nextRead(); }).then(() => deps.pdq(sql, p)).finally(() => { readsIn--; nextRead(); })); };
   /** Placeholders for a list, e.g. IN (?,?,?): prepared statements (the platform's pool.execute) cannot take an array for 1 ?. */
   const qs = a => a.map(() => '?').join(',');
   async function tx(fn) {
     if (!deps.pool || txStore.getStore()) return fn();
     txHeld++; let c; try { c = await deps.pool.getConnection(); } catch (e) { txHeld--; nextRead(); throw e; } // push 10g (review m-1): reads leave 1 connection for saves
+    txWrote.set(c, new Set());
     try { await c.beginTransaction(); const r = await txStore.run(c, fn); await c.commit(); return r; }
     catch (e) { await c.rollback().catch(() => {}); throw e; }
-    finally { c.release(); txHeld--; nextRead(); }
+    finally { rcTouch(txWrote.get(c) || []); txWrote.delete(c); c.release(); txHeld--; nextRead(); }
   }
   const moved = () => Object.assign(new Error('Someone else changed this a moment ago. Check before retrying.'), { status: 409 });
   /* Effect before saving (Tahir and Yawar, 5 Nov 2026, R14; push 2a). A cost save called with ?dry=1 runs exactly as a real
@@ -109,7 +133,7 @@ module.exports = function mountC2mRoutes(app, deps) {
   /** The last day of the go-live window, or null (D-170). Read at most every 30 seconds, and fresh when asked. A failed read keeps the last answer. */
   async function glUntil(fresh) {
     if (!fresh && GL.at && Date.now() - GL.at < 30000) return GL.until;
-    try { const [rows] = await pdqOther("SELECT v FROM c2m_setting WHERE k='golive_until'"); const v = rows && rows[0] ? String(rows[0].v).slice(0, 10) : null; GL.until = v && isDate(v) ? v : null; GL.at = Date.now(); } catch (_) {}
+    try { const [rows] = await rcRead("SELECT v FROM c2m_setting WHERE k='golive_until'", [], () => pdqOther("SELECT v FROM c2m_setting WHERE k='golive_until'")); const v = rows && rows[0] ? String(rows[0].v).slice(0, 10) : null; GL.until = v && isDate(v) ? v : null; GL.at = Date.now(); } catch (_) {}
     return GL.until;
   }
   /** A count of packs sent for re-approval, as the person is told: 0 while the go-live window is open (no item is written, D-170). */
@@ -831,7 +855,7 @@ module.exports = function mountC2mRoutes(app, deps) {
     const ver = writeVer, t0 = Date.now();
     if (!as && (mayDo(req, 'reapproval.decide') || req.c2m.admin)) await sweepOnce(user).catch(e => console.error('[c2m] first-cost sweep', e.message));
     const t1 = Date.now();
-    const tm = []; const out = await build(acc, user, tm); out.me.name = acc.name; out.builtAt = t0; /* push 10g (review m-2): the server's clock, for "Updated hh:mm" */ if (as) out.preview = { user: as, name: acc.name };
+    const tm = []; const RS = { h: 0, n: 0 }; const out = await rcStore.run(RS, () => build(acc, user, tm)); if (acc.admin || acc.can.has('see.cost')) tm.push(`rc;desc="${RS.h} of ${RS.n} kept";dur=0`); out.me.name = acc.name; out.builtAt = t0; /* push 10g (review m-2): the server's clock, for "Updated hh:mm" */ if (as) out.preview = { user: as, name: acc.name };
     const tj = Date.now(); const body = JSON.stringify(out); tm.push('json;dur=' + (Date.now() - tj)); stateCache.set(ckey, { ver, at: Date.now(), body }); if (stateCache.size > 60) stateCache.delete(stateCache.keys().next().value);
     res.set('Server-Timing', `sweep;dur=${t1 - t0}, build;dur=${Date.now() - t1}, ` + tm.join(', ')); res.type('json').send(body);
   }));
@@ -966,7 +990,7 @@ module.exports = function mountC2mRoutes(app, deps) {
   async function glClose0() {
     const until = await glUntil(); const T = today();
     if (!until || T <= until || glBusy) return null;
-    { const [rows] = await pdqOther("SELECT v FROM c2m_setting WHERE k='golive_reset'"); if (rows && rows[0] && String(rows[0].v).slice(0, 10) === until) { GL.doneFor = until; return null; } }
+    { const [rows] = await rcRead("SELECT v FROM c2m_setting WHERE k='golive_reset'", [], () => pdqOther("SELECT v FROM c2m_setting WHERE k='golive_reset'")); if (rows && rows[0] && String(rows[0].v).slice(0, 10) === until) { GL.doneFor = until; return null; } }
     glBusy = true; let n = 0; const left = []; let ran = false;
     try {
       await tx(async () => {

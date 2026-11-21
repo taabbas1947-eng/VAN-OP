@@ -66,3 +66,8 @@ Readings 1 and 2 are before push 795a59c. Readings 3 and 4 are after it. All val
 - Live after push 10h: load_all 3,220 and 3,288 ms; the largest tables 411, 275, 175, 111 and 94 rows. Reads waited for a connection: C2M had 3 in all (push 10g's 7 was a wrong reading of server.js; doc 03, 3.58 and 3.60).
 - Done: item 2 (raise the pool), as C2M's own pool 3 to 8 with maxIdle 2 and idleTimeout 5 minutes (PLATFORM line, Tahir's choice); C2M's plain reads leave 1 connection free for saves. The la_ figures now include C2M's own read queue. Simulated: 4,563 to 2,595 ms after a save, 2,886 to 1,681 ms for the next person.
 - Still open: item 3 (keep warm), item 5 (sales read), a reply with only what changed after a save.
+
+## Push 10j (21 Nov 2026, D-181)
+- Live after push 10i: build 2,464 to 2,877 ms, load_all 1,776 to 2,007 ms; reads still waited in turn.
+- Done: item 3 in another form: C2M keeps the answers of its own table reads for up to 5 minutes and reads a table again when C2M writes to it (doc 03, 3.61). Simulated: 2,590 to 630 to 783 ms after a save, 1,680 to about 465 ms for the next person.
+- Still open: a reply with only what changed after a save; the first open after a deploy or a restart reads everything.

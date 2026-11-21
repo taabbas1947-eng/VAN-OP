@@ -458,3 +458,7 @@ No route added or removed.
 | GET /c2m/c2m.<hash>.css, /c2m/c2m.<hash>.js | none (as the page) | the page's styles or script as read at start, ETag the hash; current hash: kept 1 year (immutable); no hash or another hash: the current file, no-cache; 404 if the file was not read at start |
 - GET /c2m: the shell (about 1 KB), no-cache with ETag; it names the current hashed files.
 - GET /api/c2m/state: Server-Timing adds up to 5 la_<table> entries (rows in desc) when the build read loadAll itself, for the administrator and the roles that see cost only. The answer is unchanged.
+
+## 5.29 Push 10j (21 Nov 2026; owner: Tahir; D-181)
+No route added or removed.
+- GET /api/c2m/state: Server-Timing adds rc;desc="h of n kept" (reads this build could keep, and how many came from the kept answers), for the administrator and the roles that see cost. The answer is unchanged, except that a change made outside C2M may take up to 5 minutes to show (doc 03, 3.61).

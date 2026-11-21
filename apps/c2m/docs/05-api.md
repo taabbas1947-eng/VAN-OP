@@ -451,3 +451,10 @@ No route added or removed.
 - GET /api/c2m/state: builtAt (milliseconds since 1970, the server's clock when the answer was built) for every role; the page shows it as "Updated hh:mm" in Pakistan time. A kept answer (30 seconds) keeps its builtAt.
 - POST /api/c2m/lists/master/preview is not counted as a save (as POST /pricedocs/preview): it keeps everyone's kept state answers.
 - The nutrient copy after migration 014 now drops the kept state answers once it has run.
+
+## 5.28 Push 10h (20 Nov 2026; owner: Tahir; D-179)
+| Route | Right | Answer |
+|---|---|---|
+| GET /c2m/c2m.<hash>.css, /c2m/c2m.<hash>.js | none (as the page) | the page's styles or script as read at start, ETag the hash; current hash: kept 1 year (immutable); no hash or another hash: the current file, no-cache; 404 if the file was not read at start |
+- GET /c2m: the shell (about 1 KB), no-cache with ETag; it names the current hashed files.
+- GET /api/c2m/state: Server-Timing adds up to 5 la_<table> entries (rows in desc) when the build read loadAll itself, for the administrator and the roles that see cost only. The answer is unchanged.

@@ -1207,3 +1207,6 @@ To correct a mistake: a price not yet in force is withdrawn or sent back; a rate
 ## 2026-11-20g, push 10g: C2M opens faster and keeps itself up to date (D-178)
 - Opening C2M and coming back after a save are faster; a second person in the same half minute uses the data already read.
 - C2M reads its data again when you come back to the tab and the data is more than a minute old, every 2 minutes while open, and on a new day, but not while you are typing, have typed something not yet saved, are saving or have a panel open. Approvals shows when it was last updated.
+
+## 2026-11-20h, push 10h: C2M opens faster on your computer after the first time (D-179)
+- C2M's screens and styles are kept by your browser until they change, so after the first open C2M starts sooner. The first open after each new version reads them once.

@@ -324,7 +324,18 @@ module.exports = function mountC2mRoutes(app, deps) {
   const readOnlyPost = req => /\/pricedocs\/preview$|\/lists\/master\/preview$/.test(req.path); // push 10e (review P-2): the preview saves nothing; push 10g (review m-5): nor does the carry-over preview
   app.use('/api/c2m', (req, res, next) => { if (req.method !== 'GET' && !readOnlyPost(req)) { writeVer++; const done = () => { writeVer++; }; res.on('finish', done); res.on('close', done); } next(); }); // any save, roles included: the kept answers are no longer current
   /* ---------- Page ---------- */
-  app.get(['/c2m', '/c2m/'], (req, res) => { res.set('Cache-Control', 'no-cache'); /* the browser keeps its copy and checks it is current (ETag) instead of downloading 560 KB on every open (D-145) */ res.sendFile(path.join(__dirname, 'c2m.html')); });
+  /* Push 10h (audit C-24): the page is a small shell; its styles (c2m.css) and script (c2m.js) are their own files. Each is served
+     under a name that carries a hash of its content, so the browser keeps it for a year and compiles the script once; a new version
+     has a new name. The shell is checked on every open (no-cache, ETag), so it always names the current files. */
+  const ASSET = (() => { const A = {}; for (const [k, f, t] of [['css', 'c2m.css', 'text/css; charset=utf-8'], ['js', 'c2m.js', 'application/javascript; charset=utf-8']]) {
+    const file = path.join(__dirname, f); let h = null, buf = null; try { buf = require('fs').readFileSync(file); h = require('crypto').createHash('sha1').update(buf).digest('hex').slice(0, 12); } catch (e) { console.error('[c2m] ' + f + ' not read: ' + (e && e.message)); }
+    A[k] = { file, buf, hash: h, type: t, url: h ? `/c2m/c2m.${h}.${k}` : `/c2m/c2m.${k}` }; } return A; })(); // the bytes read at start are the bytes sent, so a file never differs from its hash (review m-2)
+  let SHELL = null; try { SHELL = require('fs').readFileSync(path.join(__dirname, 'c2m.html'), 'utf8').replace('href="/c2m/c2m.css"', () => `href="${ASSET.css.url}"`).replace('src="/c2m/c2m.js"', () => `src="${ASSET.js.url}"`); } catch (e) { console.error('[c2m] c2m.html not read: ' + (e && e.message)); }
+  app.get(['/c2m', '/c2m/'], (req, res) => { res.set('Cache-Control', 'no-cache'); /* the browser checks the shell is current (ETag) on every open (D-145) */ if (SHELL) res.type('html').send(SHELL); else res.sendFile(path.join(__dirname, 'c2m.html')); });
+  app.get(/^\/c2m\/c2m(?:\.([0-9a-f]{12}))?\.(css|js)$/, (req, res) => { const a = ASSET[req.params[1]];
+    /* the current hash: kept a year; no hash or another hash (a deploy in progress, an old shell): the current file, checked on every use */
+    if (!a.buf) return res.status(404).end();
+    res.set('Cache-Control', a.hash && req.params[0] === a.hash ? 'public, max-age=31536000, immutable' : 'no-cache'); res.set('ETag', `"${a.hash}"`); res.type(a.type).send(a.buf); });
   app.get('/c2m/assets/van-logo.png', (req, res) => res.sendFile(path.join(__dirname, 'assets', 'van-logo.png')));
   /* ---------- Roles service for the platform (Tahir, 28 Oct 2026; platform docs/ROLES-DESIGN.md §4, trial) ----------
      Only a System Administrator designs C2M's roles, on the platform's Roles by app screen. These 5 calls are registered
@@ -442,9 +453,14 @@ module.exports = function mountC2mRoutes(app, deps) {
   async function loadAllShared() {
     if (typeof structuredClone !== 'function') return engine.loadAll(q);
     if (LA && LA.ver === writeVer && Date.now() - LA.at < STATE_TTL) return structuredClone(await LA.p);
-    const v = writeVer, p = engine.loadAll(q); const me = { ver: v, at: Date.now(), p }; LA = me;
-    try { const D = await p; if (v !== writeVer && LA === me) LA = null; return structuredClone(D); } catch (e) { if (LA === me) LA = null; throw e; }
+    const v = writeVer, R = [], p = engine.loadAll(timedQ(R)); const me = { ver: v, at: Date.now(), p }; LA = me;
+    try { const D = await p; if (v !== writeVer && LA === me) LA = null; const C = structuredClone(D); Object.defineProperty(C, 'slowReads', { value: slowest(R) }); return C; } catch (e) { if (LA === me) LA = null; throw e; }
   }
+  /* push 10h (audit C-03): each read of a loadAll this build ran is counted and timed; the 5 with the most rows go into Server-Timing as
+     la_<table> (rows in desc; dur from sending the read to its answer, waiting for a free connection included), so a live open shows
+     which tables make load_all slow. Nothing else changes. */
+  const timedQ = R => (sql, p) => { const t = Date.now(); return q(sql, p).then(r => { const m = /\bFROM\s+`?(\w+)/i.exec(sql); R.push({ t: m ? m[1].replace(/^c2m_/, '') : 'read', ms: Date.now() - t, n: Array.isArray(r && r[0]) ? r[0].length : 0 }); return r; }); };
+  const slowest = R => R.sort((a, b) => b.n - a.n || b.ms - a.ms).slice(0, 5).map(x => `la_${x.t};desc="${x.n} rows";dur=${x.ms}`);
   const OO_SQL = "SELECT c.id, c.brand, cu.name customer FROM c2m_client_product c JOIN c2m_customer cu ON cu.id=c.customer_id WHERE c.active=0 AND c.channel='White label' ORDER BY cu.name, c.brand"; // white label products out of use (Setup)
   async function build(acc, user, tmArg) {
     const role = acc.role, has = a => acc.can.has(a);
@@ -507,7 +523,7 @@ module.exports = function mountC2mRoutes(app, deps) {
       "SELECT id, list_name, items_json, valid_from, decided_at FROM c2m_list_revision WHERE status='approved' AND applied=1 ORDER BY id",
       ...(has('see.margin') ? ["SELECT entity, entity_id, why FROM c2m_audit WHERE action='urgent' AND entity IN ('price','list_revision')", OO_SQL] : [])]) { const pr = q(sql); pr.catch(() => {}); pre.set(sql, pr); }
     const D = await eD;
-    T('load_all');
+    T('load_all'); if (D.slowReads && (acc.admin || has('see.cost'))) tm.push(...D.slowReads); // review 10h p-1: table names and rows only for the administrator and cost roles
     const S = D.settings.values; const AD = await eAD; const byAd = u => AD.has(String(u).toLowerCase());
     T('admins');
     const seeCost = has('see.cost'), seePrice = has('see.price');
@@ -2111,7 +2127,7 @@ module.exports = function mountC2mRoutes(app, deps) {
   const has014 = async () => { try { await q('SELECT id FROM c2m_nutrient LIMIT 1'); return true; } catch (e) { if (e && (e.code === 'ER_NO_SUCH_TABLE' || e.errno === 1146)) return false; throw e; } };
   const need014 = async () => { if (!await has014()) throw Object.assign(new Error(NEED014), { status: 409 }); };
   /** Push 7e (D-166): which role page a role reads: the 5 built-in pages by key; a role made on the launcher that sees only given
-   *  price lists takes the viewer page; any other takes the launcher-role page. The page copy is rolePageKey in c2m.html. */
+   *  price lists takes the viewer page; any other takes the launcher-role page. The page copy is rolePageKey in c2m.js (c2m.html until push 10h). */
   function signPageOf(R) { if (['production', 'qc', 'plant', 'cfo', 'viewer'].includes(R.key)) return R.key; const nav = (R.nav || []).concat(R.more || []);
     return nav.includes('lists') && !nav.some(n => ['products', 'recipes', 'costs', 'margin'].includes(n)) ? 'viewer' : 'custom'; }
   function signRole(v) { try { const o = typeof v === 'string' ? JSON.parse(v) : v; return o && o.role ? String(o.role) : null; } catch (_) { return null; } }

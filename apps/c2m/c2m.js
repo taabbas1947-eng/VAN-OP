@@ -1,0 +1,5076 @@
+'use strict';
+/* =========================================================================
+ * C2M front end. Reads /api/c2m/state; every action is a POST, then a reload of state.
+ * Formulas shown here mirror c2m-lib.js on the server; the server is the source of truth.
+ * ========================================================================= */
+let fbasis = 'budget', hist = 'approved';
+/** Truck rows on the chosen history basis: approved cost on the truck's date, or restated at today's bands. */
+const salesRows0 = () => (ST.sales || []).map(r => r.costBands != null ? { ...r, cost: r.costBands } : r);
+const salesRows = () => (ST.sales || []).map(r => hist === 'bands' && r.costBands != null ? { ...r, cost: r.costBands } : r);
+const SKINS = [['silver', 'Silver cool'], ['slate', 'Slate light'], ['stone', 'Stone warm'], ['dusk', 'Slate dusk']];
+let skin = 'silver'; try { const z = localStorage.getItem('c2m.skin'); if (SKINS.some(x => x[0] === z)) skin = z; } catch (_) {}
+const applySkin = () => { document.documentElement.dataset.skin = skin; };
+applySkin();
+/** One colour per client, the same for every person; never red, amber or green. */
+const CLR = ['#3B6EA8', '#6B4FA3', '#1E8C93', '#8C6532', '#A8467E', '#4A55A8', '#5E6C7B', '#7A3E65', '#2C7DA0', '#8A6D3B', '#0F766E', '#7C5CBF'];
+let clrFor = null, clrMap = null;
+const clrOf = n => { if (clrFor !== ST.products) { clrFor = ST.products; clrMap = new Map([...new Set((ST.products || []).map(p => p.customer))].sort((x, y) => String(x).localeCompare(String(y))).map((c, i) => [c, CLR[i % CLR.length]])); } return clrMap.get(n) || '#5E6C7B'; };
+const csq = n => `<i class="csq" style="background:${clrOf(n)}" aria-hidden="true"></i>`;
+let prodC = '', prodOpen = new Set();
+let pinBuy = 'piece'; // Add a packing item: bought per piece or per kg
+let ST = null, scr = 'today', sub = null, drill = { cust: null, prod: null }, period = 'fy', month = null, openRec = null, sendBack = null, trial = null, ptrial = null,
+  pgrp = 'all', propose = null, priceCust = null, cols = { prev: true, hilo: false, margin: true, port: true, actual: false }, corr = null, doc = null, editLines = null,
+  PLB = { aud: 'wl', client: null, pick: {}, reasons: {}, eff: null, till: null, note: '' }, boDoc = null, listSel = null, billEdit = null,
+  pan = null, panFocus = false, behind = false, panReturn = null, panAt = null, openProd = null, ptab = 'recipe', recSel = null, prodF = 'all', prodQ = '', inp = 'materials', matQ = '', setup = 'customers';
+const NAV = { today: 'Today', approvals: 'Approvals', clients: 'Clients', margin: 'Margin', reports: 'Reports', products: 'Products', recipes: 'Recipes', prices: 'Client prices', lists: 'Price lists', pricelists: 'Price lists', costs: 'Costs', inputs: 'Inputs', setup: 'Setup', backoffice: 'Back office', guide: 'Guide' }; // 1.0.0: 5 places for Yawar and Tahir, the rest under More // 0.8.0 places; 0.9.0 adds Reports
+/* 0.9.0 left rail (Tahir, 18 Oct 2026: "take the left rail"; ruling 1 changed: rail in VAN navy, page keeps the O2S look) */
+const RAILG = { clients: 'Work on', costs: 'Work on', margin: 'Analyse', reports: 'Analyse', products: 'Work on', recipes: 'Work on', prices: 'Work on', lists: 'Work on', pricelists: 'Work on', inputs: 'Work on', setup: 'Admin', guide: 'Admin' };
+const SVG = p => `<svg viewBox="0 0 24 24" aria-hidden="true">${p}</svg>`;
+const ICON = { today: SVG('<rect x="3" y="3" width="18" height="18" rx="2"/><path d="m8 12 3 3 5-6"/>'), margin: SVG('<path d="M3 3v18h18"/><path d="m7 15 4-4 3 3 6-6"/>'),
+  reports: SVG('<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M9 17v-3M12 17v-5M15 17v-2"/>'), products: SVG('<path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5M12 13v8"/>'),
+  recipes: SVG('<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1M9 10h6M9 14h6M9 18h3"/>'), prices: SVG('<path d="M3 12V4a1 1 0 0 1 1-1h8l9 9-9 9z"/><circle cx="8" cy="8" r="1.5"/>'),
+  lists: SVG('<path d="M6 3h9l4 4v14H6z"/><path d="M9 11h7M9 15h7"/>'), pricelists: SVG('<path d="M6 3h9l4 4v14H6z"/><path d="M12 10v6M9.5 13.5 12 16l2.5-2.5"/>'), inputs: SVG('<path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3"/><path d="M7.5 15h9"/>'),
+  costs: SVG('<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>'),
+  setup: SVG('<path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M2 14h4M10 8h4M18 16h4"/>'), guide: SVG('<path d="M3 5a2 2 0 0 1 2-2h6v18H5a2 2 0 0 1-2-2z"/><path d="M21 5a2 2 0 0 0-2-2h-6v18h6a2 2 0 0 0 2-2z"/>'),
+  approvals: SVG('<rect x="3" y="3" width="18" height="18" rx="2"/><path d="m8 12 3 3 5-6"/>'), clients: SVG('<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6.5 6.5 0 0 1 3.5 6"/>'), backoffice: SVG('<path d="M3 7h18v13H3z"/><path d="M8 7V4h8v3"/>'),
+  search: SVG('<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>'), more: SVG('<circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/>') };
+/** On a phone the bottom bar holds 4 places and More when a person has more than 5 (F1). */
+const phone4 = (nav, more) => nav.length > 5 ? ['today', 'margin', 'reports', 'prices'].filter(k => nav.includes(k)) : more && more.length && nav.length > 4 ? nav.slice(0, 4) : nav; // 1.0.0: 4 in the phone bar, the 5th place under More
+let finder = null, moreOpen = false;
+const STEP = { draft: 'The Production Manager writes', review: 'The QC Head checks', endorse: 'The Plant Manager endorses', cost: 'The CFO approves cost', approved: 'Approved', old: 'Earlier version', closed: 'Closed' }; // push 7b: the writer's step reads as his (audit 9 Nov, finding 9)
+const MYJOB = { draft: 'Write recipe', review: 'Check recipe', endorse: 'Endorse recipe', cost: 'Approve cost' };
+/** A step in words: names keep their capital ("Yawar approves cost"); "approved" and "earlier version" read in lower case. */
+const stepTxt = st => /^(Approved|Earlier|Closed)/.test(STEP[st] || '') ? STEP[st].toLowerCase() : (STEP[st] || st);
+const STEP_ROLE = { draft: 'production', review: 'qc', endorse: 'plant', cost: 'cfo' };
+/* Access: what this person may do comes from the ticks on their role, not from the role's name. */
+let PV = null, PVBACK = null; const KM = { sel: null, copy: false }; /* KAM lists: PV is the manager whose screen Tahir or Yawar is looking at (read only) */
+const CAN = a => !!(ST && ST.me && Array.isArray(ST.me.actions) && ST.me.actions.includes(a));
+const ADM = () => !!(ST && ST.me && ST.me.admin);
+const VIEWER = () => !CAN('see.products') && CAN('see.granted_lists');
+const myStep = v => !ADM() && CAN('recipe.step.' + v.state); // jobs and "waiting for you": the administrator holds every step but is not waited on
+const canStep = v => CAN('recipe.step.' + v.state);          // buttons: may this person do this step now
+const ROLE_NAME = { production: 'Production Manager', qc: 'QC Head', plant: 'Plant Manager', cfo: 'CFO', coo: 'COO' };
+const ROLE_LABEL = { cfo: 'CFO', coo: 'COO', production: 'Production', qc: 'Quality control', plant: 'Plant', viewer: 'Price lists only' };
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); // push 10e (C-26): ' too
+/** push 10e (C-12): round half away from 0, so -2.5 is -3 as 2.5 is 3, and never "-0". */
+const r0 = v => { const x = Math.sign(v) * Math.round(Math.abs(v)); return Object.is(x, -0) ? 0 : x; };
+const rs = v => v == null || !isFinite(v) ? '–' : 'Rs ' + r0(v).toLocaleString('en-US');
+const rs2 = v => v == null || !isFinite(v) ? '–' : 'Rs ' + (Math.abs(v) < 0.005 ? 0 : Number(v)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); // thousands commas (R26, push 6a)
+const rsM = v => v == null || !isFinite(v) ? '–' : 'Rs ' + (Math.abs(v) < 5000 ? 0 : v / 1e6).toFixed(2) + 'M'; // push 10e (review M-8): never -0.00 // push 7g: millions with 2 decimals everywhere
+const pc = v => v == null || !isFinite(v) ? '–' : (Math.abs(v) < 0.05 ? 0 : Number(v)).toFixed(1) + '%'; // push 10e (C-12): no "-0.0%"
+const pl = (n, a, b) => n + ' ' + (n === 1 ? a : b);
+const SET = k => { const r = (ST.settings || []).find(x => x.k === k); return r && String(r.v ?? '').trim() !== '' && isFinite(Number(r.v)) ? Number(r.v) : null; }; // push 10e (C-13): a blank setting is not 0
+const FEDP = () => ST.fedPct ?? 5; // FED %, the only tax on VAN, for every role; push 10e (C-13): a real 0% stays 0
+/** Screen head (ruling 7, 18 Oct 2026): the topic, then 1 answer line; long explanations fold under "How this works". answer and how are HTML (callers escape). */
+/* Push 10b (Tahir, 20 Nov 2026): 1 page head on every screen: the title and the answer line on the left, a small "? Help" at the right
+   that opens "How this works" under the head; meta (date, data as of) sits beside the button. Open helps stay open across redraws. */
+const helpOpen = new Set();
+const head = (topic, answer, howHtml, metaTxt, actHtml) => { /* actHtml: a screen's main button beside ? Help (push 10d) */ const on = helpOpen.has(topic), id = 'hx-' + String(topic).toLowerCase().replace(/[^a-z0-9]+/g, '-');
+  return `<div class="phd"><div class="phm"><h1 class="topic">${esc(topic)}</h1><p class="answer">${answer}</p></div><div class="phr">${metaTxt ? `<span class="phmeta">${esc(metaTxt)}</span>` : ''}${actHtml || ''}${howHtml ? `<button class="helpb" data-help="${esc(topic)}" aria-expanded="${on}" aria-controls="${id}">? Help</button>` : ''}</div></div>${howHtml ? `<div class="helpx" id="${id}"${on ? '' : ' hidden'}><b>How this works.</b> ${howHtml}</div>` : ''}`; };
+const how = h => `<details class="how"><summary>How this works</summary><div>${h}</div></details>`;
+/** The line above a screen's topic carries only facts about the data (date, period, O2S time), never the topic again (UX review M10). */
+const meta = t => { const x = Array.isArray(t) ? t.filter(Boolean).join(' · ') : t; return x ? `<p class="kick meta"><span></span><span>${esc(x)}</span></p>` : ''; };
+/** Anything loaded yet? The live database is empty until the first load; screens then say so instead of showing zeros (UX review M4). */
+const loaded = () => (ST.products || []).length > 0;
+/** A link inside a screen names an old place; send each person to where it now lives for them (0.8.0). */
+function goPlace(name) { const nav = ST.me.nav.concat(ST.me.more || []); if ((name === 'prices' || name === 'lists') && !nav.includes('prices') && nav.includes('clients')) { scr = 'prices'; sub = name === 'lists' ? 'lists' : null; return; } /* push 3a: render() takes it into Clients (review 3a, finding 1) */ const A = { today: 'approvals', approvals: 'today', setup: 'backoffice', recipes: 'products', rates: 'inputs', materials: 'inputs', backoffice: 'setup', lists: 'prices', products: 'recipes' }; if (['inputs', 'rates', 'materials', 'costs'].includes(name) && !nav.includes('inputs') && nav.includes('costs')) { scr = 'costs'; cpart = name === 'costs' ? null : 'materials'; saved = null; dryKey = null; return; } /* Inputs is Costs, Material cost for Tahir and Yawar (push 2a) */ scr = nav.includes(name) ? name : nav.includes(A[name]) ? A[name] : nav[0]; if (name === 'lists' && scr === 'prices') sub = 'lists'; }
+/** Open a recipe version: on the product page for Yawar and Tahir (ruling 3), on Recipes for Majid, Himayat and Fahim. */
+function goRec(id) { const v = (ST.recipes || []).find(x => x.id === id); if (v && navHas('products')) { scr = 'products'; openProd = v.clientProductId; ptab = 'recipe'; recSel = id; } else { scr = 'recipes'; openRec = id; } sendBack = null; editLines = null; pan = null; }
+/** Close the panel and clear every form it may have opened (review 18 Oct, finding 5). */
+/** The panel's keyboard stops, in order. */
+const panItems = pn => [...pn.querySelectorAll('button,input,select,textarea,a[href]')].filter(x => !x.disabled && x.tabIndex >= 0);
+function closePanel() { pan = null; propose = null; rev = null; ask = null; sendBack = null; editLines = null; corr = null; nutEdit = null; }
+/** Open a panel; remember the button that opened it, so focus goes back there on close. */
+function openPanel(p, t) { pan = p; panFocus = true; propose = null; rev = null; ask = null; corr = null; sendBack = null; editLines = null; const k = t && Object.keys(t.dataset).find(x => x !== 'armed'); panReturn = k ? { k: k.replace(/[A-Z]/g, c => '-' + c.toLowerCase()), v: t.dataset[k] } : null; }
+function toast(t, err) { const e = $('toast'); e.setAttribute('role', err ? 'alert' : 'status'); e.setAttribute('aria-live', err ? 'assertive' : 'polite'); e.textContent = t; e.hidden = false; e.classList.toggle('err', !!err); /* push 10e (C-15, C-26): an error shows over every box and is read out at once */ clearTimeout(toast.t); toast.t = setTimeout(() => e.hidden = true, err ? 9000 : 4000); }
+/* On VAN Systems the platform keeps the sign-in token in localStorage (van_token) and checks a Bearer header.
+ * Locally the harness cookie is used instead; both are sent. */
+function authH() { let t = null; try { t = localStorage.getItem('van_token'); } catch (_) {} return t ? { Authorization: 'Bearer ' + t } : {}; }
+async function api(path, body) {
+  if (PV && body !== undefined) throw new Error('This is a preview. Nothing is saved.');
+  let r; try { r = await fetch(path, body === undefined ? { headers: authH() } : { method: 'POST', headers: { 'Content-Type': 'application/json', ...authH() }, body: JSON.stringify(body) }); }
+  catch (_) { throw new Error(body === undefined ? 'C2M could not reach the server. Check the internet connection and try again.' : 'C2M could not reach the server. Nothing was saved. Check the internet connection and try again.'); } // not the browser's Failed to fetch (push 2a)
+  const j = await r.json().catch(() => ({}));
+  if (r.status === 401) { location.href = '/'; throw new Error('Sign in first.'); }
+  if (!r.ok) throw new Error(j.error || 'Something went wrong and nothing was saved. Press Refresh and try again; if it happens again, tell IT the time.');
+  return j;
+}
+async function savePdf(id) {
+  const r = await fetch('/api/c2m/pricedocs/' + id + '/pdf', { headers: authH() });
+  if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || 'The PDF could not be made.'); }
+  const url = URL.createObjectURL(await r.blob()); const a = document.createElement('a');
+  a.href = url; a.download = ((r.headers.get('content-disposition') || '').match(/filename="?([^";]+)/) || [, 'VAN price list.pdf'])[1]; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 30000);
+}
+let loadSeq = 0, loadedAt = 0; // push 10e (C-19): only the newest load lands; an older, slower reply is dropped. loadedAt: push 10g (C-04)
+async function load(soft) { const my = soft ? loadSeq : ++loadSeq; /* push 10g (review m-9): a refresh never cancels a load the person asked for */ const S1 = await api('/api/c2m/state' + (PV ? '?as=' + encodeURIComponent(PV) : '')); if (my !== loadSeq || (soft && busyNow())) return false; /* push 10g (review B-1): a refresh whose person started something meanwhile is dropped; the next tick tries again */ loadedAt = Date.now(); PLX = null; VPLX = null; PLPV = { key: null, rows: null, err: null }; ST = S1; const B = SET('budget_gp'); if (B != null) { (ST.products || []).forEach(p => { p.targetOwn = p.target; if (p.target == null || Number(p.target) <= 0) { p.target = B > 0 ? B : null; p.targetDefault = B > 0; } }); (ST.sales || []).concat(ST.open || []).forEach(r => { r.targetOwn = r.target; if (r.target == null || Number(r.target) <= 0) { r.target = B > 0 ? B : 0; r.targetDefault = true; } }); } /* push 10e (C-31): a filled-in target is marked, and the server's own value kept in targetOwn, so nothing sends an invented target back */ // D-75: no target set = the company GP target
+  if (navAfter) { const s = navAfter; navAfter = null; navLand(s); } /* Back out of a preview: the step is put back with this person's own rights (review 6c, M1) */
+  if (!ST.me.nav.concat(ST.me.more || []).includes(scr)) scr = ST.me.nav[0]; if (navI < 0 && location.hash.length > 1) navFromHash(location.hash); /* an address with #place opens that place, if this person can (push 6c) */ render(); if (!checkSignoff()) checkWhatsNew(); if (lm.open && !lmDone()) lmLoad(); } // the carry-over plan follows every change made meanwhile (a rename in Product names; review 1.0.3 re-check, finding 5)
+let actBusy = false;
+async function once(fn) { if (actBusy) { toast('Wait: the last save is still running.'); return false; } actBusy = true; try { return await fn(); } finally { actBusy = false; } }
+async function act(path, body, okMsg) { return once(() => act0(path, body, okMsg)); } // a double click sends 1 save (review 1.0.2 re-check, finding 5)
+async function act0(path, body, okMsg) { { const pn = document.querySelector('aside.panel'); panAt = pn && pn.contains(document.activeElement) ? panItems(pn).indexOf(document.activeElement) : null; if (panAt < 0) panAt = null; } let j; try { j = await api(path, body); } catch (e) { toast(e.message, true); return null; }
+  NAVTYPED.clear(); /* saved: Back no longer asks about what was typed (push 6c; review 6c, m1: only a real save clears it, never a try or a preview) */
+  { const m = okMsg ? (typeof okMsg === 'function' ? okMsg(j) : okMsg) : ''; if (j && j.pending) { const t = (j.urgent ? `Saved as urgent: it waits for Tahir's approval. If he does not approve it, it goes in on Monday ${fmtShort(j.applyOn)}.` : `Saved for Monday ${fmtShort(j.applyOn)}.`) + (j.gaveNow ? ` ${pl(j.gaveNow, 'pack with no bill got', 'packs with no bill got')} the bill now.` : ''); if (scr === 'costs' && !pan) { saved = { t, re: 0, pending: true, urgent: !!j.urgent, n: j.effectCount || 0, at: Date.now() }; $('toast').hidden = true; } else toast(t); }
+    else if (m) { if (scr === 'costs' && !pan) { const re = j && Number(j.reapproval) > 0 ? Number(j.reapproval) : 0; const b0 = { ...(body || {}) }; delete b0.correct; delete b0.urgent; delete b0.reason; saved = { t: re ? String(m).split('. ')[0].replace(/\.?$/, '.') : m, re, path: CORR[path] ? path : null, body: b0, at: Date.now() }; corrOpen = null; $('toast').hidden = true; } else toast(m); } } // on Costs the result stays in the Saved box (R16, push 2a)
+  if (pan) panFocus = true; aud.data = null;
+  try { await load(); } catch (e) { toast('Saved. The screen could not refresh: press Refresh or open C2M again.', true); } // the save went through: never say "Nothing was saved" here (audit 3 Nov 2026, D-145)
+  return j; }
+
+/* ---------- Lookups ---------- */
+let _pi = null, _piST = null; /** Every pack with its product, built once per state load (review 18 Oct, finding 2). */
+/* Push 10f (audit C-22): work done once per draw. RSEQ moves on at the start of every draw; memo also compares ST itself, so a new
+   ST is worked out again. A value worked out for this draw is used again by everything in it (and by a click on what it drew), never by
+   the next draw. Each key (e.g. the history basis) keeps its own answer within the draw (review 10f, P1). */
+let RSEQ = 0;
+const memo = (f, keyFn) => { let s0, q0, M = new Map(); return (...a) => { const kk = keyFn ? keyFn(...a) : ''; if (s0 !== ST || q0 !== RSEQ) { s0 = ST; q0 = RSEQ; M = new Map(); } if (M.has(kk)) return M.get(kk); const v = f(...a); M.set(kk, v); return v; }; };
+const packIdx = () => { if (_piST === ST && _pi) return _pi; const m = new Map(); (ST.products || []).forEach(p => p.packs.forEach(k => m.set(k.id, { ...k, product: p }))); _pi = m; _piST = ST; return m; };
+const packLabel = k => `${k.product.brand} ${packTxt(k.size, k.product.soldPer)}`;
+function inP(d) { if (period === 'fy') return d >= fyStart(); if (period === 'month') return d.slice(0, 7) === ST.today.slice(0, 7); if (period === '3m') return d >= addDays(ST.today, -91); return d.slice(0, 7) === month; }
+function fyStart() { const y = Number(ST.today.slice(0, 4)), m = Number(ST.today.slice(5, 7)); return (m >= 7 ? y : y - 1) + '-07-01'; }
+function addDays(s, n) { const d = new Date(s + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
+const pkey = r => r.brand + ' · ' + r.pack;
+
+/* ---------- Margin maths (mirrors c2m-lib.js) ---------- */
+function grp(rows, key) {
+  const m = new Map();
+  const P = packIdx();
+  rows.forEach(r => { const k = key(r); if (!m.has(k)) m.set(k, { key: k, rows: [], sales: 0, costed: 0, cost: 0, kg: 0, tw: 0, tv: 0, tcost: 0, bw: 0, bv: 0, nv: 0, ncost: 0 }); const g = m.get(k); const v = r.kg * r.price;
+    g.rows.push(r); g.sales += v; g.kg += r.kg; if (r.cost != null) { g.costed += v; g.cost += r.kg * r.cost; if (r.target != null) { g.tw += v * r.target; g.tv += v; g.tcost += r.kg * r.cost; } if (r.budget != null) { g.bw += v * r.budget; g.bv += v; } }
+    const pk = r.packId ? P.get(r.packId) : null; if (pk && pk.cost && r.cost != null) { g.nv += v; g.ncost += r.kg * pk.cost.total; } }); // the same trucks as GP, so the 2 can be compared (re-review)
+  /* gpT: GP of only the products that have a target, so a product with no target cannot hide one below its target
+     (cost review 18 Oct 2026, D-62). gpNow: the same trucks at today's cost (approved cost can drift up to the re-approval %). */
+  return [...m.values()].map(g => { g.gp = g.costed ? (g.costed - g.cost) / g.costed * 100 : null; g.target = g.tv ? g.tw / g.tv : null; g.gpT = g.tv ? (g.tv - g.tcost) / g.tv * 100 : null; g.budget = g.bv ? g.bw / g.bv : null; g.gpNow = g.nv ? (g.nv - g.ncost) / g.nv * 100 : null; return g; });
+}
+function flag(g) {
+  if (g.gp == null) return ['p-none', 'cost to load'];
+  if (g.gp < 0) return ['p-red', 'below cost'];
+  if (g.target == null && g.budget == null) return ['p-none', 'no target'];
+  if (g.target != null && g.gpT < g.target - 0.05) { const gap = g.target - g.gpT; return gap > (SET('red_gap_pts') ?? 2) + 1e-9 ? ['p-red', `${gap.toFixed(1)} points below target`] : ['p-amber', 'slightly below target']; } // push 7h: the 2-point rule alone
+  if (g.budget != null && g.gp < g.budget - 0.05) return ['p-amber', 'below budget'];
+  return ['p-green', 'on target'];
+}
+/* Exposure per white label client pack (ruling 14 Oct, 5f) */
+const exposure = memo(exposure0, () => fbasis + '|' + SET('forward_months')); // push 10f (C-22)
+function exposure0() {
+  const P = packIdx(); const out = [];
+  const since0 = addDays(ST.today, -91), SB = new Map(), OB = new Map(); /* push 10f (C-22): sales of the last 3 months and open POs by pack, once */
+  (ST.sales || []).forEach(x => { if (x.date >= since0) (SB.get(x.packId) || SB.set(x.packId, []).get(x.packId)).push(x); }); (ST.open || []).forEach(o => (OB.get(o.packId) || OB.set(o.packId, []).get(o.packId)).push(o));
+  const first = (ST.sales || []).length ? ST.sales[0].date : ST.today;
+  const months = Math.max(1, (new Date(ST.today) - new Date(first < addDays(ST.today, -91) ? addDays(ST.today, -91) : first)) / (30.44 * 864e5));
+  const since = addDays(ST.today, -91);
+  for (const [id, k] of P) {
+    if (k.product.grp !== 'White label' || !k.cost || !(k.price > 0)) continue; // a price of 0 is no price (re-review)
+    const shipped = (SB.get(id) || []).reduce((s, x) => s + x.kg, 0);
+    const openKg = (OB.get(id) || []).reduce((s, x) => s + x.kg, 0);
+    // Expected kg: the budget's annual kg spread over the horizon, shared across the product's packs by kg shipped; else the last 3 months' run rate.
+    const sibs = k.product.packs.map(x => x.id); const sibKg = sibs.reduce((t, sid) => t + (SB.get(sid) || []).reduce((s, x) => s + x.kg, 0), 0);
+    const share = sibs.length === 1 ? 1 : sibKg ? shipped / sibKg : 1 / sibs.length;
+    const byBudget = fbasis === 'budget' && k.product.budgetKg > 0; const kg3 = Math.round(byBudget ? k.product.budgetKg / 12 * SET('forward_months') * share : shipped / months * SET('forward_months'));
+    const c = k.cost.total, t = k.product.target, price = k.price;
+    const tp = t == null ? null : c / (1 - t / 100); const gap = tp == null ? 0 : Math.max(tp - price, 0);
+    const gp = (price - c) / price * 100;
+    const locked = tp == null ? 0 : (OB.get(id) || []).reduce((s, o) => s + Math.max(tp - o.price, 0) * o.kg, 0);
+    /* A price already approved for a later date counts from its date (cost review 18 Oct 2026, D-62) */
+    const newKg = Math.max(kg3 - openKg, 0), nx = k.nextPrice, fa = nx ? fracAfter(nx.from) : 0;
+    const gapN = nx && tp != null ? Math.max(tp - nx.price, 0) : gap, lossN = nx ? Math.max(c - nx.price, 0) : Math.max(c - price, 0);
+    out.push({ id, cust: k.product.customer, prod: packLabel(k), brand: k.product.brand, pack: k.size, price, c, tp, gp, target: t, gapPts: t == null ? 0 : t - gp, kg3, basis: byBudget ? 'budget' : 'run rate', openKg, next: nx || null,
+      locked, fwd: newKg * (gap * (1 - fa) + gapN * fa), fwdLoss: newKg * (Math.max(c - price, 0) * (1 - fa) + lossN * fa), floor: k.floor, priceFrom: k.priceFrom, unit: k.product.soldPer === 'L' ? 'L' : 'kg' });
+  }
+  return out;
+}
+
+/** Share of the forward months that falls on or after a date (0 to 1): a price dated ahead earns only from its date. */
+function fracAfter(from) { const H = (SET('forward_months') || 3) * 30.44; const d = from ? (new Date(d10(from) + 'T00:00:00Z') - new Date(ST.today + 'T00:00:00Z')) / 864e5 : 0; return Math.max(0, Math.min(1, 1 - Math.max(d, 0) / H)); }
+/** Kg a new price acts on: expected kg less kg already on open POs, counted from its effective date (one rule for the panel, the card and Tahir's approval). */
+const kgFrom = (x, from) => x ? Math.max(x.kg3 - x.openKg, 0) * fracAfter(from) : 0;
+/* ---------- Jobs for Today (0.9.0: each job knows its group, its age and why it is there; ruling 20) ---------- */
+const d10 = x => String(x || '').slice(0, 10);
+/** Calendar days from a date to today. */
+const daysSince = from => from ? Math.max(0, Math.round((new Date(ST.today + 'T00:00:00Z') - new Date(d10(from) + 'T00:00:00Z')) / 864e5)) : null;
+/** Working days from a date to today, Monday to Saturday (Tahir, 18 Oct 2026: only Sunday is off). */
+function wdays(from) { if (!from) return 0; let n = 0; const H = new Set((ST.holidays || []).map(h => h.day)); const d = new Date(d10(from) + 'T00:00:00Z'), end = new Date(ST.today + 'T00:00:00Z'); while (d < end) { d.setUTCDate(d.getUTCDate() + 1); if (d.getUTCDay() !== 0 && !(H.size && H.has(d.toISOString().slice(0, 10)))) n++; } return n; } // push 10e (C-35): Monday to Saturday, less the public holidays the COO keeps
+/** An item waiting more than 2 working days is stuck (ruling 20). */
+const isStuck = from => !!from && wdays(from) > 2;
+const calDays = (a, b) => { const x = new Date(String(a).slice(0, 10) + 'T00:00:00Z'), y = new Date(String(b).slice(0, 10) + 'T00:00:00Z'); return Math.round((y - x) / 864e5); }; // calendar days from a to b (push 10b)
+const ageTxt = from => { const n = daysSince(from); return n == null ? '' : n === 0 ? 'today' : pl(n, 'day', 'days'); };
+const ageHtml = (from, plain) => from ? `<span class="age ${isStuck(from) ? 'stuck' : ''}" title="Waiting since ${esc(fmtD(d10(from)))}">${ageTxt(from)}${isStuck(from) ? '<span class="stuckp">stuck</span>' : ''}</span>` : (plain ? `<span class="age">${plain}</span>` : '');
+const lastStep = v => (v.steps || []).length ? v.steps[v.steps.length - 1] : null;
+const VERB = { sent: 'sent', resent: 'resent', closed: 'closed', reviewed: 'reviewed', endorsed: 'endorsed', cost_approved: 'approved the cost', written: 'wrote', imported: 'imported', sent_back: 'sent back' };
+const personName = u => { const p = (ST.people || []).find(x => x.username === u); return p && p.name ? p.name.split(' ')[0] : u ? u.charAt(0).toUpperCase() + u.slice(1) : ''; };
+const relDay = at => { const n = daysSince(at); return n === 0 ? 'today' : n === 1 ? 'yesterday' : `on ${fmtD(d10(at))}`; };
+const firstOfMonth = () => ST.today.slice(0, 7) + '-01';
+/** A monthly job waits from the 1st of the month, but never from before C2M held data (UX review M5: on the first live day
+ *  it must not read "18 days, stuck" for a system that did not exist). */
+const monthSince = () => { const f = firstOfMonth(), g = ST.importedAt ? d10(ST.importedAt) : null; return g && g > f ? g : f; };
+const jobs = memo(jobs0); // push 10f (C-22)
+function jobs0() {
+  const R = ST.me.role, J = [];
+  (ST.recipes || []).forEach(v => { if (!myStep(v)) return; const ls = lastStep(v); const prod = (ST.products || []).find(p => p.id === v.clientProductId); const appr = prod && prod.approvedVersionId && prod.approvedVersionId !== v.id ? (ST.recipes || []).find(x => x.id === prod.approvedVersionId) : null;
+    let d = v.sentBack && v.state === 'draft' ? `Sent back by ${personName(v.sentBack.by)}: ${dot(v.sentBack.reason)}. Advice: ${dot(v.sentBack.advice)}.` : (v.note || '');
+    if (['review', 'endorse'].includes(v.state) && (v.flags || []).length) d = `${d ? dot(d) + '. ' : ''}Needs a comment to pass: ${v.flags.join('; ')}.`; // push 7b (R68)
+    if (v.state === 'cost' && myStep(v)) { const parts = []; if (ls) parts.push(`${personName(ls.by_user)} ${VERB[ls.action] || ls.action} it ${relDay(ls.at)}.`); if (appr && v.materials != null && appr.materials) { const dm = (v.materials - appr.materials) / appr.materials * 100; parts.push(`Materials ${rs2(v.materials)} per ${prod.soldPer} against ${rs2(appr.materials)} approved (${dm >= 0 ? '+' : ''}${dm.toFixed(1)}%).`); } if (v.nutrients && v.nutrients.complete) parts.push('Every input is classed and entered.'); if (parts.length) d = parts.join(' ') + (v.note ? ' ' + String(v.note).replace(/([^.!?])$/, '$1.') : ''); }
+    J.push({ t: `${myJob(v)}: ${prodNm(v.clientProductId, v.brand)} for ${v.customer}, version ${v.version}`, d, btn: 'Open recipe', go1: `Open to ${myJob(v).split(' ')[0].toLowerCase()}`, pan: { k: 'rec', id: v.id }, kind: v.state === 'draft' ? 'do' : 'approve', pri: 1, since: ls ? ls.at : null }); });
+  {
+    const P = packIdx();
+    if (CAN('labour.manage') && LF().ready) { const nf = LF().rates.filter(x => x.rsPerKg == null), due = ST.today.slice(0, 8) + '05'; const goLF = () => { scr = 'costs'; cpart = 'labour'; saved = null; window.scrollTo(0, 0); }; // push 2c
+      if (nf.length) J.push({ t: `Fill ${nf.map(x => x.label).join(', ')}`, d: 'Labour and FOH are now Low and High. Until each is filled, packs on it have no cost and no price can be proposed or checked for them.', btn: 'Open Labour', go: goLF, kind: 'red', pri: 0, since: LF().from }); // push 7d: every pack waits on it, so it heads the list
+      if (lfCertDue() && !lfCert()) J.push({ t: `Certify labour and FOH for ${mon(lfPrev())}`, d: `${ST.today > due ? 'Overdue: it was due' : 'Due'} by ${fmtShort(due)}. Review the rates, then No change or Changed.`, btn: 'Open Labour', go: goLF, kind: 'do', pri: ST.today > due ? 1 : 3, since: ST.today.slice(0, 8) + '01' }); }
+    if (CAN('price.approve')) (ST.pending || []).filter(x => x.status === 'waiting' && x.urgent).forEach(x => J.push({ t: `Urgent cost change: ${x.label}`, d: `${x.now != null && x.next != null ? `${rs2(x.now)} to ${rs2(x.next)}. ` : ''}Why: ${x.reason || 'no reason given'}. ${(x.effect || {}).count ? `${pl(x.effect.count, 'pack moves', 'packs move')} more than ${SET('reapprove_pct')}%.` : ''} If you do not approve it, it goes in on Monday.`, btn: 'Open', go: () => { scr = 'costs'; cpart = 'next'; saved = null; window.scrollTo(0, 0); }, kind: 'approve', pri: 2, since: x.at })); // push 2b
+    if (CAN('reapproval.decide') && !ADM()) (ST.reapprovals || []).forEach(x => { let onOpen = 0, below = 0; x.items.forEach(i => { const kg = (ST.open || []).filter(o => o.packId === i.packId).reduce((s, o) => s + o.kg, 0); if (i.from != null && i.to != null) onOpen += (i.to - i.from) * kg; const k = P.get(i.packId); if (k && k.cost && k.price != null && k.product.target != null && (k.price - k.cost.total) / k.price * 100 < k.product.target) below++; });
+      J.push({ t: `Re-approve cost: ${x.items[0] && x.items[0].label ? x.items[0].label : pl(x.items.length, 'pack', 'packs')}${x.items.length > 1 ? ` and ${x.items.length - 1} more` : ''}`, d: `${x.items.some(i => i.first) ? 'First or new approved cost. ' : 'Cost moved. '}${x.cause}.${Math.round(onOpen) ? ` ${onOpen > 0 ? '+' : '-'}${rs(Math.abs(onOpen))} on open POs.` : ''}${below ? ` ${pl(below, 'pack is', 'packs are')} now below target.` : ''}`, btn: 'Open re-approval', pan: { k: 'reapp', id: x.id }, kind: 'approve', pri: 3, since: x.createdAt }); });
+    if (CAN('recipe.step.draft') && !ADM()) (ST.products || []).filter(p => !p.followsId && !p.recipeState && p.active !== false).forEach(p => J.push({ t: `Write the first recipe: ${p.brand} for ${p.customer}`, d: `No recipe in C2M yet${p.pvariantId ? `; it is sold as ${p3VName(p.pvariantId)}` : ''}. Until its recipe is approved it has no cost, cannot be priced, and its trucks are not counted in Margin.`, btn: 'Start the recipe', go: () => { goPlace('products'); openProd = p.id; newRec = { cp: p.id }; }, kind: 'do', pri: 2, since: p.addedAt || ST.today }));
+    if (CAN('recipe.step.cost')) (ST.products || []).filter(p3FollowPending).forEach(p => J.push({ t: `Approve cost: ${p.brand} for ${p.customer}`, d: p.packs.some(k => k.approvedCost == null) ? `It follows ${p.followsBrand}'s recipe. Until its cost is approved it cannot be priced and its trucks are not counted in Margin.` : `It follows ${p.followsBrand}'s recipe, whose cost moved more than ${SET('reapprove_pct')}%. Until you approve, its prices and Margin use the cost approved before.`, btn: 'Open product', go1: 'Open to approve', go: () => { goPlace('products'); openProd = p.id; ptab = 'cost'; }, kind: 'approve', pri: 2 }));
+    if (CAN('see.cost') && !ADM() && ['rate.save', 'packing.manage', 'labour.manage', 'recipe.step.cost'].some(a => CAN(a))) { const nc = []; /* push 7d: only for a person who can fix it (walk of 10 Nov) */ (ST.products || []).forEach(p => (p.packs || []).forEach(k => { if (k.costGaps && k.costGaps.length && (!k.costGaps.includes('no approved recipe') || p.grp === 'White label')) nc.push(`${p.brand} ${k.size} ${p.soldPer} for ${p.customer}: ${k.costGaps.join(', ')}`); }));
+      if (nc.length) J.push({ t: `Not costed: ${pl(nc.length, 'pack', 'packs')} cannot be priced until their cost is complete`, d: 'A recipe, price or rate is missing. No price can be proposed or checked for them until fixed. ' + nc.slice(0, 5).join('; ') + (nc.length > 5 ? `; and ${nc.length - 5} more` : ''), btn: 'See the packs', pan: { k: 'notcosted' }, kind: 'do', pri: 5 }); }
+    if (CAN('see.price') && !ADM()) { const np = noPrice(); if (np.length) J.push({ t: `${pl(np.length, 'pack', 'packs')} costed with no price`, d: `${np.slice(0, 3).map(x => `${x.prod} for ${x.cust}`).join('; ')}${np.length > 3 ? `; and ${np.length - 3} more` : ''}. ${np.length === 1 ? 'It' : 'They'} cannot be sold at a checked price until a price is approved.`, btn: np.length === 1 ? 'Set a price' : 'Set prices', ...(np.length === 1 ? { propose: np[0].id } : { pan: { k: 'tochange', only: 'noprice' } }), kind: 'red', pri: 4 }); }
+    const open = (ST.imports || []).filter(i => i.status === 'open'); if (CAN('import.decide') && !ADM() && open.length) J.push({ t: `Check ${pl(open.length, 'item', 'items')} from your sheets`, d: `Next: ${open[0].item}. Each is pre-filled; accept it or correct it.`, btn: 'Open the items', pan: { k: 'imports' }, kind: 'do', pri: 6, since: ST.importedAt });
+    if (CAN('list.revise') && !ADM()) (ST.listRevisions || []).filter(r => r.status === 'sent_back').forEach(r => J.push({ t: `List revision sent back: ${LISTNAME[r.list_name]}`, d: 'COO: ' + (r.back_reason || ''), btn: 'Revise and resend', pan: { k: 'lrev', id: r.id }, kind: 'do', pri: 2, since: r.decided_at }));
+    if (CAN('price.propose') && !ADM()) (ST.proposals || []).filter(p => p.status === 'sent_back').forEach(p => J.push({ t: `Price sent back: ${packName(p.packId)}`, d: 'COO: ' + (p.backReason || ''), btn: 'Revise and resend', pan: { k: 'prop', id: p.id }, kind: 'do', pri: 2, since: p.decidedAt }));
+    if (CAN('see.price') && (ST.mrpMissing || []).length) J.push({ t: `${pl(ST.mrpMissing.length, 'VAN brand pack has', 'VAN brand packs have')} no printed MRP`, d: `${ST.mrpMissing.slice(0, 3).map(x => x.name).join('; ')}${ST.mrpMissing.length > 3 ? `; and ${ST.mrpMissing.length - 3} more` : ''}: on the Dealer or Distributor list but with no farmer price, so no MRP can be worked out. Add its farmer price (Sindh credit) on Clients, VAN Brands, Price lists, See all 5 side by side.`, btn: 'Open VAN brand prices', go: () => { goPlace('prices'); ncp.tab = 'van'; }, kind: 'do', pri: 6 });
+    if (CAN('see.price') && (ST.mrpIssues || []).length) J.push({ t: `${pl(ST.mrpIssues.length, 'VAN brand list price is', 'VAN brand list prices are')} above the printed MRP`, d: mrpTxt(ST.mrpIssues, 3) + ' A pack cannot be sold above the MRP printed on it: lower the price, or raise the Sindh credit price, on Clients, VAN Brands, Price lists, See all 5 side by side (FRP and Recommended MRP: the buttons under the grid).', btn: 'Open VAN brand prices', go: () => { goPlace('prices'); ncp.tab = 'van'; }, kind: 'red', pri: 3 });
+    if (CAN('price.propose') && !ADM()) { const L = toChange().filter(x => (!x.k || !x.k.waitingProposal) && !x.why.includes('no price')); if (L.length) { const c = L.filter(x => x.why.includes('below cost')).length, t = L.filter(x => x.why.includes('below target')).length; const fwd = L.reduce((s, x) => s + (x.fwd || 0), 0);
+      J.push({ t: `${pl(L.length, 'client price', 'client prices')} to change`, d: `${[c ? c + ' below cost' : '', t ? t + ' below target' : ''].filter(Boolean).join(', ') || 'Monthly revision due'}.${fwd ? ` ${rsM(fwd)} at stake in ${SET('forward_months')} months.` : ''}`, btn: 'Open prices to change', pan: { k: 'tochange', only: 'price' }, kind: 'do', pri: 3 }); } } // push 10e (C-17): each job opens only its own packs
+    const lastM = addDays(firstOfMonth(), -1).slice(0, 7);
+    const goME = () => { scr = 'costs'; cpart = 'month'; meM = lastM; saved = null; window.scrollTo(0, 0); }; /* push 4: Month end is the place for these (D-154) */
+    if (ADM() && loaded() && (ST.checks || []).some(c => c.month === lastM && c.kind === 'tie_books') && !(ST.checks || []).some(c => c.month === lastM && (c.kind === 'coo_check' || c.kind === 'lock'))) J.push({ t: `COO check of ${mon(lastM)}`, d: 'The top material rates against the register, and every labour, FOH, packing and freight change of the month, ticked as seen.', btn: 'Open Month end', go: goME, kind: 'do', pri: 3 });
+    if (ADM() && loaded() && (ST.checks || []).some(c => c.month === lastM && c.kind === 'coo_check') && !(ST.checks || []).some(c => c.month === lastM && c.kind === 'lock')) J.push({ t: `Lock ${mon(lastM)}`, d: 'Its figures are kept as they are; its actuals and checks then cannot change unless you reopen it.', btn: 'Open Month end', go: goME, kind: 'do', pri: 3 });
+    if (CAN('actuals.enter') && !ADM() && loaded() && !(ST.actuals || []).some(a => a.month === lastM)) J.push({ t: `Enter ${mon(lastM)} actual labour and FOH`, d: 'Needed to compare actual labour and FOH with what was charged to products.', btn: 'Enter actuals', go: goME, kind: 'do', pri: 7, since: monthSince() });
+    if (CAN('actuals.tiebooks') && !ADM() && loaded() && !(ST.checks || []).some(c => c.month === lastM && c.kind === 'tie_books')) J.push({ t: `Tie ${mon(lastM)} to the books`, d: 'Enter ERP sales and COGS for the month, in total; C2M shows its own figures and the gap.', btn: 'Open monthly checks', go: goME, kind: 'do', pri: 7, since: monthSince() });
+  }
+  if (CAN('lists.link')) { const N = pnRows(); const rs = N.o2s.reduce((t, u) => t + u.rs, 0); // Names to settle (1.0.2, D-85): O2S names only from 1.0.3; list rows are carried into the master
+    if (!lmDone() && (ST.listItems || []).length) J.push({ t: `Carry the price lists into the master: ${pl((ST.listItems || []).length, 'list row', 'list rows')}`, d: 'Once, on 1 screen: each VAN brand pack is held once and the 3 lists become its price columns. C2M matches most rows by name and size for you to check; you pick the rest, once for every list. No more linking row by row.', btn: 'Open', pan: { k: 'carry' }, kind: 'do', pri: 4 });
+    if (N.o2s.length) J.push({ t: `Names to settle: ${pl(N.o2s.length, 'O2S name', 'O2S names')}`, d: `${rs ? `${rsM2(rs)} of O2S sales has no cost until its name is placed.` : (N.o2s.length === 1 ? 'No O2S sale waits on it yet.' : 'No O2S sale waits on them yet.')} The COO or the CFO settles each in Setup, Products and variants.`, btn: 'See the names', pan: { k: 'names' }, kind: 'do', pri: 4 }); }
+  if (CAN('nutrient.edit') && !CAN('material.save')) { const n = (ST.materials || []).filter(m => matState(m)[0] === 'p-amber').length; if (n) J.push({ t: `${pl(n, 'material needs', 'materials need')} a class or nutrient %`, d: ST.m014 ? 'A material that carries nutrients needs them entered on its card (Open); binders, fillers and agents need only their class.' : 'Nutrient sources need their % per field; binders, fillers and agents need only their class.', btn: 'Open materials', pan: { k: 'mats' }, kind: 'do', pri: 5 }); }
+  if (CAN('rate.save') && !ADM()) { const w = (ST.rates || []).filter(r => r.rate == null); if (w.length) J.push({ t: `${pl(w.length, 'material waits', 'materials wait')} for your rate`, d: `Added with no rate: ${w.slice(0, 4).map(r => r.name + (r.grade && r.grade !== 'Standard' ? ', ' + r.grade : '')).join('; ')}${w.length > 4 ? ` and ${w.length - 4} more` : ''}. A recipe using one cannot pass the cost step until its rate is in.`, btn: 'Open materials', go: () => { goPlace('inputs'); inp = 'materials'; mtab = 'materials'; matFilter = 'norate'; matQ = ''; nsuMatInit = true; }, kind: 'do', pri: 5 }); } // push 7a (R66, D-162)
+  {
+    if (ADM() && GLON() && ST.golive.until && ST.today >= addDays(ST.golive.until, -7)) { const R = glRevRows(); const day = fmtShort(addDays(ST.golive.until, 1)); // push 10a (Tahir, 20 Nov 2026): the review list, from 7 days before the last day
+      if (R.n) J.push({ t: `Costs that become approved on ${day}: ${pl(R.n, 'pack', 'packs')}`, d: `${R.moved.length ? `${pl(R.moved.length, 'pack moved', 'packs moved')} more than ${SET('reapprove_pct') == null ? 3 : SET('reapprove_pct')}% from the approved cost` : `No pack moved more than ${SET('reapprove_pct') == null ? 3 : SET('reapprove_pct')}%`}${R.first.length ? `; ${R.first.length} ${R.first.length === 1 ? 'takes its' : 'take their'} first approved cost` : ''}${R.left.length ? `; ${R.left.length} not fully costed ${R.left.length === 1 ? 'keeps its' : 'keep their'} approved cost` : ''}${R.none.length ? `; ${R.none.length} with no cost ${R.none.length === 1 ? 'stays' : 'stay'} without an approved cost` : ''}. Check them before the window closes on ${fmtShort(ST.golive.until)}.`, btn: 'See the list', pan: { k: 'glrev' }, kind: 'do', pri: 1, since: addDays(ST.golive.until, -7) }); }
+    if (ADM()) (ST.recipes || []).filter(v => STEP_ROLE[v.state]).forEach(v => { const ls = lastStep(v); if (ls && isStuck(ls.at)) J.push({ t: `Recipe stuck ${wdays(ls.at)} working days: ${v.brand} for ${v.customer}`, d: `With the ${ROLE_NAME[STEP_ROLE[v.state]]} since ${fmtD(d10(ls.at))}, not sent on (step: ${MYJOB[v.state] || stepTxt(v.state)}).`, btn: 'Open recipe', pan: { k: 'rec', id: v.id }, kind: 'red', pri: 4, since: ls.at, with: ROLE_NAME[STEP_ROLE[v.state]] }); });
+    const wait = (ST.proposals || []).filter(p => p.status === 'proposed' && (ADM() || p.byAdmin));
+    if (CAN('price.approve')) wait.forEach(p => J.push({ t: `${p.urgent ? 'Urgent price' : 'Approve price'}: ${packName(p.packId)}`, d: (() => { const k = packIdx().get(p.packId); const c = k && k.cost ? k.cost.total : null; return `${p.prev != null ? 'Rs ' + n2(p.prev) + ' to ' : ''}Rs ${n2(p.price)} per ${k ? k.product.soldPer : 'kg'}${p.urgent ? ', in force when you approve it. Why urgent: ' + p.urgent : p.from ? ', from Monday ' + fmtD(monFrom(d10(p.from) > ST.today ? d10(p.from) : ST.today)) : ''}. GP ${pc(c != null && p.price > 0 ? (p.price - c) / p.price * 100 : null)} against target ${pc(k && k.product.target)}.${p.belowReason ? ' Below target: ' + p.belowReason : ''}`; })(), btn: 'Open proposal', pan: { k: 'prop', id: p.id }, kind: 'approve', pri: p.urgent ? 0 : 2, since: p.at }));
+    if (CAN('list.approve')) (ST.listRevisions || []).filter(r => r.status === 'proposed' && (ADM() || r.byAdmin)).forEach(r => J.push({ t: `${r.urgent ? 'Urgent list revision' : 'Approve list revision'}: ${LISTNAME[r.list_name]}`, d: `${pl(r.items.length, 'price', 'prices')} ${r.urgent ? 'in force when you approve it. Why urgent: ' + r.urgent + '.' : 'from Monday ' + fmtD(monFrom(d10(r.valid_from) > ST.today ? d10(r.valid_from) : ST.today)) + '.'} ${r.reason}`, btn: 'Open revision', pan: { k: 'lrev', id: r.id }, kind: 'approve', pri: r.urgent ? 0 : 3, since: r.proposed_at }));
+    if (CAN('settings.approve')) (ST.settingRequests || []).filter(r => r.status === 'open' && (ADM() || r.byAdmin)).forEach(r => J.push({ t: 'Approve setting change', d: r.summary + '. Proposed by ' + personName(r.by_user) + '.', btn: 'Open the change', pan: { k: 'setreq', id: r.id }, kind: 'approve', pri: 5, since: r.at }));
+    if (CAN('targets.approve')) (ST.targetRequests || []).filter(r => r.status === 'open' && (ADM() || r.byAdmin)).forEach(r => J.push({ t: `Approve target: ${r.brand} for ${r.customer}`, d: `${tgtVerb(r)} ${r.from_gp == null ? `the company target ${SET('budget_gp')}%` : r.from_gp + '%'} to ${tgtTo(r)}. ${r.reason}`, btn: 'Open the request', pan: { k: 'treq', id: r.id }, kind: 'approve', pri: 5, since: r.at }));
+    const lastM = addDays(firstOfMonth(), -1).slice(0, 7); const goME = () => { scr = 'costs'; cpart = 'month'; meM = lastM; saved = null; window.scrollTo(0, 0); };
+    if (CAN('actuals.ratecheck') && loaded() && !(ST.checks || []).some(c => c.month === lastM && c.kind === 'rate_check')) J.push({ t: `Check ${mon(lastM)} rates against the purchase register`, d: 'Second-person check of the top 15 material rates by Rs used: type each register rate.', btn: 'Open Month end', go: goME, kind: 'do', pri: 7, since: monthSince() });
+    // the Margin rule: white label client lines, FY to date, each truck at the cost approved on its date
+    const keep = { per: nm.per, hist: nm.hist, grp: nm.grp }; let red = 0; if (ADM()) Object.assign(nm, { per: 'fy', hist: 'approved', grp: 'wl' }); try { red = nmGroup(nmRows().filter(r => nmIn(r) && nmGrp(r)), r => r.cust).filter(x => x.s.st === 'red').length; } finally { Object.assign(nm, keep); }
+    if (ADM() && red) J.push({ t: `${pl(red, 'white label client', 'white label clients')} flagged red on margin, FY to date`, d: `Below cost, or more than ${SET('red_gap_pts') ?? 2} points below target. See why.`, btn: 'Open margin', go: () => { scr = 'margin'; Object.assign(nm, { per: 'fy', hist: 'approved', grp: 'wl', by: 'client', f: 'red', drill: null, q: '' }); }, kind: 'red', pri: 6 });
+  }
+  J.forEach(j => { j.key = [j.t, j.kind, j.since || '', j.propose || '', j.pan ? JSON.stringify(j.pan) : ''].join('|'); }); // push 10e (C-18): a stable key, so a click opens the job it was drawn for
+  return J;
+}
+/** Push 10b: the topic of a job, for the chips on Approvals (Recipes, Prices and targets, Costs and month end, Margin, Setup). */
+const JTOPICS = ['Recipes', 'Prices and targets', 'Costs and month end', 'Margin', 'Setup'];
+function jobTopic(j) { const k = j.pan && j.pan.k, t = String(j.t); if (j.topic) return j.topic; // review 10b, M4: the panel first, then the title from its start
+  if (['reapp', 'notcosted', 'mats', 'glrev', 'actuals'].includes(k)) return 'Costs and month end';
+  if (['prop', 'propose', 'tochange', 'lrev', 'treq', 'carry'].includes(k) || j.propose) return 'Prices and targets';
+  if (['names', 'imports', 'setreq'].includes(k)) return 'Setup';
+  if (k === 'rec' || /^(Recipe stuck|Write the first recipe|Approve cost:)/.test(t)) return 'Recipes';
+  if (/^\d+ white label clients? flagged red on margin/.test(t)) return 'Margin';
+  if (/^(Fill |Certify labour|Urgent cost change|Check .* rates against|COO check of|Lock |Enter .* actual|Tie .* to the books|\d+ materials? (needs?|waits?))/.test(t)) return 'Costs and month end';
+  if (/^(Approve price|Urgent price|Approve list revision|Urgent list revision|Approve target|List revision sent back|Price sent back|\d+ client prices? to change|\d+ packs? costed with no price|\d+ VAN brand (list price|pack))/.test(t)) return 'Prices and targets';
+  return 'Setup'; }
+/** The next move: the first approval, in this order: recipe and cost steps, prices, re-approvals and list revisions, then
+ *  threshold and target changes; within a kind the oldest first. With no approval: the first red item, then the oldest job. */
+function nextMove(J) {
+  const ix = J.map((j, i) => i); const t0 = j => j.since ? new Date(d10(j.since)).getTime() : Infinity; // no start date: after the dated ones
+  const by = (a, b) => (J[a].pri - J[b].pri) || (t0(J[a]) - t0(J[b])) || (a - b);
+  const lf = ix.find(i => J[i].kind === 'red' && J[i].pri === 0); if (lf != null) return lf; // push 7d: filling labour and FOH comes before all else
+  const ap = ix.filter(i => J[i].kind === 'approve').sort(by); if (ap.length) return ap[0];
+  const rd = ix.filter(i => J[i].kind === 'red').sort(by); if (rd.length) return rd[0];
+  return ix.length ? ix.sort(by)[0] : -1;
+}
+/** What waits on someone else, with who has it and how long it has waited (ruling 20). */
+const waitingOn = memo(waitingOn0); // push 10f (C-22)
+function waitingOn0() {
+  const R = ST.me.role, W = [];
+  if (CAN('see.products')) (ST.recipes || []).filter(v => STEP_ROLE[v.state] && !myStep(v)).forEach(v => { const ls = lastStep(v); if (R === 'coo' && ls && isStuck(ls.at)) return; W.push({ t: `${v.brand} for ${v.customer}`, w: `with ${ROLE_NAME[STEP_ROLE[v.state]]}, ${MYJOB[v.state].split(' ')[0].toLowerCase()}`, since: ls ? ls.at : null, open: { rec: v.id } }); });
+  if (CAN('price.propose') && !ADM()) {
+    (ST.proposals || []).filter(p => p.status === 'proposed').forEach(p => W.push({ t: `${packName(p.packId)}, Rs ${n2(p.price)}`, w: 'with the COO, approve', since: p.at, open: { panprop: p.id } }));
+    (ST.listRevisions || []).filter(r => r.status === 'proposed').forEach(r => W.push({ t: `${LISTNAME[r.list_name]}, ${pl(r.items.length, 'price', 'prices')}`, w: 'with the COO, approve', since: r.proposed_at, open: { panlrev: r.id } }));
+    (ST.settingRequests || []).filter(r => r.status === 'open').forEach(r => W.push({ t: r.summary, w: 'with the COO, approve', since: r.at }));
+    (ST.targetRequests || []).filter(r => r.status === 'open').forEach(r => W.push({ t: `Target: ${r.brand} for ${r.customer}, ${tgtTo(r)}`, w: 'with the COO, approve', since: r.at }));
+  }
+  if (ADM()) (ST.reapprovals || []).forEach(x => { let onOpen = 0; x.items.forEach(i => { const kg = (ST.open || []).filter(o => o.packId === i.packId).reduce((s, o) => s + o.kg, 0); if (i.from != null && i.to != null) onOpen += (i.to - i.from) * kg; });
+    W.push({ t: `${pl(x.items.length, 'cost', 'costs')} to re-approve: ${x.cause}${Math.round(onOpen) ? ` (${onOpen > 0 ? '+' : '-'}${rs(Math.abs(onOpen))} on open POs)` : ''}`, w: 'with the CFO, re-approve', since: x.createdAt, open: { reapview: x.id } }); });
+  return W.sort((a, b) => d10(a.since || '9').localeCompare(d10(b.since || '9')));
+}
+function packName(id) { const k = packIdx().get(id); return k ? `${packLabel(k)} for ${k.product.customer}` : 'pack ' + id; }
+
+/* ============================================================================
+ * 1.0.0: the 5 places for Yawar and Tahir (Tahir, 19 Oct 2026: D-74 to D-79; approved demo "New C2M Demo").
+ * Approvals (the inbox), Products (Recipe, Cost by pack), Client prices (white label clients, VAN brand prices, price lists),
+ * Margin (1 page, 7 figures a row, 3 groupings), Setup. The places not yet ruled on sit under More.
+ * ==========================================================================*/
+const ABOVE_PTS = 5; // a price more than 5 points above its target shows "above: check"
+const CATN = { wl: 'White label', dist: 'Distributors', dealer: 'Dealers', cobo: 'COBO', vg: 'VGreen', farm: 'Farmer lists', oth: 'Other sales' }; /* R56 (D-159): farmers are not clients; their sales sit under the farmer price list each was picked on */
+const CAT1 = { wl: 'White label', dist: 'Distributor', dealer: 'Dealer', other: 'Other client', own: 'VAN, owner of the VAN brand', cobo: 'COBO', vg: 'VGreen', farm: 'Farmer price list', oth: 'Other sales' };
+/** A product's GP target: its own, else the company GP target. */
+const tgtOf = t => t != null && isFinite(Number(t)) ? Number(t) : SET('budget_gp');
+const n0 = x => x == null || !isFinite(x) ? '–' : r0(x).toLocaleString('en-US');
+const n2 = x => x == null || !isFinite(x) ? '–' : (Math.abs(x) < 0.005 ? 0 : Number(x)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const p1 = x => x == null || !isFinite(x) ? '–' : (Math.abs(x) < 0.05 ? 0 : Number(x)).toFixed(1);
+const rsM2 = x => x == null || !isFinite(x) ? '–' : Math.abs(x) < 1e6 ? 'Rs ' + r0(x).toLocaleString('en-US') : 'Rs ' + (x / 1e6).toFixed(2) + 'M'; // push 10e (C-12): a null guard
+/** A pack as C2M writes it: 1 L, 25 kg; under 1 L or 1 kg in ml or g, e.g. 500 ml (Tahir, 20 Oct 2026); as lib.officialPack. */
+const packTxt = (size, unit) => { const z = Number(size), u = unit || 'kg'; return z > 0 && z < 1 ? `${Math.round(z * 1000)} ${u === 'L' ? 'ml' : 'g'}` : `${z} ${u}`; }; // as the server writes it, no thousands comma
+const szTxt = k => packTxt(k.size, k.product.soldPer);
+/** A product's name, with its packs when another product of the same client shares the name (trade names shared across pack sizes, Tahir 20 Oct 2026). */
+const prodNm = (id, brand) => { const P = ST.products || []; const p = P.find(x => x.id === id); if (!p) return brand; const k = s => String(s || '').replace(/\s+/g, ' ').trim().toLowerCase(); return P.some(x => x.id !== id && x.customerId === p.customerId && k(x.brand) === k(p.brand)) ? `${brand} (${(p.packs || []).map(z => packTxt(z.size, p.soldPer)).join(', ')})` : brand; };
+/** The 1 tab style (push 6c, D-161, R58): a place's parts. Filters use nChips. */
+const nTabs = (attr, opts, cur, label) => `<div class="subnav" role="tablist"${label ? ` aria-label="${esc(label)}"` : ''}>${opts.map(([k, l]) => `<button role="tab" data-${attr}="${k}" aria-selected="${cur === k}">${l}</button>`).join('')}</div>`;
+const nChips = (attr, opts, cur) => `<div class="chips">${opts.map(([k, l]) => `<button data-${attr}="${esc(k)}" aria-pressed="${cur === k}">${l}</button>`).join('')}</div>`;
+
+/* ---------- Margin (picture approved 19 Oct, D-79) ---------- */
+let nm = { init: false, sec: {}, per: 'fy', grp: 'wl', by: 'client', open: new Set(), drill: null, q: '', hist: 'approved', f: 'all', cols: { qty: true, cost: true, tgt: true }, colsOpen: false, tTab: 'chart', sTab: 'chart' };
+const nmIn = r => nm.per === 'fy' ? r.date >= fyStart() && r.date <= ST.today : r.date.slice(0, 7) === nm.per;
+const nmGrp = r => nm.grp === 'all' || (r.cat || (r.grp === 'White label' ? 'wl' : 'farm')) === nm.grp;
+const nmPer = () => nm.per === 'fy' ? 'FY to date' : mon(nm.per) + (nm.per === ST.today.slice(0, 7) ? ` (to ${+ST.today.slice(8)})` : '');
+const nmCost = r => { const fr = r.lfr > 0 ? r.lfr : 0; /* R46: a VAN brand sale carries its list's freight (D-154) */ if (nm.hist !== 'restated') return r.cost == null ? null : r.cost + fr; const k = r.packId ? packIdx().get(r.packId) : null; return k && k.cost ? k.cost.total + fr : null; };
+/** Month end on Margin (R44, R45, R46; D-154): the company line for labour and FOH actual less charged, the month as locked, and VAN brand list freight. */
+function nmMonthEnd(costed) {
+  const m = /^\d{4}-\d{2}$/.test(String(nm.per)) ? nm.per : null; const out = [];
+  const van = costed.filter(r => r.grp === 'VAN brand'); const frRs = van.reduce((s, r) => s + r.kg * (r.lfr > 0 ? r.lfr : 0), 0); const unset = van.filter(r => r.lkey && !(r.lfr > 0)); const LN = { dist: 'Distributor', dealer: 'Dealer, Sindh', farmer_pb: 'Farmer, Punjab', farmer_sn: 'Farmer, Sindh cash', farmer_snc: 'Farmer, Sindh credit' }; const noL = (ST.sales || []).filter(r => nmIn(r) && nmGrp(r) && r.grp === 'VAN brand' && r.noList);
+  if (van.length && (nm.grp === 'all' || van.length === costed.length)) out.push(`<p class="basis">VAN brand cost includes each sale's list freight: Rs ${n0(frRs)} in this view.${unset.length ? ` ${pl(unset.length, 'sale is', 'sales are')} on a list with no freight set yet (${esc([...new Set(unset.map(r => LN[r.lkey] || r.lkey))].join(', '))}): none taken.` : ''}${noL.length ? ` <b>${pl(noL.length, 'VAN brand sale has', 'VAN brand sales have')} no list (${n0(noL.reduce((s, r) => s + r.kg, 0))} kg): no freight taken.</b> ${esc([...new Set(noL.map(r => r.noList))].slice(0, 2).join('; '))}.` : ''}</p>`);
+  if (!m || nm.grp !== 'all' || nm.hist === 'restated') return out.join('');
+  const A = ST.monthEnd && ST.monthEnd.months && ST.monthEnd.months[m] ? ST.monthEnd.months[m].absorbed : null; const act = (ST.actuals || []).find(a => a.month === m);
+  const lk0 = (ST.checks || []).find(c => c.month === m && c.kind === 'lock'); const LS = lk0 && lk0.data && lk0.data.labourCharged != null ? lk0.data : null;
+  if (LS || (A && act && A.kg > 0)) { const d = LS ? (LS.actualLabour - LS.labourCharged) + (LS.actualFoh - LS.fohCharged) : (Number(act.actual_labour) - A.labour.total) + (Number(act.actual_foh) - A.foh.total); /* a locked month: as locked (review 4, finding 7) */ const t = nmSum(costed); const gp2 = t.sales ? (t.gp - d) / t.sales * 100 : null;
+    out.push(`<div class="next"><span><b>Labour and FOH, actual less charged: ${d > 0.5 ? '−Rs ' + n0(d) + ' (under charged)' : d < -0.5 ? '+Rs ' + n0(-d) + ' (over charged)' : 'Rs 0'}.</b> Company GP after it: ${gp2 != null ? pc(gp2) : '–'}. Each pack's GP stays as charged.</span><button class="btn ghost" data-cpart="month" data-mem-go="${m}">Open Month end</button></div>`); }
+  const lock = (ST.checks || []).find(c => c.month === m && c.kind === 'lock'); const L = lock && lock.data;
+  if (L) { const rows = (ST.sales || []).filter(r => r.date.slice(0, 7) === m); const sNow = rows.reduce((s, r) => s + r.kg * r.price, 0), cNow = rows.filter(r => r.cost != null).reduce((s, r) => s + r.kg * r.cost, 0);
+    const ds = Math.round(sNow - L.sales), dc = Math.round(cNow - L.cogs);
+    out.push(`<div class="next${Math.abs(ds) > 1 || Math.abs(dc) > 1 ? ' warn' : ''}"><span><b>${mon(m)} is locked</b> by ${esc(personName(lock.done_by))}: sales Rs ${n0(L.sales)}, cost Rs ${n0(L.cogs)} as locked. ${Math.abs(ds) > 1 || Math.abs(dc) > 1 ? `<b>Changed since the lock:</b> sales ${ds >= 0 ? '+' : '−'}Rs ${n0(Math.abs(ds))}, cost ${dc >= 0 ? '+' : '−'}Rs ${n0(Math.abs(dc))} (a truck added or changed in O2S, or a cost approved later).` : 'No change since the lock.'}</span></div>`); }
+  return out.join('');
+}
+const nmRows = memo(() => (ST.sales || []).filter(r => nmCost(r) != null), () => nm.hist); // push 10f (C-22): once per draw and history basis
+/** R59 (Tahir, 7 Nov 2026, D-159): farmer sales with no region in O2S are taken as on the Farmer list, Punjab; Margin says how many in the view. */
+function nmDefaultNote() { const n = (ST.sales || []).filter(r => nmIn(r) && nmGrp(r) && r.lkeyDefault).length; return n ? `<p class="basis" data-nm-dflt>${pl(n, 'farmer sale had', 'farmer sales had')} no region in O2S and ${n === 1 ? 'is' : 'are'} taken as on the Farmer list, Punjab.</p>` : ''; }
+const nmUnit = r => { const k = r.packId ? packIdx().get(r.packId) : null; return k && k.product.soldPer === 'L' ? 'L' : 'kg'; };
+const nmBase = r => { const k = r.packId ? packIdx().get(r.packId) : null; return k ? (k.product.grp === 'White label' ? (k.product.typeName || k.product.brand) : k.product.brand) : r.brand; };
+const nmPack = id => { const k = packIdx().get(+id); return k ? `${k.product.brand} · ${szTxt(k)}` : 'pack ' + id; };
+/** Sum rows: GP % on the totals, never an average of %; target weighted by sales (F-23).
+ * Red: below cost, or more than red_gap_pts short of target (push 7h: no Rs test); amber: any other short; green: on or above. */
+/** A sale's GP target, % (R55, Tahir 6 Nov 2026): white label, its product's target (else the company GP target); VAN brand, the target of the
+ *  price list it was sold on (each channel has its own target, R39), or null when the sale has no list or its list has no target: not judged. */
+function saleTgt(r) { if (r.grp !== 'VAN brand') return tgtOf(r.target); return r.lkey ? LSET('lt_' + r.lkey) : null; }
+function nmSum(rows) {
+  const o = { kg: 0, L: 0, sales: 0, cost: 0, tRs: 0, jSales: 0, jGp: 0, nj: 0, rows };
+  rows.forEach(r => { const s = r.kg * r.price, c = r.kg * nmCost(r), t = saleTgt(r); o[nmUnit(r)] += r.kg; o.sales += s; o.cost += c;
+    if (t != null) { o.tRs += t / 100 * s; o.jSales += s; o.jGp += s - c; } else o.nj++; });
+  o.gp = o.sales - o.cost; o.pct = o.sales ? o.gp / o.sales * 100 : null; o.tgt = o.jSales ? o.tRs / o.jSales * 100 : null; o.ag = o.jGp - o.tRs; o.jPct = o.jSales ? o.jGp / o.jSales * 100 : null; o.mixed = o.nj > 0 && o.jSales > 0; /* target and against target on judged sales only */
+  const gap = o.tgt - o.jPct, red = SET('red_gap_pts') /* judged GP % against the target on the same sales (review R55, finding 1) */ != null ? SET('red_gap_pts') : 2;
+  if (o.tgt == null) { o.dir = 'none'; o.st = o.pct != null && o.pct < 0 ? 'red' : 'none'; o.ag = 0; return o; } /* no sale in the group judged (VAN brand sales with no list target set, R55) */
+  o.dir = gap > 0.05 ? 'short' : gap < -0.05 ? 'above' : 'on'; o.st = (o.pct != null && o.pct < 0) || gap > red + 1e-9 ? 'red' : gap > 0.05 ? 'amber' : 'green'; // push 7h (Tahir, 10 Nov 2026): the 2-point rule alone, as on every other screen
+  return o;
+}
+const nmQty = o => [o.kg ? n0(o.kg) + ' kg' : '', o.L ? n0(o.L) + ' L' : ''].filter(Boolean).join('<br>') || '0';
+const nmAg = o => o.dir === 'none' ? `<span class="ag ${o.st === 'red' ? 'red' : ''}">not judged: no target set</span>` : o.dir === 'on' ? '<span class="ag green">on target</span>' : `<span class="ag ${o.dir === 'above' ? 'green' : o.st}">${o.dir} ${rsM2(Math.abs(o.ag))}${o.dir === 'short' ? ` · ${o.st === 'red' ? 'act now' : 'watch'}` : ''}</span>`; // the word, not only the colour, says what it means (push 7g, finding 24)
+const nmSort = L => L.sort((a, b) => (a.s.dir === 'none') - (b.s.dir === 'none') || a.s.ag - b.s.ag || b.s.sales - a.s.sales); /* not judged last (review R55) */ // target and gap: biggest Rs short first
+const nmGroup = (rows, f) => { const m = new Map(); rows.forEach(r => { const k = f(r); (m.get(k) || m.set(k, []).get(k)).push(r); }); return [...m].map(([k, rs]) => ({ k, s: nmSum(rs) })); };
+const nmCells = (o, first) => `<td>${first}</td>${nm.cols.qty ? `<td class="r num">${nmQty(o)}</td>` : ''}<td class="r num">${n0(o.sales)}</td>${nm.cols.cost ? `<td class="r num">${n0(o.cost)}</td>` : ''}<td class="r num">${n0(o.gp)}</td><td class="r num">${pc(o.pct)}</td>${nm.cols.tgt ? `<td class="r num">${pc(o.tgt)}</td>` : ''}<td class="r">${nmAg(o)}</td>`;
+function nmTrend() {
+  const rows = nmRows().filter(r => nmGrp(r) && r.date >= fyStart() && r.date <= ST.today);
+  const ms = [...new Set(rows.map(r => r.date.slice(0, 7)))].sort(); const pts = ms.map(m => ({ m, ...nmSum(rows.filter(r => r.date.slice(0, 7) === m)) }));
+  if (pts.length < 2) return `<div class="ocard"><h3>GP by month</h3><p class="osub">The chart needs 2 months of costed trucks in this group.</p></div>`;
+  const first = rows.map(r => r.date).sort()[0]; const full = pts.filter(p => p.m !== ST.today.slice(0, 7) && p.m !== first.slice(0, 7)); // part months (marked *) are not compared in the title (review finding 8)
+  const a = full.length >= 2 ? full[0] : pts[0], b = full.length >= 2 ? full[full.length - 1] : pts[pts.length - 1]; const dir = b.pct < a.pct - 0.05 ? 'fell' : b.pct > a.pct + 0.05 ? 'rose' : 'held';
+  const title = `${CATN[nm.grp] || 'All sales'} GP ${dir} from ${a.pct.toFixed(1)}% in ${MON[+a.m.slice(5) - 1]} to ${b.pct.toFixed(1)}% in ${MON[+b.m.slice(5) - 1]}, ${b.tgt != null ? `${b.mixed ? `${b.jPct.toFixed(1)}% on the sales judged ` : ''}against a ${b.tgt.toFixed(1)}% target that month` : 'with no target set that month'}`;
+  const mixed = pts.some(p => p.mixed); /* some sales not judged (VAN brand on a list with no target): the target line would be read against GP on all sales, so it is not drawn (review R55) */
+  const sub = `GP % on trucks out each month${nm.hist === 'restated' ? ', restated at today\'s cost' : ', each truck at the cost approved on its date'}. ${mixed ? ' The target line is not drawn: some VAN brand sales in this group are not judged (their price list has no target set), so GP on all sales cannot be read against it; the table gives GP on the sales judged.' : ' The dashed line is the target, weighted by each month\'s sales.'}`;
+  let body;
+  if (nm.tTab === 'table') body = `<div class="wrapx"><table class="otab"><thead><tr><th>Month</th><th class="r">Sales Rs</th><th class="r">GP Rs</th><th class="r">GP %</th>${mixed ? '<th class="r">GP % on sales judged</th>' : ''}<th class="r">Target %</th></tr></thead><tbody>${pts.map(p => `<tr><td>${MON[+p.m.slice(5) - 1]}${p.m === ST.today.slice(0, 7) ? ` (to ${+ST.today.slice(8)})` : p.m === first.slice(0, 7) ? ` (from ${+first.slice(8)})` : ''}</td><td class="r num">${n0(p.sales)}</td><td class="r num">${n0(p.gp)}</td><td class="r num">${p.pct.toFixed(1)}</td>${mixed ? `<td class="r num">${p.jPct != null ? p.jPct.toFixed(1) : 'none'}</td>` : ''}<td class="r num">${p.tgt != null ? p.tgt.toFixed(1) : 'none'}</td></tr>`).join('')}</tbody></table></div>`;
+  else {
+    const tp = mixed ? [] : pts.map((p, i) => [p, i]).filter(([p]) => p.tgt != null); const vals = pts.flatMap(p => p.tgt != null ? [p.pct, p.tgt] : [p.pct]); const lo = Math.floor((Math.min(...vals) - 1) / 5) * 5, hi = Math.ceil((Math.max(...vals) + 1) / 5) * 5;
+    const W = 520, H = 230, L = 36, R = 108, T = 12, B = 26; const x = i => L + (W - L - R) * i / (pts.length - 1), y = v => T + (H - T - B) * (1 - (v - lo) / (hi - lo));
+    const grid = []; for (let v = lo; v <= hi + 0.001; v += 5) grid.push(`<line class="og" x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}"/><text class="oa" x="${L - 6}" y="${y(v) + 4}" text-anchor="end">${v}%</text>`);
+    const z = pts[pts.length - 1]; let yg = y(z.pct), yt = z.tgt != null && !mixed ? y(z.tgt) : yg + 1000; /* the end labels name the last point drawn */ if (Math.abs(yg - yt) < 14) { const mid = (yg + yt) / 2; if (yg >= yt) { yg = mid + 7; yt = mid - 7; } else { yg = mid - 7; yt = mid + 7; } }
+    body = `<svg class="ochart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(title)}">${grid.join('')}${tp.length > 1 ? `<polyline class="otl" points="${tp.map(([p, i]) => `${x(i)},${y(p.tgt)}`).join(' ')}"/>` : ''}<polyline class="ogl" points="${pts.map((p, i) => `${x(i)},${y(p.pct)}`).join(' ')}"/>
+      ${pts.map((p, i) => `<circle class="ogd" cx="${x(i)}" cy="${y(p.pct)}" r="3.5"/><text class="oa" x="${x(i)}" y="${H - 8}" text-anchor="middle">${MON[+p.m.slice(5) - 1]}${p.m === ST.today.slice(0, 7) || p.m === first.slice(0, 7) ? '*' : ''}</text>`).join('')}
+      <text class="olab g" x="${W - R + 8}" y="${yg + 4}">GP ${z.pct.toFixed(1)}%</text>${z.tgt != null && !mixed ? `<text class="olab t" x="${W - R + 8}" y="${yt + 4}">Target ${z.tgt.toFixed(1)}%</text>` : ''}</svg>`;
+  }
+  return `<div class="ocard"><h3>${esc(title)}</h3><p class="osub">${sub}</p>${nTabs('nm-t', [['chart', 'Chart'], ['table', 'Table']], nm.tTab, 'Chart or table')}${body}<p class="ofoot"><b>Source:</b> O2S trucks (read only); C2M approved costs and targets.<br><b>Note:</b> * a part month (the first truck in O2S, or today). Trucks of packs with no approved cost at all are left out.</p></div>`;
+}
+function nmStake() {
+  const ex = exposure().filter(x => x.fwd > 0).sort((a, b) => b.fwd - a.fwd); const tot = ex.reduce((s, x) => s + x.fwd, 0);
+  const title = ex.length ? `${ex[0].cust} · ${ex[0].brand} carries ${Math.round(ex[0].fwd / tot * 100)}% of the ${rsM2(tot)} at stake` : 'No white label pack is priced below its target';
+  const sub = `White label packs priced below target: Rs short over the next ${SET('forward_months')} months if today's price and cost hold, on expected kg less kg already on open POs. Click a bar to open it.`;
+  let body;
+  if (nm.sTab === 'table') body = `<div class="wrapx"><table class="otab"><thead><tr><th>Client · pack</th><th class="r">Price</th><th class="r">Cost today</th><th class="r">Price for target</th><th class="r">Expected</th><th class="r">Rs at stake</th></tr></thead><tbody>${ex.map(x => `<tr><td>${esc(x.cust)} · ${esc(x.prod)}</td><td class="r num">${n2(x.price)}</td><td class="r num">${n2(x.c)}</td><td class="r num">${n2(x.tp)}</td><td class="r num">${n0(x.kg3)} ${x.unit}</td><td class="r num">${n0(x.fwd)}</td></tr>`).join('')}</tbody></table></div>`;
+  else { const mx = ex.length ? ex[0].fwd : 1; body = `<div class="obars">${ex.slice(0, 7).map(x => `<button class="obar" data-nm-dc="${esc(x.cust)}" data-nm-dp="${x.id}"><span class="on">${esc(x.cust)} · ${esc(x.prod)}</span><span class="ot"><i style="width:${(x.fwd / mx * 100).toFixed(1)}%"></i><b>Rs ${n0(x.fwd)}</b></span></button>`).join('') || '<p class="osub">None.</p>'}</div>`; }
+  return `<div class="ocard"><h3>${esc(title)}</h3><p class="osub">${sub}</p>${nTabs('nm-s', [['chart', 'Chart'], ['table', 'Table']], nm.sTab, 'Chart or table')}${basisChips()}${body}<p class="ofoot"><b>Source:</b> C2M cost today, client price and target; kg from O2S trucks and open POs.<br><b>Note:</b> Price for target = cost today ÷ (1 − target %). A price approved for a later date counts from its date.</p></div>`;
+}
+function vMargin2() {
+  if (!(ST.sales || []).length) return `${meta(o2sAsOf())}${head('Margin', 'No trucks in C2M yet: margin shows after the first O2S pull (Setup, Record and checks, From O2S).', '')}`;
+  if (!nm.init) { nm.init = true; const mm = [...new Set((ST.sales || []).map(r => r.date.slice(0, 7)))].sort(); nm.per = mm.includes(ST.today.slice(0, 7)) ? ST.today.slice(0, 7) : (mm[mm.length - 1] || 'fy'); nm.grp = 'all'; } // D-111: opens on the whole company, current month
+  const costed = nmRows().filter(r => nmIn(r) && nmGrp(r)); const tot = nmSum(costed);
+  const months = [...new Set((ST.sales || []).map(r => r.date.slice(0, 7)))].sort();
+  const basis = `<p class="basis">${nm.hist === 'restated' ? '<b>Restated view:</b> past trucks at today\'s cost, for comparison only; trucks of packs with no cost today are left out, so the trucks counted can differ from the approved view. ' : 'Each truck at the cost approved before its gate pass date: a cost approved today applies from tomorrow\'s trucks; trucks before a pack\'s first approved cost use that first cost. '}Prices without FED; free (FOC) trucks are not sales; trucks of packs with no approved cost at all are left out.${nm.grp !== 'wl' ? ' VAN brand GP is after each sale\'s list freight.' : ''}</p>`;
+  if (nm.drill) return `${meta([nmPer(), o2sAsOf()])}${nmDrill(costed)}${basis}`;
+  /* 1.0.1 (Tahir, 19 Oct 2026, D-83, amends D-79): a client or buyer line with trucks in the period but none costed is named in 1 line, with no figures */
+  const unc = (ST.sales || []).filter(r => nmIn(r) && nmGrp(r) && nmCost(r) == null); const inL = new Set(costed.map(r => r.cust));
+  const word = nm.grp === 'wl' ? ['client', 'clients'] : ['client line', 'client lines']; const noCost = nm.hist === 'restated' ? 'cost today' : 'approved cost on their date';
+  const whole = [...new Set(unc.map(r => r.cust))].filter(c => !inL.has(c)).sort(); const noPk = c => unc.filter(r => r.cust === c).every(r => !r.packId);
+  const wCost = whole.filter(c => !noPk(c)), wPack = whole.filter(noPk);
+  const part = [...new Set(unc.map(r => r.cust))].filter(c => inL.has(c)).sort().map(c => { const u = unc.filter(r => r.cust === c); const pk = [...new Set(u.map(r => r.packId).filter(x => x != null))].map(id => { const k = packIdx().get(id); return k ? packLabel(k) : null; }).filter(Boolean); return `${esc(c)} (${u.length} of ${u.length + costed.filter(r => r.cust === c).length} trucks${pk.length ? ': ' + esc(pk.slice(0, 3).join(', ')) + (pk.length > 3 ? ` and ${pk.length - 3} more` : '') + '; no approved cost yet' : ''})`; }); // names the pack (review C1)
+  const outTxt = whole.length || part.length ? `<p class="ans" data-nm-out>${[wCost.length ? `${pl(wCost.length, word[0] + ' left out: its', word[1] + ' left out: their')} trucks have no ${noCost} (${wCost.map(esc).join(', ')}).` : '', wPack.length ? `${pl(wPack.length, word[0] + ' left out: its', word[1] + ' left out: their')} trucks match no C2M pack (${wPack.map(esc).join(', ')}).` : '', part.length ? `Trucks with no ${noCost.replace(' on their date', '')} are also left out of: ${part.join(', ')}.` : ''].filter(Boolean).join(' ')}</p>` : '';
+  const unit = nm.by === 'client' ? 'client lines' : nm.by === 'product' ? 'product lines' : 'client packs';
+  const list = nmSort(nm.by === 'client' ? nmGroup(costed, r => r.cust) : nm.by === 'product' ? nmGroup(costed, nmBase) : nmGroup(costed, r => r.cust + '|' + r.packId));
+  const cnt = k => list.filter(x => k === 'all' || x.s.st === k).length; const q = nm.q.trim().toLowerCase();
+  const hit = x => (nm.f === 'all' || x.s.st === nm.f) && (!q || (String(x.k) + ' ' + x.s.rows.map(r => r.cust + ' ' + r.brand).join(' ')).toLowerCase().includes(q));
+  const shown = list.filter(hit); const catOf = x => x.s.rows[0].cat || 'wl';
+  const label = x => nm.by === 'client' ? `<b>${esc(x.k)}</b><span class="sub2">${esc(CAT1[catOf(x)])}${catOf(x) === 'farm' ? ' · farmers on this list, not named' : ''} · ${pl(new Set(x.s.rows.map(r => r.packId)).size, 'pack', 'packs')}</span>`
+    : nm.by === 'product' ? `<b>${esc(x.k)}</b><span class="sub2">${esc(x.s.rows[0].grp)} · ${pl(new Set(x.s.rows.map(r => r.cust)).size, 'client line', 'client lines')}</span>`
+    : `<b>${esc(x.k.split('|')[0])}</b> · ${esc(nmPack(x.k.split('|')[1]))}<span class="sub2">${esc(CAT1[catOf(x)])}</span>`;
+  const body = shown.map(x => {
+    if (nm.by === 'cxp') { const [cl, pid] = x.k.split('|'); return `<tr class="go r-${x.s.st}" tabindex="0" data-nm-dc="${esc(cl)}" data-nm-dp="${pid}">${nmCells(x.s, label(x))}</tr>`; }
+    const open = nm.open.has(x.k); const kids = open ? nmSort(nmGroup(x.s.rows, r => nm.by === 'client' ? String(r.packId) : r.cust + '|' + r.packId)).map(y => {
+      const cl = nm.by === 'client' ? x.k : y.k.split('|')[0], pid = nm.by === 'client' ? y.k : y.k.split('|')[1];
+      return `<tr class="go child r-${y.s.st}" tabindex="0" data-nm-dc="${esc(cl)}" data-nm-dp="${pid}">${nmCells(y.s, (nm.by === 'client' ? esc(nmPack(pid)) : esc(cl) + ' · ' + esc(nmPack(pid))) + ' <span class="car">›</span>')}</tr>`; }).join('') : '';
+    return `<tr class="go r-${x.s.st}" tabindex="0" data-nm-tog="${esc(x.k)}" aria-expanded="${open}">${nmCells(x.s, `<span class="car">${open ? '▾' : '▸'}</span>` + label(x))}</tr>${kids}`;
+  }).join('');
+  const headRowHtml = `<th>${nm.by === 'client' ? 'Client line' : nm.by === 'product' ? 'Product line' : 'Client · pack'}</th>${nm.cols.qty ? '<th class="r">Qty</th>' : ''}<th class="r">Sales Rs</th>${nm.cols.cost ? '<th class="r">Cost Rs</th>' : ''}<th class="r">GP Rs</th><th class="r">GP %</th>${nm.cols.tgt ? '<th class="r">Target %</th>' : ''}<th class="r">Against target</th>`;
+  const stCol = s => s === 'red' ? 'var(--over)' : s === 'amber' ? 'var(--late)' : s === 'none' ? 'var(--muted)' : 'var(--ok)';
+  const secBtn = (k, label) => `<button class="lnk" data-nm-sec="${k}" aria-expanded="${!!nm.sec[k]}">${label} ${nm.sec[k] ? '▾' : '›'}</button>`;
+  const scopeTxt = nm.grp === 'all' ? 'Whole company' : CATN[nm.grp] || 'All sales';
+  const say = !costed.length ? `${scopeTxt}, ${esc(nmPer())}: no costed trucks yet.` : !(tot.tgt > 0) ? `${scopeTxt}, ${esc(nmPer())}: GP ${pc(tot.pct)}. Not judged: no target set${tot.st === 'red' ? '; below cost' : ''}.` : `${scopeTxt}, ${esc(nmPer())}: GP ${pc(tot.pct)}${tot.mixed ? `; on the sales judged ${pc(tot.jPct)}` : ''} against a target of ${pc(tot.tgt)}${tot.dir === 'on' ? ', on target' : tot.dir === 'short' ? `, ${rsM2(Math.abs(tot.ag))} short` : `, ${rsM2(Math.abs(tot.ag))} above`}.`;
+  /* D-111 (Tahir, 23 Oct 2026): the page opens on the whole company and the current month; the group and period are always in the first line */
+  const gRows = (nm.grp === 'all' ? nmGroup(costed, r => r.cat || (r.grp === 'White label' ? 'wl' : 'farm')).map(x => ({ ...x, label: CATN[x.k], attr: `data-nm-grp="${esc(x.k)}"` })) : nmGroup(costed, r => r.cust).map(x => ({ ...x, label: x.k, attr: `data-nm-line="${esc(x.k)}"` }))).sort((a, b) => b.s.sales - a.s.sales).slice(0, 8);
+  const gmx = Math.max(1, ...gRows.map(x => Math.max(x.s.pct || 0, x.s.tgt || 0))) * 1.1;
+  const bars = gRows.map(x => `<div class="mrow"><button class="mn" ${x.attr}>${esc(x.label)}</button><span class="mtrk" aria-hidden="true"><i style="width:${Math.max(0, (x.s.pct || 0) / gmx * 100).toFixed(1)}%;background:${stCol(x.s.st)}"></i>${x.s.tgt > 0 ? `<u style="left:${(x.s.tgt / gmx * 100).toFixed(1)}%"></u>` : ''}</span><span class="mv num">${pc(x.s.pct)} · ${rsM2(x.s.sales)}</span></div>`).join(''); // push 7g (finding 13): the name opens the row; the figures stay plain text
+  const fyRows = nmRows().filter(r => nmGrp(r) && r.date >= fyStart() && r.date <= ST.today);
+  const mp = [...new Set(fyRows.map(r => r.date.slice(0, 7)))].sort().map(m => ({ m, s: nmSum(fyRows.filter(r => r.date.slice(0, 7) === m)) }));
+  const mmx = Math.max(1, ...mp.map(p => Math.max(p.s.pct || 0, p.s.tgt || 0))) * 1.1;
+  const mcols = mp.map(p => `<button class="mcol" data-nm-per="${p.m}" aria-pressed="${nm.per === p.m}"><span class="mb" aria-hidden="true"><i style="height:${Math.max(0, (p.s.pct || 0) / mmx * 100).toFixed(1)}%;background:${stCol(p.s.st)}"></i>${p.s.tgt > 0 ? `<u style="bottom:${(p.s.tgt / mmx * 100).toFixed(1)}%"></u>` : ''}</span><b class="num">${pc(p.s.pct)}</b><span class="l">${MON[+p.m.slice(5) - 1]}${p.m === ST.today.slice(0, 7) ? ' so far' : ''}<br>${rsM2(p.s.sales)}</span></button>`).join('');
+  const att = nmSort(nmGroup(costed, r => r.cust)).filter(x => x.s.dir === 'short').slice(0, 5);
+  const attRows = att.map(x => `<div class="mrow att"><button class="mn" data-nm-line="${esc(x.k)}">${esc(x.k)}</button><span class="mt ${x.s.st}">${pc(x.s.pct)} against ${pc(x.s.tgt)}${x.s.st === 'red' ? ', well below target' : x.s.st === 'amber' ? ', below target' : ''}</span><span class="mv num">Rs ${rsM2(-x.s.ag).replace(/^Rs /, '')} short</span></div>`).join('');
+  const nCut = whole.length + part.length;
+  const links = `<div class="mlinks">${secBtn('tbl', 'All client lines and search')}${nm.grp === 'wl' || nm.grp === 'all' ? secBtn('stake', 'Rs at stake, white label') : ''}${nCut ? secBtn('out', `Not counted: ${pl(nCut, 'line', 'lines')}`) : ''}${secBtn('how', 'How to read this')}${secBtn('opt', 'Options')}</div>`;
+  const tblSec = `<div class="wtbar"><div class="grpc"><span>Group by</span>${nChips('nm-by', [['client', 'Client'], ['product', 'Product'], ['cxp', 'Client × product']], nm.by)}</div><div class="grpc"><span>Show</span>${nChips('nm-f', [['all', 'All ' + cnt('all')], ['red', 'Red ' + cnt('red')], ['amber', 'Amber ' + cnt('amber')], ['green', 'On or above ' + cnt('green')]].concat(cnt('none') ? [['none', 'Not judged ' + cnt('none')]] : []), nm.f)}</div></div>
+  <div class="wtbar"><input type="search" id="nmq" placeholder="Find a client or product" aria-label="Find a client or product" value="${esc(nm.q)}"><span class="sp"></span><button class="btn ghost" data-nm-xls>Export to Excel</button></div>
+  <div class="box wrapx"><table class="wt nmt"><thead><tr>${headRowHtml}</tr></thead><tbody>${body || '<tr><td colspan="8">No rows match.</td></tr>'}</tbody>
+  <tfoot><tr>${nmCells(nmSum(shown.flatMap(x => x.s.rows)), `${shown.length} of ${list.length} ${unit}`)}</tr></tfoot></table></div>`;
+  return `${meta([nmPer(), o2sAsOf()])}${head('Margin', say, '')}
+  <div class="wtbar"><div class="grpc"><span>Group</span>${nChips('nm-grp', [['all', 'Whole company'], ...Object.entries(CATN).filter(([k]) => k !== 'oth' || (ST.sales || []).some(r => r.cat === 'oth'))], nm.grp)}</div><div class="grpc"><span>Period</span><select data-nm-persel aria-label="Period">${[['fy', 'FY to date']].concat(months.slice().reverse().map(x => [x, MON[+x.slice(5) - 1] + ' ' + x.slice(0, 4) + (x === ST.today.slice(0, 7) ? ' (to ' + +ST.today.slice(8) + ')' : '')])).map(([k, l]) => `<option value="${k}" ${nm.per === k ? 'selected' : ''}>${l}</option>`).join('')}</select></div></div>
+  <div class="figs f3"><div class="fig"><div class="l">Sales, trucks out</div><div class="v">${rsM2(tot.sales)}</div><div class="s">${nmQty(tot).replace('<br>', ' and ')}</div></div>
+  <div class="fig"><div class="l">Gross profit</div><div class="v">${rsM2(tot.gp)}</div><div class="s">${pc(tot.pct)} of sales</div></div>
+  <div class="fig"><div class="l">Target</div><div class="v">${tot.tgt > 0 ? pc(tot.tgt) : 'None set'}</div><div class="s">${costed.length ? nmAg(tot) : ''}${tot.mixed ? `<br>on the sales judged: GP ${pc(tot.jPct)}` : ''}</div></div></div>
+  <div class="cards2 m2"${gRows.length < 2 ? ' style="grid-template-columns:minmax(0,1fr)"' : ''}>${gRows.length < 2 ? '' : `<div class="ocard"><h3>${nm.grp === 'all' ? 'Profit by group' : 'Profit by client line'}</h3><p class="osub">Bar is GP %. The line is the target. ${nm.grp === 'all' ? 'Click a group to open it.' : 'Click a line to see its packs.'}</p>${bars || '<p class="osub">No costed trucks.</p>'}</div>`}
+  <div class="ocard"><h3>By month</h3><p class="osub">GP % against target. Click a month to open it.</p><div class="mcols">${mcols}</div></div></div>
+  ${nmMonthEnd(costed)}${nmDefaultNote()}
+  ${(ST.mrpIssues || []).length && nm.grp !== 'wl' ? `<div class="warnbox" style="margin:0 0 12px"><b>${pl(ST.mrpIssues.length, 'VAN brand list price is', 'VAN brand list prices are')} above the printed MRP.</b> ${esc(mrpTxt(ST.mrpIssues, 2))} <button class="btn ghost" data-gomrp>Open VAN brand prices</button></div>` : ''}
+  ${attRows ? `<div class="ocard" style="margin:0 0 12px"><h3>Needs attention</h3><p class="osub">Client lines below target, most Rs short first.</p>${attRows}</div>` : ''}
+  ${links}
+  ${nm.sec.tbl ? tblSec : ''}
+  ${nm.sec.stake ? `<div class="cards2">${nmStake()}</div>` : ''}
+  ${nm.sec.out && nCut ? outTxt : ''}
+  ${nm.sec.how ? `${basis}<p class="ans" style="font-size:12.5px">Client lines follow the O2S category on each PO: white label clients, distributors and dealers by name; COBO and VGreen as 1 line each. Farmers are not clients: each farmer sale shows under the farmer price list it was picked on (Farmer list, Punjab; Farmer list, Sindh cash; Farmer list, Sindh credit), judged on that list's target; a farmer with no region in O2S is taken as on the Farmer list, Punjab. A sale with no O2S category C2M knows shows as Other sales. Each white label product is judged against its own target (the company target, ${SET('budget_gp')}%, unless changed); each VAN brand sale against the target of the price list it was sold on, and not judged where that list has no target set or the sale has no list. Where a line has both, target and against target count the judged sales only, and its GP on those sales is shown beside the target. A new target applies to every month shown, past ones too. Each truck uses the cost approved on its date; a truck from before a product's first approved cost uses that first cost.</p>` : ''}
+  ${nm.sec.opt ? `<div class="wtbar"><div class="grpc"><span>Past trucks</span>${nChips('nm-hist', [['approved', 'Cost approved on their date'], ['restated', 'Restated at today\'s cost']], nm.hist)}</div><div class="colsmenu"><button class="btn ghost" data-nm-cols aria-expanded="${nm.colsOpen}">Columns</button>${nm.colsOpen ? `<div class="box">${[['qty', 'Qty'], ['cost', 'Cost Rs'], ['tgt', 'Target %']].map(([k, l]) => `<label><input type="checkbox" data-nm-col="${k}" ${nm.cols[k] ? 'checked' : ''}> ${l}</label>`).join('')}</div>` : ''}</div></div>` : ''}`;
+}
+/** Cost parts per unit behind nmCost(r): the version approved on the truck date, or today's cost when the view is restated. */
+const nmParts = r => { const lf = r.grp === 'VAN brand' ? [r.lfr > 0 ? r.lfr : 0] : []; /* push 5a (D-157): a VAN brand sale's list freight is its own part, so the parts add up to the cost used for GP */
+  if (nm.hist === 'restated') { const k = r.packId ? packIdx().get(r.packId) : null; const c = k && k.cost; return c && c.costed !== false && c.total != null ? [c.materials, c.packing, c.conversion, c.freight].map(Number).concat(lf) : null; } return r.parts ? r.parts.map(Number).concat(lf) : null; };
+function nmDrill(costed) {
+  const { cl, pid } = nm.drill; const k = packIdx().get(pid); const rows = costed.filter(r => r.cust === cl && r.packId === pid).sort((a, b) => a.date < b.date ? -1 : 1); const o = nmSum(rows); const u = k && k.product.soldPer === 'L' ? 'L' : 'kg';
+  const say = !rows.length ? `No costed trucks for ${esc(cl)} · ${esc(nmPack(pid))} in ${esc(nmPer())}.` : `${esc(cl)} · ${esc(nmPack(pid))}: GP ${o.pct.toFixed(1)}%, Rs ${n0(o.gp)} on ${pl(rows.length, 'truck', 'trucks')}, ${esc(nmPer())}. ${o.dir === 'none' ? 'Not judged: no target set.' : o.dir === 'on' ? 'On target.' : (o.dir === 'short' ? 'Short of' : 'Above') + ' the ' + o.tgt.toFixed(1) + '% target by Rs ' + n0(Math.abs(o.ag)) + '.'}`;
+  /* The approved price a PO is checked against: the price in force when the PO came in, as the PO price report (review r4, finding 2).
+     VAN brand packs are priced on the price lists by channel, not per pack: they have no approved pack price to show (review r4, finding 1). */
+  const vanP = !!k && k.product.channel === 'VAN brand';
+  const ap = rows.map(r => vanP ? null : priceOn(pid, r.rcv || r.date, r.rcv ? (r.rcvAt || null) : undefined)); const off = rows.filter((r, i) => ap[i] && Math.abs(r.price - ap[i].price) > 0.005).length, noAp = ap.filter(x => !x).length;
+  const pv = []; rows.forEach(r => { const P = nmParts(r); if (!P) return; const key = P.map(x => x.toFixed(4)).join('|'); const g = pv[pv.length - 1]; if (g && g.key === key) { g.to = r.date; g.n++; } else pv.push({ key, P, from: r.date, to: r.date, n: 1 }); }); // consecutive trucks with the same parts (review r4, A6)
+  const canOpen = k && ST.me.nav.concat(ST.me.more || []).includes('products');
+  const priceSay = !rows.length ? '' : vanP ? 'A VAN brand pack is priced on the price lists for each channel, so there is no single approved price to set beside each PO; see More, Reports, VAN brand list margin.' : off ? `${pl(off, 'truck was', 'trucks were')} sold at a PO price different from the price approved when the PO came in.` : noAp === rows.length ? 'No approved price in C2M for the dates these POs came in.' : noAp ? `The other trucks were sold at the price approved when their PO came in; ${pl(noAp, 'PO came', 'POs came')} in before any approved price.` : 'Every truck was sold at the price approved when its PO came in.';
+  return `<p class="crumb"><button data-nm-home>All ${nm.by === 'client' ? 'client lines' : nm.by === 'product' ? 'product lines' : 'client packs'}</button> › ${esc(cl)} · ${esc(nmPack(pid))}</p><h1 class="topic">Margin</h1><p class="answer">${say}</p>
+  ${canOpen ? `<p style="margin:4px 0 10px"><button class="btn ghost" data-nm-prod="${k.product.id}">Open the product: recipe, cost and prices</button></p>` : ''}
+  ${rows.length ? `<div class="figs"><div class="fig"><div class="l">Qty</div><div class="v">${n0(o[u])} ${u}</div></div><div class="fig"><div class="l">Avg price per ${u}</div><div class="v">${n2(o.sales / o[u])}</div></div><div class="fig"><div class="l">Avg cost per ${u}</div><div class="v">${n2(o.cost / o[u])}</div></div><div class="fig"><div class="l">GP per ${u}</div><div class="v">${n2(o.gp / o[u])}</div></div></div>
+  <p class="ans">${priceSay}</p>
+  <div class="box wrapx"><table class="wt cards" id="nmtrucks"><thead><tr><th data-key="1">Gate pass date</th><th>PO</th><th class="r">Qty, ${u}</th><th class="r" data-key="2">PO price per ${u}</th>${vanP ? '' : '<th class="r" data-key="3">Approved when the PO came in</th>'}<th class="r">Cost per ${u}${nm.hist === 'restated' ? ', today' : ', on its date'}</th><th class="r">Sales Rs</th><th class="r">GP Rs</th><th class="r" data-key="4">GP %</th></tr></thead>
+  <tbody>${rows.map((r, i) => { const s = r.kg * r.price, g = s - r.kg * nmCost(r), a = ap[i], dif = a && Math.abs(r.price - a.price) > 0.005; return `<tr${dif ? ' class="r-red"' : ''}><td class="num nw" data-v="${esc(String(r.date).slice(0, 10))}">${esc(fmtD(r.date))}</td><td class="num nw">${esc(r.po || '')}${r.rcv ? `<span class="sub2">came in ${esc(fmtD(r.rcv))}</span>` : ''}</td><td class="r num">${n0(r.kg)}</td><td class="r num">${n2(r.price)}</td>${vanP ? '' : `<td class="r num">${a ? n2(a.price) + (dif ? `<span class="sub2">PO ${r.price > a.price ? 'above' : 'below'} by ${n2(Math.abs(r.price - a.price))}</span>` : '') : '<span class="sub2">none yet</span>'}</td>`}<td class="r num">${n2(nmCost(r))}</td><td class="r num">${n0(s)}</td><td class="r num">${n0(g)}</td><td class="r num">${s ? (g / s * 100).toFixed(1) : '–'}</td></tr>`; }).join('')}</tbody>
+  <tfoot><tr><td colspan="2">${pl(rows.length, 'truck', 'trucks')}</td><td class="r num">${n0(o[u])}</td><td class="r num">${n2(o.sales / o[u])}</td>${vanP ? '' : '<td></td>'}<td class="r num">${n2(o.cost / o[u])}</td><td class="r num">${n0(o.sales)}</td><td class="r num">${n0(o.gp)}</td><td class="r num">${p1(o.pct)}</td></tr></tfoot></table></div>
+  ${pv.length ? `<h2 class="sh" style="margin-top:14px">What the cost is made of, Rs per ${u}</h2><div class="box wrapx"><table class="wt"><thead><tr><th>Trucks</th><th class="r">Materials</th><th class="r">Packing</th><th class="r">Labour and FOH</th><th class="r">Freight</th>${pv.some(g => g.P.length > 4) ? '<th class="r">List freight</th>' : ''}<th class="r">Cost</th></tr></thead><tbody>${pv.map(g => `<tr><td class="nw">${g.from === g.to ? esc(fmtD(g.from)) : `${esc(fmtD(g.from))} to ${esc(fmtD(g.to))}`}<span class="sub2">${pl(g.n, 'truck', 'trucks')}</span></td>${g.P.map(x => `<td class="r num">${n2(x)}</td>`).join('')}<td class="r num"><b>${n2(g.P.reduce((a, b) => a + b, 0))}</b></td></tr>`).join('')}</tbody></table></div>` : ''}
+  <p class="ans" style="font-size:12.5px">Source: O2S trucks, read only.${vanP ? '' : ' Approved prices: Price history in C2M, the price in force on the day the PO came in, as in the PO price report.'}${new Set(rows.map(nmCost)).size > 1 ? ' The approved cost changed inside this period; each truck keeps the cost approved on its own date.' : ''}</p>` : ''}`;
+}
+function nmExport() {
+  const costed = nmRows().filter(r => nmIn(r) && nmGrp(r));
+  const list = nmSort(nm.by === 'client' ? nmGroup(costed, r => r.cust) : nm.by === 'product' ? nmGroup(costed, nmBase) : nmGroup(costed, r => r.cust + '|' + r.packId));
+  const q = nm.q.trim().toLowerCase(); const L = list.filter(x => (nm.f === 'all' || x.s.st === nm.f) && (!q || (String(x.k) + ' ' + x.s.rows.map(r => r.cust + ' ' + r.brand).join(' ')).toLowerCase().includes(q)));
+  const r2 = v => v != null && isFinite(v) ? +v.toFixed(2) : '';
+  const H = [nm.by === 'client' ? 'Client line' : nm.by === 'product' ? 'Product line' : 'Client · pack'].concat(nm.cols.qty ? ['Kg', 'L'] : [], ['Sales Rs'], nm.cols.cost ? ['Cost Rs'] : [], ['GP Rs', 'GP %'], nm.cols.tgt ? ['Target %'] : [], ['Against target Rs']);
+  const name = x => nm.by === 'cxp' ? `${x.k.split('|')[0]} · ${nmPack(x.k.split('|')[1])}` : x.k;
+  saveXlsx('margin', [{ name: 'Margin', rows: [H].concat(L.map(x => [name(x)].concat(nm.cols.qty ? [Math.round(x.s.kg), Math.round(x.s.L)] : [], [Math.round(x.s.sales)], nm.cols.cost ? [Math.round(x.s.cost)] : [], [Math.round(x.s.gp), r2(x.s.pct)], nm.cols.tgt ? [x.s.tgt != null ? r2(x.s.tgt) : 'not judged'] : [], [x.s.tgt != null ? Math.round(x.s.ag) : '']))) }]);
+}
+
+/* ---------- Client prices ---------- */
+let ncp = { tab: 'wl', cl: null, np: {}, nt: {}, ntOpen: {}, tWhy: '', cx: false, reason: '', below: '', from: null, urg: false, urgWhy: '', mx: {}, mxReason: '', mxFrom: null, mxTill: '', mxUrg: false, mxUrgWhy: '', pick: {}, off: null, offWhy: '', offPick: {} };
+/* R33 price cycle (push 3a, D-152): an approved price or list revision takes effect on a Monday, the cost day; urgent goes in when Tahir approves it. */
+const isMon = d => new Date(String(d).slice(0, 10) + 'T00:00:00Z').getUTCDay() === 1;
+const monFrom = d => { const t = new Date(String(d).slice(0, 10) + 'T00:00:00Z'); const w = t.getUTCDay(); if (w !== 1) t.setUTCDate(t.getUTCDate() + ((8 - w) % 7)); return t.toISOString().slice(0, 10); };
+function cycFields(px, from, urg, why) { return `<label for="${px}f">From, a Monday<input id="${px}f" type="date" min="${ST.today}" value="${esc(from || monFrom(ST.today))}"></label><label for="${px}u" class="urgl"><input type="checkbox" id="${px}u"${urg ? ' checked' : ''}> Urgent: in force when Tahir approves</label><label for="${px}w">Why urgent (only if ticked)<input id="${px}w" value="${esc(why || '')}" placeholder="Tahir reads it before he approves"></label>`; }
+/** The date check before a send: a Monday, or urgent with a reason. Returns an error text, or null. */
+function cycCheck(px) { const u = $(px + 'u'), f = $(px + 'f'), w = $(px + 'w'); if (u && u.checked) return String(w ? w.value : '').trim() ? null : 'why'; const d = f && f.value ? f.value : monFrom(ST.today); return isMon(d) ? null : `Prices change on a Monday, the cost day. ${fmtD(d)} is a ${WDAY[new Date(d + 'T00:00:00Z').getUTCDay()]}: pick a Monday (the next is ${fmtD(monFrom(ST.today))}), or tick Urgent and write why.`; }
+function cycBody(px) { const u = $(px + 'u'), f = $(px + 'f'), w = $(px + 'w'); if (u && u.checked) return { urgent: true, urgentWhy: w ? w.value.trim() : '' }; const v = f && f.value; return v && v !== monFrom(ST.today) ? { validFrom: v } : {}; } /* the pre-filled next Monday is left to the server, so a page left open overnight never sends a Monday gone by (review 3a, finding 6) */
+const cycGate = px => { const e = cycCheck(px); if (!e) return true; if (e === 'why') needOne(px + 'w', 'Write why it is urgent first: Tahir reads it before he approves.'); else toast(e, true); return false; };
+/** Push 7g (screens check 3, Tahir 10 Nov 2026): 1 colour rule on every screen. Red: below cost, or more than the red gap (points, a setting)
+ *  short of target: act now. Amber: short within the red gap. Green: on target. */
+const gpTone = (gp, t) => gp == null || t == null ? null : gp < 0 || t - gp > (SET('red_gap_pts') ?? 2) + 1e-9 ? 'red' : gp < t - 0.05 ? 'amber' : 'green';
+const gpCls = (gp, t) => ({ red: 't-bad', amber: 't-warn', green: 't-good' })[gpTone(gp, t)] || ''; // push 7g: 1 colour rule for a GP figure
+const ncpState = (gp, t) => gp == null ? 'none' : gp < t - 0.05 ? gpTone(gp, t) : gp > t + ABOVE_PTS ? 'above' : 'green';
+const NCP_ST = { red: 'below', amber: 'below', green: 'on target', above: 'above: check', none: 'not costed' };
+function ncpClients() {
+  const cs = [...new Set((ST.products || []).filter(p => p.grp === 'White label').map(p => p.customer))];
+  const rs = c => (ST.sales || []).filter(r => r.cust === c && r.grp === 'White label' && r.date >= fyStart()).reduce((s, r) => s + r.kg * r.price, 0);
+  return cs.map(c => ({ c, rs: rs(c) })).sort((a, b) => b.rs - a.rs || a.c.localeCompare(b.c));
+}
+/** What a target change does to Margin, FY to date, for 1 product: Rs short against target now and with the new target (review C7). */
+function tgtEffect(cpId, newT) {
+  const P = (ST.products || []).find(p => p.id === cpId); if (!P) return null; const ids = new Set(P.packs.map(k => k.id));
+  const R = (ST.sales || []).filter(r => ids.has(r.packId) && r.cost != null && r.price > 0 && r.date >= fyStart() && r.date <= ST.today); if (!R.length) return null;
+  const v = R.reduce((a, r) => a + r.kg * r.price, 0), g = R.reduce((a, r) => a + r.kg * (r.price - r.cost), 0), t0 = tgtOf(P.target);
+  const months = [...new Set(R.map(r => r.date.slice(0, 7)))].sort(); return { now: v * t0 / 100 - g, after: v * newT / 100 - g, months };
+}
+const shortTxt = v => v > 0.5 ? `short Rs ${n0(v)}` : v < -0.5 ? `Rs ${n0(-v)} above target` : 'on target';
+const tgtOpen = cpId => (ST.targetRequests || []).find(r => r.client_product_id === cpId && r.status === 'open');
+function ncpRows(cl) {
+  const ex = new Map(exposure().map(x => [x.id, x]));
+  return (ST.products || []).filter(p => p.grp === 'White label' && p.customer === cl).flatMap(p => p.packs.map(k0 => {
+    const k = packIdx().get(k0.id); const c = k.cost ? k.cost.total : null, pr = k.price > 0 ? k.price : null, t = tgtOf(p.target);
+    const gp = c != null && pr ? (pr - c) / pr * 100 : null, tp = c != null && t != null ? c / (1 - t / 100) : null;
+    const raw = ncp.np[k.id]; const np = raw != null && raw !== '' && Number(raw) > 0 ? Number(raw) : null; const ngp = np && c != null ? (np - c) / np * 100 : null;
+    const x = ex.get(k.id); const kgN = x ? kgFrom(x, ncp.from || ST.today) : 0;
+    const wait = (ST.proposals || []).find(q => q.packId === k.id && q.status === 'proposed'); const back = (ST.proposals || []).filter(q => q.packId === k.id && q.status === 'sent_back').pop();
+    const nt0 = ncp.nt[p.id]; const nt = nt0 === 'company' ? 'company' : nt0 != null && nt0 !== '' && Number(nt0) > 0 && Number(nt0) < 100 ? Number(nt0) : null; const ntv = nt === 'company' ? SET('budget_gp') : nt;
+    return { k, p, c, pr, t, gp, tp, np, ngp, x, kgN, wait, back, nt, ntv, tw: tgtOpen(p.id), nx: k.nextPrice, st: c == null ? 'none' : !pr ? 'red' : ncpState(gp, t), add: np != null && pr ? (np - pr) * kgN : 0 };
+  }));
+}
+/* ---------- Clients (push 3a, R1 to R4, D-152): client first, then its brand, then that brand's cost and price on 1 page ---------- */
+let cl = { kind: null, brand: null, last: null };
+const clCrumbs = parts => `<p class="crumbs ans">${parts.map(([l, a]) => a ? `<button class="lnk" ${a}>${esc(l)}</button>` : `<b>${esc(l)}</b>`).join(' › ')}</p>`;
+function vClients() {
+  if (cl.brand != null) { const P = (ST.products || []).find(p => p.id === cl.brand); if (P) return vBrand(P); cl.brand = null; }
+  if (!cl.kind) { if (!cl.last) { try { cl.last = localStorage.getItem('c2m.clSide'); } catch (_) {} } cl.kind = cl.last === 'van' ? 'van' : 'wl'; } if (cl.last !== cl.kind) { cl.last = cl.kind; try { localStorage.setItem('c2m.clSide', cl.kind); } catch (_) {} } /* Tahir, 5 Nov 2026: no landing page; Clients opens on White Label, a switch at the top goes to VAN Brands */
+  if (cl.kind === 'wl') { ncp.tab = 'wl'; return clSwitch() + vPrices2(); }
+  if (ncp.tab === 'wl') ncp.tab = 'vprod'; return clSwitch() + (ncp.tab === 'vprod' ? vVanProducts() : ncp.tab === 'vlists' ? vVanLists() : vPrices2());
+}
+/** The White Label | VAN Brands switch, each side saying what waits (it replaces the 2 boxes). */
+function clSwitch() {
+  const P = ST.products || []; const wlIds = new Set(P.filter(p => p.grp === 'White label').flatMap(p => p.packs.map(k => k.id)));
+  const wWait = (ST.proposals || []).filter(q => q.status === 'proposed' && wlIds.has(q.packId)).length;
+  const below = ncpClients().flatMap(x => ncpRows(x.c)).filter(r => (r.st === 'red' || r.st === 'amber') && r.pr > 0).length;
+  const lWait = (ST.listRevisions || []).filter(r => r.status === 'proposed').length;
+  const note = (a, b) => [a, b].filter(Boolean).join(', ');
+  const w = note(wWait ? pl(wWait, 'waits', 'wait') + ' for Tahir' : '', below ? below + ' below target' : ''), v = lWait ? pl(lWait, 'list revision waits', 'list revisions wait') + ' for Tahir' : '';
+  return `<div class="subnav clsw" role="tablist" aria-label="Kind of client"><button role="tab" data-clkind="wl" aria-selected="${cl.kind === 'wl'}">White Label${w ? `<small>${esc(w)}</small>` : ''}</button><button role="tab" data-clkind="van" aria-selected="${cl.kind === 'van'}">VAN Brands${v ? `<small>${esc(v)}</small>` : ''}</button></div>`;
+}
+/** VAN Brands, Products (R2): each VAN brand product with its recipe, cost and state; a row opens its product page (no standard margin since push 10c). */
+function vVanProducts() {
+  /* Push 10c (Tahir, 20 Nov 2026; picture "C2M Products redesign"): 4 boxes that filter and add up, the whole row opens the product,
+     the product name once in bold with the pack muted, packs small to large, 1 state word and only what it does not say; no
+     "Standard margin %" (a VAN brand sale is judged against its price list's target, D-153; his ruling of 20 Nov). */
+  const T = vanTabs();
+  const L = (ST.products || []).filter(p => p.channel === 'VAN brand').sort((a, b) => a.brand.localeCompare(b.brand));
+  const kg = k => { const z = Number(k.size) || 0; return /ml/i.test(String(k.unit || k.product && k.product.soldPer || '')) ? z / 1000 : z; };
+  const rows = L.flatMap(p => (p.packs.length ? p.packs.slice().sort((a, b) => kg({ ...a, product: p }) - kg({ ...b, product: p })) : [null]).map(k => ({ p, k })));
+  const np = rows.filter(r => !r.k).length; // push 10a (C-08): packs only; a product with no pack is said apart
+  const st = ({ p, k }) => p.followsId ? (k && !k.cost ? ['p-amber', 'Cost missing', 'nc'] : ['p-green', 'Follows ' + (p.followsBrand || 'another recipe'), 'ok']) : !p.recipeState ? ['p-red', 'No recipe', 'nc'] : p.recipeState !== 'approved' && !p.approvedVersionId ? ['p-amber', 'Recipe not approved', 'nc'] : k && !k.cost ? ['p-amber', 'Cost missing', 'nc'] : k && k.approvedCost != null && k.cost && Math.abs(k.cost.total - k.approvedCost) > 0.005 ? ['p-amber', 'Cost moved since approval', 'ok'] : ['p-green', 'Costed', 'ok'];
+  const miss = ({ p, k }) => { const g = (k && k.costGaps) || []; const s0 = st({ p, k })[1]; const rest = g.filter(x => !(/recipe/i.test(x) && /recipe/i.test(s0))); return p.recipeState && p.recipeState !== 'approved' && !p.approvedVersionId ? [`recipe with the ${ROLE_NAME[STEP_ROLE[p.recipeState]] || 'next step'}`].concat(rest).join('; ') : rest.join('; '); };
+  const R = rows.filter(r => r.k).map(r => ({ ...r, s: st(r) })); const n = { all: R.length, nc: R.filter(r => r.s[2] === 'nc').length, wait: R.filter(r => r.s[1] === 'Recipe not approved').length, ok: R.filter(r => r.s[2] === 'ok').length };
+  if (!['all', 'nc', 'wait', 'ok'].includes(vpF)) vpF = 'all';
+  const inF = r => vpF === 'all' || (vpF === 'nc' && r.s[2] === 'nc') || (vpF === 'wait' && r.s[1] === 'Recipe not approved') || (vpF === 'ok' && r.s[2] === 'ok');
+  const box = (k, v, l, c) => `<button class="vpb ${c}" data-vpf="${k}" aria-pressed="${vpF === k}"><b>${v}</b><span>${l}</span></button>`;
+  let prev = null; const byOther = Object.entries(SORTS).some(([q, v]) => /\|Product and pack\/Cost today/.test(q) && v && (v.i !== 0 || v.d < 0)); // sorted by another column: every row names its product
+  const sk = r => `${r.p.brand}|${String(Math.round(kg({ ...r.k, product: r.p }) * 1000)).padStart(9, '0')}`; // the Product column sorts packs small to large
+  const body = R.filter(inF).map(r => { const same = !byOther && r.p.brand === prev; prev = r.p.brand; const m = miss(r);
+    return `<tr class="go" tabindex="0" data-openprod="${r.p.id}" aria-label="Open ${esc(r.p.brand)} ${esc(szTxt({ ...r.k, product: r.p }))}"><td data-l="Product" data-v="${esc(sk(r))}"><span class="vpn${same ? ' same' : ''}">${esc(r.p.brand)}</span><span class="vpk">${esc(szTxt({ ...r.k, product: r.p }))}</span></td><td data-l="Cost today" class="r num">${r.k.cost ? n2(r.k.cost.total) : '<span class="mute">–</span>'}</td><td data-l="State"><span class="pill ${r.s[0]}">${esc(r.s[1])}</span></td><td data-l="What is missing" class="mute">${esc(m)}</td></tr>`; }).join('');
+  return `${head('VAN Brands', `${pl(L.length, 'VAN brand product', 'VAN brand products')}, ${pl(R.length, 'pack', 'packs')}. ${n.nc ? `${pl(n.nc, 'pack', 'packs')} cannot be costed yet.` : 'Every pack is costed.'}${np ? ` ${pl(np, 'product has', 'products have')} no pack yet.` : ''}`, 'VAN brands go straight to products: recipe, cost and margin, with no client step. Their prices and target margins are on each price list (the Price lists tab). A row opens the product page. The boxes filter the table; a pack that cannot be costed has no recipe, no approved recipe or a missing cost part.')}${T}
+  <div class="vpbs" role="group" aria-label="Filter packs">${box('all', n.all, 'All packs', '')}${box('nc', n.nc, 'Cannot be costed', 'bad')}${box('wait', n.wait, 'Recipe waiting<small>part of cannot be costed</small>', 'warn')}${box('ok', n.ok, 'Costed', 'good')}</div>
+  ${findBox('vprod', 'Find a product or pack size')}<div class="box wrapx tall"><table class="wt cards vpt" data-lft="vprod"><thead><tr><th data-key="1">Product and pack</th><th class="r" data-key="3">Cost today, Rs per kg or L</th><th data-key="2">State</th><th data-key="4">What is missing</th></tr></thead><tbody>
+  ${body || `<tr><td colspan="4">${R.length ? 'No pack in this box.' : 'No VAN brand product in C2M yet.'}</td></tr>`}</tbody></table></div>${np ? `<p class="ans">No pack yet: ${L.filter(p => !p.packs.length).map(p => `<button class="lnk" data-openprod="${p.id}">${esc(p.brand)}</button>`).join(', ')}.</p>` : ''}`;
+}
+/** The brand page (R4; redesigned after Tahir's comment, 5 Nov 2026): figures at the top, then cost and price side by side for every pack. */
+function vBrand(p) {
+  const K = p.packs.map(k => packIdx().get(k.id)).filter(Boolean); const t = tgtOf(p.target); const u = p.soldPer || 'kg';
+  const ids = new Set(K.map(k => k.id)); const fy = fyStart();
+  const S = (ST.sales || []).filter(r => ids.has(r.packId) && r.date >= fy && r.date <= ST.today && r.price > 0); const sKg = S.reduce((a, r) => a + r.kg, 0), sRs = S.reduce((a, r) => a + r.kg * r.price, 0), Sc = S.filter(r => r.cost != null);
+  const sGp = Sc.length ? Sc.reduce((a, r) => a + r.kg * (r.price - r.cost), 0) / Sc.reduce((a, r) => a + r.kg * r.price, 0) * 100 : null;
+  const O = (ST.open || []).filter(o => ids.has(o.packId)); const oKg = O.reduce((a, o) => a + o.kg, 0);
+  const gpOf = (pr, c) => pr > 0 && c != null ? (pr - c) / pr * 100 : null;
+  const v = (ST.recipes || []).find(x => x.id === p.approvedVersionId) || (ST.recipes || []).find(x => x.id === p.latestVersionId);
+  const lastPrice = K.map(k => d10(k.priceFrom)).filter(Boolean).sort().pop(), lastCost = K.map(k => k.approvedFrom).filter(Boolean).sort().pop();
+  const wait = (ST.proposals || []).filter(q => q.status === 'proposed' && ids.has(q.packId));
+  const tone = g => g == null ? 't-mute' : ({ red: 't-bad', amber: 't-warn', green: 't-good' }[gpTone(g, t)] || 't-good');
+  const head1 = K.map(k => { const g = gpOf(k.price, k.cost ? k.cost.total : null); return `${szTxt(k)}: ${g == null ? (k.cost ? 'no price' : 'not costed') : 'GP ' + pc(g)}`; }).join('; ');
+  const tile = (l, val, cls, sub) => `<div class="wlk${cls ? ' ' + cls : ''}"><span class="l">${l}</span><span class="v">${val}</span>${sub ? `<span class="s">${sub}</span>` : ''}</div>`;
+  const cell = f => K.map(k => `<td class="r">${f(k)}</td>`).join('');
+  const pr = (val, c) => val != null ? `${n2(val)}${c != null ? `<small class="${tone(gpOf(val, c))}">GP ${pc(gpOf(val, c))}</small>` : ''}` : '<span class="mute">–</span>';
+  const C = k => k.cost ? k.cost.total : null;
+  const tbl = K.length ? `<div class="box wrapx wltab${K.length === 1 ? ' tnar' : ''}"><table class="wlmx"><thead><tr><th>Rs per ${u}</th>${K.map(k => `<th class="r">${esc(szTxt(k))}</th>`).join('')}</tr></thead><tbody>
+    <tr class="grp"><td colspan="${K.length + 1}">Cost</td></tr>
+    <tr><td>Materials</td>${cell(k => k.cost ? n2(k.cost.materials) : '')}</tr><tr><td>Packing</td>${cell(k => k.cost ? n2(k.cost.packing) : '')}</tr><tr><td>Labour and FOH</td>${cell(k => k.cost ? n2(k.cost.conversion) : '')}</tr>${K.some(k => k.cost && k.cost.freight > 0) ? `<tr><td>Freight</td>${cell(k => k.cost ? n2(k.cost.freight) : '')}</tr>` : ''}
+    <tr class="tot"><td>Cost today</td>${cell(k => k.cost ? n2(k.cost.total) : `<span class="wltag t-bad">not costed</span>${k.costGaps && k.costGaps.length ? `<small>${esc(k.costGaps.join(', '))}</small>` : ''}`)}</tr>
+    <tr><td>Approved cost</td>${cell(k => k.approvedCost != null ? `${n2(k.approvedCost)}${k.approvedFrom ? `<small>${esc(fmtShort(k.approvedFrom))}</small>` : ''}` : '<span class="mute">none</span>')}</tr>
+    <tr class="grp"><td colspan="${K.length + 1}">Price</td></tr>
+    <tr><td>Existing<small>the client's last PO</small></td>${cell(k => pr(k.lastPoPrice, C(k)))}</tr>
+    <tr class="tot"><td>Current<small>approved, in force today</small></td>${cell(k => k.priceSource === 'approved' ? `${pr(k.price, C(k))}<small>since ${esc(fmtShort(d10(k.priceFrom)))}</small>` : '<span class="mute">none in C2M</span>')}</tr>
+    ${K.some(k => k.nextPrice) ? `<tr><td>Approved, waiting<small>for its Monday</small></td>${cell(k => k.nextPrice ? `${pr(k.nextPrice.price, C(k))}<small>from ${esc(fmtShort(k.nextPrice.from))}</small>` : '')}</tr>` : ''}
+    ${wait.length ? `<tr><td>New, with Tahir</td>${cell(k => { const w = wait.find(q => q.packId === k.id); return w ? `${pr(w.price, C(k))}<small>${w.urgent ? 'urgent' : 'from Monday ' + esc(fmtShort(monFrom(d10(w.from) > ST.today ? d10(w.from) : ST.today)))}</small>` : ''; })}</tr>` : ''}
+    <tr><td>Projected<small>for ${pc(t)} at today's cost</small></td>${cell(k => C(k) != null && t != null ? pr(C(k) / (1 - t / 100), C(k)) : '<span class="mute">needs a cost</span>')}</tr>
+    ${CAN('price.propose') ? `<tr class="act"><td></td>${cell(k => C(k) != null && !wait.some(q => q.packId === k.id) ? `<button class="btn sm" data-propose="${k.id}">New price</button>` : '')}</tr>` : ''}
+    </tbody></table></div>` : '<p class="wlhint">No pack yet: add one on the product page.</p>';
+  return `<div class="wl2">${clCrumbs([['White Label', 'data-clkind="wl"'], [p.customer, `data-clcust="${esc(p.customer)}"`], [p.brand]])}
+  <div class="wlh"><div><h1 class="topic">${esc(p.brand)}</h1><p class="wlsub">${esc(p.customer)} · target GP ${pc(t)}${p.targetDefault ? ' (company)' : ''} · ${lastPrice ? 'last price revision ' + esc(fmtD(lastPrice)) : 'no approved price yet'} · ${lastCost ? 'last cost approval ' + esc(fmtD(lastCost)) : 'no approved cost yet'}</p></div><span class="sp"></span>${CAN('targets.propose') ? `<button class="btn ghost" data-clcust="${esc(p.customer)}">Change target</button>` : ''}<button class="btn ghost" data-openprod="${p.id}" data-ptab="phist">Price history</button></div>
+  <p class="answer">${esc(head1 || 'No pack yet')}, against a target of ${pc(t)}.${wait.length ? ` ${pl(wait.length, 'new price waits', 'new prices wait')} for Tahir.` : ''}</p>
+  <div class="wlks">${tile('Sales, FY to date', S.length ? 'Rs ' + (sRs / 1e6).toFixed(2) + 'M' : '–', '', S.length ? n0(sKg) + ' ' + u : 'no trucks yet')}${tile('GP, FY to date', sGp != null ? pc(sGp) : '–', sGp != null && t != null ? gpCls(sGp, t) : '', 'on trucks with a cost')}${tile('Open POs', O.length ? n0(oKg) + ' ' + u : 'none', '', O.length ? pl(new Set(O.map(o => o.po)).size, 'PO', 'POs') : '')}${tile('Target GP', pc(t), '', p.targetDefault ? 'the company target' : '')}</div>
+  <div class="wlrec"><span class="l">Recipe</span><span>${v ? `${p.approvedVersionId === v.id ? 'Approved' : esc(v.state)}: ${esc(v.rname || 'Main')}, version ${v.version}. ${v.lines.slice(0, 4).map(l => `${esc(l.name)} ${(+l.qty).toFixed(4)} kg`).join(', ')}${v.lines.length > 4 ? `, and ${v.lines.length - 4} more` : ''}` : p.followsId ? `Follows ${esc(p.followsBrand || 'another product')}'s recipe` : 'No recipe in C2M yet'}</span><button class="btn ghost sm" data-openprod="${p.id}" data-ptab="recipe">Open recipe</button></div>
+  <h2 class="wlh2">Cost and price by pack</h2>${tbl}
+  <p class="wlhint">GP = (price − cost) ÷ price, at today's cost. Projected = cost today ÷ (1 − target). A new price takes effect on Monday, the cost day; urgent the day Tahir approves it.${CAN('see.margin') ? ` <button class="lnk" data-cust="${esc(p.customer)}">Open ${esc(p.customer)} in Margin</button>` : ''}</p></div>`;
+}
+/* ---------- VAN Brands, Price lists (push 3b, R3, R34, R35, R39 to R42, D-153): 5 cards, each list with its own target GP and freight ---------- */
+const LCARD = [['dist', 'now', 'dist', 'Distributor', 'ex FED'], ['dealer', 'nsv', 'dealer', 'Dealer, Sindh', 'NSV ex FED, before the additional discount'], ['farmer', 'pb', 'farmer_pb', 'Farmer, Punjab', 'with FED'], ['farmer', 'sn', 'farmer_sn', 'Farmer, Sindh cash', 'with FED'], ['farmer', 'snc', 'farmer_snc', 'Farmer, Sindh credit', 'with FED']];
+const vanTabs = () => nTabs('ncp-tab', [['vprod', 'Products'], ['vlists', 'Price lists']], ncp.tab === 'vprod' ? 'vprod' : 'vlists', 'VAN Brands');
+/** A list's target GP % or freight Rs per kg; null when not set yet (an empty or missing setting is never read as 0). */
+const LSET = k => { const r = (ST.settings || []).find(x => x.k === k); return r && String(r.v).trim() !== '' && isFinite(Number(r.v)) ? Number(r.v) : null; };
+let lst = { open: null, t: '', f: '', why: '', form: false };
+/** GP after a list's freight and its state, for 1 pack on 1 list: the price lists and the VAN brand list margin report judge alike (push 5a, D-157).
+ *  ex: list price per pack without FED; cpp: cost per pack before freight; frp: the list's freight per pack (null: not set); t: the list's target %.
+ *  Nothing is judged until target and freight are both set (review 3b, finding 3); an empty setting is never read as 0. */
+function lcJudge(cpp, ex, frp, t) { const gp = cpp != null ? (ex - cpp - (frp || 0)) / ex * 100 : null;
+  return { gp, st: cpp == null ? 'none' : (gp < 0 && frp != null) || ex - cpp < 0 ? 'cost' : /* below cost before freight is red even with freight not set (review 5a, finding 4) */ t == null ? 'notgt' : frp == null ? 'nofr' : gp < t - 0.05 ? 'below' : 'ok' }; }
+/** The packs on 1 list with cost, freight and GP after freight, per pack (R35, R40 to R41). t, fr: the list's target and freight (or what is being typed). */
+function lcRows(c, G, t, fr) {
+  const [list, f, , , basis] = c; const fed = 1 + FEDP() / 100, withFed = list === 'farmer';
+  return G.van.map(k => { const cell = G.cells.get(k.id + '|' + list + '|' + f); if (!cell || !(cell.v > 0)) return null;
+    const size = Number(k.size); const cpp = k.cost ? (k.cost.total - (k.cost.freight || 0)) * size : null; const frp = fr != null ? fr * size : null;
+    const ex = withFed ? cell.v / fed : cell.v; const { gp, st } = lcJudge(cpp, ex, frp, t);
+    const tp = cpp != null && t != null && t < 100 && frp != null ? Math.ceil(((cpp + frp) / (1 - t / 100)) * (withFed ? fed : 1) - 1e-9) : null; /* R41: rounded up to the next whole rupee, never below the target; the small step keeps an exact rupee exact (review 3b, finding 5) */
+    return { k, cell, cpp, frp, price: cell.v, ex, gp, tp, st, basis };
+  }).filter(Boolean).sort((a, b) => ({ cost: 0, below: 1, none: 2, notgt: 3, nofr: 3, ok: 4 }[a.st] - { cost: 0, below: 1, none: 2, notgt: 3, nofr: 3, ok: 4 }[b.st]) || (a.gp ?? 99) - (b.gp ?? 99) || a.k.product.brand.localeCompare(b.k.product.brand));
+}
+const lcWait = key => (ST.settingRequests || []).filter(r => r.status === 'open' && (() => { try { const c = typeof r.changes_json === 'string' ? JSON.parse(r.changes_json) : (r.changes || {}); return ('lt_' + key) in c || ('lf_' + key) in c; } catch (_) { return false; } })());
+function vVanLists() {
+  const G = ncpGrid(); const busy = {}; (ST.listRevisions || []).forEach(r => { if (r.status === 'proposed') busy[r.list_name] = 'waits for Tahir'; else if (r.status === 'approved' && !Number(r.applied)) busy[r.list_name] = busy[r.list_name] || `changes on ${fmtShort(r.valid_from)}`; });
+  const c = LCARD.find(x => x[2] === lst.open); if (c) return vVanList(c, G, busy);
+  const cards = LCARD.map(c => { const t = LSET('lt_' + c[2]), fr = LSET('lf_' + c[2]); const R = lcRows(c, G, t, fr); const nb = R.filter(r => r.st === 'below').length, nc = R.filter(r => r.st === 'cost').length; const w = lcWait(c[2]).length;
+    const st = busy[c[0]] ? `<span class="st t-warn">Revision ${esc(busy[c[0]])}</span>` : '';
+    const msg = t == null || fr == null ? `<span class="st t-warn">Set the ${t == null && fr == null ? 'target and freight' : t == null ? 'target' : 'freight'} to judge GP after freight</span>` : nc ? `<span class="st t-bad">${pl(nc, 'pack', 'packs')} below cost after freight</span>` : nb ? `<span class="st t-bad">${pl(nb, 'pack', 'packs')} below target after freight</span>` : `<span class="st t-good">All on or above target</span>`;
+    return `<div class="lcard"><span class="t">${esc(c[3])}</span><div class="k"><div><b class="${t == null ? 'mute' : ''}">${t == null ? 'not set' : pc(t)}</b><small>target GP</small></div><div><b class="${fr == null ? 'mute' : ''}">${fr == null ? 'not set' : 'Rs ' + n2(fr)}</b><small>freight per kg</small></div></div><span class="m">${pl(R.length, 'pack', 'packs')} · ${esc(c[4].split(',')[0])}</span>${msg}${st}${w ? '<span class="st t-warn">New target or freight waits for Tahir</span>' : ''}<button class="btn" data-lcopen="${c[2]}">Open</button></div>`; }).join('');
+  return `${head('VAN Brands', 'The 5 VAN brand price lists. Each has its own target GP and freight; GP is worked after freight.', 'GP after freight = (list price without FED − cost − freight) ÷ list price without FED, per pack. Freight per pack = the list\'s Rs per kg × pack size. A Dealer, Sindh price is NSV before the additional discount. Price for target = (cost + freight) ÷ (1 − target), with FED added back on a farmer list, rounded up to the next whole rupee. A list\'s target and freight are set by the CFO and approved by the COO.')}${vanTabs()}
+  <div class="wl2"><div class="wlh"><span class="sp"></span><button class="btn ghost" data-ncp-tab="van">See all 5 side by side</button><button class="btn ghost" data-ncp-tab="lists">Make a price list PDF</button></div><div class="lcards">${cards}</div></div>`;
+}
+function vVanList(c, G, busy) {
+  const key = c[2], [list, f] = c; const t0 = LSET('lt_' + key), f0 = LSET('lf_' + key); const yw = CAN('list.revise') && !ADM(), edit = CAN('settings.edit') && !ADM(); /* the COO approves these; what he sent himself he could not approve (review 3b, finding 8) */
+  const tN = lst.form && lst.t !== '' && Number(lst.t) > 0 && Number(lst.t) < 100 ? Number(lst.t) : null, fN = lst.form && lst.f !== '' && Number(lst.f) >= 0 ? Number(lst.f) : null;
+  const R = lcRows(c, G, t0, f0); const nb = R.filter(r => r.st === 'below' || r.st === 'cost').length;
+  const sumEx = R.filter(r => r.cpp != null).reduce((a, r) => a + r.ex, 0), sumC = R.filter(r => r.cpp != null).reduce((a, r) => a + r.cpp + (r.frp || 0), 0); const gpL = sumEx ? (sumEx - sumC) / sumEx * 100 : null;
+  const tone = st => st === 'cost' || st === 'below' ? 't-bad' : st === 'ok' ? 't-good' : 't-mute'; const stTxt = { cost: 'below cost', below: 'below target', ok: 'on target', notgt: 'no target set', nofr: 'no freight set', none: 'not costed' };
+  const typed = k2 => ncp.mx[k2] != null && ncp.mx[k2] !== ''; const mine = Object.keys(ncp.mx).filter(k2 => k2.split('|')[1] === list && typed(k2) && Number(ncp.mx[k2]) > 0 && !(G.cells.get(k2) && G.cells.get(k2).v === Number(ncp.mx[k2]))); const otherCol = mine.filter(k2 => k2.split('|')[2] !== f).length; /* the 3 farmer columns are 1 list, sent in 1 revision */
+  const after = lst.form && (tN != null || fN != null) ? lcRows(c, G, tN ?? t0, fN ?? f0).filter(r => r.st === 'below' || r.st === 'cost').length : null; const badT = lst.form && lst.t !== '' && tN == null, badF = lst.form && lst.f !== '' && fN == null;
+  const tile = (l, v, cls, sub) => `<div class="wlk${cls ? ' ' + cls : ''}"><span class="l">${l}</span><span class="v">${v}</span>${sub ? `<span class="s">${sub}</span>` : ''}</div>`;
+  const form = lst.form && edit ? `<div class="box form lstf"><b>Change target or freight, ${esc(c[3])}</b><div class="row"><label for="lst-t">Target GP, %<input id="lst-t" data-lst="t" inputmode="decimal" value="${esc(lst.t)}" placeholder="${t0 != null ? p1(t0) : 'e.g. 15'}"></label><label for="lst-f">Freight, Rs per kg<input id="lst-f" data-lst="f" inputmode="decimal" value="${esc(lst.f)}" placeholder="${f0 != null ? n2(f0) : 'e.g. 4.00'}"></label><label for="lst-w" style="flex:1 1 260px">Why, for Tahir<input id="lst-w" data-lst="why" value="${esc(lst.why)}" placeholder="e.g. new transporter rate"></label></div>
+    <p class="ans" style="margin:0">${badT ? '<b class="late">Type the target as a % above 0 and below 100. </b>' : ''}${badF ? '<b class="late">Type the freight in Rs per kg, digits only. </b>' : ''}${after != null ? `<b>With these figures: ${pl(after, 'pack', 'packs')} below target or cost after freight (now ${nb}).</b> ` : ''}Nothing changes until Tahir approves it on Approvals.</p><div><button class="btn" data-lstsend>Send to Tahir</button> <button class="btn ghost" data-lstx>Cancel</button></div></div>` : '';
+  const body = R.map(r => { const k2 = r.k.id + '|' + list + '|' + f; return `<tr class="wl-${tone(r.st)}"><td data-l="Product and pack"><button class="wlb" data-openprod="${r.k.product.id}" title="Open the product page"><i class="wldot ${tone(r.st)}"></i><span><b>${esc(r.k.product.brand)}</b><small>${esc(szTxt(r.k))}</small></span><span class="wlchev" aria-hidden="true">›</span></button></td>
+    <td class="r" data-l="Cost">${r.cpp != null ? n2(r.cpp) : '<span class="mute">not costed</span>'}</td><td class="r" data-l="Freight">${r.frp != null ? n2(r.frp) : '<span class="mute">not set</span>'}</td>
+    <td class="r" data-l="List price">${n2(r.price)}${list === 'farmer' ? `<small>${n2(r.ex)} ex FED</small>` : ''}</td><td class="r" data-l="GP after freight"><b class="${tone(r.st)}">${r.gp != null ? pc(r.gp) : '–'}</b>${f0 == null && r.gp != null ? '<small>before freight</small>' : ''}</td>
+    <td class="r" data-l="Price for target">${r.tp != null ? n0(r.tp) : '–'}</td><td data-l="State"><span class="wltag ${tone(r.st)}">${stTxt[r.st]}</span></td>
+    ${yw ? `<td class="r" data-l="New price"><input class="np wlin ${typed(k2) ? 'on' : ''}" id="nmx-${r.k.id}-${f}" data-ncp-mx="${k2}" inputmode="decimal" aria-label="New ${esc(c[3])} price for ${esc(r.k.product.brand)} ${esc(szTxt(r.k))}" value="${esc(typed(k2) ? ncp.mx[k2] : '')}" placeholder="Rs" ${busy[list] ? `disabled title="This list has a revision that ${esc(busy[list])}"` : ''}></td>` : ''}</tr>`; }).join('');
+  const bk = (ST.listRevisions || []).filter(r => r.list_name === list && r.status === 'sent_back').sort((a, b) => b.id - a.id)[0]; const mi = list === 'farmer' || list === 'dealer' || list === 'dist' ? mxMrp(G, k2 => typed(k2) && k2.split('|')[1] === list) : [];
+  const send = yw && mine.length ? `<div class="sendbar on"><b>${pl(mine.length, 'price', 'prices')} changed on the ${esc(LISTNAME[list])}${otherCol ? `, ${otherCol} of them in its other columns (all go in 1 revision)` : ''}</b>${mi.length ? `<span class="warnbox" style="flex:1 1 100%;margin:0">Above the printed MRP once sent: ${esc(mrpTxt(mi, 3))} The MRP is the Sindh credit price rounded up to the next Rs 50 (with no credit price, the higher of Punjab and Sindh).</span>` : ''}${bk ? `<span class="warnbox" style="flex:1 1 100%;margin:0">Sending replaces the ${esc(LISTNAME[list])} revision sent back by the COO (${pl(bk.items.length, 'price', 'prices')} from ${fmtD(bk.valid_from)}); prices from it not typed here again are dropped. To keep them, open it to revise under List revisions instead.</span>` : ''}<label for="nmxr">Reason the client reads<input id="nmxr" value="${esc(ncp.mxReason)}" placeholder="e.g. Raw material cost change"></label>${cycFields('nmx', ncp.mxFrom, ncp.mxUrg, ncp.mxUrgWhy)}<label for="nmxt">Till (optional)<input id="nmxt" type="date" min="${ncp.mxFrom || monFrom(ST.today)}" value="${esc(ncp.mxTill)}"></label><span class="sp"></span><button class="btn" data-ncp-mxsend="${list}">Send to Tahir</button></div>` : yw ? `<p class="wlhint">${busy[list] ? `This list has a revision that ${esc(busy[list])}; new prices wait until then.` : 'Type a new price in a row. The revision goes to Tahir and takes effect on Monday. To add a pack to this list, use See all 5 side by side.'}</p>` : '';
+  return `${vanTabs()}<div class="wl2"><p class="crumbs ans"><button class="lnk" data-lcopen="">Price lists</button> › <b>${esc(c[3])}</b></p>
+  <div class="wlh"><h1 class="topic">${esc(c[3])}</h1><span class="sp"></span>${edit ? `<button class="btn ghost" data-lstform>Change target or freight</button>` : ''}<button class="btn ghost" data-ncp-tab="lists">Make the PDF</button></div>
+  <p class="answer">${R.length ? `${pl(R.length, 'pack', 'packs')} on this list. ${t0 == null || f0 == null ? `Its ${t0 == null && f0 == null ? 'target and freight are' : t0 == null ? 'target is' : 'freight is'} not set yet.` : nb ? `${nb} below target or cost after freight.` : 'All on or above target after freight.'}` : 'No pack has a price on this list yet.'}</p>
+  ${lcWait(key).length ? '<div class="next"><span>A new target or freight for this list waits for Tahir on Approvals.</span></div>' : ''}${form}
+  <div class="wlks">${tile('Target GP', t0 != null ? pc(t0) : 'not set', t0 == null ? 't-warn' : '', 'after freight')}${tile('Freight', f0 != null ? 'Rs ' + n2(f0) : 'not set', f0 == null ? 't-warn' : '', 'per kg')}${tile('Packs', R.length)}${tile('Below target', nb, nb ? 't-bad' : '', 'or cost, after freight')}${tile('GP, this list', gpL != null ? pc(gpL) : '–', '', 'on 1 pack of each, ' + (f0 == null ? 'before freight' : 'after freight'))}</div>
+  <div class="wlbar"><span>Rs per pack, as the list prints (${esc(c[4])}).</span></div>
+  <div class="box wrapx wltab"><table class="cards" data-nosort><thead><tr><th>Product and pack</th><th class="r">Cost</th><th class="r">Freight</th><th class="r">List price</th><th class="r">GP after freight</th><th class="r">Price for ${t0 != null ? pc(t0) : 'target'}${list === 'farmer' ? ', with FED' : ''}</th><th>State</th>${yw ? '<th class="r">New price</th>' : ''}</tr></thead><tbody>${body || `<tr><td colspan="8">No pack has a price on this list.</td></tr>`}</tbody></table></div>${send}</div>`;
+}
+/** Clients, White Label (redesign after Tahir's comment, 5 Nov 2026): a client picker, a strip of 5 figures, a clean pack table
+ *  where each row opens its brand page, and the send bar only once a price or target is typed. Same inputs and sends as Client prices. */
+function wlClient(o) {
+  const { cs, rows, yw, coo, wgp, wq, below, nopr, ch, tch, sendBar } = o; const FM = SET('forward_months');
+  const cur = cs.find(x => x.c === ncp.cl) || {}; const tg = rows.length ? tgtOf(rows[0].p.target) : null;
+  const tile = (l, v, cls, sub) => `<div class="wlk${cls ? ' ' + cls : ''}"><span class="l">${l}</span><span class="v">${v}</span>${sub ? `<span class="s">${sub}</span>` : ''}</div>`;
+  const tone = r => r.st === 'red' ? 't-bad' : r.st === 'amber' ? 't-warn' : r.st === 'green' ? 't-good' : r.st === 'above' ? 't-info' : 't-mute';
+  const stTxt = r => r.c == null ? 'not costed' : !r.pr ? 'no price' : r.st === 'red' || r.st === 'amber' ? 'below target' : r.st === 'above' ? 'above: check' : 'on target';
+  const tgtCell = r => { const open = CAN('targets.propose') && !r.tw && (r.nt != null || ncp.ntOpen[r.p.id]);
+    return `<small>target ${r.t > 0 ? p1(r.t) : 'none'}${r.p.targetDefault ? ' (company)' : ''}${CAN('targets.propose') && !r.tw && !open ? `<button class="wledit" data-ncp-nto="${r.p.id}" aria-label="Change the target of ${esc(r.p.brand)}" title="Change the target">${SVG('<path d="M4 20h4L19 9l-4-4L4 16z"/>')}</button>` : ''}</small>${r.tw ? `<small class="wlwait">${Number(r.tw.to_gp) > 0 ? pc(Number(r.tw.to_gp)) : 'company'} with Tahir${r.tw.by_user === ST.me.user ? ` <button class="lnk" data-tretract="${r.tw.id}" data-confirm="Confirm: take back">take back</button>` : ''}</small>` : ''}${open ? `<span class="wlnt"><input class="np nt ${r.nt != null ? 'on' : ''}" id="nct-${r.k.id}" data-ncp-nt="${r.p.id}" inputmode="decimal" aria-label="New target for ${esc(r.p.brand)}" value="${esc(r.nt === 'company' ? 'company' : ncp.nt[r.p.id] ?? '')}" placeholder="new %">${!r.p.targetDefault && r.nt !== 'company' && SET('budget_gp') != null ? `<button class="lnk" data-ncp-ntc="${r.p.id}">use company ${pc(SET('budget_gp'))}</button>` : ''}</span>` : ''}`; };
+  const notes = r => `${r.nx ? `<span class="wltag t-info">Rs ${n2(r.nx.price)} from ${esc(fmtShort(r.nx.from))}</span>` : ''}${r.wait ? `<span class="wltag t-warn">Rs ${n2(r.wait.price)} with Tahir${r.wait.urgent ? ', urgent' : ''}</span>${yw && r.wait.by === ST.me.user ? `<button class="lnk" data-pretract="${r.wait.id}" data-confirm="Confirm: take back Rs ${n2(r.wait.price)}">take back</button>` : ''}${coo ? `<button class="btn ghost sm" data-panprop="${r.wait.id}">Open to approve</button>` : ''}` : ''}${r.back && !r.wait ? `<span class="wltag t-bad">Rs ${n2(r.back.price)} sent back</span><small>${esc(r.back.backReason || '')}</small>` : ''}`;
+  const body = rows.map(r => `<tr class="wl-${tone(r)}">
+    <td data-l="Brand and pack"><button class="wlb" data-clbrand="${r.p.id}" title="Open the brand page"><i class="wldot ${tone(r)}"></i><span><b>${esc(r.p.brand)}</b><small>${esc(szTxt(r.k))}${r.k.priceFrom ? ' · price since ' + esc(fmtShort(r.k.priceFrom)) : ''}</small></span><span class="wlchev" aria-hidden="true">›</span></button>${notes(r) ? `<div class="wlnotes">${notes(r)}</div>` : ''}</td>
+    <td class="r" data-l="Price now">${r.pr > 0 ? n2(r.pr) : '<span class="mute">none</span>'}</td>
+    <td class="r" data-l="Cost today">${r.c != null ? n2(r.c) : '<span class="mute">–</span>'}</td>
+    <td class="r wlgp" data-l="GP %"><div class="wlgpv"><b class="${tone(r)}">${r.gp == null ? '–' : p1(r.gp)}</b>${tgtCell(r)}</div></td>
+    <td class="r" data-l="Price for target">${r.t > 0 && r.tp != null ? n2(r.tp) : '–'}</td>
+    <td data-l="State"><span class="wltag ${tone(r)}">${stTxt(r)}</span></td>
+    ${yw ? `<td class="r" data-l="New price">${r.c != null && !r.wait ? `<input class="np wlin ${r.np ? 'on' : ''}" id="ncp-${r.k.id}" data-ncp-np="${r.k.id}" inputmode="decimal" aria-label="New price for ${esc(r.p.brand)} ${esc(szTxt(r.k))}" value="${esc(ncp.np[r.k.id] ?? '')}" placeholder="Rs">` : ''}${r.ngp != null ? `<small class="${r.t != null ? gpCls(r.ngp, r.t) : 't-good'}">GP ${pc(r.ngp)}</small>` : ''}</td>` : ''}
+    ${FM ? `<td class="r" data-l="Expected, ${FM} months">${r.x ? n0(r.x.kg3) + ' ' + r.p.soldPer : '<span class="mute">–</span>'}</td>` : ''}</tr>`).join('');
+  return `<div class="wl2">
+  <div class="wlh"><div style="min-width:0"><h1 class="topic">Clients: ${esc(ncp.cl)}</h1><p class="answer" style="margin:2px 0 0">${!rows.length ? 'No packs yet.' : below ? `${below} of ${pl(rows.length, 'pack', 'packs')} below target${nopr ? `; ${nopr} with no price yet` : ''}.` : nopr ? `${pl(nopr, 'pack', 'packs')} with no price yet; the rest on or above target.` : `All ${pl(rows.length, 'pack', 'packs')} on or above target.`}</p></div><span class="sp"></span><div class="wlpick"><label for="wlcl" class="l">Client</label><select id="wlcl" data-ncp-clsel>${cs.map(x => `<option value="${esc(x.c)}"${x.c === ncp.cl ? ' selected' : ''}>${esc(x.c)}${x.rs ? ' · Rs ' + (x.rs / 1e6).toFixed(2) + 'M FY' : ''}</option>`).join('')}</select></div><button class="btn ghost" data-ncp-tab="lists">Make price list</button></div>
+  <div class="wlks">${tile('Packs', rows.length)}${tile('Below target', below, below ? 't-bad' : '')}${tile('No price yet', nopr, nopr ? 't-warn' : '')}${tile("GP at today's cost", wgp != null ? pc(wgp) : '–', wgp != null && tg != null ? gpCls(wgp, tg) : '', wq ? 'weighted by expected kg' : 'on 1 kg or L of each pack')}${tile('Sales, FY to date', cur.rs ? 'Rs ' + (cur.rs / 1e6).toFixed(2) + 'M' : '–')}</div>
+  <div class="wlbar"><span>Prices in force today, Rs per kg or L. GP at today's cost.</span>${findBox('cprices', 'Find a brand or pack')}</div>
+  <div class="box wrapx wltab"><table class="cards" data-lft="cprices" data-nosort><thead><tr><th>Brand and pack</th><th class="r">Price now</th><th class="r">Cost today</th><th class="r">GP %</th><th class="r">Price for target</th><th>State</th>${yw ? '<th class="r">New price</th>' : ''}${FM ? `<th class="r">Expected, ${FM} months</th>` : ''}</tr></thead><tbody>${body}</tbody></table></div>
+  ${yw ? (ch.length || tch.length ? sendBar() : `<p class="wlhint">Type a new price in a row. It goes to Tahir and takes effect on Monday, the cost day.</p>`) : ''}
+  ${waitingPrices(ncp.cl)}</div>`;
+}
+function vPrices2() {
+  if (!loaded()) return head('Clients', 'No client prices in C2M yet: they come with the load of the CFO\'s sheets.', '');
+  const inCl = scr === 'clients'; /* push 3a: shown inside Clients, White Label or VAN Brands (D-152) */
+  const T = inCl ? (ncp.tab === 'wl' ? '' : vanTabs() + `<p class="crumbs ans"><button class="lnk" data-ncp-tab="vlists">Price lists</button> › <b>${ncp.tab === 'lists' ? 'Make a price list PDF' : 'All 5 side by side'}</b></p>`) : nTabs('ncp-tab', [['wl', 'White label clients'], ['van', 'VAN brand prices'], ['lists', 'Price lists']], ncp.tab, 'Prices');
+  if (ncp.tab === 'lists') return `${head(inCl ? 'Price list PDF' : 'Clients', 'Price lists: build, check and send.', '1 builder for every audience. Pick who it is for, pick the fields, check the document, then create the PDF. Cost and margin can never be printed.')}${T}${vListsBuilder()}`;
+  if (ncp.tab === 'van') return lm.open && !lmDone() ? vCarry(T) : ncpVan(T);
+  const cs = ncpClients(); if (!cs.length) return head(inCl ? 'White Label' : 'Clients', 'No white label client in C2M yet.', '') + T;
+  if (!ncp.cl || !cs.some(x => x.c === ncp.cl)) ncp.cl = cs[0].c; const coo = CAN('price.approve'), yw = CAN('price.propose');
+  const rows = ncpRows(ncp.cl); const ORD = { red: 0, amber: 1, above: 2, green: 3, none: 4 }; rows.sort((a, b) => ORD[a.st] - ORD[b.st] || (b.x ? b.x.kg3 * (b.pr || 0) : 0) - (a.x ? a.x.kg3 * (a.pr || 0) : 0));
+  const costed = rows.filter(r => r.gp != null); const wq = costed.reduce((s, r) => s + (r.x ? r.x.kg3 : 0) * r.pr, 0);
+  const wgp = wq ? costed.reduce((s, r) => s + (r.x ? r.x.kg3 : 0) * (r.pr - r.c), 0) / wq * 100 : (() => { const sp = costed.reduce((s, r) => s + r.pr, 0); return sp > 0 ? costed.reduce((s, r) => s + (r.pr - r.c), 0) / sp * 100 : null; })(); /* no expected kg: GP on 1 kg or L of each pack, weighted by price, never an average of % (F-23; audit 3 Nov 2026, D-145) */
+  const below = rows.filter(r => (r.st === 'red' || r.st === 'amber') && r.pr > 0).length, above = rows.filter(r => r.st === 'above').length, nopr = rows.filter(r => !(r.pr > 0)).length;
+  const ch = rows.filter(r => r.np != null && r.np !== r.pr && r.c != null && !r.wait); const add = ch.reduce((s, r) => s + r.add, 0); const chBelow = ch.filter(r => r.ngp != null && r.t != null && r.ngp < r.t);
+  const waiting = rows.filter(r => r.wait);
+  const tch = [...new Map(rows.filter(r => r.nt != null && !r.tw && !(r.nt === 'company' && r.p.targetDefault) && !(r.nt !== 'company' && Number(r.nt) === Number(r.p.target))).map(r => [r.p.id, r])).values()];
+  const from0 = ncp.from || ST.today; const cxl = ch.filter(r => r.nx);
+  const sendBar = () => `${yw ? `<div class="sendbar${ch.length || tch.length ? ' on' : ''}"><b>${ch.length ? `${pl(ch.length, 'price', 'prices')} changed, ${add >= 0 ? '+' : '−'}Rs ${n0(Math.abs(add))} over the next ${SET('forward_months')} months` : tch.length ? 'No price changed' : 'Type a new price or target in its row'}</b>
+  ${ch.length ? `<label for="ncpr">Reason the client reads<input id="ncpr" value="${esc(ncp.reason)}" placeholder="e.g. Raw material cost change"></label>${cycFields('ncp', ncp.from, ncp.urg, ncp.urgWhy)}` : ''}
+  ${chBelow.length ? `<label for="ncpb">Why below target (${chBelow.length})<input id="ncpb" value="${esc(ncp.below)}"></label>` : ''}
+  ${tch.length ? `<label for="ncpt" style="flex:1 1 260px">Why the target changes, for the COO (${tch.length})<input id="ncpt" value="${esc(ncp.tWhy)}" placeholder="e.g. Agreed with the client for FY 2026-27"></label>` : ''}
+  ${tch.length ? `<div class="ans" style="flex:1 1 100%">${tch.map(r => { const e = tgtEffect(r.p.id, r.ntv); return `${esc(r.p.brand)}: target ${r.p.targetDefault ? 'company ' + p1(SET('budget_gp')) : p1(r.p.target)}% to ${r.nt === 'company' ? 'company ' + p1(SET('budget_gp')) : p1(r.ntv)}%, all ${pl(r.p.packs.length, 'pack', 'packs')}.${e ? ` Margin, FY to date: ${shortTxt(e.now)} now, ${shortTxt(e.after)} with the new target; it applies to ${e.months.map(mon).join(', ')} too.` : ' No trucks yet, so Margin does not move.'}`; }).join('<br>')}</div>` : ''}
+  ${cxl.length ? `<label class="warnbox" style="flex:1 1 100%;display:flex;gap:8px;align-items:center"><input type="checkbox" id="ncpcx"${ncp.cx ? ' checked' : ''}> This cancels ${cxl.map(r => `Rs ${n2(r.nx.price)} from ${esc(fmtShort(r.nx.from))} (${esc(r.p.brand)} ${esc(szTxt(r.k))})`).join('; ')}, already approved. Tick to send anyway.</label>` : ''}
+  <span class="sp"></span><button class="btn" data-ncp-send ${ch.length || tch.length ? '' : 'disabled'}>Send ${[ch.length ? pl(ch.length, 'price', 'prices') : '', tch.length ? pl(tch.length, 'target', 'targets') : ''].filter(Boolean).join(' and ') || 'prices'} to the COO</button><button class="btn ghost" data-ncp-tab="lists">Make price list</button></div>` : `<p class="ans">${waiting.length ? `${pl(waiting.length, 'price waits', 'prices wait')} for you on this client: Open to approve in its row, then approve or send back in the panel.` : 'Nothing from this client waits for you.'} the CFO types new prices on this screen.</p>`}
+`;
+  if (inCl) return wlClient({ cs, rows, yw, coo, wgp, wq, below, nopr, ch, tch, sendBar });
+  return `${head(inCl ? ncp.cl : 'Clients', `${esc(ncp.cl)}: ${pl(rows.length, 'pack', 'packs')}. ${nopr ? `${nopr} with no price yet. ` : ''}${below ? `${below} below target. ` : (rows.length - nopr ? 'None below target. ' : '')}${above ? `${above} more than ${ABOVE_PTS} points above. ` : ''}${wgp != null && wq ? `GP at today's cost ${pc(wgp)}, weighted by expected kg.` : wgp != null ? `GP at today's cost ${pc(wgp)}.` : ''}`, `GP here is at cost today. Price for target = cost today ÷ (1 − target %). "Above: check" is a price more than ${ABOVE_PTS} points over its target, which may be higher than it needs to be. Expected kg and the Rs a new price moves follow the Rs at stake basis (budget kg or the last 3 months).`)}${T}
+  <p class="ans" style="margin:4px 0">Client chips: sales FY to date.</p><div class="chips" role="group" aria-label="Client, with sales FY to date">${cs.map(x => `<button data-ncp-cl="${esc(x.c)}" aria-pressed="${x.c === ncp.cl}">${esc(x.c)}<span class="c">${x.rs ? 'Rs ' + (x.rs / 1e6).toFixed(2) + 'M' : '–'}</span></button>`).join('')}</div>
+  <p class="tline"><b>${esc(ncp.cl)}</b> · prices in force today · Rs per kg or L · GP at today's cost · expected kg over the next ${SET('forward_months')} months</p>
+  ${findBox('cprices', 'Find a product or pack')}<div class="box wrapx"><table class="wt cards" data-lft="cprices"><thead><tr><th data-key="1">Pack</th><th class="r" data-key="2">Price now</th><th class="r">Cost today</th><th class="r" data-key="3">GP %</th><th class="r">Target %</th><th class="r">Price for target</th><th>State</th>${yw ? '<th class="r">New price</th><th class="r" data-key="4">New GP %</th>' : ''}<th class="r">Expected, ${SET('forward_months')} months</th></tr></thead><tbody>
+  ${rows.map(r => `<tr class="r-${r.st === 'above' ? 'none' : r.st}"><td>${inCl ? `<button class="lnk" data-clbrand="${r.p.id}" title="Open the brand page"><b>${esc(r.p.brand)} · ${esc(szTxt(r.k))}</b></button>` : `<b>${esc(r.p.brand)} · ${esc(szTxt(r.k))}</b>`}${r.k.priceFrom ? `<span class="sub2">price from ${esc(fmtShort(r.k.priceFrom))}</span>` : ''}${r.nx ? `<span class="sub2"><span class="pill p-blue">Rs ${n2(r.nx.price)} approved from ${esc(fmtShort(r.nx.from))}</span></span>` : ''}${r.wait ? `<span class="sub2"><span class="pill p-amber">Rs ${n2(r.wait.price)} with the COO</span>${yw && r.wait.by === ST.me.user ? ` <button class="btn ghost" data-pretract="${r.wait.id}" data-confirm="Confirm: take back Rs ${n2(r.wait.price)}">Take back</button>` : ''}</span>` : ''}${r.back && !r.wait ? `<span class="sub2"><span class="pill p-red">Rs ${n2(r.back.price)} sent back</span> ${esc(r.back.backReason || '')}${r.back.to ? `; its Till date ${esc(fmtShort(r.back.to))} is kept on a new price if the new From is on or before that date` : ''}</span>` : ''}</td><td class="r num" data-l="Price now">${r.pr > 0 ? n2(r.pr) : 'none'}</td><td class="r num" data-l="Cost today">${n2(r.c)}</td><td class="r num" data-l="GP %">${r.gp == null ? '–' : p1(r.gp)}</td><td class="r num" data-l="Target %">${r.t > 0 ? p1(r.t) : 'none'}${r.p.targetDefault ? '<span class="sub2">company</span>' : ''}${r.tw ? `<span class="sub2"><span class="pill p-amber">${Number(r.tw.to_gp) > 0 ? pc(Number(r.tw.to_gp)) : 'company'} with the COO</span>${r.tw.by_user === ST.me.user ? ` <button class="btn ghost" data-tretract="${r.tw.id}" data-confirm="Confirm: take back">Take back</button>` : ''}</span>` : ''}${CAN('targets.propose') && !r.tw && r.nt == null && !ncp.ntOpen[r.p.id] ? `<span class="sub2"><button class="lnk" data-ncp-nto="${r.p.id}">change</button></span>` : ''}${CAN('targets.propose') && !r.tw && (r.nt != null || ncp.ntOpen[r.p.id]) ? `<span class="sub2"><input class="np nt ${r.nt != null ? 'on' : ''}" id="nct-${r.k.id}" data-ncp-nt="${r.p.id}" inputmode="decimal" aria-label="New target for ${esc(r.p.brand)}" value="${esc(r.nt === 'company' ? 'company' : ncp.nt[r.p.id] ?? '')}" placeholder="new %" style="width:64px">${!r.p.targetDefault && r.nt !== 'company' ? `<br><button class="lnk" data-ncp-ntc="${r.p.id}" title="Go back to the company target, ${SET('budget_gp')}%">use company ${pc(SET('budget_gp'))}</button>` : ''}</span>` : ''}</td><td class="r num" data-l="Price for target">${r.t > 0 ? n2(r.tp) : '–'}</td><td data-l="State"><span class="pill ${r.st === 'red' ? 'p-red' : r.st === 'green' ? 'p-green' : r.st === 'above' ? 'p-blue' : 'p-none'}">${r.c != null && !r.pr ? 'no price' : NCP_ST[r.st]}</span>${coo && r.wait ? `<div style="margin-top:4px"><button class="btn ghost" data-panprop="${r.wait.id}">Open to approve</button></div>` : ''}</td>
+  ${yw ? `<td class="r" data-l="New price">${r.c != null && !r.wait ? `<input class="np ${r.np ? 'on' : ''}" id="ncp-${r.k.id}" data-ncp-np="${r.k.id}" inputmode="decimal" aria-label="New price for ${esc(r.p.brand)} ${esc(szTxt(r.k))}" value="${esc(ncp.np[r.k.id] ?? '')}" placeholder="new">` : ''}</td><td class="r num" data-l="New GP %">${r.ngp != null ? `<b class="${r.ngp < r.t ? 'late' : 'ok'}">${p1(r.ngp)}</b>` : ''}</td>` : ''}<td class="r num" data-l="Expected kg">${r.x ? n0(r.x.kg3) + ' ' + r.p.soldPer : '–'}</td></tr>`).join('')}
+  </tbody></table></div>
+  ${sendBar()}
+  ${waitingPrices(ncp.cl)}`;
+}
+/* VAN brand prices: each pack once, a price column for each list. Lists already in C2M: distributor (now, ex FED),
+   dealer Sindh (nsv, ex FED, before the additional discount) and farmer (pb Punjab, sn Sindh, snc Sindh credit; with FED). */
+const NCOLS = [['dist', 'now', 'Distributor', 'ex FED'], ['dealer', 'nsv', 'Dealer, Sindh', 'NSV ex FED'], ['farmer', 'pb', 'Farmer, Punjab', 'with FED'], ['farmer', 'sn', 'Farmer, Sindh', 'with FED'], ['farmer', 'snc', 'Farmer, Sindh credit', 'with FED']];
+/* A list row is placed on a pack only where name, size and unit agree: the same rule as the VAN brand list margin report. A suggestion only; Yawar confirms the links once. */
+const nSuggest = (list, d, van) => vmSuggest(list, d, van);
+function ncpGrid() {
+  const P = packIdx(); const van = [...P.values()].filter(k => k.product.channel === 'VAN brand').sort((a, b) => a.product.brand.localeCompare(b.product.brand) || a.size - b.size);
+  const items = (ST.listItems || []).filter(x => ['dist', 'dealer', 'farmer'].includes(x.list));
+  const saved = x => { const s0 = x.data.packId != null ? Number(x.data.packId) : null; return s0 != null && P.has(s0) && P.get(s0).product.channel === 'VAN brand' ? s0 : null; };
+  /* a suggestion is used only if no other row of that list is linked, or suggested, to the same pack: 1 row per pack;
+     a suggestion turned down counts as not placed, so the grid asks for its link */
+  const taken = new Set(items.filter(x => saved(x) != null).map(x => x.list + '|' + saved(x))); const sug = new Map(), sugN = {};
+  items.forEach(x => { if (saved(x) != null || x.data.noPack) return; const g = nSuggest(x.list, x.data, van); if (g != null) { sug.set(x.id, g); sugN[x.list + '|' + g] = (sugN[x.list + '|' + g] || 0) + 1; } });
+  const link = x => { const s0 = saved(x); if (s0 != null) return { id: s0, how: 'saved' }; if (x.data.noPack) return { id: null, how: 'nopack' }; const g = sug.get(x.id); return g != null && !taken.has(x.list + '|' + g) && sugN[x.list + '|' + g] === 1 ? { id: g, how: 'suggested' } : { id: null, how: 'none' }; };
+  const cells = new Map(); const toLink = [], none = [], marked = []; // marked: rows Yawar marked not a C2M pack
+  const order = items.slice().sort((a, b) => (link(a).how === 'saved' ? 0 : 1) - (link(b).how === 'saved' ? 0 : 1)); // the row actually linked always takes the cell
+  for (const x of order) { const L = link(x); if (L.how === 'suggested') toLink.push({ id: x.id, packId: L.id }); if (L.how === 'nopack') { marked.push(x); continue; } if (L.id == null) { none.push(x); continue; }
+    for (const [list, f] of NCOLS) { if (list !== x.list) continue; const key = L.id + '|' + list + '|' + f; if (!cells.has(key)) cells.set(key, { row: x, v: Number(x.data[f]) > 0 ? Number(x.data[f]) : null, how: L.how }); } }
+  const pend = {}; (ST.listRevisions || []).filter(r => r.status === 'proposed').forEach(r => r.items.forEach(it => Object.entries(it.to || {}).forEach(([f, v]) => { const row = items.find(x => x.id === it.id); const pid = row ? link(row).id : it.packId; if (pid != null) pend[pid + '|' + r.list_name + '|' + f] = v; })));
+  const dup = {}; for (const x of items) { const L = link(x); if (L.id != null) dup[L.id + '|' + x.list] = (dup[L.id + '|' + x.list] || 0) + 1; } // more than 1 row of a list on 1 pack (made before 1.0.0): shown, never hidden
+  return { van, items, cells, toLink, none, marked, pend, dup, taken };
+}
+/** Prices on the VAN grid that would be above their printed MRP once the typed prices are sent (D-122): checked as Yawar types. */
+function mxMrp(G, typed) {
+  const touched = new Set(Object.keys(ncp.mx).filter(typed).map(k => Number(k.split('|')[0]))); const out = [];
+  for (const k of G.van) { if (!touched.has(k.id)) continue; const cur = (l, f) => { const key = k.id + '|' + l + '|' + f; if (typed(key)) return Number(ncp.mx[key]); const c = G.cells.get(key); return c ? c.v : null; };
+    const m = printMrp({ pb: cur('farmer', 'pb'), sn: cur('farmer', 'sn'), snc: cur('farmer', 'snc') }); if (!m) continue; const nm = `${k.product.brand} ${szTxt(k)}`;
+    const dl = G.cells.get(k.id + '|dealer|nsv'), ds = G.cells.get(k.id + '|dist|now'); const dd = dl && dl.row ? dl.row.data : {}, sd = ds && ds.row ? ds.row.data : {};
+    const fed = 1 + FEDP() / 100, nsv = cur('dealer', 'nsv'), dnow = cur('dist', 'now'); const netfed = nsv != null ? Math.round(nsv * (1 - Number(dd.disc || 0)) * fed * 100) / 100 : dd.netfed, dfed = dnow != null ? Math.round(dnow * fed * 100) / 100 : sd.fed;
+    [['Farmer, Punjab (and the website)', cur('farmer', 'pb')], ['Farmer, Sindh', cur('farmer', 'sn')], ['Dealer FRP', dd.frp], ['Dealer net with FED', netfed], ['Dealer Recommended MRP', dd.mrp], ['Distributor price with FED', dfed], ['Distributor Recommended MRP', sd.mrp]].forEach(([w, v]) => { if (v != null && Number(v) > m.mrp + 0.004) out.push({ name: nm, word: w, price: Number(v), mrp: m.mrp }); }); }
+  return out;
+}
+function ncpVan(T) {
+  const G = ncpGrid(), yw = CAN('price.propose'), fedF = 1 + FEDP() / 100; let below = 0; const filled = NCOLS.map(() => 0);
+  const typed = key => ncp.mx[key] != null && ncp.mx[key] !== '';
+  const unl = {}; G.items.forEach(x => { if (x.data.packId == null && !x.data.noPack) unl[x.list] = (unl[x.list] || 0) + 1; }); // a row marked not a C2M pack does not block
+  /* a list with a revision with Tahir, or approved and waiting for its date, takes no new prices until it is decided or applied: the server refuses them (review 19 Oct) */
+  const busy = {}; (ST.listRevisions || []).forEach(r => { if (r.status === 'proposed') busy[r.list_name] = 'with the COO'; else if (r.status === 'approved' && !Number(r.applied)) busy[r.list_name] = busy[r.list_name] || `approved, from ${fmtShort(r.valid_from)}`; });
+  const offAt = {}; (ST.listOld || []).forEach(o => { if (o.packId == null || !o.left || o.left.dup) return; const k0 = o.packId + '|' + o.list, w0 = offAt[k0]; if (!w0 || String(o.left.ts || o.left.at || '') >= String(w0.ts || w0.at || '')) offAt[k0] = o.left; }); // the row that left last, never a duplicate dropped at the carry-over (fifth check, finding 3) // a pack taken off: its empty cell says so (review 1.0.3 re-check, finding 11)
+  const later = {}; (ST.listRevisions || []).filter(r => r.status === 'approved' && !Number(r.applied)).forEach(r => r.items.forEach(it => { const row = G.items.find(x => x.id === it.id); const pid = row ? (row.data.packId != null ? Number(row.data.packId) : null) : it.packId; if (pid != null) Object.entries(it.to || {}).forEach(([f, v]) => { later[pid + '|' + r.list_name + '|' + f] = { v, from: r.valid_from }; }); })); // rows not yet linked, by list: no added row until 0 (I-43)
+  const rows = G.van.map(k => { const cpp = k.cost ? (k.cost.total - (k.cost.freight || 0)) * Number(k.size) : null; const t = tgtOf(k.product.target);
+    const tds = NCOLS.map(([list, f], i) => { const key = k.id + '|' + list + '|' + f, c = G.cells.get(key); const v = typed(key) ? Number(ncp.mx[key]) : c ? c.v : null; if (v) filled[i]++;
+      const exf = v ? (list === 'farmer' ? v / fedF : v) : null; const gp = exf && cpp != null ? (exf - cpp) / exf * 100 : null; const st = gp == null ? '' : ncpState(gp, t); if (st === 'red' || st === 'amber') below++;
+      const pv = G.pend[key]; const nd = G.dup[k.id + '|' + list] || 0;
+      return `<td class="r">${yw ? `<input class="np ${typed(key) ? 'on' : ''}" id="nmx-${k.id}-${f}" data-ncp-mx="${key}" inputmode="decimal" aria-label="${esc(k.product.brand)} ${esc(szTxt(k))}, ${NCOLS[i][2]}" value="${esc(typed(key) ? ncp.mx[key] : (c && c.v != null ? c.v : ''))}" ${busy[list] ? `disabled title="The ${esc(LISTNAME[list])} has a revision ${busy[list]}: new prices wait until ${busy[list] === 'with the COO' ? 'the COO decides it' : 'it takes effect or is withdrawn'}"` : !c && unl[list] ? `disabled placeholder="–" title="${unl[list]} rows of this list are not in the master yet: carry the lists into the master first (the button above), so no pack is entered twice"` : 'placeholder="–"'}>` : `<span class="num">${v ? n0(v) : '–'}</span>`}${gp != null ? `<span class="sub2 ag ${st === 'red' ? 'red' : st === 'amber' ? 'amber' : st === 'above' ? 'above' : 'green'}">${pc(gp)}${st === 'red' || st === 'amber' ? ' below' : st === 'above' ? ' above' : ''}${c && c.how === 'suggested' && !typed(key) ? ' · suggested' : ''}</span>` : c && c.how === 'suggested' ? '<span class="sub2">suggested</span>' : ''}${pv != null ? `<span class="sub2"><span class="pill p-amber">${n0(pv)} with the COO</span></span>` : ''}${later[key] ? `<span class="sub2"><span class="pill p-amber">${n0(later[key].v)} from ${esc(fmtShort(later[key].from))}</span></span>` : ''}${!c && offAt[k.id + '|' + list] ? `<span class="sub2">off since ${esc(fmtShort(offAt[k.id + '|' + list].at))} (${esc(personName(offAt[k.id + '|' + list].by))})</span>` : ''}${nd > 1 ? `<span class="sub2 ag red" title="${nd} rows of the ${esc(LISTNAME[list])} are linked to this pack: this cell shows the first; the price list prints every row">${nd} rows on this list</span>` : ''}</td>`; }).join('');
+    const onAny = G.items.some(x => Number(x.data.packId) === Number(k.id)); // Tahir and Yawar take a pack off a list, no approval (Tahir, 20 Oct 2026)
+    return `<tr><td><b>${esc(k.product.brand)}</b> <span class="num">${esc(szTxt(k))}</span>${k.product.recipeState !== 'approved' ? '<span class="sub2">no approved recipe</span>' : ''}${onAny && CAN('lists.remove') ? (ncp.off === k.id ? '<span class="sub2">taking off: see the box above the grid</span>' : `<span class="sub2"><button class="btn ghost" style="font-size:12px;padding:1px 7px" data-off-open="${k.id}">Take off a list</button></span>`) : ''}</td><td class="r num">${cpp != null ? n0(cpp) : '–'}</td><td class="r num">${p1(t)}</td>${tds}</tr>`; }).join('');
+  const changes = Object.keys(ncp.mx).filter(key => typed(key) && Number(ncp.mx[key]) > 0 && !(G.cells.get(key) && G.cells.get(key).v === Number(ncp.mx[key])));
+  return `${head(scr === 'clients' ? 'VAN Brands' : 'Clients', `${G.van.length} VAN brand packs, each held once, with a price for each list. Prices filled: ${NCOLS.map(([, , l], i) => `${l.replace(',', '')} ${filled[i]}`).join('; ')}. ${below} prices are below target.`, `Price per pack. Under each price, its GP % at today's cost; cost per pack = (cost today − freight) × pack size. Farmer prices include FED, so GP is worked on price ÷ ${fedF.toFixed(2)}. Dealer GP is on the NSV, before the additional discount. COBO buys on Farmer, Sindh and Sindh credit; VGreen on the farmer price. A changed price goes to the COO as a list revision with a reason and a date; a price for a pack not yet on a list adds its row.`)}${T}
+  ${lmBox()}
+  ${Object.keys(busy).length ? `<p class="ans">${Object.entries(busy).map(([l, b]) => `${LISTNAME[l]}: a revision is ${b}; its column takes no new prices until ${b === 'with the COO' ? 'the COO decides it' : 'it takes effect or the COO withdraws it'}.`).join(' ')}</p>` : ''}
+  ${Object.values(G.dup).some(n => n > 1) ? `<div class="assume"><b>More than 1 row on a pack</b>${pl(Object.values(G.dup).filter(n => n > 1).length, 'pack has', 'packs have')} 2 or more rows on the same list, marked "rows on this list" in red. The cell shows the first row; the price list prints every row. ${yw ? 'Correct the links' : 'the CFO corrects the links'} in More, Reports, VAN brand list margin; until then no pack can be added to that list.</div>` : ''}
+  ${yw && Object.keys(unl).length ? `<p class="ans">A price for a pack not yet on a list can be added once the lists are carried into the master (${Object.entries(unl).map(([l, n]) => `${LISTNAME[l]}: ${n} not in the master`).join('; ')}).</p>` : ''}
+  ${offPanel(G)}
+  ${findBox('vgrid', 'Find a VAN brand product or pack')}<div class="box wrapx vgrid"><table class="wt" data-lft="vgrid"><thead><tr><th>VAN brand pack</th><th class="r">Cost per pack</th><th class="r">Target %</th>${NCOLS.map(([, , l, n]) => `<th class="r">${l}<span class="sub2">${n}</span></th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div>
+  ${offBox()}${closedBox()}
+  ${yw ? `<div class="sendbar${changes.length ? ' on' : ''}"><b>${changes.length ? pl(changes.length, 'price', 'prices') + ' changed' : 'No price changed yet'}</b>${(() => { const mi = mxMrp(G, typed); return mi.length ? `<span class="warnbox" style="flex:1 1 100%;margin:0">Above the printed MRP once sent: ${esc(mrpTxt(mi, 3))} The MRP is the Sindh credit price rounded up to the next Rs 50 (with no credit price, the higher of Punjab and Sindh).</span>` : ''; })()}${(() => { const bk = Object.keys(LISTNAME).map(l => (ST.listRevisions || []).filter(r => r.list_name === l && r.status === 'sent_back').sort((a, b) => b.id - a.id)[0]).filter(Boolean); return bk.length ? `<span class="warnbox" style="flex:1 1 100%;margin:0">${bk.map(r => `Sending the ${esc(LISTNAME[r.list_name])} replaces its revision sent back by the COO (${pl(r.items.length, 'price', 'prices')} from ${fmtD(r.valid_from)}); prices from it not typed here again are dropped. To keep them, open it to revise under List revisions instead.`).join(' ')}</span>` : ''; })()}<label for="nmxr">Reason<input id="nmxr" value="${esc(ncp.mxReason)}" placeholder="e.g. Raw material cost change"></label>${cycFields('nmx', ncp.mxFrom, ncp.mxUrg, ncp.mxUrgWhy)}<label for="nmxt">Till (optional)<input id="nmxt" type="date" min="${ncp.mxFrom || ST.today}" value="${esc(ncp.mxTill)}"></label><span class="sp"></span><button class="btn" data-ncp-mxsend ${changes.length ? '' : 'disabled'}>Send to the COO</button></div>` : '<p class="ans">List revisions from the CFO wait for you on Approvals.</p>'}
+  ${yw && !rev ? `<div class="next"><span>FRP and Recommended MRP are suggested prices, typed apart from the grid.</span><button class="btn ghost" data-revstart="dealer" data-revonly="frp,mrp">Change Dealer FRP or Recommended MRP</button><button class="btn ghost" data-revstart="dist" data-revonly="mrp">Change Distributor Recommended MRP</button></div>` : ''}
+  ${(rev && (rev.marked || rev.only)) || (ST.listRevisions || []).some(r => r.status === 'proposed' || r.status === 'sent_back' || (r.status === 'approved' && !Number(r.applied))) ? `<h2>List revisions</h2>${revBox(false, null, !(rev && (rev.marked || rev.only)))}` : ''}`;
+}
+/* ---------- 1.0.3, 1 master list (Tahir, 20 Oct 2026, D-87; picture "C2M Master Brand List") ----------
+   Each VAN brand product and pack is held once, in C2M; the distributor, dealer and farmer lists are its price columns and print
+   from it, products A to Z, packs small to large. Today's list rows are carried into the master once, on 1 screen: C2M matches
+   most by name and size (shown to check); Tahir or Yawar picks each product C2M cannot match, once for every list it is on;
+   2 rows for 1 pack on 1 list are chosen between; every row that would leave the printed lists is shown before Carry over.
+   The plan is the server's (preview); Carry over sends back its signature, so only the plan seen is saved. */
+let lm = { open: false, picks: {}, keep: {}, rowPick: {}, plan: null, busy: false, err: null, showLinked: false };
+const lmDone = () => !!(ST && ST.listMaster && ST.listMaster.carried);
+const LMLIST = { dist: 'Distributor', dealer: 'Dealer', farmer: 'Farmer' };
+let lmSeq = 0;
+async function lmLoad() { const my = ++lmSeq; lm.busy = true; let plan = null, err = null; try { plan = await api('/api/c2m/lists/master/preview', { picks: lm.picks, keep: lm.keep, rowPick: lm.rowPick }); } catch (e) { err = e.message; } if (my !== lmSeq) return; /* an older answer never replaces a newer one */ lm.plan = plan; lm.err = err; lm.busy = false;
+  if (lm.plan && lm.plan.carried) { lm.open = false; lm.plan = null; await load(); return; } render(); }
+/** Opens the carry-over afresh: picks from an earlier visit are not kept, so a pick gone stale never traps the screen (review 1.0.3). */
+function lmGo(fresh) { goPlace('prices'); ncp.tab = 'van'; if (fresh || !lm.picks) lm = { open: true, picks: {}, keep: {}, rowPick: {}, plan: null, busy: false, err: null, showLinked: false }; else { lm.open = true; lm.err = null; } window.scrollTo(0, 0); lmLoad(); } // picks kept on coming back (a stale one is dropped and named by the server); Start again clears them
+function lmBox() {
+  if (!CAN('lists.carry')) return '';
+  const M = ST.listMaster || {};
+  if (M.carried) return `<p class="ans">1 master list: the price lists were carried into the master on ${esc(fmtShort(String(M.carried.at).slice(0, 10)))} by ${esc(personName(M.carried.by))}. Every list price belongs to a VAN brand pack above and prints under its product name and description, products A to Z, packs small to large.</p>`;
+  const n = (ST.listItems || []).length; if (!n) return '';
+  return `<div class="next"><span><b>1 master list.</b> Each VAN brand pack is held once and the 3 lists become its price columns. Carry today's ${pl(n, 'list row', 'list rows')} into the master, once: C2M matches most by name and size for you to check; you pick the rest, once for every list. Until then the lists print as they do today, and rows with no pack take no new prices.</span><button class="btn" data-lm-open>Carry into the master</button></div>`;
+}
+const lmPrices = (list, p) => Object.entries(p || {}).filter(([, v]) => v != null).map(([f, v]) => `${esc(revLabel(list, f).replace(/, %$/, ''))} ${revShow(f, v)}`).join(', ');
+const lmMark = m => m ? ` <span class="pill p-amber">marked "not a C2M pack"${m.by ? ' by ' + esc(personName(m.by)) : ''}${m.at ? ' ' + esc(fmtShort(m.at)) : ''}</span>` : '';
+function vCarry(T) {
+  const P = lm.plan, back = '<button class="btn ghost" data-lm-close>Back to the grid</button>';
+  if (!P) return `${head(scr === 'clients' ? 'VAN Brands' : 'Clients', 'Carry today\'s prices into the master.', '')}${T}<p class="ans">${lm.err ? esc(lm.err) + ' <button class="btn ghost" data-lm-reset>Start again</button>' : 'Reading the lists...'}</p><p>${back}</p>`;
+  const C = P.counts; const vanP = (ST.products || []).filter(p => p.channel === 'VAN brand').sort((a, b) => a.brand.localeCompare(b.brand));
+  const rowSel = (g, r) => { const z = vmSize(r.size || ''); const opts = vanP.filter(p => (g.allow || []).includes(p.id)).flatMap(p => (p.packs || []).filter(k => !z || (Math.abs(Number(k.size) - z.v) < 1e-6 && (p.soldPer || 'kg') === z.u)).map(k => ({ id: k.id, t: `${p.brand} ${packTxt(k.size, p.soldPer)}` }))); // packs of the name's product (or one of the same name) only; the server checks the same
+    const cur = r.rowPick || (r.packId != null ? String(r.packId) : '');
+    return ` <select data-lm-row="${r.id}" aria-label="Pack for ${esc(r.name)}"><option value=""${cur ? '' : ' selected'}>${r.wait ? 'Choose: a pack, or leaves' : 'Pick the pack'}</option>${opts.map(o => `<option value="${o.id}"${cur === String(o.id) ? ' selected' : ''}>${esc(o.t)}</option>`).join('')}<option value="leave"${cur === 'leave' ? ' selected' : ''}>Leaves the lists</option></select>`; };
+  const rowLine = (g, r) => `<li>${LMLIST[r.list]}: ${esc(r.name)}${r.prices ? ` <span class="ans">(${lmPrices(r.list, r.prices)})</span>` : ''}${lmMark(r.mark)} → ${r.packId != null ? `<b>${esc(r.label)}</b>${r.how ? ` <span class="ans">(${esc(r.how === 'your pick' ? (r.rowPick ? 'your pick for this row' : 'your pick') : r.how)}${r.size ? '' : '; the row has no size: check'})</span>` : ''}` : `<span class="late">${esc(r.why || 'pick the product')}</span>`}${g.pick != null && g.pick !== 'none' && (r.packId == null || r.rowPick || !r.size) ? rowSel(g, r) : ''}${!r.kept ? ' <span class="pill p-red">not kept: see 2 rows for 1 pack</span>' : ''}</li>`;
+  const rows = P.groups.map(g => { const wait = g.rows.filter(r => r.wait).length; const st = g.pick == null ? '<span class="pill p-red">pick</span>' : wait ? `<span class="pill p-red">${pl(wait, 'row waits', 'rows wait')}: choose</span>` : g.picked || g.rows.some(r => r.rowPick) ? '<span class="pill p-none">your pick</span>' : `<span class="pill p-amber">C2M: ${esc(g.guess.why)}. Check</span>`;
+    return `<tr><td data-l="Name on today's lists"><b>${g.names.map(esc).join('; ')}</b><ul class="lmrows" style="margin:4px 0 0;padding-left:18px">${g.rows.map(r => rowLine(g, r)).join('')}</ul></td><td data-l="Master product"><select data-lm-pick="${esc(g.key)}" aria-label="Master product for ${esc(g.names[0])}"><option value=""${g.pick == null ? ' selected' : ''}>Pick</option>${vanP.map(p => `<option value="${p.id}"${g.pick === p.id ? ' selected' : ''}>${esc(p.brand)} (${(p.packs || []).map(k => esc(packTxt(k.size, p.soldPer))).join(', ')})</option>`).join('')}<option value="none"${g.pick === 'none' ? ' selected' : ''}>Not in C2M: leaves the lists</option></select> ${st}</td></tr>`; }).join('');
+  const conf = P.conflicts.map(c => `<div class="warnbox" style="display:block;margin:6px 0"><b>${esc(LISTNAME[c.list])}: ${c.rows.length} rows for ${esc(c.label)}.</b> 1 pack has 1 price on a list: choose the row whose prices stay. The other leaves the printed list and is kept read only.${c.rows.map(r => `<label style="display:block;margin-top:4px"><input type="radio" name="lmk-${esc(c.key)}" data-lm-keep="${esc(c.key)}" value="${r.id}"${c.keep === r.id ? ' checked' : ''}> ${esc(r.name)}${r.linked ? ' (linked before)' : ''}${lmMark(r.mark)}: ${lmPrices(c.list, r.prices)}</label>`).join('')}</div>`).join('');
+  const leave = P.leave.length ? `<div class="box"><b>Rows that leave the printed lists: ${P.leave.length}</b><p class="ans" style="margin:4px 0">Each was chosen above. They stop printing and take no prices; after Carry over they stay visible, with their prices, under "Off the lists" on this page.</p><ul>${P.leave.map(x => `<li>${esc(LISTNAME[x.list])}: ${esc(x.name)} <span class="ans">(${lmPrices(x.list, x.prices)})</span>: ${esc(x.why)}</li>`).join('')}</ul></div>` : '<p class="ans">No row leaves the printed lists.</p>';
+  const linked = (P.linked || []).length ? `<div class="box"><b>Already linked: ${P.linked.length} rows</b> <button class="btn ghost" data-lm-linked aria-pressed="${lm.showLinked}">${lm.showLinked ? 'Hide' : 'Show them to check'}</button>${lm.showLinked ? `<ul>${P.linked.map(x => `<li>${LMLIST[x.list]}: ${esc(x.name)} <span class="ans">(${lmPrices(x.list, x.prices)})</span> → <b>${esc(x.label)}</b>${x.kept ? '' : ' <span class="pill p-red">not kept: see 2 rows for 1 pack</span>'}</li>`).join('')}</ul><p class="ans">A wrong one can be moved after Carry over (More, Reports, VAN brand list margin), or taken off its list.</p>` : ''}</div>` : '';
+  const stale = (P.stale || []).length ? `<div class="warnbox" style="display:block" role="alert"><b>${pl(P.stale.length, 'pick no longer fits', 'picks no longer fit')} and ${P.stale.length === 1 ? 'was' : 'were'} dropped:</b> ${P.stale.map(esc).join('; ')}. Pick again.</div>` : '';
+  const nameWarn = (P.nameWarn || []).length ? `<div class="warnbox" style="display:block"><b>These product names will print on client lists:</b> ${P.nameWarn.map(esc).join(', ')}. Costing words (a recipe, outsourced, a pack) come out of product names (ruling of 20 Oct 2026): rename them in Setup, Products and variants, before Carry over.</div>` : '';
+  const noDesc = (P.noDesc || []).length ? `<div class="warnbox" style="display:block"><b>${pl(P.noDesc.length, 'product has', 'products have')} no description in C2M:</b> ${P.noDesc.map(esc).join(', ')}. The lists print C2M's description only: type one in Setup, Products and variants, Edit, or ${P.noDesc.length === 1 ? 'it prints' : 'they print'} with none.</div>` : '';
+  const sb = (P.sentBack || []).length ? `<p class="ans">${pl(P.sentBack.length, 'list revision the COO sent back is', 'list revisions the COO sent back are')} closed at Carry over (${P.sentBack.map(r => esc(LISTNAME[r.list] || r.list)).join(', ')}): the CFO types those prices again in the grid.</p>` : '';
+  const rv = (P.revisions || []).length ? `A revision of the ${P.revisions.map(l => LISTNAME[l]).join(', ')} is open: carry over once it is decided or takes effect.` : '';
+  const todo = [C.undecided ? `pick the master product for ${pl(C.undecided, 'name', 'names')}` : '', C.waiting ? `choose a pack or "Leaves the lists" for ${pl(C.waiting, 'row', 'rows')}` : '', C.unresolved ? `choose the row kept for ${pl(C.unresolved, 'pack', 'packs')} with 2 rows` : ''].filter(Boolean).join('; ');
+  const why = rv || (todo ? todo.charAt(0).toUpperCase() + todo.slice(1) + '.' : '');
+  const carried = C.matched + C.picked;
+  const undRows = P.groups.filter(g => g.pick == null).reduce((t, g) => t + g.rows.length, 0);
+  const ans = `Carry today's prices into the master: ${C.rows} rows. ${C.linked} already linked, ${C.matched} matched by C2M (check them), ${C.picked} by your picks, ${pl(C.leaving, 'row leaves', 'rows leave')}${C.undecided || C.waiting || C.unresolved ? `; still to choose: ${[C.undecided ? `${pl(C.undecided, 'name', 'names')} (${pl(undRows, 'row', 'rows')})` : '', C.waiting ? pl(C.waiting, 'more row', 'more rows') : '', C.unresolved ? `${pl(C.unresolved, 'pack', 'packs')} with 2 rows` : ''].filter(Boolean).join(', ')}` : ''}.`;
+  return `${head(scr === 'clients' ? 'VAN Brands' : 'Clients', ans, 'Each name below is picked once: the pick applies to every list that name is on. Each row then goes to the pack of its size; a row with no pack of its size waits until you choose its pack or "Leaves the lists". After Carry over, every list prints from the master: the product name, C2M\'s description and the pack, products A to Z, packs small to large. Prices do not change. Linking row by row goes away.')}${T}
+  <p>${back}</p>${stale}${nameWarn}${noDesc}
+  <div class="box wrapx"><table class="wt cards" id="lmt"><thead><tr><th>Name on today's lists, and where each row goes</th><th>Master product</th></tr></thead><tbody>${rows || '<tr><td colspan="2">Every row is already linked.</td></tr>'}</tbody></table></div>
+  ${conf}${leave}${linked}${sb}
+  <div class="sendbar on"><b>${why ? esc(why) : `Ready: ${pl(carried, 'row', 'rows')} carried, ${C.linked} already linked kept, ${pl(C.leaving, 'row leaves', 'rows leave')} the printed lists.`}</b><span class="sp"></span><button class="btn" data-lm-carry${why || lm.busy ? ' disabled' : ` data-confirm="Confirm: carry ${carried + C.linked} rows into the master; ${C.leaving} leave"`}>Carry over</button></div>`;
+}
+/* Take a pack off a list (Tahir, 20 Oct 2026: Tahir and Yawar, no approval) and the rows off the lists, read only */
+/** Take a pack off 1 or more lists, in 1 go (Tahir, 20 Oct 2026: Tahir and Yawar, no approval). Outside the grid's table, so it fits a phone. */
+function offPanel(G) { const k = G.van.find(x => x.id === ncp.off); if (!k) return ''; const on = G.items.filter(x => Number(x.data.packId) === Number(k.id)); if (!on.length) return '';
+  on.forEach(x => { if ((ST.listRevisions || []).some(r => r.list_name === x.list && (r.status === 'proposed' || (r.status === 'approved' && !Number(r.applied))) && r.items.some(i => i.id === x.id))) delete ncp.offPick[x.id]; }); // a held list is unticked before the button counts (review 1.0.3, fourth check)
+  const picked = on.filter(x => ncp.offPick[x.id]); const ok = picked.length && String(ncp.offWhy || '').trim();
+  return `<div class="warnbox" style="display:block;margin:6px 0" id="offbox"><b>Take ${esc(k.product.brand)} ${esc(szTxt(k))} off a list.</b> It stops printing on that list at once; its prices are kept, read only, under "Off the lists"; logged, and ${!ADM() ? 'COO' : 'CFO'} is told. No approval.
+    <div style="margin-top:6px">${on.map(x => { const held = (ST.listRevisions || []).some(r => r.list_name === x.list && (r.status === 'proposed' || (r.status === 'approved' && !Number(r.applied))) && r.items.some(i => i.id === x.id)); if (held) delete ncp.offPick[x.id]; return `<label style="display:block"><input type="checkbox" data-off-pick="${x.id}"${ncp.offPick[x.id] ? ' checked' : ''}${held ? ' disabled' : ''}> ${esc(LISTNAME[x.list])}${x.list === 'farmer' ? ' (Punjab, Sindh, Sindh credit and the website together)' : ''}${held ? ' <span class="ans">: a revision with the COO, or waiting for its date, changes it; take it off after that</span>' : ''}</label>`; }).join('')}</div>
+    <label for="offwhy" style="display:block;margin-top:6px">Why<input id="offwhy" value="${esc(ncp.offWhy || '')}" placeholder="e.g. no longer sold"></label>
+    <div style="margin-top:6px"><button class="btn" data-off-go${ok ? ` data-confirm="Confirm: off ${pl(picked.length, 'list', 'lists')}"` : ' disabled'}>Take off ${picked.length ? pl(picked.length, 'list', 'lists') : 'the lists ticked'}</button> <button class="btn ghost" data-off-close>Cancel</button>${ok ? '' : ' <span class="ans">Tick a list and write why first.</span>'}</div></div>`; }
+/** Revisions Tahir sent back that the carry-over closed: their prices, to type again (review 1.0.3, third check, finding 2). */
+function closedBox() { const C = ST.closedAtCarry || []; if (!C.length || !CAN('see.margin')) return '';
+  return `<details class="box"><summary><b>Closed at the carry-over: ${pl(C.length, 'revision', 'revisions')}</b> The COO had sent back; their prices, read only, kept as a record</summary>${C.map(r => `<p class="ans" style="margin:6px 0 2px"><b>${esc(LISTNAME[r.list] || r.list)}</b>: ${esc(r.reason || '')}${r.back ? ` (sent back: ${esc(r.back)})` : ''}</p><ul>${r.items.map(i => `<li>${esc(i.product)}${i.pack ? ' ' + esc(i.pack) : ''}: ${Object.entries(i.to || {}).map(([f, v]) => `${esc(revLabel(r.list, f).replace(/, %$/, ''))} ${revShow(f, v)}`).join(', ')}</li>`).join('')}</ul>`).join('')}<p class="ans">${CAN('list.revise') ? 'Type the ones still wanted in the grid above: they go to the COO as a new revision.' : 'the CFO types the ones still wanted again in the grid.'}</p></details>`; }
+function offBox() { const O = ST.listOld || []; if (!O.length || !CAN('see.margin')) return '';
+  return `<details class="box"><summary><b>Off the lists: ${pl(O.length, 'row', 'rows')}</b>, read only</summary><div class="wrapx"><table class="wt cards" id="offt"><thead><tr><th>List</th><th>Row</th><th>Prices when it left</th><th>Left</th></tr></thead><tbody>${O.map(x => { const back = x.packId != null && !(x.left && x.left.dup) && (ST.listItems || []).some(y => y.list === x.list && Number(y.data.packId) === Number(x.packId)); return `<tr><td data-l="List">${esc(LISTNAME[x.list] || x.list)}</td><td data-l="Row">${esc(x.name)}${back ? ' <span class="pill p-green">back on the list</span>' : ''}</td><td data-l="Prices when it left">${lmPrices(x.list, x.prices)}</td><td data-l="Left">${x.left ? `${esc(fmtShort(x.left.at))} by ${esc(personName(x.left.by))}: ${esc(x.left.why)}` : ''}</td></tr>`; }).join('')}</tbody></table></div><p class="ans">To bring one back, type its price for the pack in the grid above: it goes to the COO as a list revision that adds the row, with the other prices it left with (discount, FRP, Recommended MRP, terms) shown to him.</p></details>`; }
+/** Send typed VAN brand prices as list revisions, 1 per list (existing revision flow; new rows for packs not on a list, D-77). */
+/* A double click sends once (audit 3 Nov 2026, D-145): the list send, the client price send and Create PDF share act()'s busy guard. */
+const ncpMxSend = only => once(() => ncpMxSend0(only));
+async function ncpMxSend0(only) { /* only: the list sent from its own page (review 3b, finding 1) */
+  const G = ncpGrid(); const by = {};
+  Object.entries(ncp.mx).forEach(([key, v]) => { if (v === '' || v == null) return; const [pid, list, f] = key.split('|'); const c = G.cells.get(key); if (!(Number(v) > 0) || (c && c.v === Number(v))) return; /* unchanged or empty: not sent */ const L = (by[list] = by[list] || {});
+    if (c) { const it = (L['r' + c.row.id] = L['r' + c.row.id] || { id: c.row.id, wasPack: c.row.data.packId != null ? Number(c.row.data.packId) : null, values: {} }); it.values[f] = Number(v); } // the pack seen: a row moved meanwhile is refused (review 1.0.3 re-check)
+    else { const it = (L['p' + pid] = L['p' + pid] || { id: null, packId: +pid, values: {} }); it.values[f] = Number(v); } });
+  const lists = Object.keys(by).filter(l => !only || l === only); if (!lists.length) return toast('No price changed.');
+  if (!String(ncp.mxReason || '').trim()) return needOne('nmxr', 'Write the reason for the revision first.');
+  if (!cycGate('nmx')) return; const cyc = cycBody('nmx'); /* R33 */
+  const done = [], fail = [];
+  for (const list of lists) { const back = (ST.listRevisions || []).filter(r => r.list_name === list && r.status === 'sent_back').sort((a, b) => b.id - a.id)[0]; /* replaces the sent-back revision of this list (finding 4) */
+    try { const j = await api('/api/c2m/lists/revise', { list, items: Object.values(by[list]), reason: ncp.mxReason, ...cyc, validTill: ncp.mxTill || null, replaceId: back ? back.id : undefined }); done.push(`${LISTNAME[list]} (${pl(j.rows, 'price', 'prices')})`); Object.keys(ncp.mx).filter(k => k.split('|')[1] === list).forEach(k => { const [pk, , f] = k.split('|'); NAVTYPED.delete(`nmx-${pk}-${f}`); delete ncp.mx[k]; }); } catch (e) { fail.push(`${LISTNAME[list]}: ${e.message}`); } }
+  if (done.length && !fail.length) NAVTYPED.clear(); /* all sent; a list not sent keeps its typed prices on record, so Back still asks (review 6c, m1) */
+  if (done.length) toast(`Sent to the COO: ${done.join(', ')}.${fail.length ? ' Not sent: ' + fail.join(' ') : ''}`, !!fail.length); else toast('Not sent: ' + fail.join(' '), true);
+  try { await load(); } catch (e) { toast('Sent. The screen could not refresh: press Refresh or open C2M again.', true); } // the send went through (review 4 Nov)
+}
+/** Send typed white label prices, 1 proposal per pack (existing proposal rules: reason, date, why below target). */
+const ncpSend = () => once(ncpSend0);
+async function ncpSend0() {
+  const all = ncpRows(ncp.cl); const rows = all.filter(r => r.np != null && r.np !== r.pr && r.c != null && !r.wait);
+  const tch = [...new Map(all.filter(r => r.nt != null && !r.tw && !(r.nt === 'company' && r.p.targetDefault) && !(r.nt !== 'company' && Number(r.nt) === Number(r.p.target))).map(r => [r.p.id, r])).values()];
+  if (!rows.length && !tch.length) return toast('No new price or target typed.');
+  { const bt0 = Object.entries(ncp.nt).find(([, v]) => v !== 'company' && v !== '' && v != null && !(Number(v) > 0 && Number(v) < 100)); if (bt0) return toast('A target is a number above 0 and below 100, with at most 1 decimal; or press use company.', true); }
+  if (tch.length && !String(ncp.tWhy || '').trim()) return needOne('ncpt', 'Write why the target changes first.');
+  { const bt = tch.find(r => r.nt !== 'company' && !/^\d{1,2}(\.\d)?$/.test(String(r.nt))); if (bt) return toast(`${bt.p.brand}: type the target as a number above 0 and below 100, with at most 1 decimal.`, true); }
+  if (rows.some(r => r.nx) && !ncp.cx) return toast('Tick the box under the prices first: a price you are changing has an approved price waiting for a later date, and sending cancels it.', true);
+  if (rows.length) { // every price check first, so nothing is sent when a price is not ready (review r12)
+    const pa = rows.find(r => Math.abs(Number(r.np) - Math.round(Number(r.np))) > 1e-9); if (pa) return toast(`A client price is a whole rupee: ${pa.p.brand} ${szTxt(pa.k)} has ${pa.np}. Type ${Math.ceil(Number(pa.np))} or another whole number.`);
+    if (!String(ncp.reason || '').trim()) return needOne('ncpr', 'Write the reason the client will read first.');
+    if (rows.some(r => r.ngp != null && r.t != null && r.ngp < r.t) && !String(ncp.below || '').trim()) return needOne('ncpb', 'Write why the price is below target first.'); }
+  if (rows.length && !cycGate('ncp')) return; /* the Monday check before anything is sent (review 3a, finding 2) */
+  const tOk = [], tBad = [];
+  for (const r of tch) { try { await api('/api/c2m/targets/request', { clientProductId: r.p.id, toGp: r.nt === 'company' ? 'company' : r.nt, reason: ncp.tWhy }); tOk.push(r.p.brand); r.p.packs.forEach(k => NAVTYPED.delete('nct-' + k.id)); delete ncp.nt[r.p.id]; } catch (e) { tBad.push(`${r.p.brand}: ${e.message}`); } }
+  if (tOk.length) ncp.tWhy = '';
+  if (!rows.length) { if (tOk.length && !tBad.length) NAVTYPED.clear(); toast(tOk.length ? `Sent to the COO: ${pl(tOk.length, 'target', 'targets')}.${tBad.length ? ' Not sent: ' + tBad.join(' ') : ''}` : 'Not sent: ' + tBad.join(' '), !!tBad.length); await load(); return; }
+  { const pa = rows.find(r => Math.abs(Number(r.np) - Math.round(Number(r.np))) > 1e-9); if (pa) return toast(`A client price is a whole rupee: ${pa.p.brand} ${szTxt(pa.k)} has ${pa.np}. Type ${Math.ceil(Number(pa.np))} or another whole number.`); } // Tahir, 22 Oct 2026
+  if (!String(ncp.reason || '').trim()) return needOne('ncpr', 'Write the reason the client will read first.');
+  if (rows.some(r => r.ngp != null && r.t != null && r.ngp < r.t) && !String(ncp.below || '').trim()) return needOne('ncpb', 'Write why the price is below target first.');
+  if (!cycGate('ncp')) return; const cyc = cycBody('ncp'); const from1 = cyc.validFrom || ST.today; /* R33 */
+  const ok = [], bad = [], dropped = [];
+  for (const r of rows) { const back = r.back; /* a sent-back price for this pack is replaced by the new one; its valid-till date is carried (review 19 Oct) */ const till = back && back.to && String(back.to).slice(0, 10) >= from1 ? String(back.to).slice(0, 10) : undefined; if (back && back.to && !till) dropped.push(`${r.p.brand} ${szTxt(r.k)}`);
+    try { await api('/api/c2m/prices/propose', { packId: r.k.id, price: r.np, reason: ncp.reason, belowReason: r.ngp < r.t ? ncp.below : null, ...cyc, validTo: till, replaceId: back ? back.id : undefined }); ok.push(r.k.id); NAVTYPED.delete('ncp-' + r.k.id); delete ncp.np[r.k.id]; } catch (e) { bad.push(`${r.p.brand} ${szTxt(r.k)}: ${e.message}`); } }
+  ncp.cx = false; if (ok.length) { ncp.urg = false; ncp.urgWhy = ''; } if (tBad.length) bad.push(...tBad); if (!bad.length) NAVTYPED.clear(); /* a price not sent keeps its record (review 6c, m1) */
+  toast(ok.length || tOk.length ? `Sent to the COO: ${[ok.length ? pl(ok.length, 'price', 'prices') : '', tOk.length ? pl(tOk.length, 'target', 'targets') : ''].filter(Boolean).join(' and ')}.${dropped.length ? ` No Till date on ${dropped.join(', ')}: the sent-back date was before the new From.` : ''}${bad.length ? ' Not sent: ' + bad.join(' ') : ''}` : 'Not sent: ' + bad.join(' '), !!bad.length);
+  try { await load(); } catch (e) { toast('Sent. The screen could not refresh: press Refresh or open C2M again.', true); } // the send went through (review 4 Nov)
+}
+
+/* ---------- Setup: the inputs behind every cost, in 1 place ---------- */
+let nsu = 'clients';
+function nsuRates() {
+  const yw = CAN('rate.save'); const R = (ST.rates || []).slice().sort((a, b) => a.name.localeCompare(b.name) || String(a.grade).localeCompare(String(b.grade)));
+  return `${trial && yw ? trialBox() : ''}<div class="box wrapx"><table class="wt"><thead><tr><th>Material</th><th>Grade</th><th>Kind</th><th class="r">Rate, Rs per ${'kg'}</th><th>Since</th><th>Source</th>${yw ? '<th></th>' : ''}</tr></thead><tbody>${R.map(r => `<tr><td>${esc(r.name)}</td><td>${esc(r.grade || '')}</td><td class="ans" style="margin:0">${esc(r.type || '')}</td><td class="r num">${r.rate != null ? n2(r.rate) : '<span class="late">no rate</span>'}</td><td class="mono nw">${esc(fmtD(r.date || ''))}</td><td>${esc(r.source || '')}</td>${yw ? `<td><button class="btn ghost" data-try="${r.gradeId}">New rate</button></td>` : ''}</tr>`).join('')}</tbody></table></div>
+  <p class="ans">A new rate recosts every recipe that uses it, at once; C2M warns when it moves more than ${SET('rate_warn_pct')}%. Nutrient classes and % are kept in Costs, Material cost.</p>`;
+}
+const nsuLines = () => nsuLines0() + outOfUseBox();
+function outOfUseBox() { const o = ST.outOfUse || []; return o.length && CAN('client.add') ? `<h2>Out of use</h2><div class="box wrapx"><table><tr><th>Client</th><th>Product</th><th></th></tr>${o.map(x => `<tr><td>${esc(x.customer)}</td><td>${esc(x.brand)}</td><td><div class="acts"><button class="btn ghost" data-puse="${x.id}" data-on="1">Put back in use</button>${rowBtns('product', x.id, { edit: false })}</div></td></tr>${rowExtra('product', x.id, 3)}`).join('')}</table></div>` : ''; }
+function nsuLines0() {
+  const S0 = (ST.sales || []).filter(r => r.date >= fyStart() && r.date <= ST.today); const rs = (cat, nm0) => S0.filter(r => r.cat === cat && (nm0 == null || r.cust === nm0)).reduce((s, r) => s + r.kg * r.price, 0);
+  const C = ST.customers || []; const named = [];
+  C.forEach(c => { if (c.grp === 'White label' || c.grp === 'Both') named.push({ c: c.name, cat: 'wl', rs: rs('wl', c.name) }); });
+  const seen = new Set(named.map(x => x.cat + '|' + x.c));
+  C.forEach(c => { const seg = String(c.segment || ''); const cat = /distributor/i.test(seg) ? 'dist' : /^dealer/i.test(seg) ? 'dealer' : null; if (cat && !seen.has(cat + '|' + c.name)) { seen.add(cat + '|' + c.name); named.push({ c: c.name, cat, rs: rs(cat, c.name) }); } });
+  S0.forEach(r => { if (['dist', 'dealer'].includes(r.cat) && !seen.has(r.cat + '|' + r.cust)) { seen.add(r.cat + '|' + r.cust); named.push({ c: r.cust, cat: r.cat, rs: rs(r.cat, r.cust) }); } });
+  C.forEach(c => { if (named.some(x => x.c === c.name) || /^(cobo|vgreen)$/i.test(String(c.segment || ''))) return; named.push({ c: c.name, cat: (ST.products || []).some(p => p.customerId === c.id && p.channel === 'VAN brand') ? 'own' : 'other', rs: 0 }); }); // every C2M client shows once, so its edit is here (round 4: 1 table); COBO and VGreen are their pooled lines
+  const lines = [['cobo', 'COBO', 'buys on Farmer, Sindh and Sindh credit'], ['vg', 'VGreen', 'buys on the farmer price'], ['farm', 'Farmer list, Punjab', 'farmers are not clients: their sales on this list, not named'], ['farm', 'Farmer list, Sindh cash', 'farmers are not clients: their sales on this list, not named'], ['farm', 'Farmer list, Sindh credit', 'farmers are not clients: their sales on this list, not named']].concat(S0.some(r => r.cat === 'oth') ? [['oth', 'Other sales', 'sales with no O2S category C2M knows']] : []).map(([cat, c, note]) => ({ c, cat, rs: cat === 'farm' ? rs(cat, c) : rs(cat), note })); /* R56 (D-159) */
+  const ed = CAN('client.add') || CAN('customer.edit');
+  const ORD = { wl: 0, dist: 1, dealer: 2, other: 3, cobo: 4, vg: 5, farm: 6, oth: 7, own: 8 }; const all = named.concat(lines).sort((a, b) => ORD[a.cat] - ORD[b.cat] || b.rs - a.rs || a.c.localeCompare(b.c));
+  const add = CAN('client.add') ? (p3Ready() ? '<div class="next"><span>A client that O2S has not sent yet, or a new white label client, is added here. Its group follows its products.</span><button class="btn" data-p3copen>Add client</button></div>' : p3Notice()) : '';
+  return `${add}${p3ClientForm()}${p3ProdForm()}<p class="ans"><b>Sync setting:</b> the category comes from O2S on each PO. A new distributor or dealer appears here by itself. Farmers are not clients: their sales show under the farmer price list each sale was picked on, and a farmer with no region in O2S is taken as on the Farmer list, Punjab. A client that buys both sits in 2 places, split by what it bought: its own-brand products under White label, its VAN brand buys under Distributors or Dealers.</p>
+  ${findBox('clients', 'Find a client, category or O2S name')}<div class="box wrapx"><table class="wt cards" id="cltab" data-lft="clients"><thead><tr><th>Client line</th><th>Category</th><th class="r">Products</th><th class="r">Sales FY to date, Rs</th><th>Printed on price lists</th><th>Price setting</th>${ed ? '<th></th>' : ''}</tr></thead><tbody>${all.map(x => { const cu = C.find(c => c.name === x.c && (!x.note || x.cat === 'cobo' || x.cat === 'vg')); const own = cu ? (ST.products || []).filter(p => p.customerId === cu.id) : []; // the owner of the VAN brand products is not a client with brands
+    const mine = !!cu && !own.some(p => p.channel === 'VAN brand') && !['cobo', 'vg', 'own'].includes(x.cat) && (x.cat === 'wl' || cu.grp === 'VAN brand' || x.cat === 'other'); /* COBO and VGreen are pooled buyer lines: no products of their own (review r4, finding 25) */ const np = mine ? own.filter(p => p.channel === 'White label').length : null;
+    const rule = !cu || x.cat === 'own' ? '' : cu.priceRule === 'time' ? 'Time-based' + (cu.cycle ? ', ' + esc(cu.cycle) : '') : cu.priceRule === 'po' ? 'Fixed per PO' : cu.priceRule === 'list' ? 'Price list' : '<span class="late">to set</span>';
+    const o2s = cu ? String(cu.o2sNames || '').split('|').filter(n => n && n.trim().toLowerCase() !== cu.name.toLowerCase()) : [];
+    return `<tr><td data-l="Client">${esc(x.c)}${cu ? outPill('customer', cu.id) : ''}${x.note ? `<span class="sub2">${esc(x.note)}</span>` : ''}${o2s.length ? `<span class="sub2">O2S: ${esc(o2s.join(', '))}</span>` : ''}</td><td data-l="Category">${CAT1[x.cat] || 'Other'}${cu && cu.region ? `<span class="sub2">${esc(cu.region)}</span>` : ''}</td><td class="r num" data-l="Products">${np == null ? '' : np || '<span class="ans">no products yet</span>'}</td><td class="r num" data-l="Sales FY">${x.rs ? n0(x.rs) : '–'}</td><td data-l="Printed">${cu ? (cu.printName ? esc(cu.printName) : '<span class="ans">same name</span>') : ''}</td><td data-l="Price setting">${rule}</td>${ed ? `<td>${cu && CAN('customer.edit') ? `<button class="btn ghost" data-custedit="${cu.id}" data-custrow="${x.cat}">Edit</button> ` : ''}${mine && p3Ready() && CAN('client.add') && !isOutOf('customer', cu.id) ? `<button class="btn ghost" data-p3popen="${cu.id}">Add a product</button>` : ''}${cu ? rowBtns('customer', cu.id, { edit: false }) : ''}</td>` : ''}</tr>${cu && custEdit === cu.id && (!custEditCat || custEditCat === x.cat) ? `<tr><td colspan="${ed ? 7 : 6}">${custEditBox(cu)}</td></tr>` : ''}${cu ? rowExtra('customer', cu.id, ed ? 7 : 6) : ''}`; }).join('')}</tbody></table></div>
+  ${custTodo()}`;
+}
+function nsuO2s() {
+  const ls = ST.lastSync; const iss = ls && ls.issues_json ? JSON.parse(ls.issues_json) : [];
+  return `<div class="box form"><b>O2S pull</b><p class="ans" style="margin:0">${ls && ls.finished_at ? `Last pulled ${esc(when(String(ls.finished_at)))}: ${pl(Number(ls.trucks || 0), 'truck', 'trucks')}, ${pl(Number(ls.po_lines || 0), 'PO line', 'PO lines')}.` : 'Not pulled yet.'} C2M only reads O2S; it writes nothing back.</p>${CAN('o2s.sync') ? '<div><button class="btn" data-sync>Pull O2S now</button></div>' : ''}</div>
+  <h2>Found in the last pull: ${iss.length}</h2><div class="box jobs">${iss.length ? iss.map(x => `<div class="job"><div><div class="t">${esc(x)}</div><div class="d">Fixed in O2S, not in C2M.</div></div></div>`).join('') : '<div class="job"><div><div class="t">Nothing found.</div></div></div>'}</div>
+  <p class="ans">VAN brand O2S names C2M cannot place are settled in Setup, Products and variants. <button class="btn ghost" data-nsu="names">Open Products and variants</button>. Field mapping and the full list of sales C2M could not place are kept in Setup, Record and checks, From O2S.</p>`;
+}
+/* ---------- Setup, Products and variants (1.0.2, picture approved by Tahir 19 Oct 2026, D-85): 1 name per product everywhere ----------
+   Names to settle: list rows with no pack (rename and link), linked rows still under another name (rename), O2S names C2M
+   cannot place (keep as an O2S spelling). Then 1 row per VAN brand product: product name, packs, O2S spellings, edited by
+   Tahir or Yawar; every change logged. C2M never changes O2S: a spelling keeps an O2S name flowing until O2S is corrected. */
+let pn = { edit: null, pick: {}, o2s: {}, b: null, s: null, conf: null, use: null };
+/** Save a product's description on the price lists, against the one the page showed. */
+async function pnSpec(id, dsc, afterNames) { try { await api(`/api/c2m/names/product/${id}/spec`, { spec: dsc, was: (pn.was && pn.was.spec) || '' }); NAVTYPED.clear(); return true; } catch (er) { toast(afterNames ? `The names were saved. The description was not saved: ${String(er.message).replace(/\s*Nothing was saved\.?\s*$/, '').replace(/\.\s*$/, '')}. The description you typed: "${dsc}". Open the product again to save it.` : er.message, true); return false; } } // no "Nothing was saved" after names that were saved; the typed words are not lost (review 1.0.3, fourth check)
+const pnKey = s => String(s == null ? '' : s).replace(/\s+/g, ' ').trim().toLowerCase(); // as the server's matcher reads names: case and spaces only (review 1.0.2, design finding 12)
+const pnSize = z => Number(z).toLocaleString('en-US', { maximumFractionDigits: 3 }); // 0.5 stays 0.5 (review 1.0.2, design finding 11)
+const pnWords = s => vmNorm(s).split(' ').filter(w => w.length >= 3 && !/^\d/.test(w));
+/** C2M's guess for an O2S name: the only VAN brand product with that pack size sharing the most words with it. */
+function pnO2sGuess(name, size, vanP) {
+  const w = new Set(pnWords(name)); const sc = vanP.filter(p => p.packs.some(k => Math.abs(Number(k.size) - size) < 1e-6)).map(p => ({ p, n: [p.brand].concat(p.o2sNames || []).reduce((m, s) => Math.max(m, pnWords(s).filter(x => w.has(x)).length), 0) })).filter(x => x.n > 0).sort((a, b) => b.n - a.n);
+  return sc.length && (sc.length === 1 || sc[0].n > sc[1].n) ? sc[0].p : null;
+}
+function pnRows() {
+  const P = packIdx(); const van = [...P.values()].filter(k => k.product.channel === 'VAN brand').sort((a, b) => a.product.brand.localeCompare(b.product.brand) || a.size - b.size);
+  const items = (ST.listItems || []).filter(x => ['dist', 'dealer', 'farmer'].includes(x.list));
+  const linked = x => x.data.packId != null && P.has(Number(x.data.packId)) && P.get(Number(x.data.packId)).product.channel === 'VAN brand' ? P.get(Number(x.data.packId)) : null;
+  const taken = new Set(items.filter(linked).map(x => x.list + '|' + Number(x.data.packId)));
+  const offName = (x, k) => { const pk = packTxt(k.size, k.product.soldPer); return x.list === 'farmer' ? `${k.product.brand} ${pk}` : `${k.product.brand} · ${pk}`; }; // as lib.officialRow writes it
+  const nowName = x => x.list === 'farmer' ? String(x.data.p || '') : `${x.data.p || ''}${x.data.pack ? ' · ' + x.data.pack : ''}`;
+  const settle = items.filter(x => !linked(x) && !x.data.noPack);
+  const wrongSize = items.filter(x => { const k = linked(x); return k && !fitsRow(x, k); }); // linked before 1.0.2 to a pack of another size: never renamed; unlink and link the right pack (review 1.0.2 re-check 3)
+  const other = items.filter(x => { const k = linked(x); return k && fitsRow(x, k) && nowName(x) !== offName(x, k); });
+  const vanP = (ST.products || []).filter(p => p.channel === 'VAN brand' && p.active !== false);
+  /* names of products out of use are left out: their trucks have no cost on purpose (review 1.0.2 re-check 2) */
+  const offK = new Set((ST.vanOff || []).flatMap(o => (o.names || [o.brand]).flatMap(nm => o.sizes.map(z => pnKey(nm) + '#' + Number(z)))));
+  const um = new Map(); (ST.unmatched || []).filter(u => u.grp === 'VAN brand').forEach(u => { const key = pnKey(u.brand) + '#' + Number(u.pack); if (offK.has(key)) return; const g = um.get(key) || { key, name: u.brand, size: Number(u.pack), kg: 0, rs: 0, openKg: 0 }; g.kg += u.kg; g.rs += u.rs; um.set(key, g); });
+  (ST.open || []).filter(o => o.grp === 'VAN brand' && !o.packId).forEach(o => { const key = pnKey(o.brand) + '#' + Number(o.pack); if (offK.has(key)) return; const g = um.get(key) || { key, name: o.brand, size: Number(o.pack), kg: 0, rs: 0, openKg: 0 }; g.openKg += o.kg; um.set(key, g); }); // open orders not yet shipped (review 1.0.2 re-check 2, finding 3)
+  return { P, van, items, settle, other, wrongSize, taken, offName, nowName, vanP, o2s: [...um.values()].sort((a, b) => b.rs - a.rs) };
+}
+function vNames() {
+  const R = { ...pnRows(), settle: [], wrongSize: [], other: [] }, yw = CAN('lists.link'); // 1.0.3: list rows are carried into the master once (Clients, VAN Brands, Price lists, See all 5 side by side), never linked here
+  const rowsO2s = R.o2s.map(u => { const g = pnO2sGuess(u.name, u.size, R.vanP); const cand = R.vanP.filter(p => p.packs.some(k => Math.abs(Number(k.size) - u.size) < 1e-6)); const sel = pn.o2s[u.key] ?? (g ? g.id : '');
+    return `<tr><td data-l="Where">O2S trucks</td><td data-l="Name as written">${esc(u.name)} · pack ${pnSize(u.size)}<span class="sub2">${u.kg ? `${n0(u.kg)} kg or L, ${rsM2(u.rs)} of sales with no cost` : 'no truck yet'}${u.openKg ? `; ${n0(u.openKg)} kg or L on open orders` : ''}</span></td><td data-l="C2M's guess">${g ? `${esc(g.brand)} <span class="pill p-amber">shares words, same size: check</span>` : 'none'}</td>
+      <td data-l="Product"><select data-pno2spick="${esc(u.key)}" aria-label="Product for ${esc(u.name)}"><option value="">Pick</option>${cand.map(p => `<option value="${p.id}"${String(sel) === String(p.id) ? ' selected' : ''}>${esc(p.brand)} · ${esc(packTxt(u.size, p.soldPer))}</option>`).join('')}</select><span class="sub2">O2S gives the size only, not kg or L: check the unit.</span></td>
+      <td><button class="btn" data-pno2s="${esc(u.key)}">Keep as O2S spelling</button></td></tr>`; }).join('');
+  const settleBox = R.o2s.length ? `<div class="box"><b>O2S names to settle: ${R.o2s.length}</b>
+    <p class="ans" style="margin:4px 0 8px">Check C2M's guess on each line, or pick. "Keep as O2S spelling" costs that O2S name's trucks under the product at once; O2S itself is not changed.</p>
+    <div class="wrapx"><table class="wt cards" id="pnset"><thead><tr><th>Where</th><th>Name as written</th><th>C2M's guess</th><th>Product</th><th></th></tr></thead><tbody>${rowsO2s}</tbody></table></div></div>` : '<div class="box"><b>O2S names to settle: none.</b> Every O2S name C2M reads is placed on a product.</div>'; // 1.0.3: price list rows are carried into the master, never settled here
+  /* "On price lists as": the names the lists print for the product's packs, lists with the same names together (picture, 19 Oct) */
+  const lists = p => { const ids = p.packs.map(k => k.id); const by = {}; R.items.filter(x => ids.includes(Number(x.data.packId))).forEach(x => { (by[x.list] = by[x.list] || []).push(R.nowName(x)); });
+    const grp = new Map(); ['dist', 'dealer', 'farmer'].filter(l => by[l]).forEach(l => { const k = by[l].join(', '); grp.set(k, (grp.get(k) || []).concat(LISTNAME[l] || l)); });
+    return grp.size ? [...grp].map(([nm, ls]) => `${ls.join(', ')}: ${nm}`).join('; ') : 'not on a list'; };
+  /* Out of use (Tahir, 20 Oct 2026): the check before, in the product's row; nothing is deleted */
+  const useBox = id => { const u = pn.use && pn.use.id === id ? pn.use : null; if (!u) return '';
+    const what = u.inUse ? `Put ${esc(u.brand)} back in use? It comes back on C2M's screens, the grid and Margin. ${u.impact.join.n ? imp(u.impact.join, 'would be costed under it again.') : 'No O2S truck changes.'}` : `Take ${esc(u.brand)} out of use? It leaves C2M's screens, the grid and Margin; nothing is deleted, and it can be put back from this page. ${u.impact.leave.n ? imp(u.impact.leave, lossVerb(u.impact.leave, '')) : 'No O2S truck or open order loses its cost.'}`;
+    return `<tr><td colspan="8"><div class="warnbox" style="display:block;margin:6px 0" role="alert"><b>Check before saving.</b> ${what}<div style="margin-top:6px"><button class="btn" data-pnuseok>${u.inUse ? 'Put back in use' : 'Take out of use'}</button> <button class="btn ghost" data-pnuseback>Back</button></div></div></td></tr>`; };
+  const lossVerb = (o, under) => o.trucks ? `would lose their cost${under}: Margin and every report back to ${esc(fmtShort(o.from))} would change.` : `would arrive with no cost${under}; no past report changes.`; // only open orders: nothing past changes (review 1.0.2 re-check 3, finding 5)
+  const imp = (o, verb) => `${o.trucks ? `${pl(o.trucks, 'O2S truck', 'O2S trucks')}, ${rsM2(o.rs)} of sales${o.from ? ' from ' + fmtShort(o.from) : ''}` : ''}${o.trucks && o.open ? ', and ' : ''}${o.open ? `${pl(o.open, 'open O2S order line', 'open O2S order lines')} (${o.openKg.toLocaleString('en-US')} kg or L still to ship)` : ''} (${o.names.map(esc).join(', ')}) ${verb}`;
+  const famOf = p => { const fm = p.familyId ? p3Fams().find(x => x.id === p.familyId) : null; return fm ? fm.name : p.brand; }; const rules = ST.rules || [], canV = CAN('variant.add');
+  const vRates = p => { if (LF().ready) { const k = (LF().picks || []).find(x => x.id === p.id); return k ? `Labour rate ${esc(k.labour)}, FOH rate ${esc(k.foh)}` : '<span class="ans">Labour rate Low, FOH rate Low</span>'; } // Low and High (push 2c)
+    const r = p.pvariantId ? rules.filter(x => x.scopePvariantId === p.pvariantId) : []; return r.length ? esc(r.map(x => x.name).join(', ')) : '<span class="ans">none</span>'; };
+  const tab = R.vanP.slice().sort((a, b) => famOf(a).localeCompare(famOf(b)) || a.brand.localeCompare(b.brand) || Math.min(...a.packs.map(k => k.size)) - Math.min(...b.packs.map(k => k.size))).map(p => { const lg = (ST.nameLog || {})[String(p.id)];
+    if (pn.edit === p.id) { const c = pn.conf && pn.conf.id === p.id ? pn.conf : null;
+      return `<tr><td colspan="8"><div class="row"><label for="pnb-${p.id}" style="flex:1 1 220px">Product name<input id="pnb-${p.id}" value="${esc(pn.b ?? p.brand)}"${c ? ' disabled' : ''}></label><label for="pns-${p.id}" style="flex:2 1 300px">O2S spellings, 1 per line<textarea id="pns-${p.id}" rows="${Math.max(3, (p.o2sNames || []).length + 1)}"${c ? ' disabled' : ''}>${esc(pn.s ?? (p.o2sNames || []).join('\n'))}</textarea></label><label for="pnd-${p.id}" style="flex:2 1 300px">Description on the price lists (all 3 lists)<input id="pnd-${p.id}" maxlength="200" value="${esc(pn.dsc ?? (p.spec || ''))}" placeholder="e.g. what it holds and its % (printed as written)"${c ? ' disabled' : ''}><span class="sub2">Printed on the distributor, dealer and farmer lists as written. Empty: printed with none.</span></label></div>
+      <p class="ans" style="margin:4px 0">A new product name renames this product in C2M at once and on every price list row of its packs on the next list; the name before stays as an O2S spelling, so trucks under it keep their cost. Removing a spelling takes the cost off the trucks O2S sends under it: C2M shows how many before saving.</p>
+      ${c ? `<div class="warnbox" style="display:block;margin:6px 0" role="alert"><b>Check before saving.</b> ${c.impact.leave.n ? imp(c.impact.leave, lossVerb(c.impact.leave, ` under ${esc(p.brand)}`)) : 'No O2S truck or open order loses its cost.'} ${c.impact.join.n ? imp(c.impact.join, 'would be costed under it.') : ''}<div style="margin-top:6px"><button class="btn" data-pnok="${p.id}">Save anyway</button> <button class="btn ghost" data-pnback>Back to edit</button></div></div>` : `<div><button class="btn" data-pnsave="${p.id}">Save</button> <button class="btn ghost" data-pncancel>Cancel</button></div>`}</td></tr>`; }
+    return `<tr><td data-l="Product name"><b>${esc(p.brand)}</b>${lg ? `<span class="sub2">changed by ${esc(personName(lg.by))} ${esc(fmtShort(String(lg.at).slice(0, 10)))}</span>` : ''}</td><td data-l="Variant">${p.pvariantId ? esc(p3VName(p.pvariantId)) : '<span class="ans">no variant tag</span>'}</td><td data-l="Packs">${p.packs.map(k => esc(packTxt(k.size, p.soldPer))).join(', ')}</td><td data-l="Description on the lists">${p.spec ? esc(p.spec) : '<span class="late">none: the lists print none</span>'}</td><td data-l="O2S spellings">${(p.o2sNames || []).map(s => `<span class="pill p-none">${esc(s)}${pnKey(s) === pnKey(p.brand) ? ' (same as the product name)' : ''}</span>`).join(' ') || '<span class="ans">none</span>'}</td><td data-l="On price lists as">${esc(lists(p))}</td><td data-l="${LF().ready ? 'Labour and FOH' : 'Rates for its variant'}">${vRates(p)}</td><td><div class="acts"><button class="btn ghost" data-openprod="${p.id}">Open</button><button class="btn ghost" data-pnedit="${p.id}">Edit</button>${canV && p3Ready() ? `<button class="btn ghost" data-p3tagopen="${p.id}">${p.pvariantId ? 'Change variant' : 'Tag variant'}</button>` : ''}<button class="btn ghost" data-pnoff="${p.id}">Take out of use</button>${rowBtns('product', p.id, { edit: false, van: true })}</div></td></tr>${useBox(p.id)}${rowExtra('product', p.id, 8)}`; }).join('');
+  const emptyV = p3Fams().flatMap(fm => fm.variants.filter(v => !R.vanP.some(p => p.pvariantId === v.id)).map(v => ({ fm, v })));
+  const tabE = emptyV.map(({ fm, v }) => `<tr><td data-l="Product name"><span class="ans">no product yet</span></td><td data-l="Variant">${esc(fm.name)} · ${esc(v.name)}</td><td data-l="Packs">none</td><td></td><td></td><td></td><td data-l="${LF().ready ? 'Labour and FOH' : 'Rates for its variant'}">${LF().ready ? '' : esc((rules.filter(x => x.scopePvariantId === v.id).map(x => x.name)).join(', ')) || '<span class="ans">none</span>'}</td><td></td></tr>`).join('');
+  return `<details class="how"><summary>How names work</summary><div>1 name per product, everywhere (ruling of 19 Oct 2026). The product name is the name C2M shows and the price lists print; the pack is written as C2M writes it (1 L, 25 kg). O2S spellings are the other names O2S uses for the product: C2M reads O2S only and never changes it, so a spelling keeps those trucks costed until O2S is corrected; the product name matches on its own once it is. the COO and the CFO both edit; every change is in the change record with the name before.</div></details>
+  ${!lmDone() && (ST.listItems || []).length ? `<div class="next"><span>Price list rows are no longer linked here: they are carried into the master once, on 1 screen.</span><button class="btn" data-lm-open>Carry into the master</button></div>` : ''}${settleBox}<h2>Products and variants: ${pl(R.vanP.length, 'VAN brand product', 'VAN brand products')}</h2><p class="ans">1 row per product, with its variant, packs, the names the lists print and O2S uses, and any labour or FOH rate set for its variant. Variants of 1 product sit together.</p>
+  ${findBox('pnames', 'Find a product, variant, pack or O2S spelling')}<div class="box wrapx"><table class="wt cards" id="pntab" data-lft="pnames"><thead><tr><th>Product name</th><th>Variant</th><th>Packs</th><th>Description on the lists</th><th>O2S spellings</th><th>On price lists as</th><th>${LF().ready ? 'Labour and FOH' : 'Rates for its variant'}</th><th></th></tr></thead><tbody>${tab}${tabE}</tbody></table></div>
+  ${(ST.vanOff || []).length ? `<h2>Out of use: ${pl(ST.vanOff.length, 'product', 'products')}</h2><div class="box wrapx"><table class="wt cards" id="pnoff"><thead><tr><th>Name</th><th>Packs</th><th></th></tr></thead><tbody>${ST.vanOff.map(o => `<tr><td data-l="Name">${esc(o.brand)}</td><td data-l="Packs">${o.sizes.map(z => esc(packTxt(z, o.soldPer))).join(', ')}</td><td><button class="btn ghost" data-pnon="${o.id}">Put back in use</button></td></tr>${useBox(o.id)}`).join('')}</tbody></table></div>` : ''}`;
+}
+/* Setup in 5 tabs, each with its parts (review 26 Oct 2026, F9): 1 place per kind of input. Old keys still open their part. */
+let nsuPart = {}, nsuMatInit = false; // Costs, Materials opens on every material, with its rate
+const NSU_OLD = { settings: ['set', 'settings'], rates: ['costs', 'rates'], packing: ['costs', 'packing'], conv: ['costs', 'conv'], freight: ['costs', 'freight'], cust: ['clients', 'lines'], lines: ['clients', 'lines'], variants: ['van', 'variants'], names: ['van', 'variants'], people: ['set', 'people'], roles: ['set', 'settings'], o2s: ['record', 'o2s'], sheet: ['record', 'sheet'], checks: ['record', 'checks'], audit: ['record', 'audit'], docs: ['record', 'docs'] };
+/* ---------- Costs (Tahir and Yawar, 5 Nov 2026; R5, R14, R16, R22; push 2a): the configuration centre, 1 box per cost type.
+   A box shows its figures, what waits and what is wrong; Open shows its list and forms (the same screens Setup, Costs had before 5 Nov 2026). ---------- */
+let cpart = null, saved = null;
+const navHas = k => !!(ST && ST.me && ST.me.nav.concat(ST.me.more || []).includes(k));
+const CPARTS = { materials: 'Material cost', packing: 'Packing cost', labour: 'Labour', foh: 'FOH (factory overhead)', freight: 'Freight cost', month: 'Month end', next: 'Next week\'s costs' }; // next: not a box, the weekly list (push 2b)
+/** The "Saved, what next" box (R16): stays until closed; it replaces the message that vanished after 4 seconds. */
+/* ---------- Next week's costs: Monday is cost day (Tahir and Yawar, 5 Nov 2026, D-149; push 2b) ----------
+   Material, packing price, packing bill and freight changes saved Tuesday to Sunday wait for Monday 00:00; saved on a Monday they go
+   in at once. A first cost goes in at once. Urgent: a reason, and Tahir approves. For 1 hour after a change goes in, its saver can correct it. */
+const WK = () => ST.weekly || { ready: false };
+const wkHeld = () => !!(WK().ready && !WK().monday && !GLON()); // the go-live window: nothing waits for Monday (D-170)
+/* ---------- Go-live window (Tahir, 17 Nov 2026, D-170) ----------
+   Until the last day Tahir sets, every cost change goes in when saved (no Monday wait, no urgent approval, no re-approval, 1 press of
+   Save), and every recipe the Production Manager sends goes straight to the CFO (D-171: new products too, 18 Nov 2026). The day
+   after the last day, each fully costed pack's cost that day becomes its approved cost. */
+const GLON = () => !!(ST && ST.golive && ST.golive.on);
+function glStrip(where) {
+  const G = (ST && ST.golive) || {}; const adm = !!ST.me.admin;
+  if (!CAN('see.products') && !CAN('see.cost')) return ''; // a KAM sees no recipes and no costs
+  if (!G.on) return adm && where === 'costs' ? `<details class="box form"><summary>Open the go-live window</summary><p class="ans">Until the last day you pick, every cost change goes in when it is saved, with no Monday wait, no urgent approval and no re-approval. Every recipe the Production Manager sends goes straight to the CFO. The day after the last day, each pack's cost that day becomes its approved cost.</p><div class="row"><label for="gl-d">Last day<input id="gl-d" type="date" min="${ST.today}"></label><button class="btn" data-glset>Open the window</button></div></details>` : '';
+  const f = fmtShort(G.until);
+  if (where === 'today') { const left = Math.max(0, calDays(ST.today, G.until)); return `<div class="next gl one"><span><b>Go-live window open until ${esc(f)}</b> · ${left ? pl(left, 'day', 'days') + ' left' : 'last day today'}. ${CAN('see.cost') ? 'Costs go in when saved; recipes' : 'Recipes'} go straight to the CFO.</span>${navHas('costs') ? '<button class="btn ghost" data-scr="costs">Open on Costs</button>' : ''}</div>`; } // push 10b: 1 line here; the controls are on Costs only
+  const txt = CAN('see.cost') ? `Every cost change goes in when it is saved: no Monday wait, no urgent approval and no re-approval. Every recipe the Production Manager sends, a new product's too, goes straight to the CFO. The day after ${f}, each pack's cost that day becomes its approved cost.` : `Every recipe the Production Manager sends, a new product's too, goes straight to the CFO for its cost; the QC Head and Plant Manager steps are skipped until ${f}.`;
+  const rev = CAN('see.cost') ? `<button class="btn ghost" data-panopen="glrev">See the costs that become approved</button>` : ''; // push 10a
+  const left2 = Math.max(0, calDays(ST.today, G.until)); // push 10c: 1 line; the explanation folds under "What the window does"
+  return `<div class="next gl one"><span><b>Go-live window open until ${esc(f)}</b> · ${left2 ? pl(left2, 'day', 'days') + ' left' : 'last day today'} · changes go in when saved <details class="glx"><summary>What the window does</summary>${esc(txt)}</details></span>${rev}${adm ? `<span class="acts"><input id="gl-d" type="date" min="${ST.today}" value="${esc(G.until)}" aria-label="Last day of the go-live window"><button class="btn ghost" data-glset>Change the last day</button><button class="btn ghost danger" data-glclose data-confirm="Close the go-live window now">Close the window now</button></span>` : ''}</div>`;
+}
+/* push 10b: ? Help on every page head; Approvals topic chips and grouped rows */
+let jtopic = 'All'; const jxOpen = new Set(); let vpF = 'all'; // push 10c: the VAN Brands box filter
+document.addEventListener('click', e => { const t = e.target.closest && e.target.closest('[data-help],[data-jtopic],[data-jx],[data-vpf]'); if (!t || !ST) return; const d = t.dataset;
+  if (d.help != null) { const on = !helpOpen.has(d.help); on ? helpOpen.add(d.help) : helpOpen.delete(d.help); t.setAttribute('aria-expanded', on); const x = document.getElementById(t.getAttribute('aria-controls')); if (x) x.hidden = !on; return; }
+  if (d.jtopic != null) { jtopic = d.jtopic; render(); return; }
+  if (d.vpf != null) { vpF = d.vpf; render(); return; }
+  if (d.jx != null) { const on = !jxOpen.has(d.jx); on ? jxOpen.add(d.jx) : jxOpen.delete(d.jx); render(); }
+});
+/* Registered before the main click handler, so its 2-step confirm arms first (Close the window now). */
+document.addEventListener('click', async e => {
+  const t = e.target.closest && e.target.closest('[data-glset],[data-glclose]'); if (!t || !ST) return; const d = t.dataset;
+  if (d.confirm && !d.armed) return; e.preventDefault();
+  if ('glset' in d) { const v = val('gl-d'); if (!v) { toast('Pick the last day of the go-live window.', true); return; } await act('/api/c2m/golive', { until: v }, j => `Go-live window open until ${fmtShort(j.until)}.`); return; }
+  if ('glclose' in d) await act('/api/c2m/golive', { close: true }, j => `Go-live window closed.${j.closed ? ` ${pl(j.closed.packs, 'pack took', 'packs took')} today's cost as its approved cost${j.closed.notCosted ? `; ${pl(j.closed.notCosted, 'pack not fully costed kept', 'packs not fully costed kept')} the old approved cost` : ''}.` : ''}`);
+});
+const PKIND = { rate: 'materials', packing_rate: 'packing', packing_bill: 'packing', packing_assign: 'packing', freight: 'freight' };
+const CORR = { '/api/c2m/rates': 'rate', '/api/c2m/packing/rate': 'price', '/api/c2m/freight': 'rsPerKg' }; // the figure a correction changes
+let corrOpen = null;
+function weekNote(p, first, freight) {
+  const W = WK(); if (!W.ready) return '';
+  if (first) return `<p class="ans wk">First cost: it goes in when saved.</p>`;
+  if (GLON()) return `<p class="ans wk"><b>Go-live window:</b> this goes in when saved, with no re-approval.</p>`; // D-170
+  if (W.monday) return `<p class="ans wk"><b>Today is Monday, cost day:</b> this goes in when saved.</p>`;
+  return `<div class="wk"><p class="ans" style="margin:0"><b>Takes effect Monday ${esc(fmtShort(W.next))}.</b> It waits in Next week's costs; you can change or drop it until then.${freight ? ' A From date on or after that Monday keeps its own date. The first freight rate for a region goes in when saved.' : ''}</p><div class="row"><label class="chk"><input type="checkbox" id="${p}-urg"> Urgent: goes in when Tahir approves</label><label for="${p}-why" style="flex:1 1 240px">Reason, if urgent<input id="${p}-why" maxlength="300" placeholder="e.g. the supplier raised the price today"></label></div></div>`;
+}
+/** A figure waiting for Monday under today's, in a list (picture screen 2). */
+const wkNext = (kind, target) => { const x = (ST.pending || []).find(y => y.status === 'waiting' && y.kind === kind && String(y.target) === String(target)); return x ? `<br><span class="ans wkn">${x.next != null ? rs2(x.next) + ' ' : ''}from ${esc(fmtShort(x.applyOn))}${x.urgent ? ', urgent' : ''}</span>` : ''; };
+const wkBody = p => { const u = document.getElementById(p + '-urg'); return u && u.checked ? { urgent: true, reason: val(p + '-why') } : {}; };
+const saveWord = (word, first) => wkHeld() && !first ? `${word} for Monday ${fmtShort(WK().next)}` : word;
+const minsLeft = at => { const t = Date.parse(String(at).replace(' ', 'T') + '+05:00'); return isNaN(t) ? 0 : Math.ceil(60 - (Date.now() - t) / 60000); };
+/** Correct a change that went in (edit only, 1 hour; R29). path and body of the save; key: where the open form belongs. */
+function corrBox(key, path, body, left) {
+  if (!CORR[path] || left <= 0) return '';
+  if (corrOpen !== key) return `<button class="btn ghost" data-corr="${esc(key)}">Correct (${left} min left)</button>`;
+  const f = path === '/api/c2m/packing/rate' && body.buy === 'kg' ? 'perKg' : CORR[path];
+  return `<span class="corr"><label for="corr-v">Correct the figure, Rs${f === 'perKg' ? ' per kg' : ''}<input id="corr-v" type="number" step="0.01" value="${esc(body[f] != null ? body[f] : '')}"></label><button class="btn" data-corrsave="${esc(key)}">Save the correction</button><span id="eff-corr" class="effslot"></span></span>`;
+}
+function savedBox() {
+  if (!saved) return '';
+  if (saved.pending) return `<div class="next savedbox" role="status"><span><b>${esc(saved.t)}</b> ${saved.urgent ? '' : 'It waits in Next week\'s costs; you can change or drop it until then.'}${saved.n ? ` On ${saved.urgent ? 'approval' : 'Monday'}, ${pl(saved.n, 'pack goes', 'packs go')} to re-approval.` : ''}</span><span class="acts"><button class="btn" data-cpart="next" data-savedx>See next week's costs</button>${cpart && cpart !== 'next' ? `<button class="btn ghost" data-cpart="${cpart}" data-savedx>Change another</button>` : ''}<button class="btn ghost" data-cpart="" data-savedx>Back to Costs</button><button class="btn ghost" data-savedx aria-label="Close">Close</button></span></div>`;
+  const left = WK().ready && saved.path ? Math.ceil(60 - (Date.now() - saved.at) / 60000) : 0;
+  return `<div class="next savedbox" role="status"><span><b>${esc(saved.t)}</b>${saved.re ? ` ${pl(saved.re, 'pack waits', 'packs wait')} for re-approval on Approvals.` : ''}</span><span class="acts">${corrBox('saved', saved.path, saved.body || {}, left)}${saved.re ? '<button class="btn" data-scr="approvals" data-savedx>Open Approvals</button>' : ''}${cpart && cpart !== 'next' ? `<button class="btn ghost" data-cpart="${cpart}" data-savedx>Change another</button>` : ''}<button class="btn ghost" data-cpart="" data-savedx>Back to Costs</button><button class="btn ghost" data-savedx aria-label="Close">Close</button></span></div>`;
+}
+function costBoxes() {
+  const R = ST.rates || [], items = ST.packingItems || [], bills = ST.packingBills || [], rules = ST.rules || [], fr = ST.freight || [];
+  const noRate = R.filter(r => r.rate == null && !isOutOf('grade', r.gradeId)).length; // a material out of use needs no cost (review 5 Nov, finding 7)
+  const packs = (ST.products || []).filter(p => p.active !== false && p.packingMode !== 'bulk' && p.packingMode !== 'client').flatMap(p => p.packs || []); const noBill = packs.filter(k => k.billId == null).length; // bulk and client packed take no bill (D-98; review 5 Nov, finding 6)
+  const frNow = [...fr.filter(f => String(f.valid_from).slice(0, 10) <= ST.today).reduce((m, f) => { const k = f.segment + '|' + String(f.region || '').trim().toLowerCase(); const o = m.get(k); if (!o || String(f.valid_from) > String(o.valid_from)) m.set(k, f); return m; }, new Map()).values()]; // 1 per segment and region: the one in force today
+  const last = a => a.filter(Boolean).map(x => String(x).slice(0, 10)).sort().pop();
+  const kindRules = k => rules.filter(r => (r.kind || 'foh') === k).sort((a, b) => Number(b.isBase || 0) - Number(a.isBase || 0) || String(a.name).localeCompare(String(b.name)));
+  const ruleLine = k => { const L = kindRules(k); return L.length ? L.slice(0, 3).map(r => `${esc(r.name)} Rs ${n2(r.rsPerKg)}`).join(' · ') + (L.length > 3 ? ` · and ${L.length - 3} more` : '') : 'none set'; };
+  const lm = addDays(ST.today.slice(0, 7) + '-01', -1).slice(0, 7); const act = (ST.actuals || []).some(a => a.month === lm); const ck = k => (ST.checks || []).some(c => c.month === lm && c.kind === k);
+  const B = [
+    { k: 'materials', n: pl(R.length, 'material', 'materials'), p: noRate ? `${pl(noRate, 'material has', 'materials have')} no cost` : '' }, // count only for Material (ruled 5 Nov)
+    { k: 'packing', n: `${pl(items.length, 'item', 'items')} · ${pl(bills.length, 'bill', 'bills')}`, l: last(items.map(i => i.date).concat(bills.map(b => b.at))), p: noBill ? `${pl(noBill, 'pack has', 'packs have')} no packing bill` : '' }, // push 10c: a bill saved counts as a packing change
+    { k: 'labour', n: ruleLine('labour'), l: last(kindRules('labour').map(r => r.validFrom)), p: kindRules('labour').length ? '' : 'No labour rate' },
+    { k: 'foh', n: ruleLine('foh'), l: last(kindRules('foh').map(r => r.validFrom)), p: kindRules('foh').length ? '' : 'No FOH rate' },
+    { k: 'freight', n: `${pl(frNow.length, 'rate', 'rates')} in force, ${pl(new Set(frNow.map(f => f.segment)).size, 'segment', 'segments')}`, l: last(fr.map(f => String(f.valid_from).slice(0, 10)).filter(d => d <= ST.today)), wt: fr.some(f => String(f.valid_from).slice(0, 10) > ST.today) ? `${pl(fr.filter(f => String(f.valid_from).slice(0, 10) > ST.today).length, 'rate starts', 'rates start')} later` : '' },
+    (() => { const AB = ((ST.monthEnd || {}).months || {})[lm] || {}; const S5 = [['Actuals', act], ['Charged on kg made', !!(AB.absorbed && AB.absorbed.kg > 0)], ['Tie to the books', ck('tie_books')], ['COO check', ck('coo_check')], ['Lock', ck('lock')]]; /* the same 5 steps as Month end */ const done = S5.filter(x => x[1]).length, nx = S5.find(x => !x[1]); // push 10c: the 5 steps and the next one
+      return { k: 'month', n: mon(lm), steps: S5, w: ck('lock') ? '' : `${done} of 5 steps done · next: ${nx ? nx[0].toLowerCase() : 'lock'}`, ok: ck('lock') ? 'Locked' : '' }; })()]; /* push 4: the 5 steps (D-154) */
+  if (LF().ready) { const c = lfCert(), due = ST.today.slice(0, 8) + '05'; // Low and High (push 2c, D-150)
+    B.forEach(b => { if (b.k !== 'labour' && b.k !== 'foh') return; const R = LF().rates.filter(x => x.kind === b.k); const nf = R.filter(x => x.rsPerKg == null);
+      b.n = R.map(x => `${x.name} ${x.rsPerKg == null ? 'not filled' : 'Rs ' + n2(x.rsPerKg)}`).join(' · ') + (R.some(x => x.rsPerKg != null) ? ' per kg or L' : ''); /* push 10c: the unit said once */ b.l = R.filter(x => x.rsPerKg != null).map(x => x.validFrom).filter(Boolean).sort().pop();
+      b.p = nf.length ? `${nf.map(x => x.name).join(' and ')} not filled: packs on ${nf.length === 1 ? 'it are' : 'them are'} not costed` : (lfCertDue() && !c && ST.today > due ? `${mon(lfPrev())} certificate overdue` : '');
+      b.w = lfCertDue() && !c && ST.today <= due ? `${mon(lfPrev())} certificate due by ${fmtShort(due)}` : ''; }); }
+  { const W = (ST.pending || []).filter(x => x.status === 'waiting'); const by = k => W.filter(x => PKIND[x.kind] === k).length; // what waits for Monday, per box (push 2b)
+    B.forEach(b => { const n = by(b.k); if (!n) return; const t = `${pl(n, 'change waits', 'changes wait')} for Monday`; if (GLON()) b.w = [b.w, t + ': save it again or drop it'].filter(Boolean).join(' · '); else b.wt = [b.wt, t].filter(Boolean).join(' · '); }); } // push 10c: waiting is not a to do, except in the go-live window, where it asks to be saved again or dropped
+  return B;
+}
+function vCosts() {
+  if (cpart && !CPARTS[cpart]) cpart = null;
+  if (cpart) {
+    if (cpart === 'next') return `<p class="crumb"><button data-cpart="">Costs</button> › ${esc(CPARTS.next)}</p>${savedBox()}${vNext()}`;
+    const nsuP = { materials: 'rates', packing: 'packing', labour: 'conv', foh: 'conv', freight: 'freight', month: 'checks' }[cpart];
+    if (cpart === 'materials' && !nsuMatInit) { nsuMatInit = true; matFilter = 'all'; }
+    const body = cpart === 'labour' || cpart === 'foh' ? (LF().ready ? vLF(cpart) : boRules(null, cpart)) : cpart === 'month' ? vMonthEnd() : nsuB()[nsuP]();
+    return `<p class="crumb"><button data-cpart="">Costs</button> › ${esc(CPARTS[cpart])}</p>${savedBox()}${cpart === 'month' ? '' : `<h1 class="topic">${esc(CPARTS[cpart])}</h1>`}${body}`;
+  }
+  /* Push 10c (Tahir, 20 Nov 2026; picture "C2M Costs redesign"; replaces the Open button of D-148): each box shows its state as a coloured
+     edge, a word and an icon, problems first; the whole box opens; the answer line names what needs attention. */
+  const B = costBoxes().map(b => { const frNone = b.k === 'freight' && /^0 rates in force/.test(b.n);
+    const s = b.p ? ['bad', 'Problem'] : b.w ? ['warn', 'To do'] : frNone ? ['off', 'Not set up'] : b.wt ? ['wait', 'Waiting'] : ['ok', b.ok || 'Up to date']; return { ...b, s, why: [b.p || b.w || (frNone ? 'No freight rate is in force for any segment' : ''), b.wt].filter(Boolean).join(' · ') }; });
+  const ordS = { bad: 0, warn: 1, off: 2, wait: 3, ok: 4 }; const L = B.map((b, i) => [b, i]).sort((x, y) => ordS[x[0].s[0]] - ordS[y[0].s[0]] || x[1] - y[1]).map(x => x[0]);
+  const need = L.filter(b => b.s[0] !== 'ok' && b.s[0] !== 'wait');
+  const ans = need.length ? `${need.length} of ${B.length} ${need.length === 1 ? 'needs' : 'need'} attention: ${need.map(b => CPARTS[b.k]).join(', ').replace(/, ([^,]*)$/, ' and $1')}.` : `All ${B.length} are up to date.`;
+  const IC = { bad: '<svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="currentColor"/><path d="M8 4v5M8 11.2v.1" stroke="var(--surface)" stroke-width="2" stroke-linecap="round"/></svg>', warn: '<svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.5 15 14H1z" fill="currentColor"/><path d="M8 6v4M8 12v.1" stroke="var(--surface)" stroke-width="1.8" stroke-linecap="round"/></svg>', off: '<svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M4.5 8h7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>', wait: '<svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8 4.5V8l2.4 1.6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>', ok: '<svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="currentColor"/><path d="m4.8 8.2 2.2 2.2 4.2-4.4" fill="none" stroke="var(--surface)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>' };
+  return `${savedBox()}${head('Costs', ans, 'Every cost that makes up a pack, by type. A box shows today\'s figures and what is wrong; the whole box opens its list. A change shows its effect on packs before you save it; packs whose cost moves more than ' + SET('reapprove_pct') + '% wait for re-approval on Approvals (not while the go-live window is open).')}
+  ${wkStrip()}<div class="cboxes cb2">${L.map(b => `<button class="cbox s-${b.s[0]}" data-cpart="${b.k}" aria-label="Open ${esc(CPARTS[b.k])}: ${esc(b.s[1])}${b.why ? '. ' + esc(b.why) : ''}"><span class="ch"><span class="ct">${esc(CPARTS[b.k])}</span><span class="pill ${{ bad: 'p-red', warn: 'p-amber', off: 'p-grey', wait: 'p-blue', ok: 'p-green' }[b.s[0]]}">${esc(b.s[1])}</span></span><span class="cn">${b.n}</span>${b.steps ? `<span class="csteps">${b.steps.map(x => `<span class="${x[1] ? 'dn' : ''}">${x[1] ? '✓ ' : ''}${esc(x[0])}</span>`).join('')}</span>` : ''}${b.l ? `<span class="clast">Last change ${esc(fmtShort(b.l))}</span>` : ''}<span class="cwhy">${IC[b.s[0]] || ''}<span>${esc(b.why)}</span><span class="carr" aria-hidden="true">→</span></span></button>`).join('')}</div>`;
+}
+/* ---------- Labour and FOH, Low and High (Tahir and Yawar, 5 Nov 2026, R15 to R20; push 2c, D-150) ---------- */
+const LF = () => ST.lf || { ready: false };
+const KNW = { labour: 'Labour', foh: 'FOH' };
+const lfPrev = () => addDays(ST.today.slice(0, 8) + '01', -1).slice(0, 7); // the month the certificate is for
+const lfFree = () => GLON(); // go-live: first figure and first move need no re-approval (ruled 5 Nov); push 10e (C-14): the go-live window's own last day, not a fixed date
+const lfFreeTxt = () => GLON() && ST.golive.until ? `Until ${fmtD(ST.golive.until)} (the go-live window's last day)` : 'Only while the go-live window is open,';
+const lfCertDue = () => LF().ready && lfPrev() >= String(LF().since || '9999-99'); // certificates start with the month of the switch (review 2c, finding 12)
+const lfCert = () => (ST.checks || []).find(c => c.month === lfPrev() && c.kind === 'lf_cert');
+const lfRs = x => x.rsPerKg == null ? '<span class="late">not filled</span>' : rs2(x.rsPerKg);
+let lfOpen = null, lfFilter = 'all', lfHist = new Set();
+function lfCertBox() {
+  if (!lfCertDue()) return `<p class="ans">The first monthly certificate is for ${esc(mon(LF().since || ST.today.slice(0, 7)))}, due by 5 ${esc(mon(addDays((LF().since || ST.today.slice(0, 7)) + '-28', 7).slice(0, 7)))}.</p>`;
+  const c = lfCert(), m = lfPrev(), yw = CAN('labour.manage'); const due = ST.today.slice(0, 8) + '05';
+  if (c) { const r = (c.data || {}).result; return `<div class="next"><span><b>Certificate for ${esc(mon(m))}:</b> ${r === 'changed' ? 'changed' : 'no change'}, by ${esc(personName(c.done_by))} on ${esc(fmtShort(c.done_at))}.</span></div>`; }
+  return `<div class="next ${ST.today > due ? 'warn' : ''}"><span><b>Certificate for ${esc(mon(m))}${ST.today > due ? ', overdue' : `, due by ${esc(fmtShort(due))}`}:</b> "I have reviewed the labour and FOH rates for ${esc(mon(m))}."</span>${yw ? `<span class="acts"><button class="btn" data-lfcert="no_change">No change</button><button class="btn ghost" data-lfcert="changed">Changed</button></span>` : ''}</div>`;
+}
+function vLF(kind) {
+  const L = LF(), yw = CAN('labour.manage'); const R = L.rates.filter(x => x.kind === kind); const P = L.picks.filter(x => { const p = (ST.products || []).find(y => y.id === x.id); return p && costProd(p); });
+  const on = n => P.filter(x => x[kind] === n).length; const unfilled = R.filter(x => x.rsPerKg == null);
+  const kw = kind === 'foh' ? 'FOH' : 'labour'; const ans = `${pl(R.length, kw + ' rate', kw + ' rates')}. ${R.map(x => `${on(x.name)} on ${esc(x.name)}`).join(', ')}.${unfilled.length ? ` <span class="late">${esc(unfilled.map(x => x.name).join(' and '))} not filled: packs on ${unfilled.length === 1 ? 'it' : 'them'} have no cost until filled.</span>` : ''}`;
+  const rows = R.map(x => { const k = kind + '|' + x.name;
+    return `<tr><td data-l="Rate">${esc(x.label)}</td><td data-l="Rs per kg or L" class="r num">${lfRs(x)}</td><td data-l="From" class="mono nw">${x.validFrom ? esc(fmtShort(x.validFrom)) : ''}</td><td data-l="Products" class="r num">${on(x.name)}</td><td><div class="acts">${yw ? `<button class="btn ghost" data-lfch="${esc(k)}">${x.rsPerKg == null ? 'Fill' : 'Change'}</button>` : ''}${x.history.length > 1 ? `<button class="btn ghost" data-lfhist="${esc(k)}" aria-expanded="${lfHist.has(k)}">History</button>` : ''}</div></td></tr>
+    ${lfOpen === k ? `<tr class="sub"><td colspan="5"><div class="row"><label for="lf-v">New ${esc(x.label)}, Rs per kg or L<input id="lf-v" type="number" step="0.01" value="${x.rsPerKg != null ? x.rsPerKg : ''}"></label><label for="lf-s" style="flex:1 1 240px">Source or note<input id="lf-s" placeholder="e.g. October review"></label></div><p class="ans" style="margin:4px 0">In force from today. ${x.rsPerKg == null && lfFree() ? 'First figure, go-live: no re-approval.' : `Packs that move more than ${SET('reapprove_pct')}% go to re-approval; Tahir is told.`}</p><div id="eff-lf"></div><div><button class="btn" data-lfsave="${esc(k)}">Save</button> <button class="btn ghost" data-lfx>Cancel</button></div></td></tr>` : ''}
+    ${lfHist.has(k) ? `<tr class="sub"><td colspan="5"><div class="wrapx"><table><tr><th>From</th><th class="r">Rs per kg or L</th><th>By</th><th>Source</th></tr>${x.history.map(h => `<tr><td class="mono nw">${esc(fmtShort(h.validFrom))}</td><td class="r num">${h.rsPerKg == null ? 'not filled' : n2(h.rsPerKg)}</td><td>${esc(personName(h.by))}</td><td>${esc(h.source || '')}</td></tr>`).join('')}</table></div></td></tr>` : ''}`; }).join('');
+  const F = { all: 'All' }; R.forEach(x => { F['n:' + x.name] = 'On ' + x.name; }); F.wl = 'White label'; F.van = 'VAN brands'; if (!F[lfFilter]) lfFilter = 'all';
+  const prod = id => (ST.products || []).find(y => y.id === id) || {};
+  const shown = P.filter(x => lfFilter === 'all' || (lfFilter.startsWith('n:') && x[kind] === lfFilter.slice(2)) || (lfFilter === 'wl' && prod(x.id).grp === 'White label') || (lfFilter === 'van' && prod(x.id).channel === 'VAN brand'))
+    .sort((a, b) => String(prod(a.id).brand).localeCompare(String(prod(b.id).brand)));
+  const names = k2 => L.rates.filter(x => x.kind === k2);
+  const seg = (x, k2) => `<span class="seg" role="group" aria-label="${KNW[k2]} rate for ${esc(prod(x.id).brand)}">${names(k2).map(n => `<button ${yw ? `data-lfpick="${x.id}|${k2}|${esc(n.name)}"` : 'disabled'} aria-pressed="${x[k2] === n.name}">${esc(n.name)}</button>`).join('')}</span>`;
+  return `<p class="answer">${ans}</p>${how(`Only named rates, Rs per kg or L, never per pack. Each product uses 1 labour rate and 1 FOH rate; all its packs share them. Every product starts on Low; move the ones that need High. A changed rate, or a product moved, is in force from the day it is saved. ${lfFreeTxt()} the first figure of a rate and each product's first move need no re-approval, and when the 4 rates are all filled each pack's cost that day becomes its approved cost. After that, packs that move more than ${SET('reapprove_pct')}% go to re-approval and Tahir is told. The rates are reviewed once a month: the certificate is due by the 5th.`)}
+  ${lfCertBox()}
+  <div class="box wrapx"><table class="wt cards"><tr><th>Rate</th><th class="r">Rs per kg or L</th><th>From</th><th class="r">Products</th><th></th></tr>${rows}</table></div>
+  ${yw ? `<details class="box form"><summary>Add a named rate (e.g. Average)</summary><div class="row"><label for="lfn-n">Name<input id="lfn-n" maxlength="40" placeholder="Average"></label><label for="lfn-v">Rs per kg or L<input id="lfn-v" type="number" step="0.01"></label><label for="lfn-s" style="flex:1 1 200px">Source or note<input id="lfn-s"></label><button class="btn" data-lfadd="${kind}">Add</button></div><p class="ans" style="margin:0">A new rate has no products until you move them to it.</p></details>` : ''}
+  <h2>Which products are on which rate</h2>
+  ${findBox('lfp' + kind, `Find a product, client or ${KNW[kind]} rate (${R.map(x => x.name).join(', ')})`)}<div class="chips" role="group" aria-label="Show">${Object.entries(F).map(([k, l]) => `<button data-lff="${k}" aria-pressed="${lfFilter === k}">${l}</button>`).join('')}</div>
+  <div id="eff-pick"></div>
+  <div class="box wrapx"><table class="wt cards" data-lft="lfp${kind}"><tr><th>Product</th><th>Client</th><th>Labour</th><th>FOH</th></tr>${shown.map(x => `<tr data-lfs="${esc([prod(x.id).brand, prod(x.id).form, prod(x.id).soldPer, prod(x.id).customer, x[kind]].filter(Boolean).join(' '))}"><td data-l="Product">${esc(prod(x.id).brand)}<br><span class="ans">${esc([prod(x.id).form, prod(x.id).soldPer].filter(Boolean).join(' · '))}</span></td><td data-l="Client">${esc(prod(x.id).customer || '')}</td><td data-l="Labour">${seg(x, 'labour')}</td><td data-l="FOH">${seg(x, 'foh')}</td></tr>`).join('') || '<tr><td colspan="4" class="ans">No product here.</td></tr>'}</table></div>`;
+}
+/** The line above the boxes: what waits for Monday (push 2b). */
+function wkStrip() {
+  if (GLON() || ST.me.admin) { const g = glStrip('costs'); if (GLON()) return g + ((ST.pending || []).some(x => x.status === 'waiting') ? `<div class="next wkstrip"><span>${pl((ST.pending || []).filter(x => x.status === 'waiting').length, 'change saved before the window still waits', 'changes saved before the window still wait')} for Monday ${esc(fmtShort(WK().next))}: save it again to put it in now, or drop it.</span><span class="acts"><button class="btn ghost" data-cpart="next">Open next week's costs</button></span></div>` : ''); if (g) return g + wkStrip0(); } // D-170
+  return wkStrip0();
+}
+function wkStrip0() {
+  const W = WK(); if (!W.ready) return '';
+  const P = (ST.pending || []).filter(x => x.status === 'waiting'), u = P.filter(x => x.urgent).length, f = (ST.pending || []).filter(x => x.status === 'failed').length;
+  const due = P.filter(x => x.applyOn <= ST.today).length; // due now: going in at the next check (Monday 00:00, checked every 15 minutes)
+  const t = W.monday ? `<b>Today is Monday, cost day:</b> a change goes in when saved.${due ? ` ${pl(due, 'change from last week is', 'changes from last week are')} going in now.` : ''}` : `<b>Next week's costs:</b> ${P.length ? `${pl(P.length, 'change waits', 'changes wait')} for Monday ${esc(fmtShort(W.next))}` : `nothing waits for Monday ${esc(fmtShort(W.next))}`}${u ? `; ${u} urgent ${u === 1 ? 'waits' : 'wait'} for Tahir` : ''}.`;
+  return `<div class="next wkstrip"><span>${t}${f ? ` <span class="late">${pl(f, 'change', 'changes')} could not go in.</span>` : ''}</span><span class="acts"><button class="btn ghost" data-cpart="next">Open next week's costs</button></span></div>`;
+}
+/** Next week's costs: every waiting change with its effect, urgent ones first; then what went in or failed in the last 8 days (push 2b). */
+function vNext() {
+  const W = WK(); if (!W.ready) return `${head('Next week\'s costs', 'Not set up yet.', '')}<p class="ans">This part is not switched on yet: IT has 1 step to run. Until then, every cost change goes in when saved.</p>`;
+  const P = ST.pending || []; const wait = P.filter(x => x.status === 'waiting').sort((a, b) => Number(b.urgent) - Number(a.urgent)), went = P.filter(x => x.status !== 'waiting'); // urgent first
+  const coo = CAN('price.approve'), yw = CAN('rate.save') || CAN('packing.manage') || CAN('freight.edit'); const me = String(ST.me.user || '').toLowerCase();
+  const packs = new Set(); wait.forEach(x => ((x.effect || {}).items || []).forEach(i => packs.add(i.packId)));
+  const when = wait.length && wait.every(x => x.applyOn <= ST.today) ? 'now (Monday)' : `Monday ${fmtShort(wait.length ? wait.map(x => x.applyOn).sort()[0] : W.next)} at 00:00`;
+  const ans = wait.length ? `${pl(wait.length, 'change takes', 'changes take')} effect ${when}. ${packs.size ? `Together they move ${pl(packs.size, 'pack', 'packs')} more than ${SET('reapprove_pct')}%: ${packs.size === 1 ? 'it waits' : 'they wait'} for re-approval then.` : `No pack moves more than ${SET('reapprove_pct')}%.`}` : `Nothing waits for Monday ${fmtShort(W.next)}.`;
+  const fig = (v, k) => v == null ? (k === 'packing_bill' ? 'items changed' : '') : rs2(v);
+  const chg = x => x.now != null && x.next != null && x.now ? (x.next - x.now) / x.now * 100 : null;
+  const row = x => { const c = chg(x), n = (x.effect || {}).count || 0;
+    return `<tr><td data-l="Cost">${esc(x.label)}${x.urgent ? ' <span class="pill p-red">urgent</span>' : ''}${x.urgent && x.reason ? `<br><span class="ans">Why: ${esc(x.reason)}</span>` : ''}</td><td data-l="Today" class="r num">${fig(x.now, x.kind)}</td><td data-l="From Monday" class="r num">${fig(x.next, x.kind)}</td><td data-l="Change" class="r num">${c == null ? '' : (c > 0 ? '+' : '') + c.toFixed(1) + '%'}</td><td data-l="Packs over ${SET('reapprove_pct')}%" class="r num">${n}</td><td data-l="Saved by">${esc(personName(x.by))}, ${esc(fmtShort(x.at))}</td>
+    <td><div class="acts">${coo && x.urgent ? `<button class="btn" data-papprove="${x.id}">Approve now</button><button class="btn ghost" data-plater="${x.id}">Not urgent: Monday</button>` : ''}${yw ? `<button class="btn ghost" data-cpart="${PKIND[x.kind]}">Change</button><button class="btn ghost" data-pdrop="${x.id}">Drop</button>` : ''}</div></td></tr>`; };
+  const PATH = { rate: '/api/c2m/rates', packing_rate: '/api/c2m/packing/rate', freight: '/api/c2m/freight' };
+  const wrow = x => { const left = x.status === 'applied' && String(x.by).toLowerCase() === me && yw ? minsLeft(x.decidedAt) : 0;
+    return `<tr><td data-l="Cost">${esc(x.label)}</td><td data-l="What happened">${x.status === 'failed' ? '<span class="late">Could not go in.</span> ' : ''}${esc(x.result || '')}</td><td data-l="When">${esc(fmtShort(x.decidedAt))}${x.decidedBy && x.decidedBy !== 'monday' ? `, approved by ${esc(personName(x.decidedBy))}` : ', Monday'}</td><td>${PATH[x.kind] ? corrBox('p' + x.id, PATH[x.kind], x.body || {}, left) : ''}</td></tr>`; };
+  return `${head('Next week\'s costs', ans, 'Material, packing and freight changes saved Tuesday to Sunday go in together at Monday 00:00 (Pakistan time), then stay fixed for the week. Saved on a Monday, a change goes in at once. Until Monday a waiting change can be changed (save it again) or dropped. An urgent change goes in when Tahir approves it. Labour and FOH are reviewed monthly, not here.')}
+  ${wait.length ? `<div class="box wrapx"><table><tr><th>Cost</th><th class="r">Today</th><th class="r">From Monday</th><th class="r">Change</th><th class="r">Packs over ${SET('reapprove_pct')}%</th><th>Saved by</th><th></th></tr>${wait.map(row).join('')}</table></div>` : ''}
+  ${coo && !yw ? '<p class="ans">You see this list to check it; Yawar changes it. Urgent changes wait for you at the top.</p>' : ''}
+  ${went.length ? `<h2>Went in, or could not, in the last 8 days</h2><div class="box wrapx"><table><tr><th>Cost</th><th>What happened</th><th>When</th><th></th></tr>${went.map(wrow).join('')}</table></div>` : ''}`;
+}
+/* Effect before saving for packing, labour, FOH and freight (R14; push 2a): the first Save asks the server for the effect (a
+   save that is rolled back, ?dry=1) and shows it under the form; Save again with the same figures saves. Changed figures ask again. */
+let dryKey = null;
+function effectHtml(j, body) {
+  if (j.answer && j.answer.first) return `<div class="warnbox effect ok"><b>First ${body && body.clientProductId ? 'move of this product' : 'figure of this rate'}, go-live: no re-approval (ruled 5 Nov).</b> In force from ${esc(fmtShort(j.answer.validFrom))}.${j.answer.baseline ? ` This fills the last rate: ${pl(j.answer.baseline, 'pack takes', 'packs take')} today's cost as ${j.answer.baseline === 1 ? 'its' : 'their'} approved cost.` : ''} Press ${body && body.clientProductId ? 'it' : 'Save'} again to save.</div>`;
+  const p = j.reapprovePct, n = j.count || 0; const ahead = body && body.validFrom && String(body.validFrom) > ST.today;
+  if (ahead) return `<div class="warnbox effect"><b>Starts ${esc(fmtShort(body.validFrom))}.</b> Nothing moves today; C2M checks its effect on packs on that date.</div>`;
+  if (!n) return `<div class="warnbox effect ok"><b>No pack moves more than ${p}%.</b> Smaller moves need no re-approval. Press Save again to save.</div>`;
+  const rows = (j.items || []).slice(0, 8).map(i => `<tr><td>${esc(i.label)}</td><td class="r num">${i.from == null ? 'first cost' : n2(i.from)}</td><td class="r num">${n2(i.to)}</td><td class="r num">${i.pct == null ? '' : (i.pct > 0 ? '+' : '') + i.pct.toFixed(1) + '%'}</td></tr>`).join('');
+  return `<div class="warnbox effect"><b>${pl(n, 'pack moves', 'packs move')} more than ${p}%: ${n === 1 ? 'it' : 'they'} will wait for re-approval.</b><div class="wrapx"><table><tr><th>Pack</th><th class="r">Approved cost per kg</th><th class="r">New cost per kg</th><th class="r">Change</th></tr>${rows}</table></div>${n > 8 ? `<span class="ans">and ${n - 8} more.</span>` : ''}<span class="ans">Press Save again to save.</span></div>`;
+}
+let dryAt = 0, dryBusy = false;
+async function effectFirst(path, body, slot) {
+  if (GLON()) return true; // go-live window: 1 press saves, nothing waits and no re-approval is written (D-170)
+  const key = path + '|' + JSON.stringify(body) + '|' + slot; const el0 = document.getElementById(slot);
+  /* Save only when this effect is still on the screen (a redraw or Cancel clears it) and was shown at least 1 second ago, so a double click never saves unseen (review 5 Nov, findings 2 to 4). */
+  if (dryKey === key && el0 && el0.querySelector('.effect')) { if (Date.now() - dryAt < 1000) return false; dryKey = null; return true; }
+  if (dryBusy) return false; dryBusy = true;
+  let j; try { j = await api(path + '?dry=1', body); } catch (e) { toast(e.message, true); return false; } finally { dryBusy = false; }
+  dryKey = key; dryAt = Date.now(); const el = document.getElementById(slot); if (el) { el.innerHTML = effectHtml(j, body); el.scrollIntoView({ block: 'nearest' }); }
+  toast('Check the effect, then press Save again.'); return false;
+}
+/** The parts of Setup and of Costs (push 2a): 1 map, so both places draw the same screens. */
+function nsuB() {
+  return { signoff: () => vSignoffs(), settings: () => boSettings(true), rates: () => { if (!nsuMatInit) { nsuMatInit = true; matFilter = 'all'; } return vInputs('materials'); }, packing: () => vInputs('packing') + '<h2>Packing bills</h2><p class="ans">A packing bill is the packing recipe of a pack: its items and how many of each. Primary items are per pack; a carton is per outer: cost per carton ÷ (packs in the carton × pack size).</p>' + vInputs('bills'), conv: () => boRules(), freight: () => boRules('freight'), lines: nsuLines, variants: p3Variants, people: boAccess, docs: boDocs, o2s: nsuO2s, sheet: () => boImport(true), checks: () => (CAN('actuals.enter') || CAN('actuals.tiebooks') || CAN('actuals.ratecheck') ? `<div class="next"><span>${CAN('actuals.enter') ? 'Enter or correct actual labour and FOH, or tie a month to the books' : 'Mark the rate check'} in its panel.</span><button class="btn ghost" data-panact>Enter or correct a month</button></div>` : '') + boActuals(false), audit: boAudit };
+}
+function vSetup2() {
+  /* Costs left Setup for its own place (Tahir and Yawar, 5 Nov 2026, R5 and R22; push 2a). An old Setup key for a cost part opens it there. */
+  { const toCost = { costs: 'materials', rates: 'materials', packing: 'packing', conv: 'labour', freight: 'freight' }; if (toCost[nsu] && navHas('costs')) { cpart = toCost[nsu]; nsu = 'clients'; scr = 'costs'; saved = null; dryKey = null; return vCosts(); } }
+  const G = [['clients', 'Clients', [['lines', 'Clients']]],
+    ['van', 'Products and variants', [['variants', 'Products and variants']]],
+    ['set', 'Settings', [['settings', 'Company settings'], ['people', 'KAM lists']]],
+    ['record', 'Record and checks', [['audit', 'Change record'], ['checks', 'Monthly checks'], ['o2s', 'From O2S'], ['sheet', 'Sheet items'], ['docs', 'System documentation'], ...(ADM() ? [['signoff', 'Role sign-offs']] : [])]]]; // Role sign-offs: push 7e, the COO only
+  if (NSU_OLD[nsu]) { const [tab, part] = NSU_OLD[nsu]; nsuPart[tab] = part; nsu = tab; }
+  if (!G.some(g => g[0] === nsu)) nsu = 'clients';
+  const g = G.find(x => x[0] === nsu); const part = g[2].some(x => x[0] === nsuPart[nsu]) ? nsuPart[nsu] : g[2][0][0]; nsuPart[nsu] = part; /* the part shown is the part kept, so Back counts it once (push 6c) */
+  const B = nsuB();
+  return `${head('Setup', 'Clients, products and variants, settings, and the record of every change.', 'Costs (materials, packing, labour, FOH, freight, month end) have their own place, Costs. The company GP target and thresholds wait for the COO; a change to the ambition GP saves at once and the COO is told.')}
+  <div class="subnav" role="tablist" aria-label="Setup">${G.map(([k, l]) => `<button role="tab" data-nsu="${k}" aria-selected="${k === nsu}">${l}</button>`).join('')}</div>
+  ${g[2].length > 1 ? `<div class="subnav" role="tablist" aria-label="${esc(g[1])}">${g[2].map(([k, l]) => `<button role="tab" data-nsupart="${k}" aria-selected="${k === part}">${l}</button>`).join('')}</div>` : ''}<div>${B[part]()}</div>`;
+}
+
+/* ---------- Piece 3 (Tahir, 21 Oct 2026; D-94, D-95, D-98): add client, add a product with packs, variants, follows ----------
+   Setup, Clients gets Add client and, per client, Add a product. Setup, Products and variants lists each product's variants.
+   A client product can follow one of our products' recipe (one recipe, one approved cost; its packing, labour and overhead stay its own).
+   Each form keeps what was typed in p3 and saves in 1 call; every save goes into the change record. */
+let p3 = { client: null, prod: null, vform: null, tag: null };
+/** A name that is a pack size (1 L, 25 kg, 500 ml) is never a variant (Yawar, 29 Oct 2026; D-138). The server checks the same. */
+const sizeName = v => /(^|[^a-z0-9])\d+([.,]\d+)?\s*(kg|kgs|g|gm|gms|grams?|l|ltrs?|litres?|liters?|ml)(?![a-z0-9])/i.test(String(v || ''));
+const p3Ready = () => !!(ST && ST.variantsReady);
+const p3Fams = () => ST.families || [];
+const p3VName = id => { for (const f of p3Fams()) { const v = f.variants.find(x => x.id === id); if (v) return `${f.name} · ${v.name}`; } return ''; };
+const p3Van = () => (ST.products || []).filter(p => p.channel === 'VAN brand' && p.active !== false && !p.followsId).slice().sort((a, b) => a.brand.localeCompare(b.brand));
+const p3VanTxt = p => `${p.brand}${p.pvariantId ? ' · ' + (p3VName(p.pvariantId).split(' · ')[1] || '') : ''}`;
+const p3Kinds = [['VAN brand', 'Buys our own packs. It has no products of its own: it is matched by the name O2S writes.'], ['White label', 'Buys packs under its own brand. You add its brands, product type, variant and packs.'], ['Both', 'Pick this only if it has its own brands and also buys VAN brand packs.']];
+const p3Notice = () => '<div class="warnbox" style="display:block">Variants and clients are not switched on yet: IT has 1 step to run. Nothing else in C2M changes until then.</div>';
+const p3Mode = [['VAN', 'VAN brand packs it'], ['client', 'Client supplies the packing'], ['bulk', 'Bulk: the client packs it']];
+function p3NewProd(cust) { return { cust, brand: '', o2s: '', typeId: '', follows: '', pvariant: '', family: '', variant: '', form: 'solid', mode: 'VAN', packs: [{ size: '', billId: '', only: false }] }; }
+
+function p3ClientForm() {
+  const c = p3.client; if (!c) return '';
+  const SEG = ['Distributor', 'Dealer', 'COBO', 'VGreen', 'Farmer'];
+  return `<div class="box form" id="p3cf"><b>Add client · step 1 of 2</b>
+  <div class="row"><label for="p3cn" style="flex:1 1 240px">Client name<input id="p3cn" data-p3f="client.name" value="${esc(c.name)}" autocomplete="off"><span class="ans">The short name people use in C2M. Use the same name O2S shows on its POs, so the two match.</span></label>
+  <label for="p3co" style="flex:1 1 240px">Other O2S spellings<input id="p3co" data-p3f="client.o2s" value="${esc(c.o2s)}" placeholder="separate with |" autocomplete="off"><span class="ans">Only if O2S writes the name another way too.</span></label></div>
+  <b>What does this client buy?</b>
+  <div class="chips" role="group" aria-label="What the client buys">${p3Kinds.map(([k]) => `<button data-p3kind="${k}" aria-pressed="${c.kind === k}">${k}</button>`).join('')}</div>
+  <p class="ans" style="margin:2px 0 6px">${esc((p3Kinds.find(x => x[0] === c.kind) || [, ''])[1])} The group is not asked after this: it follows the products.</p>
+  ${c.kind === 'White label' ? '<p class="ans">Region is not asked for a white label client.</p>' : `<label for="p3cs">Segment<select id="p3cs" data-p3f="client.seg">${SEG.map(s => `<option${c.seg === s ? ' selected' : ''}>${s}</option>`).join('')}</select></label>`}
+  <div><button class="btn" data-p3csave>${c.kind === 'VAN brand' ? 'Save client' : 'Next: its first product'}</button> <button class="btn ghost" data-p3cx>Cancel</button></div></div>`;
+}
+
+function p3ProdForm(edit) {
+  const f = p3.prod; if (!f || !!f.editId !== !!edit) return ''; // Edit (D-139) opens on the product page only
+  const E = !!f.editId;
+  const cust = (ST.customers || []).find(c => c.id === f.cust); if (!cust) return '';
+  const types = ST.productTypes || [], bills = ST.packingBills || [];
+  const fol = f.follows ? (ST.products || []).find(p => p.id === +f.follows) : null;
+  const liquid = fol ? fol.form === 'liquid' : f.form === 'liquid';
+  const vsel = `<select id="p3pv" data-p3f="prod.pvariant" data-p3r="1" aria-label="Variant"><option value="">${fol && fol.pvariantId ? 'Same as the product: ' + esc(p3VName(fol.pvariantId)) : 'None: it has only one'}</option>${p3Fams().flatMap(x => x.variants.map(v => `<option value="${v.id}"${String(f.pvariant) === String(v.id) ? ' selected' : ''}>${esc(x.name)} · ${esc(v.name)}</option>`)).join('')}<option value="new"${f.pvariant === 'new' ? ' selected' : ''}>+ Add a variant</option></select>`;
+  return `<div class="box form" id="p3pf"><b>${E ? `Edit ${esc(f.brand0 || f.brand)} for ${esc(cust.name)}` : `Add a product for ${esc(cust.name)} · step 2 of 2`}</b>${E ? '<p class="ans" style="margin:0">The Add a product form, filled in. Names save at once; a change to product type, variant, who packs or a packing bill re-costs its packs, and a cost that moves more than ' + SET('reapprove_pct') + '% waits for re-approval.</p>' : ''}
+  <div class="row"><label for="p3pb" style="flex:1 1 240px">Brand name on the pack<input id="p3pb" data-p3f="prod.brand" value="${esc(f.brand)}" autocomplete="off"><span class="ans">As printed on the pack. This is the name O2S will write on the PO line: write it exactly.</span></label>
+  <label for="p3pt" style="flex:1 1 240px">Product type<select id="p3pt" data-p3f="prod.typeId"><option value="">Pick</option>${types.map(t => `<option value="${t.id}"${String(f.typeId) === String(t.id) ? ' selected' : ''}>${esc(t.name)}</option>`).join('')}</select>${LF().ready ? '' : '<span class="ans">Decides which labour and overhead rates apply.</span>'}</label></div>
+  ${E ? `<p class="ans" style="margin:6px 0"><b>Its recipe:</b> ${fol ? `follows ${esc(fol.brand)}` : 'its own'}. This cannot change here: take the product out of use and add it again.</p>` : ''}<fieldset class="q1"${E ? ' hidden' : ''}><legend><b>Is it one of our products, in the client's bag?</b> <span class="ans">This decides where its recipe comes from.</span></legend>
+    <label><input type="radio" name="p3same" data-p3same="yes"${f.same === 'yes' ? ' checked' : ''}> Yes: the same as one of our products</label>
+    <label><input type="radio" name="p3same" data-p3same="no"${f.same === 'no' ? ' checked' : ''}> No: it has its own recipe</label></fieldset>
+  ${f.same === 'yes' ? `<div class="row"><label for="p3pfo" style="flex:1 1 300px"${E ? ' hidden' : ''}>Which product?<select id="p3pfo" data-p3f="prod.follows" data-p3r="1"><option value="">Pick</option>${p3Van().map(p => `<option value="${p.id}"${String(f.follows) === String(p.id) ? ' selected' : ''}>${esc(p3VanTxt(p))}</option>`).join('')}</select><span class="ans">It uses that recipe: 1 recipe, 1 approved material cost. Its packing, labour and overhead stay its own.</span></label>
+  <label for="p3pv" style="flex:1 1 220px">Sold as (variant)${vsel}<span class="ans">For reports only. Leave as is unless the client sells it as another variant.</span></label></div>` : ''}
+  ${f.same === 'no' ? `<div class="row"><label for="p3pv" style="flex:1 1 260px">Sold as (variant, optional)${vsel}<span class="ans">A tag for reports. It does not copy any recipe.</span></label></div>${E ? '' : '<p class="ans">The Production Manager gets the job "Write the first recipe" on his Today list as soon as you save.</p>'}` : ''}
+  ${f.pvariant === 'new' ? `<div class="row"><label for="p3pfa" style="flex:1 1 220px">Product the variant belongs to<input id="p3pfa" data-p3f="prod.family" list="p3fl" value="${esc(f.family)}" placeholder="e.g. Humi Grow" autocomplete="off"><datalist id="p3fl">${p3Fams().map(x => `<option value="${esc(x.name)}">`).join('')}</datalist></label><label for="p3pvn" style="flex:1 1 180px">Variant name<input id="p3pvn" data-p3f="prod.variant" value="${esc(f.variant)}" placeholder="e.g. Pellets" autocomplete="off"><span class="ans">The form: Powder, Pellets, Granular. A size such as 1 L or 25 kg is a pack: add it under Packs below.</span></label>${CAN('variant.add') ? '' : '<p class="ans">Your role cannot add a new variant: pick one from the list.</p>'}</div>` : ''}
+  <div class="row"><label for="p3pfm">Form<select id="p3pfm" data-p3f="prod.form" data-p3r="1"${fol || E ? ' disabled' : ''}><option value="solid"${liquid ? '' : ' selected'}>Solid, sold per kg</option><option value="liquid"${liquid ? ' selected' : ''}>Liquid, sold per L</option></select>${fol ? '<span class="ans">Same as the product.</span>' : E ? '<span class="ans">Kg or L is on every truck: it cannot change.</span>' : ''}</label>
+  <label for="p3pm" style="flex:1 1 240px">Who supplies the packing<select id="p3pm" data-p3f="prod.mode" data-p3r="1">${p3Mode.map(([k, l]) => `<option value="${k}"${f.mode === k ? ' selected' : ''}>${l}</option>`).join('')}</select><span class="ans">${f.mode === 'VAN' ? 'VAN brand packs it, so each pack needs a packing bill.' : 'No VAN packing bill. Humic in 25 or 40 kg, liquid in 200 L drums the client supplies.'}</span></label>
+  <label for="p3po" style="flex:1 1 220px">Other O2S spellings<input id="p3po" data-p3f="prod.o2s" value="${esc(f.o2s)}" placeholder="separate with |" autocomplete="off"></label></div>
+  <b>Packs</b>${f.packs.map((k, i) => `<div class="row" style="align-items:flex-end${k.remove ? ';opacity:.55' : ''}"><label for="p3k${i}">Pack size, ${liquid ? 'L' : 'kg'}<input id="p3k${i}" data-p3pk="${i}.size" value="${esc(k.size)}" inputmode="decimal" style="width:100px" autocomplete="off"${k.fixed ? ' disabled' : ''}>${k.remove ? '<span class="late">to be removed on Save</span>' : k.fixed ? '<span class="ans">a size stays: remove it and add the new size</span>' : ''}</label>
+    ${f.mode === 'bulk' ? '' : `<label for="p3b${i}" style="flex:1 1 220px">Packing bill <span class="ans">(the packing items for this pack)</span><select id="p3b${i}" data-p3pk="${i}.billId"><option value="">${f.mode === 'VAN' ? 'None yet: ask the CFO to make one' : 'None'}</option>${bills.filter(b => inUseOr('bill', b.id, k.billId)).map(b => `<option value="${b.id}"${String(k.billId) === String(b.id) ? ' selected' : ''}>${esc(b.name)}</option>`).join('')}</select></label>`}
+    <label style="flex:0 0 auto;display:flex;flex-direction:row;align-items:center;gap:8px"><input type="checkbox" data-p3pk="${i}.only" ${k.only ? 'checked' : ''}><span>Only for this client<br><span class="ans">tagged, kept off the VAN lists</span></span></label>${k.fixed && k.keep ? '<span class="ans">has an approved cost or a price: it stays</span>' : f.packs.length > 1 ? `<button class="btn ghost" data-p3kdel="${i}">${k.remove ? 'Keep' : 'Remove'}</button>` : ''}</div>`).join('')}
+  <div><button class="btn ghost" data-p3kadd>Add a pack</button></div>
+  ${E ? '' : `<p class="ans">After saving: ${f.same === 'yes' ? 'the CFO gets the job "Approve cost" on Approvals, then prices it on Clients.' : f.same === 'no' ? 'the Production Manager writes the recipe; it is checked and endorsed, the CFO approves its cost, then prices it on Clients.' : 'answer the question above first.'}</p>`}
+  <div><button class="btn" data-p3psave>${E ? 'Save changes' : 'Save product'}</button> <button class="btn ghost" data-p3px>Cancel</button></div></div>`;
+}
+
+/** Add a variant of a product: a new VAN product whose recipe starts as a copy of the main product's. */
+function p3VarForm() {
+  const f = p3.vform; if (!f) return '';
+  const van = p3Van(), main = van.find(p => p.id === +f.from);
+  const types = ST.productTypes || [], bills = ST.packingBills || [];
+  return `<div class="box form" id="p3vf"><b>Add a variant</b>
+  <p class="ans" style="margin:0">A variant is a new form of a product (Humi Grow: Powder, Pellets) with its own recipe, packs, cost and rates. Its recipe starts as a copy of the main product's, and can be changed. A size such as 1 L or 25 kg is a pack, not a variant: add it under Packs below.</p>
+  <div class="row"><label for="p3vm" style="flex:1 1 260px">Product<select id="p3vm" data-p3f="vform.from" data-p3r="1"><option value="">Pick</option>${van.map(p => `<option value="${p.id}"${String(f.from) === String(p.id) ? ' selected' : ''}>${esc(p.brand)}${p.pvariantId ? ' · ' + esc(p3VName(p.pvariantId)) : ''}</option>`).join('')}</select></label>
+  ${main && !main.pvariantId ? `<label for="p3vmv" style="flex:1 1 180px">Its own variant<input id="p3vmv" data-p3f="vform.mainVariant" value="${esc(f.mainVariant)}" placeholder="e.g. Powder" autocomplete="off"><span class="ans">${esc(main.brand)} has no variant yet.</span></label>` : ''}
+  <label for="p3vn" style="flex:1 1 180px">New variant<input id="p3vn" data-p3f="vform.variant" value="${esc(f.variant)}" placeholder="e.g. Pellets" autocomplete="off"></label></div>
+  <div class="row"><label for="p3vb" style="flex:1 1 260px">Brand name<input id="p3vb" data-p3f="vform.brand" value="${esc(f.brand)}" placeholder="${esc(main ? main.brand + ' ' + (f.variant || '…') : '')}" autocomplete="off"><span class="ans">The name O2S writes for this variant. Leave empty to use the product name and the variant.</span></label>
+  <label for="p3vt" style="flex:1 1 220px">Product type<select id="p3vt" data-p3f="vform.typeId"><option value="">Same as the product</option>${types.map(t => `<option value="${t.id}"${String(f.typeId) === String(t.id) ? ' selected' : ''}>${esc(t.name)}</option>`).join('')}</select></label></div>
+  <b>Packs</b>${f.packs.map((k, i) => `<div class="row" style="align-items:flex-end"><label for="p3vk${i}">Pack size<input id="p3vk${i}" data-p3vk="${i}.size" value="${esc(k.size)}" inputmode="decimal" style="width:100px" autocomplete="off"></label><label for="p3vb${i}" style="flex:1 1 220px">Packing bill <span class="ans">(the packing items for this pack)</span><select id="p3vb${i}" data-p3vk="${i}.billId"><option value="">None yet</option>${bills.filter(b => inUseOr('bill', b.id, k.billId)).map(b => `<option value="${b.id}"${String(k.billId) === String(b.id) ? ' selected' : ''}>${esc(b.name)}</option>`).join('')}</select></label>${f.packs.length > 1 ? `<button class="btn ghost danger" data-p3vkdel="${i}">Remove</button>` : ''}</div>`).join('')}
+  <div><button class="btn ghost" data-p3vkadd>Add a pack</button></div>
+  <p class="ans">After saving: the recipe copy is a draft with the Production Manager; he can change it, then the QC Head, the Plant Manager and the CFO approve as for any product. Labour and overhead may differ for a variant: The CFO sets them in Costs, Labour or FOH, "A variant".</p>
+  <div><button class="btn" data-p3vsave>Save variant</button> <button class="btn ghost" data-p3vx>Cancel</button></div></div>`;
+}
+
+/** Setup, Products and variants (Tahir or Yawar; Majid adds a variant from one of our products's page). */
+function p3Variants() {
+  const can = CAN('variant.add'), van = (ST.products || []).filter(p => p.channel === 'VAN brand' && p.active !== false);
+  const untagged = van.filter(p => !p.familyId).length;
+  const top = !p3Ready() ? p3Notice() : `<details class="how"><summary>How variants work</summary><div>A variant is a form of 1 product (Humi Grow: Powder, Pellets). Each variant has its own recipe, packs, cost and rates, so nothing is shared by accident. The brand name O2S writes on the PO line carries the variant, and C2M links each brand name to a product and variant. A client product can follow one of our products' recipe: it then takes that approved material cost, and its packing, labour and overhead stay its own. A rate can be set for 1 variant (Costs, Labour or FOH, "A variant"); a client's pack rate beats it, and it beats the product type.</div></details>
+  <p class="ans" style="margin:6px 0"><b>Variant</b> = the form of the product: Powder, Pellets, Granular, Crystal. A size such as 1 L, 3 L, 20 L or 25 kg is a <b>pack</b>, never a variant: it goes under Packs, and each pack has its own packing bill (the packing items for that pack).</p>
+  ${can ? '<div class="next"><span>Each product keeps its own list of variants, and you can add to it.</span><button class="btn" data-p3vopen>Add a variant</button></div>' : ''}${p3VarForm()}${p3.tag ? p3TagForm() : ''}
+  <p class="ans">${untagged ? pl(untagged, 'product has', 'products have') + ' no variant tag: use Tag variant in its row. Tagging changes no recipe, pack or cost.' : 'Every VAN product is tagged with its variant.'}</p>`;
+  return top + vNames();
+}
+function p3TagForm() {
+  if (!CAN('variant.add')) return '';
+  const t = p3.tag; if (!t) return '<div style="margin:6px 0"><button class="btn ghost" data-p3tagopen>Tag an existing product\'s variant</button></div>';
+  return `<div class="box form" id="p3tf"><b>Tag a product's variant</b><p class="ans" style="margin:0">For products that already exist as separate products, such as Fusion Potash Granular and Powder. Nothing else about the product changes: no recipe, pack or cost moves.</p>
+  <div class="row"><label for="p3tp" style="flex:1 1 260px">Product<select id="p3tp" data-p3f="tag.id"><option value="">Pick</option>${(ST.products || []).filter(p => p.channel === 'VAN brand' && p.active !== false).sort((a, b) => a.brand.localeCompare(b.brand)).map(p => `<option value="${p.id}"${String(t.id) === String(p.id) ? ' selected' : ''}>${esc(p.brand)}${p.pvariantId ? ' (' + esc(p3VName(p.pvariantId)) + ')' : ''}</option>`).join('')}</select></label>
+  <label for="p3tfa" style="flex:1 1 200px">Product<input id="p3tfa" data-p3f="tag.family" list="p3fl2" value="${esc(t.family)}" placeholder="e.g. Fusion Potash" autocomplete="off"><datalist id="p3fl2">${p3Fams().map(x => `<option value="${esc(x.name)}">`).join('')}</datalist></label>
+  <label for="p3tv" style="flex:1 1 160px">Variant<input id="p3tv" data-p3f="tag.variant" value="${esc(t.variant)}" placeholder="e.g. Granular" autocomplete="off"></label></div>
+  <div><button class="btn" data-p3tsave>Save tag</button> <button class="btn ghost danger" data-p3tclear>Remove its tag</button> <button class="btn ghost" data-p3tx>Close</button></div></div>`;
+}
+
+/** Product page: the variant, what it follows, and the cost approval of a follower. */
+function p3ProdLine(p) {
+  const parts = []; if (p.pvariantId) parts.push(p3VName(p.pvariantId)); if (p.followsId) parts.push(`follows the recipe of VAN ${p.followsBrand}`);
+  return parts.length ? ' · ' + esc(parts.join(' · ')) : '';
+}
+function p3FollowPending(p) { return !!p.followsId && p.packs.length > 0 && p.packs.every(k => k.cost) && p.packs.some(k => k.approvedCost == null || Math.abs(k.cost.total - k.approvedCost) / k.approvedCost * 100 > SET('reapprove_pct')); } // a small move waits for the same threshold as every other product (review C11)
+function p3FollowNote(p) {
+  const f = (ST.products || []).find(x => x.id === p.followsId);
+  return `<div class="box form"><b>This product follows ${esc(p.followsBrand)}'s recipe</b><p class="ans" style="margin:0">There is 1 recipe and 1 approved cost: this product takes the approved material cost from ${esc(p.followsBrand)}. Its packing, labour and overhead are its own. To change the recipe, change ${esc(p.followsBrand)}'s.${p.packs.every(k => k.cost) ? '' : ' Not fully costed yet: ' + esc(p.packs.filter(k => !k.cost).map(k => `${k.size} ${p.soldPer}: ${(k.costGaps || []).join(', ')}`).join('; ')) + '.'}</p>
+  <div>${f ? `<button class="btn ghost" data-openprod="${f.id}">Open ${esc(f.brand)}</button> ` : ''}${CAN('recipe.step.cost') ? (p3FollowPending(p) ? `<button class="btn" data-p3appr="${p.id}">Approve cost</button>` : p.packs.every(k => k.cost) ? '<span class="ans">The approved cost of every pack is today\'s cost.</span>' : '') : ''}${CAN('client.add') ? ` <button class="btn ghost" data-p3unfollow="${p.id}">Stop following</button>` : ''}</div></div>`;
+}
+
+/* ---- events ---- */
+const p3Path = (o, path, v) => { const a = path.split('.'); let t = o; for (let i = 0; i < a.length - 1; i++) { t = t[a[i]]; if (t == null) return; } t[a[a.length - 1]] = v; };
+document.addEventListener('input', e => { const t = e.target, d = t.dataset || {}; if (!d) return;
+  if ('audq' in d) { aud.q = t.value; return; }
+  if (d.p3f) { const [k, f] = d.p3f.split('.'); if (p3[k]) p3[k][f] = t.value; }
+  else if (d.p3pk && p3.prod) { const [i, f] = d.p3pk.split('.'); if (p3.prod.packs[+i]) p3.prod.packs[+i][f] = t.type === 'checkbox' ? t.checked : t.value; }
+  else if (d.p3vk && p3.vform) { const [i, f] = d.p3vk.split('.'); if (p3.vform.packs[+i]) p3.vform.packs[+i][f] = t.value; } });
+document.addEventListener('change', e => { const t = e.target, d = t.dataset || {}; if (!d) return;
+  if (d.audf) { aud[d.audf] = t.value; aud.data = null; audLoad(); return; }
+  if (d.p3f) { const [k, f] = d.p3f.split('.'); if (p3[k]) p3[k][f] = t.value; if (d.p3r) { if (d.p3f === 'prod.follows' && p3.prod) { const fo = (ST.products || []).find(p => p.id === +t.value); if (fo) { p3.prod.form = fo.form; if (!p3.prod.typeId && fo.typeId) p3.prod.typeId = String(fo.typeId); } } render(); } }
+  else if (d.p3pickc != null && t.value) { p3 = { client: null, prod: p3NewProd(+t.value), vform: null, tag: null }; render(); }
+  else if (d.p3same && p3.prod) { p3.prod.same = d.p3same; if (d.p3same === 'no') p3.prod.follows = ''; render(); }
+  else if (d.p3pk && p3.prod) { const [i, f] = d.p3pk.split('.'); if (p3.prod.packs[+i]) p3.prod.packs[+i][f] = t.type === 'checkbox' ? t.checked : t.value; }
+  else if (d.p3vk && p3.vform) { const [i, f] = d.p3vk.split('.'); if (p3.vform.packs[+i]) p3.vform.packs[+i][f] = t.value; } });
+document.addEventListener('click', async e => {
+  const t = e.target.closest('button'); if (!t || !ST) return; const d = t.dataset; if (d.confirm && !d.armed) return;
+  const keys = Object.keys(d).filter(k => k.startsWith('p3')); if (!keys.length) return;
+  if (d.p3kind) { p3.client.kind = d.p3kind; if (d.p3kind === 'White label') p3.client.seg = 'White label'; else if (p3.client.seg === 'White label') p3.client.seg = 'Distributor'; }
+  else if ('p3copen' in d) { p3 = { client: { name: '', o2s: '', kind: 'White label', seg: 'White label' }, prod: null, vform: null, tag: null }; }
+  else if ('p3cx' in d) p3.client = null;
+  else if ('p3pickx' in d) p3.pick = false;
+  else if ('p3csave' in d && !need([['p3cn', 'Write the client name, as O2S writes it.']])) return;
+  else if ('p3csave' in d) { const c = p3.client; const j = await act('/api/c2m/clients', { name: c.name, o2sNames: c.o2s, kind: c.kind, segment: c.kind === 'White label' ? undefined : c.seg }, 'Client added.'); if (!j) return; p3.client = null; if (c.kind !== 'VAN brand') p3.prod = p3NewProd(j.id); }
+  else if (d.p3popen) { p3 = { client: null, prod: p3NewProd(+d.p3popen), vform: null, tag: null }; }
+  else if ('p3px' in d) p3.prod = null;
+  else if ('p3kadd' in d) p3.prod.packs.push({ size: '', billId: '', only: false });
+  else if (d.p3kdel != null) { const k = p3.prod.packs[+d.p3kdel]; if (k && k.fixed) k.remove = !k.remove; else p3.prod.packs.splice(+d.p3kdel, 1); }
+  else if (d.p3edit) { const pp = (ST.products || []).find(x => x.id === +d.p3edit); if (!pp) return; p3 = { client: null, prod: { ...p3EditOpen(pp), brand0: pp.brand }, vform: null, tag: null }; rowDel = null; }
+  else if ('p3psave' in d && !(p3.prod && (p3.prod.same === 'no' || (p3.prod.same === 'yes' && p3.prod.follows)))) { const msg = p3.prod && p3.prod.same === 'yes' ? 'Pick which product it is.' : 'Answer the first question: is it one of our products, in the client\'s bag?'; toast(msg, true); const fs0 = document.querySelector('fieldset.q1'); if (fs0) { document.querySelectorAll('.ferr').forEach(x => x.remove()); const m = document.createElement('span'); m.className = 'ferr'; m.textContent = msg; fs0.appendChild(m); fs0.scrollIntoView({ block: 'center' }); } return; } // the first question is checked first: it comes first in the form
+  else if ('p3psave' in d && !need([['p3pb', 'Write the brand name, exactly as printed on the pack.'], ['p3pt', 'Pick the product type.'], ['p3k0', 'Type the pack size.']])) return;
+  else if ('p3psave' in d && p3.prod.pvariant === 'new' && sizeName(p3.prod.variant)) return toast(`${p3.prod.variant.trim()} is a pack size. Add it under Packs below.`, true);
+  else if ('p3psave' in d && p3.prod.editId) { const f = p3.prod; // Edit (D-139): 1 save, the server checks every pack first
+    const body = { brand: f.brand, o2sNames: f.o2s, typeId: f.typeId, packingMode: f.mode, packs: f.packs.map(k => k.id ? { id: k.id, billId: k.billId || null, clientOnly: !!k.only, remove: !!k.remove } : { size: k.size, billId: k.billId || null, clientOnly: !!k.only }).filter(k => k.id || String(k.size || '').trim() !== '') };
+    if (f.pvariant === 'new') { body.family = f.family; body.variant = f.variant; } else body.pvariantId = f.pvariant || null;
+    const j = await act(`/api/c2m/products/${f.editId}/full`, body, j => `Saved: ${j.changed.join(', ')}.${j.reapproval ? ' ' + pl(j.reapproval, 'pack waits', 'packs wait') + ' on Approvals.' : ''}`); if (!j) return; p3.prod = null; }
+  else if ('p3psave' in d) { const f = p3.prod; const fo = f.follows ? (ST.products || []).find(p => p.id === +f.follows) : null; const liquid = fo ? fo.form === 'liquid' : f.form === 'liquid';
+    const body = { brand: f.brand, o2sNames: f.o2s, typeId: f.typeId, form: liquid ? 'liquid' : 'solid', soldPer: liquid ? 'L' : 'kg', packingMode: f.mode, followsId: f.same === 'yes' ? f.follows || null : null,
+      packs: f.packs.filter(k => String(k.size).trim() !== '' || k.billId).map(k => ({ size: k.size, billId: k.billId || null, clientOnly: !!k.only })) };
+    if (f.pvariant === 'new') { body.family = f.family; body.variant = f.variant; } else if (f.pvariant) body.pvariantId = f.pvariant;
+    const j = await act(`/api/c2m/clients/${f.cust}/products`, body, f.same === 'yes' ? 'Product added. Next: Approve cost, a job for the CFO on Approvals; then its price on Clients.' : 'Product added. Next: the Production Manager writes its first recipe (a job on his Today list); then it is checked, endorsed and costed.'); if (!j) return; p3.prod = null; }
+  else if ('p3vopen' in d) { p3.vform = { from: d.p3vopen || '', mainVariant: '', variant: '', brand: '', typeId: '', packs: [{ size: '', billId: '' }] }; p3.client = null; p3.prod = null; }
+  else if ('p3vx' in d) p3.vform = null;
+  else if ('p3vkadd' in d) p3.vform.packs.push({ size: '', billId: '' });
+  else if (d.p3vkdel != null) p3.vform.packs.splice(+d.p3vkdel, 1);
+  else if ('p3vsave' in d && !need([['p3vm', 'Pick the product.'], ['p3vn', 'Write the variant name, e.g. Pellets.']])) return;
+  else if ('p3vsave' in d && (sizeName(p3.vform.variant) || sizeName(p3.vform.mainVariant))) { const v = sizeName(p3.vform.variant) ? p3.vform.variant : p3.vform.mainVariant; return toast(`${v.trim()} is a pack size. Add it under Packs below.`, true); }
+  else if ('p3vsave' in d) { const f = p3.vform; const body = { fromProductId: f.from, variant: f.variant, mainVariant: f.mainVariant || undefined, brand: f.brand || undefined, typeId: f.typeId || undefined, packs: f.packs.filter(k => String(k.size).trim() !== '' || k.billId).map(k => ({ size: k.size, billId: k.billId || null })) };
+    const j = await act('/api/c2m/variants', body, j => j.recipeVersionId ? 'Variant added as a draft. Next: the Production Manager changes its recipe on Products, then the QC Head, the Plant Manager and the CFO approve it. To sell it to a client: Products, + New, Put a variant on a client.' : 'Variant added. The product has no recipe yet, so there is nothing to copy.'); if (!j) return; p3.vform = null; }
+  else if ('p3tagopen' in d) { const pp = d.p3tagopen ? (ST.products || []).find(x => x.id === +d.p3tagopen) : null; const fm = pp && pp.familyId ? p3Fams().find(x => x.id === pp.familyId) : null; const vv = fm && pp.pvariantId ? fm.variants.find(x => x.id === pp.pvariantId) : null; p3.tag = { id: pp ? String(pp.id) : '', family: fm ? fm.name : '', variant: vv ? vv.name : '' }; setTimeout(() => { const h = $('p3tf'); if (h) h.scrollIntoView({ block: 'center' }); }, 40); }
+  else if ('p3tx' in d) p3.tag = null;
+  else if ('p3tsave' in d && p3.tag && sizeName(p3.tag.variant)) return toast(`${p3.tag.variant.trim()} is a pack size, not a variant. A variant is the form: Powder, Pellets, Granular.`, true);
+  else if ('p3tsave' in d) { const x = p3.tag; if (!x.id) return toast('Pick the product first.', true); const j = await act(`/api/c2m/products/${x.id}/variant`, { family: x.family, variant: x.variant }, 'Variant tag saved. No recipe, pack or cost changed.'); if (!j) return; p3.tag = null; }
+  else if ('p3tclear' in d) { const x = p3.tag; if (!x.id) return toast('Pick the product first.', true); const j = await act(`/api/c2m/products/${x.id}/variant`, { clear: true }, 'Variant tag removed.'); if (!j) return; p3.tag = null; }
+  else if (d.p3appr) { await act(`/api/c2m/products/${d.p3appr}/approve-cost`, {}, j => `Cost approved on ${pl(j.packs, 'pack', 'packs')}.`); return; }
+  else if (d.p3unfollow) { await act(`/api/c2m/products/${d.p3unfollow}/follow`, { followsId: null }, j => 'It no longer follows a VAN recipe.' + (j.reapproval ? ' ' + pl(j.reapproval, 'pack', 'packs') + ' went to re-approval.' : '')); return; }
+  else return;
+  render();
+});
+
+/* The old C2M Roles screen was removed on 4 Nov 2026 (D-145): roles are designed by the System Administrator on the launcher (28 Oct 2026). */
+/* KAM lists: pick a manager, tick clients, copy, and look at his screen. The list ticks use data-grant (the change handler below). */
+document.addEventListener('click', async e => {
+  const t = e.target.closest('[data-kam-pick],[data-kam-open],[data-pltab],[data-plmake],[data-plretry],[data-plpvretry],[data-holadd],[data-holdel],[data-kam-client],[data-kam-all],[data-kam-copy],[data-kam-copygo],[data-kam-copyno],[data-kam-preview],[data-kam-exit]'); if (!t || !ST) return; const d = t.dataset;
+  if (d.confirm && !d.armed) return; // the 2-step confirm is handled by the main handler
+  if ('kamPick' in d) { KM.sel = d.kamPick; KM.copy = false; render(); return; }
+  if ('kamOpen' in d) { const same = KM.open && KM.sel === d.kamOpen; KM.sel = d.kamOpen; KM.open = !same; KM.copy = false; render(); return; } // push 10d: a person's clients open under the row
+  if ('pltab' in d) { plTab = d.pltab === 'acc' ? 'acc' : 'lists'; render(); return; }
+  if ('plretry' in d) { PLX = null; render(); return; } // push 10e (C-38)
+  if ('holadd' in d) { const day = val('hol-d'), name = String(val('hol-n') || '').trim(); if (!day) { toast('Pick the date of the holiday.', true); return; } if (!name) { toast('Type the name of the holiday.', true); return; } await act('/api/c2m/holidays', { day, name }, 'Holiday saved'); return; } // push 10e (C-35)
+  if (d.holdel) { await act('/api/c2m/holidays', { day: d.holdel, remove: true }, 'Holiday removed'); return; }
+  if ('plpvretry' in d) { PLPV = { key: null, rows: null, err: null }; render(); return; } // push 10e (C-20)
+  if ('plmake' in d) { PLB.effSet = PLB.tillSet = false; goPlace('lists'); render(); return; } // push 10d: Make a list opens the builder
+  if ('kamClient' in d) { const on = t.getAttribute('aria-pressed') !== 'true'; await act('/api/c2m/grants', { username: KM.sel, kind: 'client', value: d.kamClient, on }, on ? 'Granted' : 'Removed'); return; }
+  if ('kamAll' in d) { await act('/api/c2m/grants/clients', { username: KM.sel, on: d.kamAll === '1' }, d.kamAll === '1' ? 'All clients granted' : 'Clients cleared'); return; }
+  if ('kamCopy' in d) { KM.copy = true; render(); return; }
+  if ('kamCopyno' in d) { KM.copy = false; render(); return; }
+  if ('kamCopygo' in d) { const from = val('kam-from'); if (!from) { toast('Choose the manager to copy from.', true); return; } const j = await act('/api/c2m/grants/copy', { from, to: KM.sel }, r => 'Copied: ' + pl(r.copied, 'tick', 'ticks')); if (j) { KM.copy = false; render(); } return; }
+  if ('kamPreview' in d) { if (PV) return; PVBACK = { scr, setup, nsu }; PV = d.kamPreview; scr = 'lists'; try { await load(); } catch (err) { PV = null; const b = PVBACK; PVBACK = null; scr = b.scr; toast(err.message, true); } return; }
+  if ('kamExit' in d) { const b = PVBACK; PV = null; PVBACK = null; if (b) { scr = b.scr; setup = b.setup; nsu = b.nsu; } try { await load(); } catch (err) { toast(err.message, true); location.reload(); } return; }
+});
+document.addEventListener('input', e => { const t = e.target; if (!t) return; if (t.id === 'trv' || t.id === 'trs' || (t.dataset && t.dataset.buyin)) trialSync(); });
+document.addEventListener('input', e => { const t = e.target; if (!t || t.id !== 'blpk-q' || !billEdit) return; blPkQ = t.value; const at = t.selectionStart; blRender(); const n = $('blpk-q'); if (n) { n.focus(); try { n.setSelectionRange(at, at); } catch (_) {} } }); // find a pack on the bill (push 2d)
+
+/* ---------- Clicks and typing for the 1.0.0 places ---------- */
+document.addEventListener('click', async e => {
+  const t = e.target.closest('button,tr.go,input[type=checkbox]'); if (!t || !ST) return; const d = t.dataset;
+  if (d.confirm && !d.armed) return; // the 2-step confirm is handled by the main handler
+  if (d.newjob) { const nd = t.closest('details'); if (nd) nd.open = false; newJobGo(d.newjob);
+    setTimeout(() => { const h = document.getElementById('newhere'); if (h) h.scrollIntoView({ block: 'start' }); }, 60); }
+  else if (d.nmSec) nm.sec[d.nmSec] = !nm.sec[d.nmSec]; else if (d.nmLine != null) { nm.q = d.nmLine; nm.by = 'client'; nm.f = 'all'; nm.sec.tbl = true; } else if (d.nmPer) nm.per = d.nmPer; else if (d.nmGrp) nm.grp = d.nmGrp; else if (d.nmHist) nm.hist = d.nmHist;
+  else if (d.nmBy) { nm.by = d.nmBy; nm.open.clear(); nm.f = 'all'; } else if (d.nmF) nm.f = d.nmF; else if (d.nmT) nm.tTab = d.nmT; else if (d.nmS) nm.sTab = d.nmS;
+  else if ('nmCols' in d) nm.colsOpen = !nm.colsOpen; else if (d.nmCol) nm.cols[d.nmCol] = t.checked; else if ('nmXls' in d) { nmExport(); return; }
+  else if (d.nmTog) { nm.open.has(d.nmTog) ? nm.open.delete(d.nmTog) : nm.open.add(d.nmTog); }
+  else if (d.nmDc) { nm.drill = { cl: d.nmDc, pid: +d.nmDp }; const all = nmRows(); if (nm.per !== 'fy' && !all.some(r => r.cust === d.nmDc && r.packId === +d.nmDp && nmIn(r))) nm.per = 'fy'; if (!all.some(r => r.cust === d.nmDc && r.packId === +d.nmDp && nmGrp(r))) nm.grp = 'all'; window.scrollTo(0, 0); }
+  else if ('nmHome' in d) nm.drill = null;
+  else if ('audgo' in d) { aud.q = ($('audq') || {}).value || ''; aud.data = null; audLoad(); return; }
+  else if ('audclear' in d) { Object.assign(aud, { who: '', kind: '', from: '', to: '', q: '', data: null }); audLoad(); return; }
+  else if (d.nmProd != null) { goPlace('products'); openProd = +d.nmProd; ptab = 'cost'; } // the drill stays, so Margin opens where Yawar left it
+  else if (d.ncpTab) { ncp.tab = d.ncpTab; scr = 'prices'; if (d.ncpTab === 'vlists' || d.ncpTab === 'vprod') lst.open = null; }
+  else if ('lmOpen' in d) { if (pan) closePanel(); lmGo(); return; }
+  else if ('lmReset' in d) { lmGo(true); return; }
+  else if ('lmClose' in d) { lm.open = false; }
+  else if ('lmLinked' in d) { lm.showLinked = !lm.showLinked; }
+  else if (d.offOpen) { ncp.off = +d.offOpen; ncp.offWhy = ''; ncp.offPick = {}; render(); const b0 = $('offbox'); if (b0) b0.scrollIntoView({ block: 'center' }); return; }
+  else if ('offClose' in d) { ncp.off = null; }
+  else if (d.offPick) { ncp.offPick[d.offPick] = t.checked; }
+  else if ('offGo' in d) { const why = ($('offwhy') || {}).value || ncp.offWhy || ''; const G0 = ncpGrid(); const rows = G0.items.filter(x => ncp.offPick[x.id] && Number(x.data.packId) === Number(ncp.off)).map(x => ({ id: x.id, wasPack: Number(x.data.packId) })); if (!rows.length || !why.trim()) return; const j = await act('/api/c2m/lists/remove', { rows, why }, j => `${j.name}: off the list.`); if (j) { ncp.off = null; ncp.offWhy = ''; ncp.offPick = {}; render(); } return; }
+  else if ('lmCarry' in d) { const P = lm.plan; if (!P || !P.ready) return; const j = await act('/api/c2m/lists/master/carry', { picks: lm.picks, keep: lm.keep, rowPick: lm.rowPick, sig: P.sig }, j => `Carried into the master: ${pl(j.carried, 'row', 'rows')} carried, ${j.linked} already linked kept, ${pl(j.left, 'row', 'rows')} left the printed lists.`);
+    if (j) { lm = { open: false, picks: {}, keep: {}, rowPick: {}, plan: null, busy: false, err: null }; render(); } else await lmLoad(); return; } // refused (changed since): the plan is read again
+  else if (d.ncpCl) { ncp.cl = d.ncpCl; ncp.cx = false; ncp.ntOpen = {}; }
+  else if ('ncpSend' in d) { ncpRead(); await ncpSend(); return; }
+  else if (d.apk && !need([['apks-' + d.apk, 'Type the pack size.']])) return;
+  else if (d.apk) { const id = +d.apk; await act(`/api/c2m/products/${id}/packs`, { size: val('apks-' + id), billId: val('apkb-' + id) || null }, j => j.firstCost ? 'Pack added. Its first cost waits on Approvals.' : 'Pack added.'); return; }
+  else if ('gomrp' in d) { goPlace('prices'); ncp.tab = 'van'; window.scrollTo(0, 0); }
+  else if (d.gotgt) { goPlace('prices'); ncp.tab = 'wl'; ncp.cl = d.gotgt; openProd = null; window.scrollTo(0, 0); }
+  else if (d.ncpNtc) { ncpRead(); ncp.nt[d.ncpNtc] = 'company'; }
+  else if (d.ncpNto) { ncpRead(); ncp.ntOpen[d.ncpNto] = true; render(); const el = document.querySelector(`[data-ncp-nt="${d.ncpNto}"]`); if (el) el.focus(); return; }
+  else if ('ncpMxsend' in d) { ncpRead(); await ncpMxSend(d.ncpMxsend || null); return; }
+  else if (d.pno2s != null) { const R = pnRows(); const u = R.o2s.find(x => x.key === d.pno2s); if (!u) return toast('That O2S name is no longer waiting: the screen was out of date.', true); const v = pn.o2s[u.key] ?? (t.closest('tr').querySelector('select') || {}).value; if (!v) return toast('Pick the product first.', true); const j = await act('/api/c2m/names/o2s', { name: u.name, productId: +v, size: u.size }, j => j.changed ? `"${u.name}" kept as an O2S spelling: ${pl(j.impact.join.trucks, 'truck', 'trucks')}, ${rsM2(j.impact.join.rs)} of sales, now costed.` : 'Already a name of that product.'); if (j) delete pn.o2s[u.key]; return; } // picks on other rows stay (review 1.0.2, design finding 10)
+  else if ('pngo' in d) { closePanel(); goPlace('setup'); nsu = 'names'; window.scrollTo(0, 0); render(); return; }
+  else if (d.pnedit) { const p0 = (ST.products || []).find(x => x.id === +d.pnedit); pn.edit = +d.pnedit; pn.b = null; pn.s = null; pn.dsc = null; pn.conf = null; pn.was = p0 ? { brand: p0.brand, o2s: (p0.o2sNames || []).join('|'), spec: p0.spec || '' } : null; render(); return; } // the names this person saw: the server refuses the save if someone changed them since (review 1.0.2, finding 1)
+  else if ('pncancel' in d) { pn.edit = null; pn.conf = null; render(); return; }
+  else if ('pnback' in d) { pn.conf = null; render(); return; }
+  else if (d.pnoff || d.pnon) { const id = +(d.pnoff || d.pnon), inUse = !!d.pnon; try { const pv = await api(`/api/c2m/names/product/${id}/use`, { inUse, preview: true }); if (!pv.preview) { toast('Nothing to save: the screen was out of date and is now refreshed. Check the row and try again.'); await load(); return; } pn.use = { id, inUse, impact: pv.impact, brand: pv.brand }; } catch (er) { toast(er.message, true); return; } render(); return; } // the check first (Tahir, 20 Oct 2026)
+  else if ('pnuseback' in d) { pn.use = null; render(); return; }
+  else if ('pnuseok' in d) { const u = pn.use; if (!u) return; const j = await act(`/api/c2m/names/product/${u.id}/use`, { inUse: u.inUse, accept: { leave: u.impact.leave.n, join: u.impact.join.n } }, j => j.changed ? `${u.brand} ${u.inUse ? 'is back in use' : 'is out of use'}.` : 'Nothing to save: nothing was changed.'); pn.use = null; render(); return; }
+  else if (d.pnsave) { const id = +d.pnsave; pn.b = val('pnb-' + id); pn.s = val('pns-' + id); pn.dsc = val('pnd-' + id); const body = { brand: pn.b, o2sNames: pn.s.split('\n').map(x => x.trim()).filter(Boolean), was: { brand: pn.was.brand, o2s: pn.was.o2s } };
+    const dscCh = pn.was && pn.dsc.replace(/\s+/g, ' ').trim() !== (pn.was.spec || '') ? pn.dsc : null; // the description is saved after the names, so a refused name saves nothing (review 1.0.3 re-check)
+    let pv; try { pv = await api(`/api/c2m/names/product/${id}`, { ...body, preview: true }); } catch (er) { toast(er.message, true); if (/a moment ago/.test(er.message)) { pn.edit = null; await load(); } return; }
+    if (!pv.preview) { if (dscCh != null) { if (await pnSpec(id, dscCh)) { toast('Description saved: all 3 lists print it from now.'); pn.edit = null; await load(); } return; } toast('Nothing to save: nothing was changed.'); pn.edit = null; render(); return; }
+    if (pv.impact.leave.n || pv.impact.join.n) { pn.conf = { id, body, impact: pv.impact, dsc: dscCh }; render(); return; } // shows the trucks that move; Save anyway sends the counts seen (review 1.0.2, finding 2)
+    const j = await act(`/api/c2m/names/product/${id}`, { ...body, accept: { leave: 0, join: 0 } }, j => (j.rowsRenamed ? `Saved; ${pl(j.rowsRenamed, 'list row', 'list rows')} renamed, printed so on the next list.` : 'Saved.') + (j.rowsSkipped && j.rowsSkipped.length ? ` ${pl(j.rowsSkipped.length, 'row', 'rows')} linked to a pack of another size kept ${j.rowsSkipped.length === 1 ? 'its' : 'their'} name: unlink under Names to settle.` : '')); if (j) { if (dscCh != null) await pnSpec(id, dscCh, true); pn.edit = null; await load(); } return; }
+  else if (d.pnok) { const c = pn.conf; if (!c) return; const j = await act(`/api/c2m/names/product/${c.id}`, { ...c.body, accept: { leave: c.impact.leave.n, join: c.impact.join.n } }, j => `Saved: ${pl(j.impact.leave.trucks, 'truck', 'trucks')} and ${pl(j.impact.leave.open, 'open order line', 'open order lines')} left it, ${pl(j.impact.join.trucks, 'truck', 'trucks')} and ${pl(j.impact.join.open, 'open order line', 'open order lines')} joined it${j.rowsRenamed ? `; ${pl(j.rowsRenamed, 'list row', 'list rows')} renamed` : ''}.`); if (j && c.dsc != null) { await pnSpec(c.id, c.dsc, true); await load(); } if (j) { pn.edit = null; pn.conf = null; render(); } else { pn.conf = null; render(); } return; }
+  else if (d.mhist) { const g = +d.mhist; histOpen.has(g) ? histOpen.delete(g) : histOpen.add(g); }
+  else if ('cpart' in d) { if (d.memGo) meM = d.memGo; cpart = d.cpart || null; saved = null; trial = null; ptrial = null; billEdit = null; rowEd = null; dryKey = null; scr = 'costs'; if (cpart === 'labour' || cpart === 'foh') rf = { scope: 'general', picks: {}, kind: cpart }; window.scrollTo(0, 0); }
+  else if ('savedx' in d) { saved = null; if (d.scr) scr = d.scr; }
+  else if (d.lfch) { lfOpen = lfOpen === d.lfch ? null : d.lfch; dryKey = null; render(); const el = $('lf-v'); if (el) el.focus(); return; } // Labour and FOH (push 2c)
+  else if ('lfx' in d) { lfOpen = null; dryKey = null; }
+  else if (d.lfhist) { lfHist.has(d.lfhist) ? lfHist.delete(d.lfhist) : lfHist.add(d.lfhist); }
+  else if (d.lff) { lfFilter = d.lff; }
+  else if (d.lfsave) { const [kind, name] = d.lfsave.split('|'); const v = String(val('lf-v') || '').trim(); if (!/^\d+(\.\d+)?$/.test(v) || !(Number(v) > 0)) { toast('Type the rate in Rs per kg or L, digits above 0.', true); return; }
+    const b = { kind, name, rsPerKg: v, source: val('lf-s') }; if (!(await effectFirst('/api/c2m/lf/rate', b, 'eff-lf'))) return;
+    const j = await act('/api/c2m/lf/rate', b, j => `${KNW[kind]} rate ${name} saved at Rs ${n2(v)} from ${fmtShort(j.validFrom)}.${j.first ? ' First figure, go-live: no re-approval.' : ''}${j.baseline ? ` All rates are filled: ${pl(j.baseline, 'pack takes', 'packs take')} today's cost as ${j.baseline === 1 ? 'its' : 'their'} approved cost.` : ''}${j.reapproval ? ` ${pl(j.reapproval, 'pack moved', 'packs moved')} more than ${SET('reapprove_pct')}%: re-approval added.` : ''}`); if (j) { lfOpen = null; render(); } return; }
+  else if (d.lfadd) { const kind = d.lfadd, name = String(val('lfn-n') || '').trim(), v = String(val('lfn-v') || '').trim(); if (!name || !/^\d+(\.\d+)?$/.test(v)) { toast('Give the name and the Rs per kg or L (digits).', true); return; }
+    { const ex = LF().rates.find(x => x.kind === kind && x.name.toLowerCase() === name.toLowerCase()); if (ex) { toast(`${ex.label} already exists: change it with Change in its row.`, true); lfOpen = kind + '|' + ex.name; render(); return; } } // review 2c, finding 5
+    await act('/api/c2m/lf/rate', { kind, name, rsPerKg: v, source: val('lfn-s') }, `${KNW[kind]} rate ${name} added at Rs ${n2(v)}. No product is on it until you move one.`); return; }
+  else if (d.lfpick) { if (t.getAttribute('aria-pressed') === 'true') return; const [id, kind, name] = d.lfpick.split('|'); const b = { clientProductId: +id, kind, name };
+    if (!(await effectFirst('/api/c2m/lf/pick', b, 'eff-pick'))) return; const pr = (ST.products || []).find(y => y.id === +id) || {};
+    await act('/api/c2m/lf/pick', b, j => `${pr.brand || 'The product'} is on ${KNW[kind]} rate ${name} from ${fmtShort(j.validFrom)}.${j.first ? ' First move, go-live: no re-approval.' : ''}${j.reapproval ? ` ${pl(j.reapproval, 'pack moved', 'packs moved')} more than ${SET('reapprove_pct')}%: re-approval added.` : ''}`); return; }
+  else if (d.lfcert) { const result = d.lfcert; const j = await act('/api/c2m/checks', { month: lfPrev(), kind: 'lf_cert', data: { result } }, result === 'changed' ? 'Certificate saved: changed. Change the rates below; each is in force from the day saved.' : `Certificate saved: no change for ${mon(lfPrev())}.`);
+    if (j && result === 'changed') { const k = cpart === 'foh' ? 'foh' : 'labour'; const r0 = LF().rates.find(x => x.kind === k); if (r0) { lfOpen = k + '|' + r0.name; render(); } } return; }
+  else if (d.pdrop) { const x = (ST.pending || []).find(y => y.id === +d.pdrop); await act(`/api/c2m/costs/pending/${d.pdrop}/drop`, {}, `Dropped: ${x ? x.label : 'the change'} will not go in.`); return; }
+  else if (d.papprove) { const x = (ST.pending || []).find(y => y.id === +d.papprove); await act(`/api/c2m/costs/pending/${d.papprove}/approve`, {}, j => `Approved: ${x ? x.label : 'the change'} is in force now.${j.reapproval ? ` ${pl(j.reapproval, 'pack waits', 'packs wait')} for re-approval.` : ''}`); return; }
+  else if (d.plater) { await act(`/api/c2m/costs/pending/${d.plater}/later`, {}, 'Not urgent: it goes in on Monday. Yawar is told.'); return; }
+  else if (d.corr) { corrOpen = d.corr; render(); const el = $('corr-v'); if (el) el.focus(); return; }
+  else if (d.corrsave) { // correct a change that went in, within its hour (R29, edit only; push 2b)
+    const PATH = { rate: '/api/c2m/rates', packing_rate: '/api/c2m/packing/rate', freight: '/api/c2m/freight' }; let path, body;
+    if (d.corrsave === 'saved') { if (!saved) return; path = saved.path; body = saved.body || {}; } else { const x = (ST.pending || []).find(y => 'p' + y.id === d.corrsave); if (!x) return; path = PATH[x.kind]; body = x.body || {}; }
+    const f = path === '/api/c2m/packing/rate' && body.buy === 'kg' ? 'perKg' : CORR[path]; const v = String(val('corr-v') || '').trim();
+    if (!/^\d+(\.\d+)?$/.test(v)) { toast('Type the corrected figure in digits.', true); return; }
+    const b = { ...body, [f]: path === '/api/c2m/rates' ? Number(v) : v, correct: true, confirmed: true }; // the effect shows the figure first, so no second tick (review 2b, finding 5) if (path === '/api/c2m/packing/rate' && f === 'price') b.buy = body.buy || 'piece';
+    if (!(await effectFirst(path, b, 'eff-corr'))) return; // the effect first, as for every cost (R14)
+    const j = await act(path, b, 'Corrected. The figure you saved before is replaced, and the change is logged.'); if (j) corrOpen = null; return; }
+  else if (d.nsupart) { nsuPart[nsu] = d.nsupart; trial = null; ptrial = null; billEdit = null; if (p3) p3 = { client: null, prod: null, vform: null, tag: null }; }
+  else if (d.nsu) { if ('gosetup' in d) goPlace('setup'); if (d.nsu !== nsu && p3) p3 = { client: null, prod: null, vform: null, tag: null }; nsu = d.nsu; trial = null; ptrial = null; billEdit = null; window.scrollTo(0, 0); }
+  else return;
+  render();
+});
+function ncpRead() { const v = id => { const el = $(id); return el ? el.value : null; }; if (v('ncpr') != null) ncp.reason = v('ncpr'); if (v('ncpt') != null) ncp.tWhy = v('ncpt'); { const cx = $('ncpcx'); if (cx) ncp.cx = cx.checked; } if (v('ncpb') != null) ncp.below = v('ncpb'); if (v('ncpf') != null) ncp.from = v('ncpf') || null; if (v('nmxr') != null) ncp.mxReason = v('nmxr'); if (v('nmxf') != null) ncp.mxFrom = v('nmxf') || null; if (v('nmxt') != null) ncp.mxTill = v('nmxt') || ''; { const u = $('ncpu'); if (u) ncp.urg = u.checked; const m = $('nmxu'); if (m) ncp.mxUrg = m.checked; } if (v('ncpw') != null) ncp.urgWhy = v('ncpw'); if (v('nmxw') != null) ncp.mxUrgWhy = v('nmxw'); }
+document.addEventListener('input', e => {
+  const t = e.target; if (!ST) return; const d = t.dataset || {};
+  if (t.id === 'nmq') { nm.q = t.value; LFSET.delete('#nm'); clearTimeout(searchT); searchT = setTimeout(render, 150); }
+  else if (/^pnb-/.test(t.id)) pn.b = t.value; else if (/^pns-/.test(t.id)) pn.s = t.value; else if (/^pnd-/.test(t.id)) pn.dsc = t.value; // an open Edit keeps what was typed when the page redraws (review 1.0.2, design finding 15)
+  else if (d.ncpNp) { ncp.np[d.ncpNp] = t.value.replace(/[^\d.]/g, ''); ncpRead(); render(); }
+  else if (d.ncpNt) { const v0 = t.value.trim().toLowerCase(); ncp.nt[d.ncpNt] = v0.startsWith('c') ? 'company' : v0.replace(/[^\d.]/g, ''); ncpRead(); render(); }
+  else if (d.ncpMx) { ncp.mx[d.ncpMx] = t.value.replace(/[^\d.]/g, ''); ncpRead(); render(); }
+  else if (['ncpr', 'ncpb', 'nmxr', 'nmxt', 'ncpw', 'nmxw'].includes(t.id)) ncpRead();
+  else if (d.lst) { lst[d.lst] = t.value; if (d.lst !== 'why') { clearTimeout(searchT); searchT = setTimeout(render, 250); } }
+  else if (t.id === 'offwhy') { ncp.offWhy = t.value; render(); }
+  else if (['ncpf', 'nmxf'].includes(t.id)) { ncpRead(); render(); }
+});
+
+/* ---------- Render shell ---------- */
+/* Table standard (review 26 Oct 2026, round 4): every number column sorts on a click of its header; a table of more than 15 rows
+   keeps its header on screen; on a phone a card shows its key figures and a tap opens the rest. Applied after each render. */
+/* Form standard (round 4): required fields carry "Required" after the label; on save every empty one is marked with its message under it, and the first gets the focus. */
+const REQ = ['p3cn', 'p3pb', 'p3pt', 'p3k0', 'p3vm', 'p3vn', 'pin', 'pis', 'trv', 'trs', 'pts', 'ncpr', 'ncpb', 'ncpt', 'nmxr', 'rvr', 'lrbr'];
+function need(list) {
+  document.querySelectorAll('.ferr').forEach(x => x.remove()); document.querySelectorAll('.bad').forEach(x => x.classList.remove('bad')); let first = null;
+  list.forEach(([id, msg]) => { const el = document.getElementById(id); if (!el) return; const v = String(el.value || '').trim(); if (v && !(el.tagName === 'SELECT' && v === '')) return;
+    el.classList.add('bad'); const m = document.createElement('span'); m.className = 'ferr'; m.textContent = msg; const lab = el.closest('label') || el; lab.appendChild(m); if (!first) first = el; });
+  if (first) { first.focus(); toast(`${pl(document.querySelectorAll('.ferr').length, 'field needs', 'fields need')} filling in.`, true); return false; } return true;
+}
+/** 1 required field left empty: outline it, say why under it, focus it, stop the save (round 4, review finding 20). */
+function needOne(id, msg) { const el = document.getElementById(id); if (!el) { toast(msg, true); return false; } el.value = ''; need([[id, msg]]); return false; }
+function markReq() { REQ.forEach(id => { const l = document.querySelector(`label[for="${id}"]`); if (l && !l.querySelector('.req')) { const s0 = document.createElement('span'); s0.className = 'req'; s0.textContent = ' Required'; const inp = l.querySelector('input,select,textarea'); if (inp) l.insertBefore(s0, inp); else l.appendChild(s0); } });
+  document.querySelectorAll('label[for^="apks-"]').forEach(l => { if (!l.querySelector('.req')) { const s0 = document.createElement('span'); s0.className = 'req'; s0.textContent = ' Required'; l.insertBefore(s0, l.querySelector('input')); } }); }
+const isoWords = t => String(t == null ? '' : t).replace(/\b(20\d\d-\d\d-\d\d)\b/g, m => fmtD(m)); // dates in words inside job lines (round 4)
+const SORTS = {};
+const MON3 = { Jan: 1, Feb: 2, Mar: 3, Apr: 4, May: 5, Jun: 6, Jul: 7, Aug: 8, Sep: 9, Oct: 10, Nov: 11, Dec: 12 };
+/** A date written like 26 Oct 2026 (optionally with a time) as a sortable ISO string; null for anything else. */
+const dateKey = t => { const m = /^\s*(\d{1,2}) (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) (\d{4})(?:,? (\d\d:\d\d))?/.exec(String(t || '')); return m ? `${m[3]}-${String(MON3[m[2]]).padStart(2, '0')}-${m[1].padStart(2, '0')}${m[4] ? ' ' + m[4] : ''}` : null; };
+const numOf = t => { if (dateKey(t) || /\d[^,\d]*,\s+\S*\d/.test(String(t || ''))) return null; const s = String(t || '').replace(/Rs|PKR|,|%|\bkg\b|\bL\b|\bpts?\b/gi, '').trim(); if (!/^[-+−]?\d/.test(s)) return null; const v = parseFloat(s.replace('−', '-')); return isFinite(v) ? v : null; };
+function enhanceTables() {
+  /* push 10e (C-26): a row that opens says so to a screen reader (Enter opens it; see the keydown handler) */
+  document.querySelectorAll('tr.go:not([aria-label])').forEach(tr => { const c = tr.cells[0]; const t = c ? c.textContent.replace(/\s+/g, ' ').trim() : ''; if (t) tr.setAttribute('aria-label', (tr.hasAttribute('aria-expanded') ? 'Show or hide ' : 'Open ') + t); });
+  document.querySelectorAll('main table, aside.panel table').forEach((tb, ti) => {
+    if (tb.closest('.doc')) return; const noS = tb.dataset.nosort != null; /* nosort: an order that carries meaning; the phone view still applies */
+    const hr = tb.tHead ? tb.tHead.rows[0] : [...tb.rows].find(r => r.querySelector('th')); if (!hr) return;
+    const ths = [...hr.cells]; const isTot = r => r.dataset.total != null || /^\s*totals?\b/i.test(r.cells[0] ? r.cells[0].textContent : ''); /* a Total row is not data (review r4, finding 7) */
+    const tots = [...tb.rows].filter(r => r !== hr && !(r.parentElement && r.parentElement.tagName === 'TFOOT') && !r.querySelector('th') && isTot(r));
+    const att = r => r.cells.length === 1 && r.cells[0].colSpan > 1 && (r.classList.contains('pkdet') || !!r.querySelector('.box,.warnbox,.row,input,textarea,select')); /* a Detail or Edit row belongs to the row above it and moves with it */
+    const all0 = [...tb.rows].filter(r => r !== hr && !(r.parentElement && r.parentElement.tagName === 'TFOOT') && !r.querySelector('th') && !isTot(r));
+    const rows = all0.filter(r => !att(r)); const kids = new Map(); { let last = null; all0.forEach(r => { if (att(r)) { if (last) kids.set(last, (kids.get(last) || []).concat(r)); } else last = r; }); }
+    const flat = !noS && rows.length > 1 && rows.every(r => r.cells.length === ths.length && ![...r.cells].some(c => c.colSpan > 1));
+    const key = scr + '|' + (tb.id || ths.map(t => t.textContent.trim()).join('/'));
+    if (flat) ths.forEach((th, i) => {
+      const vals = rows.map(r => r.cells[i] ? r.cells[i].textContent : ''); const nums = vals.map(numOf).filter(v => v != null);
+      const numeric = nums.length >= Math.max(2, Math.ceil(rows.length * 0.6)); const text = i === 0 || vals.filter(dateKey).length >= Math.max(2, Math.ceil(rows.length * 0.6)); /* a date column sorts by date */
+      if (!numeric && !text) return;
+      th.classList.add('srt'); th.tabIndex = 0; th.title = 'Sort by ' + th.textContent.trim(); th.dataset.srt = i; th.dataset.srtk = key; th.dataset.srtn = numeric ? 1 : 0;
+      const st = SORTS[key]; th.setAttribute('aria-sort', st && st.i === i ? (st.d > 0 ? 'ascending' : 'descending') : 'none');
+    });
+    const st = SORTS[key];
+    if (flat && st && ths[st.i]) { const par = rows[0].parentElement; const g = r => { const c = r.cells[st.i]; if (!c) return ''; const t = c.textContent.trim(); return c.dataset.v || dateKey(t) || t; }; /* data-v: a date cell sorts by its ISO date */
+      rows.slice().sort((a, b) => { if (st.n) { const x = numOf(g(a)), y = numOf(g(b)); return ((x == null ? -Infinity : x) - (y == null ? -Infinity : y)) * st.d; } return g(a).localeCompare(g(b)) * st.d; }).forEach(r => { par.appendChild(r); (kids.get(r) || []).forEach(x => par.appendChild(x)); }); tots.forEach(r => r.parentElement === par && par.appendChild(r)); }
+    const wrap = tb.closest('.wrapx'); if (wrap && rows.length > 15 && !wrap.style.maxHeight) wrap.classList.add('tall');
+    if (tb.classList.contains('cards')) { tb.classList.add('short'); const keyed = ths.filter(th => th.dataset.key != null); const pri = keyed.length ? keyed.sort((a, b) => +a.dataset.key - +b.dataset.key).map(th => ths.indexOf(th)) : ths.map((th, i) => { const t = th.textContent; return { i, p: i === 0 ? 0 : /state|to do/i.test(t) ? 1 : /new price|new gp|price now|^price|mrp/i.test(t) ? 2 : /gp|target|cost|sales|rs/i.test(t) ? 3 : 9 }; }).filter(x => x.p < 9).sort((a, b) => a.p - b.p).slice(0, 4).map(x => x.i);
+      rows.forEach(r => [...r.cells].forEach((c, i) => { if (pri.includes(i) || c.querySelector('input,select,button,textarea')) c.classList.add('k'); })); all0.filter(att).forEach(r => { r.classList.add('att'); r.cells[0].classList.add('k'); }); if (tb.tFoot) [...tb.tFoot.rows].forEach(r => { const c = [...r.cells]; if (c[0]) c[0].classList.add('k'); if (c.length > 1) c[c.length - 1].classList.add('k'); }); }
+  });
+}
+/* ---------- What changed: the update notice at login (Tahir, 30 Oct 2026, D-141), like O2S's "What's changed since you last logged in" ----------
+   Each release adds 1 entry to CHANGELOG (newest last). Each line names who it is for by what they may do in C2M (an action such as
+   recipe.start), so a role made in Roles is covered too; 'all' = everyone who works in C2M beyond the price lists. The first time a person opens
+   C2M after an entry is added, a box lists the entries since the last one they saw (newest first, at most 5), only the lines for their job,
+   each with a link to its row in the Guide. "Got it" keeps the entry seen in this browser (a new device shows it once more, as in O2S).
+   The Guide keeps every entry under "What changed", for reading again. A release without its entry here is not finished (doc 06, D-141). */
+const CHANGELOG = [
+  { ver: '2026-10-29a', date: '2026-10-29', title: 'Reopened O2S lines count as open again', items: [
+    { t: 'A PO line the COO reopens in O2S counts as an open order in C2M again, after the next Pull now. Old reopened lines come back into open orders and the open-order figures.', for: ['see.margin'], guide: 'See margin and why it moved' }] },
+  { ver: '2026-10-30a', date: '2026-10-30', title: 'Search on every list, Edit and Delete, and the Default recipe', items: [
+    { t: 'Lists have a Find box above them (Materials keeps its own). Type any part of a name, client, kind or date: the list shows only the rows that match and says how many ("2 of 59").', for: ['see.products', 'see.margin'], guide: 'Find a row in a list' },
+    { t: 'Edit and Delete in each row. Edit opens the same form as Add, filled in; a new rate or price is saved as a new dated entry, so past trucks keep their cost.', for: ['material.save', 'packing.manage', 'labour.manage', 'freight.edit', 'client.add', 'lists.link'], guide: 'Edit a row' },
+    { t: 'Delete works only when nothing uses the row, and asks why. When something uses it, C2M names what and offers Take out of use: hidden from forms and pickers, kept for past costs, and Put back in use in its row.', for: ['material.save', 'packing.manage', 'labour.manage', 'freight.edit', 'client.add', 'lists.link'], guide: 'Delete a row' },
+    { t: 'A client product is edited with the Add a product form, filled in: its page, Edit this product.', for: ['client.add'], guide: 'Edit a row' },
+    { t: 'A product can keep another recipe beside its Default, for example DAP in place of TSP. When you start a version, pick "Another recipe for this product" and name it: the Production Manager writes it, the CFO approves its cost, and it never moves cost.', for: ['recipe.start', 'recipe.step.cost'], guide: 'Keep another recipe for a product' },
+    { t: 'Only the Default recipe sets cost, price for target and margin. The CFO makes another approved recipe the Default on the product page, Recipe, Make default: every pack gets a new approved cost from that moment, and the COO is told.', for: ['recipe.step.cost', 'price.approve'], guide: 'Change the Default recipe' },
+    { t: 'A draft recipe version started by mistake can be deleted: Delete this draft, on its page.', for: ['recipe.start'], guide: null },
+    { t: 'Materials, packing items and packing bills taken out of use are not offered when you pick one.', for: ['recipe.edit', 'packing.manage'], guide: null },
+    { t: 'Variant means the form of a product (Powder, Pellets, Granular). A size such as 1 L or 25 kg is a pack: add it under Packs. A variant typed as a size is stopped.', for: ['variant.add', 'client.add'], guide: 'Add a variant of a product' },
+    { t: 'Send back on a VAN brand list revision opens its reason box again.', for: ['list.approve'], guide: null }] },
+  { ver: '2026-10-30b', date: '2026-10-30', title: 'This box: what changed, at login', items: [
+    { t: 'When C2M changes, this box shows what changed for your job the first time you open it. Every update stays in the Guide, under What changed.', for: ['see.products', 'see.margin'], guide: null }] },
+  { ver: '2026-11-04a', date: '2026-11-04', title: 'Back to the launcher from every screen size, and a faster first load', items: [
+    { t: 'The top bar now always has a link back to the VAN Systems launcher, beside Sign out: "Back to launcher" on a wide screen, "Launcher" or a small house on a smaller one, "Launcher" on a phone. Before, it was hidden at every size and the only way back was the C2M logo.', for: ['all'], guide: null },
+    { t: 'C2M has its own icon in the browser tab. The browser no longer downloads the whole O2S app as C2M\'s icon while C2M opens, so the first screen comes sooner.', for: ['all'], guide: null },
+    { t: 'On a smaller laptop screen the top bar fits: the tabs no longer run over each other or get cut off. Below a certain width the tab icons and the word Find are left out.', for: ['all'], guide: null }] },
+  { ver: '2026-11-04b', date: '2026-11-04', title: 'Add a material class', items: [
+    { t: 'The CFO can add a material class on Costs, Material cost: a name and the nutrient % it asks (for example N%, Amino acid%, OM%), or a class that adds no nutrients. It then shows in every material\'s Class list.', for: ['material.save', 'nutrient.edit'], guide: 'Add a material class' }] },
+  { ver: '2026-11-04c', date: '2026-11-04', title: 'Daily O2S pull, POs checked by their time, and fixes', items: [
+ { t: 'C2M pulls O2S by itself every morning at about 06:00, so Margin carries yesterday\'s trucks. Pull now still works at any time.', for: ['see.margin'], guide: null },
+ { t: 'A PO is checked against the price in force when it came in. A price approved later the same day no longer marks that PO as below the approved price.', for: ['see.margin'], guide: null },
+ { t: 'Stuck jobs on Approvals now show working days (Monday to Saturday), the same days the stuck count uses.', for: ['see.margin'], guide: null },
+ { t: 'Send to the COO and Create PDF send once even when pressed twice.', for: ['price.propose', 'list.revise', 'pricedoc.all'], guide: null },
+ { t: 'A freight rate dated ahead waits for its date, and a freight change waits for re-approval like any other cost.', for: ['freight.edit'], guide: null },
+ { t: 'Roles are no longer made in C2M: the System Administrator designs them on the launcher. The Roles tab under Setup, Settings is gone.', for: ['settings.approve'], guide: null },
+ { t: 'If C2M cannot open, it says why and offers Retry and Back to launcher.', for: ['all'], guide: null }] },
+  { ver: '2026-11-04d', date: '2026-11-04', title: 'VAN brand POs checked against their price list', items: [
+ { t: 'Each VAN brand PO since 11 Oct is compared with the price list in force on its date and marked: at list price (within 1%), above, below, or not on its list. Distributors and Punjab dealers: distributor list. Sindh dealers: dealer list. COBO: farmer list, Sindh cash. VGreen: farmer list, Punjab. Farmer POs: farmer list for their region, Sindh cash or credit by payment terms. A client\'s own pack is checked against its cost only. Nothing is blocked and Margin keeps the price O2S entered. See More, Reports, VAN brand PO against its price list; Approvals shows a line when POs are off their list.', for: ['see.price'], guide: 'Check VAN brand POs against their price list' }] },
+  { ver: '2026-11-05a', date: '2026-11-05', title: '7 cost saves made safe', items: [
+ { t: 'Edit a material: a new name or class and a new rate typed together now both go through. Before, the rate was lost and the screen said Saved. The same for a packing item\'s name and price.', for: ['rate.save', 'material.save', 'packing.manage'], guide: null },
+ { t: 'Settings: a box left empty is no longer saved (it counted as 0). Month end: an empty actual labour or FOH box is no longer saved as Rs 0.', for: ['settings.edit', 'actuals.enter'], guide: null },
+ { t: 'Freight: a region typed in small letters ("sindh") now matches clients in Sindh. Before Delete, C2M now checks the freight rate in force today, not one dated ahead.', for: ['freight.edit'], guide: null },
+ { t: 'Labour and FOH: adding a second rate for exactly the same products is refused, since one of the two would never be used. Change a rate with Edit in its row.', for: ['labour.manage'], guide: null }] },
+  { ver: '2026-11-05b', date: '2026-11-05', title: 'Costs has its own place', items: [
+ { t: 'Costs is now in the top bar. It opens on 6 boxes: Material cost, Packing cost, Labour, FOH, Freight cost and Month end. Each box shows its figures, what waits and what is wrong; Open shows its list. Setup moved under More and keeps clients, products and settings.', for: ['see.margin', 'rate.save', 'packing.manage', 'labour.manage', 'freight.edit'], guide: null },
+ { t: 'A packing price, packing bill, labour, FOH or freight change now shows its effect first: the first Save lists the packs whose cost would move more than the re-approval % (nothing is saved yet); Save again to keep it. A material cost already worked this way; its button is now Change cost.', for: ['rate.save', 'packing.manage', 'labour.manage', 'freight.edit'], guide: null },
+ { t: 'After a cost is saved, a box says what was saved and what waits for re-approval, with Open Approvals, Change another and Back to Costs. History on a material shows its last 6 costs.', for: ['rate.save', 'packing.manage', 'labour.manage', 'freight.edit'], guide: null }] },
+  { ver: '2026-11-05c', date: '2026-11-05', title: 'Monday is cost day', items: [
+ { t: 'Material, packing and freight costs change once a week. Saved on a Monday, a change goes in at once. Saved Tuesday to Sunday, it waits in Next week\'s costs and goes in at Monday 00:00. A first cost goes in at once. Labour and FOH are not in this weekly cycle.', for: ['rate.save', 'packing.manage', 'freight.edit', 'see.margin'], guide: null },
+ { t: 'Costs, Open next week\'s costs: every waiting change with today\'s figure, Monday\'s, the change % and the packs that move. Change it or drop it until Monday. The lists show the waiting figure under today\'s.', for: ['rate.save', 'packing.manage', 'freight.edit', 'see.margin'], guide: null },
+ { t: 'Urgent: tick it and write why; the change goes in when Tahir approves it. Tahir sees it at the top of Approvals.', for: ['rate.save', 'packing.manage', 'freight.edit', 'price.approve'], guide: null },
+ { t: 'For 1 hour after a change goes in, the person who saved it can correct the figure (the effect shows first).', for: ['rate.save', 'packing.manage', 'freight.edit'], guide: null }] },
+  { ver: '2026-11-05d', date: '2026-11-05', title: 'Labour and FOH: Low and High', items: [
+ { t: 'Labour and FOH are now 4 named rates, Rs per kg or L: Labour rate Low, Labour rate High, FOH rate Low, FOH rate High. Every product starts on Low. The old special rates are out of use (kept in the record).', for: ['labour.manage', 'see.margin'], guide: null },
+ { t: 'Until Yawar fills the 4 figures, packs show "no labour rate" or "no FOH rate" and no price can be proposed or checked for them. Approved costs, prices and Margin do not change.', for: ['labour.manage', 'see.margin'], guide: null },
+ { t: 'Costs, Labour or FOH: each rate with Fill or Change and its History, and every product with Low or High. A change, or a product moved, is in force from the day saved. Until 30 Nov the first figure and each product\'s first move need no re-approval; when all the rates are filled, each pack\'s cost that day becomes its approved cost.', for: ['labour.manage', 'see.margin'], guide: null },
+ { t: 'Monthly certificate: by the 5th, No change or Changed for the month before, starting with the month of the switch. Approvals reminds the CFO from the 1st.', for: ['labour.manage', 'see.margin'], guide: null }] },
+  { ver: '2026-11-05e', date: '2026-11-05', title: 'Packing bills pick their packs; freight regions from a list', items: [
+ { t: 'Costs, Packing cost: a bill lists its packs. Tick the packs it is for: a pack with no bill gets it at once; a pack on another bill moves to it on Monday (urgent with Tahir\'s approval). Moving a pack\'s bill on the product page (Assign, or Edit this product) waits for Monday too; its first bill goes in at once. A pack waits to move in only 1 change at a time.', for: ['packing.manage', 'see.margin'], guide: null },
+ { t: 'Set freight: the region is picked from a list of the regions on clients and freight rows; a region on neither is refused.', for: ['freight.edit'], guide: null }] },
+  { ver: '2026-11-05f', date: '2026-11-05', title: 'Clients: client first, then its brand; prices change on Monday', items: [
+ { t: 'The top bar is Approvals, Clients, Margin, Costs and More. Clients opens on White Label; the switch at the top goes to VAN Brands. Client prices is inside Clients; Products moves under More.', for: ['see.margin'], guide: 'Open a white label brand' },
+ { t: 'White Label: pick the client, then a brand in its row. The brand page shows its recipe, cost by pack, 3 prices with GP (Existing, Current, Projected) and its margin and open POs. VAN Brands: Products, Prices by list and Price lists.', for: ['see.margin'], guide: 'Open a white label brand' },
+ { t: 'A new client price or VAN list revision takes effect on a Monday, the cost day. Urgent: tick it and write why; it goes in the day Tahir approves it.', for: ['price.propose', 'list.revise', 'price.approve'], guide: 'Change a client price or a target GP' }] },
+  { ver: '2026-11-05g', date: '2026-11-05', title: 'VAN price lists: 5 cards with target and freight', items: [
+ { t: 'Clients, VAN Brands has 2 tabs, Products and Price lists. Price lists shows the 5 lists as cards, each with its target GP, its freight per kg and what is below target or cost after freight.', for: ['see.margin'], guide: 'Change VAN brand list prices' },
+ { t: 'Open a list: each pack with cost, freight, list price, GP after freight and the price for the target, worst first. Type a new price in its row to send a revision for Monday.', for: ['list.revise', 'list.approve'], guide: 'Change VAN brand list prices' },
+ { t: 'Change target or freight on a list: the effect shows first; the COO approves it.', for: ['settings.edit', 'settings.approve'], guide: 'Set a VAN list\'s target or freight' }] },
+  { ver: '2026-11-06a', date: '2026-11-06', title: 'Month end in 5 steps; VAN brand list freight in Margin', items: [
+ { t: 'Costs, Month end: 1 page per month in 5 steps: actuals, labour and FOH charged on kg made in O2S with the under or over, tie to the books, COO check, lock.', for: ['see.margin'], guide: 'Close the month' },
+ { t: 'The COO check: the top material rates against the register, and every labour, FOH, packing and freight change of the month ticked as seen. Then the COO locks the month; only he reopens it, with a reason.', for: ['actuals.ratecheck', 'see.margin'], guide: 'Close the month' },
+ { t: 'Margin: VAN brand cost includes each sale\'s list freight; the month shows labour and FOH actual less charged as 1 company line; a locked month shows its figures as locked and any change since.', for: ['see.margin'], guide: null }] },
+  { ver: '2026-11-06b', date: '2026-11-06', title: 'Month end: stock kg charged at its products\' rate', items: [
+ { t: 'Month end now finds the products of stock made for no brand through O2S\'s own product list (each brand\'s base). Before this, most stock showed as "base not known" and was not charged.', for: ['see.margin'], guide: 'Close the month' }] },
+  { ver: '2026-11-06c', date: '2026-11-06', title: 'Month end: October charged from its 1st day', items: [
+ { t: 'Kg made in October before the first labour and FOH rates (13 Oct) is now charged at the 13 Oct rates, so the under or over compares the whole month. Month end says how much kg this is.', for: ['see.margin'], guide: 'Close the month' }] },
+  { ver: '2026-11-06d', date: '2026-11-06', title: 'Reports: 3 new reports; dates, columns, ticks and downloads on all 7', items: [
+ { t: 'Reports: 3 new reports. Cost history (every approved cost of every pack and why it moved), Price history (client prices and the 5 VAN lists, from when to when) and Margin by client and brand (any dates; totals agree with Margin).', for: ['see.margin'], guide: 'Read a report' },
+ { t: 'Every report opens on the current month. Pick the dates, the columns and the rows, and download what is on the screen as Excel, CSV or PDF (the print box: "Save as PDF").', for: ['see.margin'], guide: 'Download a report' },
+ { t: 'VAN brand GP is after list freight in 2 more places: the VAN brand list margin report (judged on each list\'s own target; a list with no freight set is not judged, but a price below cost is always shown) and Margin opened on a VAN brand, where list freight is its own part of the cost.', for: ['see.margin'], guide: 'Margin by client and brand' },
+ { t: 'VAN brand sales are now judged against the target of the price list each was sold on (each channel has its own target), on Margin and on Margin by client and brand. A sale with no list, or on a list with no target set yet, is shown as not judged.', for: ['see.margin'], guide: 'Margin by client and brand' }] },
+  { ver: '2026-11-06e', date: '2026-11-06', title: 'Reports: Your own report, saved reports and Adjust', items: [
+ { t: 'Your own report, first on Reports: pick the data (Sales, Open POs, Pack cost, Client prices, VAN list prices, Rates, Kg made), the dates, the columns in your order, the filters, and each row or totals by group. GP % on a total is its GP ÷ its sales. Download it as Excel, CSV or PDF.', for: ['see.margin'], guide: 'Make your own report' },
+ { t: 'Save a report with a name: it is kept for you and listed under Your own report on Reports, to open on today\'s data, rename or delete. Saving starts once IT has run 1 step; until then a report can be made and downloaded, not kept.', for: ['see.margin'], guide: 'Save, open, rename or delete a report' },
+ { t: 'Adjust, on the bar of a report, opens it in Your own report on its data, with its dates, filters and columns, to change it further.', for: ['see.margin'], guide: 'Adjust a report' }] },
+  { ver: '2026-11-07a', date: '2026-11-07', title: 'Clearer words; farmer sales by their price list', items: [
+ { t: 'Farmers are not clients. On Margin, in Margin by client and brand and in Your own report, farmer sales now show under the farmer price list each sale was picked on: Farmer list, Punjab; Farmer list, Sindh cash; Farmer list, Sindh credit. Each has its own GP and is judged on that list\'s target. White label clients, distributors, dealers, COBO and VGreen stay client lines.', for: ['see.margin'], guide: 'See margin and why it moved' },
+ { t: 'A farmer sale whose region O2S does not have is taken as on the Farmer list, Punjab: its list freight, its target and the VAN brand PO price check follow that list, and Margin says how many sales were placed there this way. A dealer with no region is not changed.', for: ['see.margin'], guide: 'Check VAN brand POs against their price list' },
+ { t: 'The same words everywhere: client and client line, From and Till for dates, Take out of use and Put back in use, Labour and FOH, Sync setting and Price setting. Rupee figures show thousands commas (Rs 1,250.00).', for: ['see.margin', 'labour.manage'], guide: null },
+ { t: 'Messages now say what to do next: a row that is no longer in C2M asks you to press Refresh; "Nothing to save" says nothing was changed; a part that is not switched on yet says IT has 1 step to run.', for: null, guide: null }] },
+  { ver: '2026-11-07b', date: '2026-11-07', title: 'The Guide: your jobs with steps and Start; Find anything finds more', items: [
+ { t: 'The Guide now has 1 row per job. Tap a job for its numbered steps and what happens next; Start opens its first screen. Each person sees only their own jobs, and the Guide says how many.', for: ['see.margin', 'see.products', 'see.granted_lists'], guide: 'Find anything' },
+ { t: 'New jobs in the Guide: packs not costed, packs costed with no price, items from your sheets, a price or list revision sent back (revise and resend), a VAN brand pack with no printed MRP, a recipe that is stuck, and approving the cost of a product that follows another\'s recipe.', for: ['see.margin'], guide: 'Fix packs that are not costed' },
+ { t: 'The Production Manager, the QC Head, the Plant Manager and KAMs now have job rows with steps and Start too, in place of the short lists.', for: ['see.products', 'see.granted_lists'], guide: null },
+ { t: 'Find anything finds more: a client from the client list (also one with no sales yet), opening it on Clients with its Margin as the next result; the 5 VAN price lists and Make a price list PDF (type distributor list, dealer list, farmer list, MRP or PDF); KAM lists, settings, the change record, month end and lock, re-approvals, Your own report, and the Guide\'s jobs. Reports not built yet are not offered.', for: ['see.margin'], guide: 'Find anything' },
+ { t: 'Find anything: a packing item such as Bag 25 opens Packing cost with its list already filtered to that item; a VAN brand product opens on Clients, VAN Brands, Products; choosing Reports opens the Reports page, not the last report you read.', for: ['see.margin'], guide: 'Find anything' }] },
+  { ver: '2026-11-07c', date: '2026-11-07', title: 'On a phone: bigger buttons, and Back stays in C2M', items: [
+ { t: 'On a phone every button, tick, tab, chip and box on Approvals, Clients and the brand pages is at least 40 px to tap. A re-approve tick: tap anywhere on its line. The pencil that changes a target is a full-size button. Entering rates and price lists stays laptop work; their wide tables still scroll inside their own box.', for: ['see.margin'], guide: null },
+ { t: 'The phone Back button now goes back 1 step inside C2M: from a part of a place to the place, then to the place before. An open panel, Find or More closes first. If you typed something and did not save it, Back first asks "Leave without saving?" with Stay and Leave. A reload opens the place you were on.', for: ['all', 'see.granted_lists'], guide: null },
+ { t: 'On Clients and Reports, Back goes from a brand page to its client, from a client to Clients as it opened, and from a report to Reports.', for: ['see.margin'], guide: null },
+ { t: 'Tabs look the same everywhere: a line under the one you are on. Chips are only for filters, such as status and dates.', for: ['all', 'see.granted_lists'], guide: null },
+ { t: 'The tabs with a line under them: White Label and VAN Brands, Products and Price lists, the parts of Setup, Price history and the product page.', for: ['see.margin'], guide: null }] },
+  { ver: '2026-11-09a', needs014: true, date: '2026-11-09', title: 'Materials and nutrients: 1 nutrient list, a card per material, declared grades', items: [
+ { t: 'The materials list now has 4 tabs: Materials, Nutrients, Classes and Declared grades. Every % entered before is kept: C2M copied it across.', for: ['nutrient.edit'], guide: null },
+ { t: 'Press Open on a material: its card lists each nutrient with its %, certificate and date. Add any nutrient from the list, such as amino acids, whatever its class. A nutrient not on the card counts as 0 in a recipe.', for: ['nutrient.edit'], guide: "Enter a material's nutrients" },
+ { t: 'You keep the nutrient list yourself: a nutrient not in it is added in 1 step, from the Nutrients tab or straight from a material card. Each has 1 basis (K2O, not K) and is % w/w or w/v. The CFO is told.', for: ['nutrient.list'], guide: 'Add a nutrient to the list' },
+ { t: 'Declared grades: enter what each product\'s label promises. C2M checks the Default recipe against it and shows meets, or below by how much. It is a warning; it stops nothing.', for: ['grade.declare'], guide: "Enter a product's declared grade" },
+ { t: 'A material not in the list can be added without a rate: name, grade, class and the supplier or why. The CFO is told and adds the rate.', for: ['material.add'], guide: 'Add a material that is not in the list' },
+ { t: 'You now have Inputs: every material and what it carries, to read while writing a recipe.', for: ['recipe.edit'], guide: null },
+ { t: 'A material may now come in with no rate, added by the QC Head or the Production Manager. Approvals shows "… materials wait for your rate"; a recipe using one cannot pass the cost step until the rate is in.', for: ['rate.save'], guide: 'Add the rate of a new material' },
+ { t: 'A class is now a label (Nitrogen source, Amino acid source, Binder): it suggests nutrients and locks none. The QC Head may add classes too.', for: ['material.save'], guide: 'Add a material class' }] },
+  { ver: '2026-11-09b', date: '2026-11-09', title: 'The recipe path: who sees what, notices, the line editor, the check, Close', items: [
+ { t: 'Edit lines now shows each material with its grade and what it carries, a Find box, the % of the mix, the total and the analysis as you type (against the label once the QC Head enters it). Below the label is a warning only.', for: ['recipe.edit'], guide: 'Write the first recipe of a client product' },
+ { t: 'Resend: if you changed the lines, the recipe goes to the QC Head first; if not, straight back to whoever sent it. The button names who. You are told on Today when a recipe is approved, sent back or closed.', for: ['recipe.edit'], guide: 'Revise a recipe sent back' },
+ { t: 'The check screen shows what changed against the approved version, the analysis against the label, and any material data missing, with Open material to fix it yourself and then pass it.', for: ['recipe.step.review'], guide: 'Check a recipe' },
+ { t: 'Every recipe now comes to you, another recipe of a product too (then it goes straight to the CFO). A recipe resent with changed lines comes back to you.', for: ['recipe.step.review'], guide: 'Check a recipe' },
+ { t: 'Passing with something red (analysis not complete, or below the label) needs a comment; it is kept on the step and the next person reads it.', for: ['recipe.step.review', 'recipe.step.endorse'], guide: null },
+ { t: 'Close this version: a version not going ahead is closed with a reason; the Production Manager is told. A notice reaches you when a recipe comes to your step.', for: ['recipe.step.review', 'recipe.step.endorse', 'recipe.step.cost'], guide: 'Close a recipe version' },
+ { t: 'Another recipe of a product now comes to you after the QC Head has checked it. A recipe you sent back comes straight back only if no line changed.', for: ['recipe.step.cost'], guide: 'Approve the cost of a recipe' },
+ { t: 'Recipes: the QC Head now checks every recipe, notices go to the next person at each step, and a version can be closed with a reason.', for: ['see.margin'], guide: null }] },
+  { ver: '2026-11-10a', needs015: true, date: '2026-11-10', title: 'Liquids: % w/w and % w/v, and densities', items: [
+ { t: 'On a material card each % now says w/w (kg per 100 kg) or w/v (g per 100 mL), as its certificate states it. Every % entered before stays as C2M took it (w/w, or w/v where the nutrient list said so): change only those whose certificate says otherwise.', for: ['nutrient.edit'], guide: "Enter a material's nutrients" },
+ { t: 'A material bought in kg with a value in w/v (or bought in L with a value in w/w) needs its density, kg per L at 20 °C, with where it comes from. Until it is in, only the figures that need it show "not complete", naming the material. C2M never takes 1.0.', for: ['nutrient.edit'], guide: 'Enter the density of a material' },
+ { t: 'Declared grades: each nutrient on a label is w/w or w/v, as the label states it (w/v at first for a product sold per L). A label on the other basis is checked once the Production Manager enters the product density.', for: ['grade.declare'], guide: "Enter a product's declared grade" },
+ { t: 'A product sold per L is now worked out in % w/v (per 1 L), one sold per kg in % w/w, with the other beside it once the product density is in. You enter a product\'s density on Inputs, Declared grades; the lines added up show beside it as a hint only.', for: ['recipe.edit'], guide: 'Enter the density of a product' },
+ { t: 'Liquids: each % is now w/w or w/v, densities of materials and products are entered with their source, and every analysis and label check is worked out on the right basis. Cost does not change.', for: ['see.margin'], guide: null }] },
+  { ver: '2026-11-10b', date: '2026-11-10', title: 'Each screen checked person by person', items: [
+ { t: 'Filling the labour and FOH rates High and Low is now your next move: until each is filled, the packs on it have no cost.', for: ['labour.manage'], guide: null },
+ { t: 'Packs not costed now show on Today only to those who can fix them. A recipe page says who enters missing material data.', for: ['recipe.edit', 'recipe.step.endorse'], guide: null },
+ { t: 'Dates in notes now read as 14 Oct 2026.', for: ['see.products'], guide: null },
+ { t: 'The recipes list says no lines yet for a draft with none, and Rs per kg or L for materials.', for: ['see.cost'], guide: null }] },
+  { ver: '2026-11-10c', date: '2026-11-10', title: 'A role page for each person', items: [
+ { t: 'Each person now reads a short page about their role in C2M and signs it once before C2M opens; the COO does not sign. A changed page is signed again. Read it any time: Guide, Read your role page.', for: ['see.products', 'see.granted_lists'], guide: null },
+ { t: 'Role sign-offs on More, Setup, Record and checks: who has signed, who has not, and each role page to read.', for: [], guide: null }] },
+  { ver: '2026-11-10d', date: '2026-11-10', title: 'Notices you can mark as read', items: [
+ { t: 'For your information now shows only the notices you have not read, with Mark as read. Read ones fold into "Read notices, last 30 days".', for: ['recipe.edit', 'recipe.step.draft', 'recipe.step.review', 'recipe.step.endorse', 'recipe.step.cost'], guide: null },
+ { t: 'A role made on the launcher that holds a recipe step now gets that step\'s notices too.', for: [], guide: null }] },
+  { ver: '2026-11-10e', date: '2026-11-10', title: 'Screens tidied', items: [
+ { t: 'Below target has 1 colour everywhere, Margin included: red when more than 2 points short of the target (act now), amber when short within 2 points. The size of the Rs short no longer decides red.', for: ['see.margin', 'price.propose'], guide: null },
+ { t: 'Page titles are in normal case and bigger. Money on tiles and in lists is in millions with 2 decimals (Rs 3.10M); kg has 4 decimals; GP always shows its %. A missing figure shows as –.', for: ['all', 'see.granted_lists'], guide: null },
+ { t: 'The recipe page has 1 title and 1 answer line; missing material data shows only in the amber box. Open to write goes straight to the lines. Delete this draft sits after your step.', for: ['recipe.edit', 'recipe.step.draft', 'recipe.step.review', 'recipe.step.endorse'], guide: null },
+ { t: 'Delete and Remove buttons have a red outline. On Materials, Change cost stays in the row; History, Edit and Delete are under More.', for: ['rate.save', 'material.save', 'recipe.start', 'client.add'], guide: null },
+ { t: 'The Guide groups your jobs under the place each one starts in.', for: ['all'], guide: null },
+ { t: 'On a phone, the recipe line editor puts the kg box and Remove under the material, pack figures carry their labels, and chart text stays readable.', for: ['all'], guide: null }] },
+  { ver: '2026-11-17a', date: '2026-11-17', title: 'The go-live window', items: [
+ { t: 'While Tahir keeps the go-live window open, a material, packing item, packing bill, labour, FOH or freight change goes in when it is saved. Nothing waits for Monday, nothing needs urgent approval and no re-approval item is made. A packing bill, labour, FOH or freight change saves with 1 press; a material rate or a packing price still shows its effect first (Change cost), then saves. The strip at the top of Costs says until when.', for: ['rate.save', 'packing.manage', 'labour.manage', 'freight.edit'], guide: null },
+ { t: 'In the window, the Default recipe of a product that came from Yawar\'s sheet is corrected in 1 step: the Production Manager starts a new version, corrects the lines and sends it straight to the CFO, who approves its cost. The QC Head and Plant Manager steps are skipped.', for: ['recipe.edit', 'recipe.step.draft', 'recipe.step.cost'], guide: null },
+ { t: 'The day after the window\'s last day, each fully costed pack\'s cost that day becomes its approved cost, with no re-approval. Tahir and the CFO get a notice naming any pack that was not fully costed.', for: ['see.margin'], guide: null }] },
+  { ver: '2026-11-17b', date: '2026-11-17', title: 'Send a corrected recipe in 1 press', items: [
+ { t: 'In the go-live window, the recipe editor has Save lines and send to the CFO, and the recipe page has Send to the CFO next to Open to write, so a corrected recipe from Yawar\'s sheet goes to the CFO in 1 press.', for: ['recipe.edit', 'recipe.step.draft'], guide: null }] },
+  { ver: '2026-11-18a', date: '2026-11-18', title: 'New products go straight to the CFO, and Find on Labour and FOH', items: [
+ { t: 'Until the go-live window ends, every recipe the Production Manager sends goes straight to the CFO, who approves it and its cost in 1 press: the first recipe of a new product, a new version and another recipe of a product. The QC Head and Plant Manager steps are skipped. The button says Send to the CFO.', for: ['recipe.edit', 'recipe.step.draft', 'recipe.step.cost'], guide: null },
+ { t: 'Costs, Labour and FOH: "Which products are on which rate" has a Find box. Type a product or a client; on Labour, type High to find the products on Labour rate High, and on FOH the same for FOH.', for: ['labour.manage', 'see.margin'], guide: null }] },
+  { ver: '2026-11-20a', date: '2026-11-20', title: 'True counts in the go-live window, and lists downloaded without a new number', items: [
+ { t: 'In the go-live window, each cost notice now says how many packs moved more than the re-approval %, and that their cost that day becomes the approved cost when the window closes. Before, it said no pack moved, which was not checked in the window.', for: ['price.approve'], guide: null },
+ { t: 'Costs that become approved: on the go-live line, a list of every pack whose cost today differs from its approved cost, largest moves first; packs not fully costed keep their approved cost, or stay without one. From 7 days before the last day it is also a job on Approvals for Tahir.', for: ['see.cost'], guide: null },
+ { t: 'For your information keeps every unread notice of the last 30 days on the list, so Mark as read marks only what you saw.', for: ['see.margin'], guide: null },
+ { t: 'Price lists: Download gives the latest issued list, with its own VAN/PL number, so no new number is made each time. A list never issued is made once. A list that has ended is not given out: ask the CFO for the current one.', for: ['see.granted_lists'], guide: null },
+ { t: 'In the go-live window the Guide and your role page say Send to the CFO, the button you see.', for: ['recipe.edit', 'recipe.step.draft'], guide: null }] },
+  { ver: '2026-11-20b', date: '2026-11-20', title: 'Approvals in 3 groups, and 1 page head everywhere', items: [
+ { t: 'Approvals: the badge counts only your decisions. The answer line says what else is on your list. The list has topic chips (Recipes, Prices and targets, Costs and month end, Margin, Setup) and 3 groups: To approve, Stuck with others and To do. Recipes stuck with 1 person are 1 line that opens.', for: ['price.approve'], guide: null },
+ { t: 'The margin card names its period and target: the chip says how many points below or above, the target is each product\'s target weighted by sales, and a month not finished is marked with *.', for: ['see.margin'], guide: null },
+ { t: 'For your information: 3 or more updates by 1 person on 1 day fold into 1 line that opens.', for: ['see.margin'], guide: null },
+ { t: 'Most screens open with their title and answer line, with "How this works" behind a small ? Help at the top right. The top bar is not printed.', for: ['all'], guide: null }] },
+  { ver: '2026-11-20c', date: '2026-11-20', title: 'VAN Brands boxes and rows, and Costs boxes that say their state', items: [
+ { t: 'Clients, VAN Brands, Products: 4 boxes filter the table (All packs, Cannot be costed, Recipe waiting, Costed); the whole row opens the product; the product name shows once in bold with the pack muted; packs run small to large; each row has 1 state and only what it does not already say. The Standard margin % column is gone: a VAN brand sale is judged against its price list\'s target.', for: ['see.products'], guide: null },
+ { t: 'Costs: each box shows its state (Problem, To do, Not set up, Waiting, Up to date) with a coloured edge and an icon, problems first, and the whole box opens it. Month end shows its 5 steps and the next one; packing shows the last change of an item or a bill; labour and FOH say per kg or L. The go-live line is 1 line; What the window does opens its full text.', for: ['see.cost'], guide: null }] },
+  { ver: '2026-11-20d', date: '2026-11-20', title: 'Price lists in 2 tabs', items: [
+ { t: 'Price lists: 2 tabs, Lists and Who can see them. Lists: the issued lists first, each with its number, dates and state (in force, starts later, or ended and not replaced), Download PDF (the latest document, no new number) and Issue a new PDF; the lists never issued in 1 short table with Make the first one; Make a list at the top; the public price page in 1 line.', for: ['pricedoc.all'], guide: null },
+ { t: 'Who can see them: 1 table of people against lists. Tick a list in a person\'s row (it saves at once); Change in the row opens the white label clients; a cell marked missing is a list the 11 Nov ruling gives the person; See what they see checks it. Also on More, Setup, Settings, KAM lists.', for: ['grants.give'], guide: null }] },
+  { ver: '2026-11-20e', date: '2026-11-20', title: 'Small fixes from the audit, and public holidays', items: [
+ { t: 'Public holidays: the COO keeps a list on More, Setup, Settings, Company settings. Working days on Approvals (how long a job has been stuck) skip those days.', for: ['all'], guide: null },
+ { t: 'A price list dated ahead now shows, before you create the PDF, the prices in force on its From date, exactly as the PDF prints them. 2 price lists can never share a number, and a deleted one never gives its number again.', for: ['pricedoc.all'], guide: null },
+ { t: 'Labour and FOH: the first figure of a rate and a product\'s first move are free while the go-live window is open, so they follow its last day if it moves.', for: ['labour.manage'], guide: null },
+ { t: 'Smaller fixes: an error message now shows over every box and is read out; money never shows as -0 or Rs NaN; a margin card with no target says Not judged; a price of 0 shows no GP; a job opens the job it was drawn for; each prices-to-change job opens only its own packs.', for: ['all'], guide: null }] },
+  { ver: '2026-11-20f', date: '2026-11-20', title: 'C2M keeps your place, and redraws faster', items: [
+ { t: 'After you press a button, a tab or a tick, the focus stays on it, so the keyboard carries on from there. A fold you opened (or closed) stays that way after a save or a redraw, and a long table you scrolled inside keeps its place.', for: ['all'], guide: null },
+ { t: 'Screens work out their lists once per redraw: Clients with many sales redraws about 20 times faster.', for: ['all'], guide: null }] },
+  { ver: '2026-11-20g', date: '2026-11-20', title: 'C2M opens faster and keeps itself up to date', items: [
+ { t: 'C2M opens and comes back after a save faster: it reads its data over more connections at once, and the second person in the same half minute uses the data already read.', for: ['all'], guide: null },
+ { t: 'C2M keeps itself up to date: it reads its data again when you come back to the tab and the data is more than a minute old, every 2 minutes while the tab is open, and when the day changes. It waits while you are typing, have typed something not yet saved, are saving or have a panel open. Approvals says when it was last updated.', for: ['all'], guide: null }] },
+  { ver: '2026-11-20h', date: '2026-11-20', title: 'C2M opens faster on your computer after the first time', items: [
+ { t: 'C2M\'s screens and styles are now kept by your browser until they change, so after the first open C2M starts sooner. The first open after each new version reads them once.', for: ['all'], guide: null }] }
+];
+let _wnShown = false, wnGuide = null;
+/* ---------- Push 7e (Tahir, 10 Nov 2026, D-166): the role page, read and signed once per version before C2M opens ----------
+   1 page per role (6). The page fills the screen and nothing behind it takes a click until it is signed. The COO does not sign; he
+   reads every page on More, Setup, Record and checks, Role sign-offs. A new version of a role's page asks everyone in it to sign again. */
+const PLACE_WHAT = { today: 'Everything that waits for you, oldest first. Start here every day.', approvals: 'Everything that waits for you, oldest first, with your next move at the top. Start here every day.', clients: 'Each client and brand: its prices, targets and margin on 1 page.', margin: 'Profit by group, client, brand and pack, down to each truck.', costs: 'Material, packing, labour, FOH, freight and month end: each cost in its own box.', products: 'Every product with its recipe, packs and cost.', recipes: 'Every recipe and version, with its lines, steps and analysis.', inputs: 'Materials and what each carries, nutrients, classes and declared grades.', setup: 'Clients, products and variants, settings, and the record of every change.', reports: 'Ready reports and your own, to read or download.', lists: 'The approved price lists given to you.', guide: 'Your jobs, step by step, each with a Start button.' };
+const PLACE_NAME = { today: 'Today', approvals: 'Approvals', clients: 'Clients', margin: 'Margin', costs: 'Costs', products: 'Products', recipes: 'Recipes', inputs: 'Inputs', setup: 'Setup', reports: 'Reports', lists: 'Price lists', pricelists: 'Price lists', guide: 'Guide' };
+const ROLE_PAGES = {
+  production: { ver: 1, places: ['today', 'products', 'recipes', 'inputs', 'guide'], title: 'Production Manager', step: 0,
+    role: 'You write every recipe in C2M: the first recipe of a new client product, each new version, and another recipe beside the Default. Nothing reaches the QC Head, the plant or the CFO until you send it.',
+    jobs: ['<b>Write the first recipe</b> of a client product when Today lists it: Start the recipe, Edit lines, Save lines, then Send to the QC Head.', '<b>Write a new recipe version</b> when a material or a quantity changes, and say what changes and why.', '<b>Type each line as kg of material per 1 kg of product</b>, or per 1 L for a product sold per L. The total, the % of the mix and the analysis against the label show as you type.', '<b>Revise a recipe sent back</b>: read the reason and the advice, change the lines, then Resend. The button names who it goes to.', '@015<b>Enter a product\'s density</b> on Inputs, Declared grades, when its label is on the other basis (w/w for a product sold per L, w/v for one sold per kg).', '<b>Add a material that is not in the list</b>, with its supplier or why it is needed. The CFO adds its rate; the QC Head its nutrients.', '<b>Add a variant</b> of a product on Products (+ New, Add a variant). Its recipe starts as a draft copy: change what differs and send it on.'],
+    done: 'Today says nothing needs you: no "Write the first recipe" line and none of your drafts waiting.',
+    notDo: 'You do not check, endorse or approve a recipe. You do not enter a material\'s nutrients or any rate or price. You can delete only a draft you started by mistake; an approved recipe is never deleted.' },
+  qc: { ver: 1, places: ['today', 'recipes', 'inputs', 'guide'], title: 'QC Head', step: 1,
+    role: 'You are the check on every recipe. Nothing the plant may run reaches the Plant Manager or the CFO until you have passed it, and every nutrient C2M adds up comes from the material cards you keep.',
+    jobs: ['<b>Check a recipe</b> when Today lists it. Read what changed, the nutrient analysis, the check against the label, and any material data missing. Pass it, send it back with a reason and advice, or close it.', '<b>Fix missing data yourself</b>: press Open material, enter it, come back and pass. No need to send it back for this.', '<b>Write a comment when something is red</b> (the analysis not complete, or below the label). The next person reads it.', '<b>Keep every material card</b>: each nutrient\'s %@015w, w/w or w/v as the certificate states it@, the certificate and its date@015w, and the density when C2M asks for it@.', '<b>Keep the nutrient list and the classes.</b> 1 nutrient, 1 basis: K2O and K are 2 nutrients.', '<b>Enter each product\'s declared grade</b>: what the label promises, and the tolerance you allow below it.'],
+    done: 'Today says nothing needs you. No material shows "to enter" or "density needed". Every product has its declared grade.',
+    notDo: 'You see no rupee figures: rates, costs and prices belong to the CFO. You do not approve cost. You never type a figure you cannot trace to a certificate.' },
+  plant: { ver: 1, places: ['today', 'recipes', 'guide'], title: 'Plant Manager', step: 2,
+    role: 'You say whether the plant can make the recipe as written, after the QC Head has checked it and before the CFO approves its cost.',
+    jobs: ['<b>Endorse a recipe</b> when Today lists it: read the recipe, what changed, its nutrients against the label and its cost, then press Endorse.', '<b>Write a comment when something is red</b>; the CFO reads it.', '<b>Send it back to the Production Manager</b> with a reason and advice when the plant cannot make it as written.', '<b>Close a version</b> that is not going ahead, with the reason. The Production Manager is told.', '<b>Read any recipe</b> on Recipes, with its lines, steps and who did each.'],
+    done: 'Today says nothing needs you: no recipe waits at your step.',
+    notDo: 'You do not write recipes, enter nutrients, or enter rates or prices. Another recipe of a product (not the Default) does not come to you: after the QC Head it goes straight to the CFO.' },
+  cfo: { ver: 1, places: ['approvals', 'clients', 'margin', 'costs', 'pricelists', 'products', 'setup', 'reports', 'guide'], title: 'CFO', step: 3,
+    role: 'You keep every cost true and propose every price. You approve the cost of each recipe, the last step before it is approved; the Default recipe then sets the cost of every pack.',
+    jobs: ['<b>Keep the rates current</b>: materials, packing, labour and FOH (Low and High), and freight. Each change is dated; past trucks keep their cost.', '<b>Approve the cost of a recipe</b> when Approvals lists it, and re-approve costs that moved more than the re-approval %.', '<b>Fix packs that are not costed</b>: each one names what is missing (an approved recipe, a packing bill, or a rate).', '<b>Propose prices and targets</b> for clients, and revise the VAN brand price lists. The COO approves them.', '<b>Close each month</b>: enter actual labour and FOH, and tie C2M to the books.', '<b>Check the items from your sheets</b> that C2M carried in, and settle O2S names.', '<b>Add clients, products and packs</b> on More, Products, and <b>give a KAM his lists</b> on More, Setup, Settings, KAM lists.'],
+    done: 'Approvals says nothing needs you. Every pack has a cost, every costed pack has a price, and last month is tied to the books.',
+    notDo: 'You do not approve your own prices, list revisions, targets or setting changes: the COO does. You do not write recipes. Nutrients are the QC Head\'s to enter.' },
+  viewer: { ver: 1, places: ['lists', 'guide'], title: 'Price list viewer', step: -1,
+    role: 'You see the approved prices of the price lists given to you, in the same document every manager receives.',
+    jobs: ['<b>Open your price lists</b> and read the approved prices.', '<b>Download a list as PDF</b> and share it with your clients.', '<b>Ask the COO or the CFO</b> for a list you need and cannot see.'],
+    done: 'You quote only the prices on your approved lists.',
+    notDo: 'You see no cost or margin, and you change nothing in C2M.' },
+  custom: { ver: 1, places: [], title: '', step: -1,
+    role: 'This role was set up by the System Administrator on the launcher. What you may do is what is ticked on it: the places below are the places you may use.',
+    jobs: null, done: 'Your first place says nothing needs you.', notDo: 'The places not listed here are not part of your role.', readNote: 'Each person in such a role sees their own places and jobs on this page.' } };
+const RP_FLOW = ['Production Manager writes', 'QC Head checks', 'Plant Manager endorses', 'CFO approves cost'];
+/** Which role page is this person's: null for the COO (does not sign) and while looking at a manager's screen. */
+function rolePageKey() { if (!ST || !ST.me || ST.me.admin || PV) return null; const r = ST.me.role; if (['production', 'qc', 'plant', 'cfo', 'viewer'].includes(r)) return r; return (ST.me.nav || []).includes('lists') && !(ST.me.nav || []).some(n => ['products', 'recipes', 'costs', 'margin'].includes(n)) ? 'viewer' : 'custom'; }
+const rpId = k => `${k}:${ROLE_PAGES[k].ver}`;
+/** The page itself. mode: sign (fills the screen, ends with the tick and Sign) or read (from the Guide, or the COO reading a role's page). */
+function rolePageHtml(k, mode, who) {
+  const P = ROLE_PAGES[k], nav = who ? null : (ST.me.nav || []).concat(ST.me.more || []);
+  const title = P.title || (who ? 'A role made on the launcher' : ST.me.label);
+  const places = (nav ? nav.filter(n => PLACE_WHAT[n]) : (P.places || [])).map(n => `<tr><td><b>${esc(PLACE_NAME[n])}</b></td><td>${esc(PLACE_WHAT[n])}</td></tr>`).join('');
+  const g15 = t => ST.m015 ? t.replace(/@015w?/g, '').replace(/@/g, '') : t.replace(/@015w[^@]*@/g, '').replace(/@/g, ''); /* lines about w/w, w/v and density show once database update 015 has run (review 7e, W5) */
+  const own = !who && !P.jobs ? gjMine().map(r => `<b>${esc(r.j)}</b>`) : [];
+  const jobs = (P.jobs ? P.jobs.filter(j => ST.m015 || !j.startsWith('@015')).map(g15) : null) || (who ? [P.readNote || 'Each job the role has the right to do, as its Guide shows it.'] : own.length ? own : GUIDE_CUSTOM.map(esc));
+  const html = rpBody(k, mode, who, P, title, places, jobs); const mins = Math.max(1, Math.ceil(html.replace(/<[^>]+>/g, ' ').split(/\s+/).filter(Boolean).length / 200)); // the words as drawn, rounded up (review 7e, 9)
+  return `<div class="rp"><p class="ans" style="margin:0 0 4px;color:var(--muted)">${mode === 'sign' ? 'Before you start · ' : ''}about ${mins} ${mins === 1 ? 'minute' : 'minutes'} · version ${P.ver}</p>${html}</div>`;
+}
+function rpBody(k, mode, who, P, title, places, jobs) {
+  return `
+  <h1 class="topic">Your role in C2M: ${esc(title)}</h1><p class="answer">${esc(P.role)}</p>
+  <h2>1. Where you sit</h2>${P.step >= 0 ? `<div class="rpflow">${RP_FLOW.map((s, i) => `<span${i === P.step ? ' class="on"' : ''}>${i === P.step ? 'You: ' : ''}${esc(s)}</span>`).join('')}<span class="ok">Approved: the Default recipe sets the cost of every pack</span></div><p class="ans">Another recipe of a product (not the Default) skips the Plant Manager: after the QC Head it goes straight to the CFO, and it moves no cost until the CFO makes it the Default. Each person is told when a recipe comes to them.</p>` : `<p>${k === 'viewer' ? 'The CFO proposes prices and the COO approves them; only approved prices reach your lists.' : 'Your places and jobs are below; Today or your first place lists what waits for you.'}</p>`}
+  <h2>2. Your places</h2><div class="box wrapx"><table><tr><th>Place</th><th>What it is for</th></tr>${places || '<tr><td colspan="2">As ticked on the role.</td></tr>'}</table></div>
+  <h2>3. Your jobs</h2><ul class="rpl">${jobs.map(j => `<li>${glGuide(j)}</li>`).join('')}</ul>
+  <h2>4. What done looks like</h2><p>${esc(P.done)}</p>
+  <h2>5. What you do not see or do</h2><p>${esc(P.notDo)}</p>
+  <h2>6. Always true</h2><p>${k === 'viewer' ? '' : 'Every save carries your name and the time, in the change record. A warning does not stop your work; to pass a recipe with something red, write a comment first. '}When unsure, open the Guide: each job has its steps and a Start button.</p>
+  ${mode === 'sign' ? `<label class="rptick"><input type="checkbox" id="rp-ok"> I have read this page and understand my role and jobs in C2M.</label><p style="margin:12px 0 0"><button class="btn" id="rp-sign" data-rpsign="${esc(k)}" disabled>Sign and open C2M</button> <span class="ans" style="margin:0">Signing is kept in the change record with the date and time.</span></p>` : `<p style="margin:16px 0 0"><button class="btn" data-rpclose="1">Close</button></p>`}`;
+}
+let _rpShown = false;
+/** Shows the page when this person has not signed this version yet; true while it is shown (What changed waits until after). */
+function checkSignoff() {
+  const k = rolePageKey(); if (!k || _rpShown) return _rpShown; if (!Array.isArray(ST.signed) || ST.signed.some(s => (typeof s === 'string' ? s : s.page) === rpId(k) && (typeof s === 'string' || !s.role || s.role === ST.me.role))) return false; // no list: a server from before 7e; a sign counts only for the role it was signed in
+  _rpShown = true; rpOpen(k, 'sign'); return true;
+}
+function rpOpen(k, mode, who) {
+  const old = $('rpbox'); if (old) old.remove(); const el = document.createElement('div'); el.id = 'rpbox'; el.className = 'rpbox'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-modal', 'true');
+  el.innerHTML = `<div class="rpin">${rolePageHtml(k, mode, who)}</div>`; document.body.appendChild(el); const a = $('app'); if (a) a.setAttribute('inert', ''); el.scrollTop = 0; const h = el.querySelector('h1'); if (h) { h.tabIndex = -1; h.focus(); }
+}
+function rpClose() { const el = $('rpbox'); if (el) el.remove(); const a = $('app'); if (a) a.removeAttribute('inert'); }
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('rpbox') && !$('rp-ok')) { e.preventDefault(); rpClose(); } });
+document.addEventListener('click', async e => { const t = e.target.closest && e.target.closest('[data-nread]'); if (!t || !ST) return; e.preventDefault(); t.disabled = true; /* push 7f (D-167): notices read */
+  try { const up = Number(t.dataset.nread); await api('/api/c2m/notices/read', { upto: up }); ST.noticesReadUpto = Math.max(Number(ST.noticesReadUpto) || 0, up); render(); } catch (err) { t.disabled = false; toast(err.message, true); } });
+document.addEventListener('change', e => { if (e.target && e.target.id === 'rp-ok') { const b = $('rp-sign'); if (b) b.disabled = !e.target.checked; } });
+document.addEventListener('click', async e => { const t = e.target.closest && e.target.closest('[data-rpsign],[data-rpclose],[data-rpread]'); if (!t || !ST) return; e.preventDefault();
+  if (t.dataset.rpclose) { rpClose(); return; }
+  if (t.dataset.rpread != null) { const k = t.dataset.rpread || rolePageKey(); if (k && ROLE_PAGES[k]) rpOpen(k, 'read', !!t.dataset.rpread); return; }
+  const k = t.dataset.rpsign; if (!$('rp-ok') || !$('rp-ok').checked) return; t.disabled = true;
+  try { await api('/api/c2m/signoff', { page: k, version: ROLE_PAGES[k].ver }); // with the sign-in token (review 7e, 1)
+    ST.signed = (ST.signed || []).concat({ page: rpId(k), role: ST.me.role }); _rpShown = false; rpClose(); toast('Signed. Welcome to C2M.'); checkWhatsNew(); }
+  catch (err) { t.disabled = false; toast(err.message, true); } });
+/** The COO's list: who signed which page and when (Setup, Record and checks, Role sign-offs). */
+function vSignoffs() {
+  if (!ST.signoffs) return '<p class="ans">Role sign-offs start when the server is updated.</p>'; // review 7e, 8
+  const S = ST.signoffs; const ppl = S.people.filter(p => !p.admin);
+  /* the last sign of this person's own page, in this person's own role (review 7e, 2) */
+  const mine = p => { const L = S.rows.filter(r => r.user === p.user && r.page.split(':')[0] === p.page && (!r.role || r.role === p.role)); return L.length ? L[L.length - 1] : null; };
+  const cur = r => !!r && ROLE_PAGES[r.page.split(':')[0]] && Number(r.page.split(':')[1]) === ROLE_PAGES[r.page.split(':')[0]].ver;
+  const row = p => { const r = mine(p);
+    return `<tr><td><b>${esc(p.name)}</b> <span class="ans" style="margin:0">${esc(p.user)}</span></td><td>${esc(p.label)}</td><td>${r ? `${cur(r) ? '<span class="pill p-green">signed</span>' : '<span class="pill p-amber">signed an older version</span>'} ${esc(fmtD(d10(r.at)))}` : '<span class="pill p-amber">not yet</span>'}</td></tr>`; };
+  const n = ppl.filter(p => cur(mine(p))).length;
+  return `<p class="ans">${n} of ${ppl.length} ${ppl.length === 1 ? 'person has' : 'people have'} signed their role page. Each person signs once per version, before C2M opens for them; you do not sign.</p>
+  <div class="box wrapx"><table class="cards"><tr><th>Person</th><th>Role</th><th>Role page</th></tr>${ppl.map(row).join('') || '<tr><td colspan="3">Nobody yet.</td></tr>'}</table></div>
+  <h2>Read each role page</h2><p class="ans">The same words each person reads before C2M opens.</p><div class="acts">${Object.keys(ROLE_PAGES).map(k => `<button class="btn ghost" data-rpread="${k}">${esc(ROLE_PAGES[k].title || 'A role made on the launcher')}</button>`).join(' ')}</div>`;
+}
+
+/** A Guide link only when that row is on this person's Guide (Yawar's rows, Tahir's rows, and Both; D-141). */
+const gjVisible = n => gjMine().some(r => r.j === n); // a Guide link only when that row is on this person's Guide (D-141; push 6b, every role)
+const wnLines = c => (c.items || []).filter(it => ADM() || (it.for || ['all']).some(a => a === 'all' ? CAN('see.products') || CAN('see.margin') : CAN(a)));
+const wnKey = () => 'c2m_changelog_seen_' + String((ST && ST.me && ST.me.user) || '').toLowerCase();
+/** The entries this page may show: one that needs migration 014 waits until it has run (review 7a, minor 1), and is not marked seen before. */
+const CLX = () => CHANGELOG.filter(c => (!c.needs014 || (ST && ST.m014)) && (!c.needs015 || (ST && ST.m015))); // push 7c: an entry that needs 015 waits too
+const wnMine = () => CLX().filter(c => wnLines(c).length);
+function checkWhatsNew() {
+  const CL = CLX(); if (_wnShown || _rpShown || !ST || !ST.me || PV || !CL.length) return; // push 7e: the role page comes first
+  let seen = ''; try { seen = localStorage.getItem(wnKey()) || ''; } catch (_) {}
+  const late = wnHeld(); // entries held back earlier (they waited for migration 014) and now shown, though older than the last one seen
+  const latest = CL[CL.length - 1].ver; if (seen === latest && !CL.some(c => late.includes(c.ver))) return;
+  const i = seen ? CL.findIndex(c => c.ver === seen) : -1;
+  const show = CL.filter((c, k) => (i < 0 || k > i || late.includes(c.ver)) && !(seen && c.ver <= seen && !late.includes(c.ver))).filter(c => wnLines(c).length);
+  if (!show.length) { wnRemember(); return; } // nothing for this job: remembered quietly
+  _wnShown = true; const el = document.createElement('div'); el.id = 'wnbox'; el.innerHTML = wnHtml(show, late); document.body.appendChild(el);
+  { const a = $('app'); if (a) a.setAttribute('inert', ''); } // nothing behind the box takes a click or a key (review 30 Oct)
+  const b = el.querySelector('.wnf [data-wnok]'); if (b) b.focus();
+}
+function wnEntry(c, i) { return `${i ? '<hr>' : ''}<div><b>${esc(c.title)}</b><div class="wnd">${esc(fmtD(c.date))}</div><ul>${wnLines(c).map(it => `<li>${esc(it.t)}${it.guide && gjVisible(it.guide) ? ` <button class="lnk" data-wnguide="${esc(it.guide)}">See it in the Guide</button>` : ''}</li>`).join('')}</ul></div>`; }
+function wnHtml(entries, late = []) {
+  const all = entries.slice().reverse(), keep = new Set([...all.filter(c => late.includes(c.ver)), ...all.filter(c => !late.includes(c.ver))].slice(0, 5)), shown = all.filter(c => keep.has(c)), rest = all.length - shown.length; // push 7g: at most 5, any held back until now first, then the newest
+  return `<div class="wnscrim" data-wnok></div><div class="wn" role="dialog" aria-modal="true" aria-labelledby="wnh"><div class="wnh"><h2 id="wnh">What's changed since you last opened C2M</h2></div>
+  <div class="wnb">${shown.map(wnEntry).join('')}${rest > 0 ? `<p class="wnd">The newest ${shown.length} of ${all.length} updates for your job. See all in the Guide, What changed.</p>` : ''}</div>
+  <div class="wnf"><button class="btn ghost" data-wnguide="">Open the Guide</button><button class="btn" data-wnok>Got it</button></div></div>`;
+}
+/** Entries held back until migration 014 (or 015) runs are remembered as not seen, so they show once it has run (push 7b). */
+function wnHeld() { try { return JSON.parse(localStorage.getItem(wnKey() + '.held') || '[]') || []; } catch (_) { return []; } }
+function wnRemember() { try { const CL = CLX(); localStorage.setItem(wnKey(), CL[CL.length - 1].ver); localStorage.setItem(wnKey() + '.held', JSON.stringify(CHANGELOG.filter(c => !CL.includes(c)).map(c => c.ver))); } catch (_) {} }
+function wnDismiss() { wnRemember(); const el = $('wnbox'); if (el) el.remove(); const a = $('app'); if (a) a.removeAttribute('inert'); const f = document.querySelector('.hdr nav button'); if (f && scr !== 'guide') f.focus(); }
+document.addEventListener('click', e => { const t = e.target.closest('[data-wnok],[data-wnguide]'); if (!t || !ST) return;
+  if (t.dataset.wnguide != null) { const inBox = !!t.closest('#wnbox'); if (inBox) wnDismiss(); wnGuide = t.dataset.wnguide || null; if (wnGuide) gjOpen.add(wnGuide); scr = 'guide'; closePanel(); render(); const r = document.querySelector('.gj.gjhl'); if (r) { r.scrollIntoView({ block: 'center' }); const b = r.querySelector('.gjs'); if (b) b.focus({ preventScroll: true }); } return; }
+  wnDismiss(); });
+document.addEventListener('keydown', e => { const box = $('wnbox'); if (!box) return; if (e.key === 'Escape') { e.stopPropagation(); e.preventDefault(); wnDismiss(); return; }
+  if (e.key === 'Tab') { const f = [...box.querySelectorAll('button')]; if (!f.length) return; const i = f.indexOf(document.activeElement); e.preventDefault(); f[(i + (e.shiftKey ? -1 : 1) + f.length) % f.length].focus(); e.stopPropagation(); return; }
+  if (!e.target.closest || !e.target.closest('#wnbox')) { e.stopPropagation(); e.preventDefault(); } }, true); // the keyboard stays in the box (Ctrl K and the rest wait; review 30 Oct)
+/** The Guide keeps every update for this job, newest first (D-141). */
+function wnGuideBox() { const M = wnMine(); return M.length ? `<h2>What changed</h2><details class="box" style="margin-bottom:12px"><summary><b>${pl(M.length, 'update', 'updates')} for your job</b> <span class="ans">newest first; the same lines shown at login</span></summary><div style="padding:8px 4px">${M.slice().reverse().map((c, i) => `${i ? '<hr style="border:0;border-top:1px solid var(--line);margin:12px 0">' : ''}<b>${esc(c.title)}</b> <span class="ans">${esc(fmtD(c.date))}</span><ul style="margin:6px 0 0;padding-left:20px">${wnLines(c).map(it => `<li>${esc(it.t)}</li>`).join('')}</ul>`).join('')}</div></details>` : ''; }
+/* ---------- List search (Yawar, 29 Oct 2026; D-138): 1 box above each list, the same everywhere. It filters as you type across every
+   column shown, says "2 of 59", and keeps what was typed while you move around C2M in that sitting. A Detail or Edit row moves with its row. ---------- */
+const LFQ = {};
+function findBox(key, ph) { const id = 'lf-' + key; return `<div class="find lf"><label for="${id}" class="ans" style="margin:0">Find</label><input id="${id}" type="search" data-lf="${key}" value="${esc(LFQ[key] || '')}" placeholder="${esc(ph)}" aria-label="${esc(ph)}" autocomplete="off"><span class="ans lfc" data-lfc="${key}" aria-live="polite" style="margin:0"></span></div>`; }
+function lfApply(only) {
+  document.querySelectorAll('[data-lft]').forEach(box => { const key = box.dataset.lft; if (only && key !== only) return;
+    let words = String(LFQ[key] || '').toLowerCase().split(/\s+/).filter(Boolean); let groups = [];
+    if (box.tagName === 'TABLE') {
+      const att = r => r.cells.length === 1 && r.cells[0].colSpan > 1 && (r.classList.contains('pkdet') || !!r.querySelector('.box,.warnbox,.row,input,textarea,select'));
+      const empty = r => r.cells.length === 1 && r.cells[0].colSpan > 1 && !att(r);
+      const rows = [...box.rows].filter(r => !r.querySelector('th') && !(r.parentElement && r.parentElement.tagName === 'TFOOT') && r.dataset.total == null && !empty(r));
+      rows.forEach(r => { if (att(r) && groups.length) groups[groups.length - 1].push(r); else if (!att(r)) groups.push([r]); });
+    } else groups = [...box.querySelectorAll('.jrow, .job, .item, .gj')].map(el => [el]);
+    const run = w => { let n = 0; groups.forEach(g => { const t = g.map(r => r.dataset.lfs != null ? r.dataset.lfs : r.textContent).join(' ').toLowerCase(); /* data-lfs: the row's own search words (D-171) */ const ok = w.every(x => t.includes(x)); g.forEach(r => r.classList.toggle('lfh', !ok)); if (ok) n += Number(g[0].dataset.lfn || 1); /* push 10b: a folded group counts its items */ if (ok && w.length) g.forEach(r => r.querySelectorAll('.jsub[hidden]').forEach(x => { x.hidden = false; const b = r.querySelector('.jx'); if (b) { b.textContent = 'Hide'; b.setAttribute('aria-expanded', 'true'); if (b.dataset.jx) jxOpen.add(b.dataset.jx); } })); }); return n; };
+    const total = groups.reduce((a, g) => a + Number(g[0].dataset.lfn || 1), 0);
+    let shown = run(words);
+    /* A filter set by Start or Find that matches no row is not kept: the whole list shows (review 6b, M1) */
+    if (LFSET.has(key) && words.length && !shown) { LFQ[key] = ''; LFSET.delete(key); const inp = document.querySelector(`[data-lf="${key}"]`); if (inp) inp.value = ''; words = []; shown = run(words); }
+    const c = document.querySelector(`[data-lfc="${key}"]`); if (c) c.textContent = words.length ? `${shown} of ${total}` : `${total} in the list`;
+    lfOnly(box, key, total - shown);
+    box.querySelectorAll('.gjg').forEach(h => { let n = h.nextElementSibling, any = false; while (n && !n.classList.contains('gjg')) { if (!n.classList.contains('lfh')) any = true; n = n.nextElementSibling; } h.classList.toggle('lfh', !any); }); // push 7g: a place heading with no job shown hides
+  });
+}
+/** While a filter set by Start or Find is on, 1 line says so, how many items it hides, and gives Show all (review 6b, M1): an item,
+   an approval above all, is never hidden without a word on the screen. A filter the person types gets no line: they can see it. */
+function lfOnly(box, key, hidden) {
+  let el = document.querySelector(`.lfonly[data-lfo="${key}"]`); const on = LFSET.has(key) && String(LFQ[key] || '').trim();
+  if (!on) { if (el) el.remove(); return; }
+  if (!el) { el = document.createElement('p'); el.className = 'lfonly ans'; el.dataset.lfo = key; el.setAttribute('role', 'status');
+    const fb = document.querySelector(`[data-lf="${key}"]`), at = fb && fb.closest('.find'); if (at) at.after(el); else if (box.tagName !== 'TABLE' && box.querySelector(':scope > h2')) box.querySelector(':scope > h2').after(el); else box.before(el); }
+  el.innerHTML = `<span>Showing only items with “${esc(LFQ[key])}”: ${hidden ? `${pl(hidden, 'other item', 'other items')} hidden.` : 'nothing else is hidden.'}</span> <button class="btn ghost" data-lfall="${esc(key)}">Show all</button>`;
+}
+document.addEventListener('click', e => { const th = e.target.closest && e.target.closest('th.srt'); if (th) { const k = th.dataset.srtk, i = +th.dataset.srt; const st = SORTS[k]; SORTS[k] = { i, n: th.dataset.srtn === '1', d: st && st.i === i ? -st.d : (th.dataset.srtn === '1' ? -1 : 1) }; render(); return; }
+  const td = e.target.closest && e.target.closest('table.cards.short td'); if (td && window.matchMedia('(max-width:600px)').matches && !e.target.closest('input,select,button,a,textarea,label')) { const tr = td.parentElement; tr.classList.toggle('open'); } });
+document.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.classList && e.target.classList.contains('srt')) { e.preventDefault(); e.target.click(); } });
+document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target && e.target.id === 'audq') { e.preventDefault(); aud.q = e.target.value; aud.data = null; audLoad(); } });
+/** Draw the page, then record the move for the phone Back button (push 6c, D-161). */
+function render() { renderPage(); navSync(); if (editLines) elLive(); } // push 7b: the editor's live total and analysis
+const badgeN = J => ADM() ? J.filter(j => j.kind === 'approve').length : J.length; // push 10b (Tahir, 20 Nov 2026): for the administrator the badge counts only his decisions
+/* ---------- Push 10f (audit C-09, with C-23): a redraw keeps the place. The button pressed keeps the focus, an open or closed fold stays
+   as the person left it, and a box scrolled inside keeps its scroll, on the same screen. ---------- */
+let drawnScr = null, drawnView = null, drawnPan = ''; const FOLD = new Map(), FCODE = new Map(); // drawnView, drawnPan: the place and panel the page on screen was drawn for
+/* review 10f (M2, m1): a place is the screen and its part (as navBase, plus the Price lists tab); a panel is its kind and item */
+const viewKey = () => { try { return navBase(navSnap()) + (scr === 'pricelists' ? '|' + plTab : scr === 'margin' ? '|' + nm.by : scr === 'inputs' && typeof mtab !== 'undefined' ? '|' + mtab : ''); } catch (_) { return String(scr); } }; // re-check 10f: Margin's view and the Inputs tab are places too
+const panKey = () => { if (!pan) return ''; try { return JSON.stringify(pan); } catch (_) { return navOv({ pan }); } };
+const MONRX = /\b\d{1,2} (jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]* \d{4}\b/g;
+function foldKey(d) { if (d.dataset.nofold != null || d.matches('.rowmenu, .newm') || d.closest('tr, .rowmenu, .newm')) return null; /* review 10f (B1, M1): a menu or a fold in a row is never kept */ if (d.dataset.fold) return d.dataset.fold; const sm = d.querySelector(':scope > summary'); const dates = []; const t = (sm ? sm.textContent : '').replace(/\s+/g, ' ').trim().toLowerCase().replace(MONRX, m => { dates.push(m); return '@' + String.fromCharCode(97 + dates.length - 1) + '@'; }).replace(/\d+([.,]\d+)*/g, '#').replace(/@([a-z])@/g, (_, c) => dates[c.charCodeAt(0) - 97]); /* counts change after a save, a date names the fold */
+  return (d.closest('aside.panel') ? 'pan:' + drawnPan : 'view:' + drawnView) + ':' + t; }
+document.addEventListener('click', e => { const sm = e.target.closest && e.target.closest('summary'); if (!sm) return; const d = sm.parentElement; if (!d || d.tagName !== 'DETAILS' || !d.closest('#app')) return; setTimeout(() => { const k = foldKey(d); if (k) FOLD.set(k, d.open); }, 0); }, true); // read after the browser has opened or closed it
+function applyFolds() { document.querySelectorAll('#app details').forEach(d => { const k = foldKey(d); if (!k) return; const code = d.open; /* review 10f (m1): when the code changes how it draws a fold (it opens it on purpose), the code wins */ if (FCODE.has(k) && FCODE.get(k) !== code) FOLD.delete(k); FCODE.set(k, code); if (FOLD.has(k) && d.open !== FOLD.get(k)) d.open = FOLD.get(k); }); }
+const fText = x => x.textContent.replace(/\s+/g, ' ').trim().slice(0, 80);
+const fMatch = k => x => !x.closest('aside.panel') && !!x.closest('.hdr') === k.inNav && k.data.every(([n, v]) => x.getAttribute(n) === v) && (x.getAttribute('aria-label') || '') === k.label && (k.data.length || fText(x) === k.text);
+function focusKey(el) { const app = $('app'); if (!el || el === document.body || !app || !app.contains(el) || el.closest('aside.panel') || /^(TEXTAREA|SELECT)$/.test(el.tagName) || (el.tagName === 'INPUT' && !/^(checkbox|radio)$/.test(el.type))) return null; // review 10f (m2): a tick keeps focus too
+  const data = [...el.attributes].filter(a => a.name.startsWith('data-') && a.name !== 'data-jk' && a.name !== 'data-armed').map(a => [a.name, a.value]);
+  const k = { tag: el.tagName, id: el.id || null, data, text: fText(el), label: el.getAttribute('aria-label') || '', inNav: !!el.closest('.hdr') };
+  k.idx = Math.max(0, [...app.querySelectorAll(k.tag)].filter(fMatch(k)).filter(x => fText(x) === k.text).indexOf(el)); return k; } // review 10f (m4): the same button in row 3 stays row 3
+function focusBack(k) { if (!k) return false; const app = $('app'); let el = k.id ? $(k.id) : null;
+  if (!el) { const C = [...app.querySelectorAll(k.tag)].filter(fMatch(k)); const T = C.filter(x => fText(x) === k.text); el = T[Math.min(k.idx || 0, T.length - 1)] || C[0]; }
+  if (el && !el.disabled && !el.closest('[hidden]')) { el.focus({ preventScroll: true }); return document.activeElement === el; } return false; }
+/* review 10f (M2, m3): main's boxes are kept by place, the side panel by its kind and item, each on its own */
+const keepScroll = () => { const pn = document.querySelector('#app aside.panel'); return { v: drawnView, main: [...document.querySelectorAll('#app main .wrapx')].map(b => [b.scrollTop, b.scrollLeft]), p: drawnPan, pan: pn ? pn.scrollTop : 0 }; };
+function putScroll(S) { if (!S) return; if (S.v != null && S.v === drawnView) { const B = [...document.querySelectorAll('#app main .wrapx')]; if (B.length === S.main.length) B.forEach((b, i) => { if (S.main[i][0]) b.scrollTop = S.main[i][0]; if (S.main[i][1]) b.scrollLeft = S.main[i][1]; }); }
+  const pn = document.querySelector('#app aside.panel'); if (pn && S.p && S.p === drawnPan && S.pan) pn.scrollTop = S.pan; }
+function renderPage() {
+  RSEQ++; // push 10f (C-22): a new draw works everything out again, once
+  const fk0 = focusKey(document.activeElement), sc0 = keepScroll(); // push 10f (C-09)
+  if (scr !== 'guide') wnGuide = null; // the Guide row mark lasts while the Guide is open (D-141)
+  const M = ST.me; const J = jobs();
+  const app = $('app');
+  /* Keep the cursor where the person is typing across a redraw (UX review M1, M2) */
+  const ae = document.activeElement; const fid = ae && ae.id && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName) ? ae.id : null; let sel = null; try { sel = [ae.selectionStart, ae.selectionEnd]; } catch (_) {}
+  const big = CAN('see.margin');
+  if (scr === 'prices' && navHas('clients') && !navHas('prices')) { /* push 3a: Client prices lives inside Clients now; every old way in lands there (D-152) */ scr = 'clients'; cl.brand = null; if (sub === 'lists') ncp.tab = 'lists'; sub = null; cl.kind = ncp.tab === 'wl' ? 'wl' : 'van'; }
+  const V = { clients: vClients, costs: vCosts, today: vToday, approvals: vToday, margin: vMargin2, reports: vReports, products: vProducts, recipes: vRecipes, prices: big ? vPrices2 : vPrices, lists: vLists, pricelists: vPriceLists, inputs: () => vInputs(), setup: vSetup2, backoffice: vSetup2, guide: vGuide };
+  behind = !!pan; const mainHtml = (V[scr] || V[M.nav[0]])(); behind = false;
+  const over = pan || moreOpen || finder; const p4 = phone4(M.nav, M.more); let g0 = null; const hasMore = (M.more || []).length > 0 || M.nav.length > 5;
+  const navHtml = M.nav.map(k => { const g = (M.more || []).length ? '' : RAILG[k] || ''; const lab = g && g !== g0 ? `<span class="g" aria-hidden="true">${g}</span>` : ''; g0 = g || g0;
+    return `${lab}<button data-scr="${k}" aria-current="${k === scr}" class="${p4.includes(k) ? '' : 'far'}"${(k === 'today' || k === 'approvals') && badgeN(J) ? ` aria-label="${NAV[k]}, ${badgeN(J)} waiting"` : ''}>${ICON[k] || ''}${NAV[k]}${(k === 'today' || k === 'approvals') && badgeN(J) ? `<span class="n" title="${ADM() ? 'Decisions waiting for you' : 'Things waiting for you'}">${badgeN(J)}</span>` : ''}</button>`; }).join('');
+  app.innerHTML = `<aside class="hdr${hasMore ? ' has-more' : ''}" aria-label="C2M" ${over ? 'inert' : ''}><a class="brand" href="/" title="Back to the VAN launcher"><i aria-hidden="true"></i><span><b>C2M</b><small>Cost to Margin</small></span></a>
+  <nav aria-label="Screens">${navHtml}</nav>${hasMore ? `<button class="more${(M.more || []).length ? ' desk' : ''}" data-more aria-label="More places" aria-expanded="${moreOpen}"${(M.more || []).includes(scr) ? ' aria-current="true"' : ''}>${ICON.more}More</button>` : ''}
+  <button class="findbtn" data-finder title="Find anything (Ctrl K)" aria-label="Find anything">${ICON.search}<span>Find anything</span><kbd>Ctrl K</kbd></button>
+  <span class="skins" role="group" aria-label="Choose your look">${SKINS.map(([k, l]) => `<button data-skin="${k}" aria-pressed="${skin === k}" title="${l}" aria-label="${l}"></button>`).join('')}</span>
+  <div class="foot"><b>${esc(String(M.name || M.user).trim().split(/\s+/)[0])}</b><span class="who2">${esc(M.label)}</span><a href="/" class="launch" title="Back to the VAN Systems launcher" aria-label="Back to the VAN Systems launcher"><span class="lw">Back to launcher</span><span class="ls">Launcher</span><svg class="li" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg></a><a href="/" data-signout>Sign out</a></div></aside>
+  <div class="shell"><main ${over ? 'inert aria-hidden="true"' : ''}>${ST.preview ? vPvBar() : ''}${mainHtml}</main></div>${pan ? vPanel() : ''}${moreOpen ? vMore(p4) : ''}${finder ? vFinder() : ''}`;
+  if (finder) { const f = $('fq'); if (f && document.activeElement !== f) { f.focus(); f.setSelectionRange(f.value.length, f.value.length); } return; }
+  if (moreOpen) { const sh = document.querySelector('.sheet'), mb = document.querySelector('[data-more]'); /* D-113: on a wide screen More opens as a menu under its own button, not as a sheet at the foot of the page */
+    if (sh && mb && innerWidth > 760) { const r = mb.getBoundingClientRect(); sh.classList.add('pop'); sh.style.left = Math.max(8, Math.min(r.left, innerWidth - 280)) + 'px'; if (r.bottom + 330 > innerHeight && r.top > 330) { sh.style.top = 'auto'; sh.style.bottom = (innerHeight - r.top + 6) + 'px'; } else sh.style.top = (r.bottom + 6) + 'px'; }
+    const b = document.querySelector('.sheet button'); if (b) b.focus({ preventScroll: true }); return; }
+  document.querySelectorAll('input[type=date]').forEach(dateWords);
+  enhanceTables(); lfApply(); markReq(); drawnView = viewKey(); drawnPan = panKey(); applyFolds(); if (sc0) putScroll(sc0); const scr1 = drawnScr; drawnScr = scr; // push 10f (C-09)
+  if (fid && !panFocus) { const el = $(fid); if (el) { el.focus({ preventScroll: true }); try { if (sel && sel[0] != null) el.setSelectionRange(sel[0], sel[1]); } catch (_) {} return; } }
+  if (pan && panFocus) { panFocus = false; const pn = document.querySelector('aside.panel'); const f = pn ? panItems(pn) : []; const h = document.querySelector('.panel-h b');
+    if (panAt != null && f.length) f[Math.min(panAt, f.length - 1)].focus(); else if (h) h.focus(); panAt = null; } // after a save, stay where you were (review 18 Oct)
+  else if (!pan && panReturn) { const r = panReturn; panReturn = null; const el = document.querySelector(`main [data-${r.k}="${r.v}"]`); if (el) el.focus(); }
+  else if (!pan && fk0 && (scr1 === scr || fk0.inNav)) focusBack(fk0); // push 10f (C-09): the button pressed keeps the focus
+}
+/** Under every date box, the date in words, so 01/11 cannot be read as 11 Jan or 1 Nov (UX review M6). */
+function dateWords(inp) { let w = inp.nextElementSibling; if (!w || !w.classList || !w.classList.contains('dw')) { w = document.createElement('span'); w.className = 'dw'; w.setAttribute('aria-live', 'polite'); inp.after(w); } w.textContent = inp.value ? (() => { const d = new Date(inp.value + 'T00:00:00Z'); return isNaN(d) ? '' : `${WDAY[d.getUTCDay()]} ${fmtD(inp.value)}`; })() : ''; }
+/** Phone: the places that are not in the bottom bar (F1). */
+/** Put focus back on a rail button after a sheet or the finder closes. */
+function refocus(sel) { const el = document.querySelector('.hdr ' + sel); if (el) el.focus(); }
+function vMore(p4) { return `<div class="scrim" data-moreclose></div><div class="sheet" role="dialog" aria-modal="true" aria-label="More places">${(ST.me.nav.filter(k => !p4.includes(k)).concat(ST.me.more || [])).map(k => `<button data-scr="${k}"${ST.me.nav.includes(k) && (ST.me.more || []).length ? ' class="far"' : ''}>${ICON[k] || ''}${NAV[k]}</button>`).join('')}<button data-signout>Sign out</button><button data-moreclose>Close</button></div>`; }
+/* ---------- Where each job opens (push 6b, D-160): 1 map, used by the Guide's Start and by Find anything. A key is "kind:value".
+   Each kind says whether this person can open it (can), how the place reads (t), and how to get there (go). finderGo is the only router. ---------- */
+const pth = k => ((ST.me.more || []).includes(k) ? 'More › ' : '') + NAV[k];
+const LKEYS = { dist: 'Distributor', dealer: 'Dealer, Sindh', farmer_pb: 'Farmer, Punjab', farmer_sn: 'Farmer, Sindh cash', farmer_snc: 'Farmer, Sindh credit' };
+const LNAMES = { dist: 'Distributor list', dealer: 'Dealer list, Sindh', farmer_pb: 'Farmer list, Punjab', farmer_sn: 'Farmer list, Sindh cash', farmer_snc: 'Farmer list, Sindh credit' };
+const SETUPT = { clients: 'Clients', van: 'Products and variants', set: 'Settings', record: 'Record and checks', lines: '', variants: '', settings: 'Company settings', people: 'KAM lists', audit: 'Change record', checks: 'Monthly checks', o2s: 'From O2S', sheet: 'Sheet items', docs: 'System documentation' };
+const VTABS = ['vprod', 'vlists', 'van', 'lists']; /* the VAN Brands parts: Products, Price lists, all 5 side by side, Make a price list PDF */
+const clVan = () => { cl = { kind: 'van', brand: null, last: 'van' }; scr = 'clients'; };
+const repOk = v => !v || v === 'own' || REPORTS.some(r => r.k === v && r.ready && (!r.need || CAN(r.need)));
+const GOTO = {
+  scr: { can: v => navHas(v), t: v => pth(v), go: v => { scr = v; if (v === 'costs') cpart = null; if (v === 'clients') cl = { kind: null, brand: null, last: cl.last }; } },
+  placc: { can: () => navHas('pricelists') && CAN('grants.give'), t: () => 'Price lists › Who can see them', go: () => { scr = 'pricelists'; plTab = 'acc'; } }, // push 10d
+  appr: { can: () => navHas('approvals') || navHas('today'), t: () => NAV[navHas('approvals') ? 'approvals' : 'today'], go: v => { scr = navHas('approvals') ? 'approvals' : 'today'; lfSet('jobs', apprHas(v) ? v : ''); } },
+  cost: { can: () => navHas('costs'), t: v => 'Costs' + (v ? ' › ' + CPARTS[v] : ''), go: v => { scr = 'costs'; cpart = v || null; if (v === 'labour' || v === 'foh') rf = { scope: 'general', picks: {}, kind: v }; } },
+  pack: { can: () => navHas('costs') && CAN('see.cost'), t: () => 'Costs › Packing cost', go: v => { scr = 'costs'; cpart = 'packing'; lfSet('pitems', v); } },
+  mat: { can: () => navHas('inputs') || (navHas('costs') && CAN('rate.save')), t: () => navHas('inputs') ? 'Inputs › Materials' : 'Costs › Material cost', go: v => { goPlace('inputs'); inp = 'materials'; matFilter = 'all'; matQ = v; if (v) LFSET.add('#mat'); nsuMatInit = true; } },
+  prod: { can: () => navHas('products'), t: () => pth('products') + ' › the product', go: v => { goPlace('products'); openProd = +v; ptab = 'recipe'; recSel = null; } },
+  rec: { can: () => navHas('products') || navHas('recipes'), t: () => navHas('products') ? pth('products') + ' › the product' : 'Recipes › the recipe', go: v => goRec(+v) },
+  brand: { can: () => navHas('clients'), t: () => 'Clients › White Label › the brand', go: v => { scr = 'clients'; cl = { kind: 'wl', brand: +v, last: 'wl' }; } },
+  client: { can: () => navHas('clients'), t: v => 'Clients › White Label' + (v ? ' › ' + v : ''), go: v => { cl = { kind: 'wl', brand: null, last: 'wl' }; ncp.tab = 'wl'; if (v) ncp.cl = v; scr = 'clients'; } },
+  sclient: { can: () => navHas('setup'), t: v => pth('setup') + ' › Clients' + (v ? ' › ' + v : ''), go: v => { scr = 'setup'; nsu = 'clients'; lfSet('clients', v); } },
+  vprod: { can: () => navHas('clients'), t: v => 'Clients › VAN Brands › Products' + (v ? ' › ' + v : ''), go: v => { clVan(); ncp.tab = 'vprod'; lfSet('vprod', v); } },
+  vlist: { can: () => navHas('clients'), t: v => 'Clients › VAN Brands › Price lists' + (LKEYS[v] ? ' › ' + LKEYS[v] : ''), go: v => { clVan(); ncp.tab = 'vlists'; lst = { open: LKEYS[v] ? v : null, t: '', f: '', why: '', form: false }; } },
+  vtab: { can: () => navHas('clients'), t: v => 'Clients › VAN Brands › ' + ({ vprod: 'Products', vlists: 'Price lists', van: 'Price lists › See all 5 side by side', lists: 'Price lists › Make a price list PDF' }[v] || 'Price lists'), go: v => { clVan(); ncp.tab = VTABS.includes(v) ? v : 'vlists'; } }, /* only a real VAN Brands tab; anything else opens Price lists (review 6c, m3) */
+  cust: { can: () => navHas('margin'), t: v => 'Margin' + (v ? ' › ' + v : ''), go: v => { scr = 'margin'; nm.drill = null; nm.grp = 'all'; nm.by = 'client'; nm.q = v; if (v) LFSET.add('#nm'); } },
+  rep: { can: v => navHas('reports') && repOk(v), t: v => pth('reports') + (v === 'own' ? ' › Your own report' : v ? ' › ' + ((REPORTS.find(r => r.k === v) || {}).t || '') : ''), go: v => { scr = 'reports'; rep = v || null; } },
+  setup: { can: () => navHas('setup'), t: v => { const [g, p] = String(v).split('.'); return [pth('setup'), SETUPT[g], SETUPT[p]].filter(Boolean).join(' › '); }, go: v => { const [g, p] = String(v).split('.'); scr = 'setup'; nsu = g || 'clients'; if (p) nsuPart[nsu] = p; } },
+  newjob: { can: v => v === 'variant' ? CAN('variant.add') && navHas('products') : v === 'target' ? CAN('targets.propose') && navHas('clients') : CAN('client.add') && navHas('products'), t: v => v === 'target' ? 'Clients › White Label' : pth('products') + ' › + New › ' + ({ variant: 'Add a variant', client: 'Put a variant on a client', newclient: 'Add a client' }[v] || ''), go: v => newJobGo(v) },
+  newrec: { can: () => CAN('recipe.start') && (navHas('recipes') || navHas('products')), t: v => (navHas('recipes') ? 'Recipes' : pth('products') + ' › + New') + ' › Write a new recipe version' + (v === 'other' ? ', Another recipe for this product' : ''), go: v => { scr = navHas('recipes') ? 'recipes' : 'products'; newRec = { cp: null, kind: v === 'other' ? 'other' : 'default' }; } },
+  klist: { can: () => navHas('lists'), t: () => 'Price lists', go: v => { scr = 'lists'; listSel = v; } },
+  guide: { can: () => navHas('guide'), t: () => pth('guide') + ' › the job', go: v => { scr = 'guide'; wnGuide = v; gjOpen.add(v); } },
+  find: { can: () => true, t: () => 'Find anything', go: () => { finder = { q: '', i: 0 }; } },
+};
+/** A list filter set by Start or Find (not typed by the person) is cleared when the person next picks a place from the top bar.
+   '#nm' and '#mat' stand for the Margin search and the materials search when Find set them (review 6b, m2). */
+const LFSET = new Set(); const lfSet = (k, v) => { LFQ[k] = v || ''; if (v) LFSET.add(k); else LFSET.delete(k); };
+function lfClear() { LFSET.forEach(k => { if (k === '#nm') nm.q = ''; else if (k === '#mat') matQ = ''; else LFQ[k] = ''; }); LFSET.clear(); }
+/** Does at least 1 line of the jobs list (the next move is above it, not in it) carry these words? Start and Find filter the list
+   only then (review 6b, M1); otherwise the whole list shows. */
+function apprHas(v) {
+  const w = String(v || '').toLowerCase().split(/\s+/).filter(Boolean); if (!w.length) return false;
+  const J = jobs(), nmi = nextMove(J); const tx = x => String(x == null ? '' : x).replace(/<[^>]*>/g, ' ');
+  return J.some((j, i) => !(i === nmi && J.length > 1) && w.every(x => `${tx(j.t)} ${tx(j.d)} ${tx(j.btn)}`.toLowerCase().includes(x)));
+}
+const goSplit = go => { const s = String(go || ''), i = s.indexOf(':'); return i < 0 ? [s, ''] : [s.slice(0, i), s.slice(i + 1)]; };
+/** Can this person open the place a key leads to? (A result or a Start never leads where the person cannot go.) */
+function canGo(go) { const [k, v] = goSplit(go); const g = GOTO[k]; return !!(g && ST && ST.me && g.can(v)); }
+const goTxt = go => { const [k, v] = goSplit(go); const g = GOTO[k]; return g ? g.t(v) : ''; };
+/** + New on Products, and the Guide's Start for the same jobs. */
+function newJobGo(J) {
+  boDoc = null; custEdit = null; ask = null;
+  if (J === 'target') { goPlace('prices'); ncp.tab = 'wl'; toast('Type the new target % in the Target column of its row, then send it with a reason.'); return; }
+  scr = 'products'; openProd = null;
+  if (J === 'variant') p3 = { client: null, prod: null, vform: { from: '', mainVariant: '', variant: '', brand: '', typeId: '', packs: [{ size: '', billId: '' }] }, tag: null };
+  else if (J === 'client') p3 = { client: null, prod: null, vform: null, tag: null, pick: true };
+  else if (J === 'newclient') p3 = { client: { name: '', o2s: '', kind: 'White label', seg: 'White label' }, prod: null, vform: null, tag: null };
+}
+/* ---------- Find anything (Ctrl K): places, clients and brands, materials and packing items, cost jobs by everyday words, price lists,
+   settings, reports and the Guide's jobs (R24; push 6b, D-160). Every result is a GOTO key this person can open. ---------- */
+/** What Find anything reads for every client, built once per state and not once per client (review 6b, M2): the white label
+   clients (those with a white label product, as on Clients, White Label) and the clients with sales. Rebuilt when the state changes. */
+let FIX = null;
+function finderIx() {
+  const P = ST.products, S = ST.sales;
+  if (FIX && FIX.st === ST && FIX.p === P && FIX.s === S && FIX.pn === (P || []).length && FIX.sn === (S || []).length) return FIX;
+  return (FIX = { st: ST, p: P, s: S, pn: (P || []).length, sn: (S || []).length, wl: new Set((P || []).filter(p => p.grp === 'White label').map(p => p.customer)), sold: new Set((S || []).map(r => r.cust)) });
+}
+function finderItems(q) {
+  const M = ST.me, out = [], Q = q.trim().toLowerCase(); const hit = s => !Q || String(s).toLowerCase().includes(Q);
+  const words = Q.split(/\s+/).filter(Boolean); const hitW = s => { const t = String(s).toLowerCase(); return !Q || t.includes(Q) || (words.length > 1 && words.every(w => t.includes(w))); };
+  const add = (l, s, go) => out.push({ l, s, go });
+  M.nav.concat(M.more || []).forEach(k => { if (hit(NAV[k])) add(NAV[k], (M.more || []).includes(k) ? 'Place, under More' : 'Place', `scr:${k}`); });
+  if (Q) {
+    /* Approvals by what waits: re-approval, price sent back, not costed */
+    if (CAN('reapproval.decide') && !ADM() && hitW('re-approval reapproval re-approve cost moved approve all')) add('Re-approvals of cost', 'Approvals', 'appr:Re-approve');
+    else if (hitW('re-approval reapproval re-approve')) add('Re-approvals of cost', 'Approvals, with others', 'appr:');
+    /* Clients from the client list (a client with no sales is found), then its Margin */
+    const custs = (ST.customers || []).filter(c => c.name && c.name !== 'VAN'); const seenC = new Set(); const IX = finderIx();
+    custs.forEach(c => { if (!hit(c.name + ' ' + (c.printName || ''))) return; seenC.add(c.name); const seg = String(c.segment || '');
+      const wl = (c.grp === 'White label' || c.grp === 'Both') && IX.wl.has(c.name);
+      const go = wl ? `client:${c.name}` : /distributor/i.test(seg) ? 'vlist:dist' : /^dealer/i.test(seg) ? 'vlist:dealer' : `sclient:${c.name}`;
+      add(c.name, wl ? 'Client, White Label' : /distributor/i.test(seg) ? 'Client, on the Distributor list' : /^dealer/i.test(seg) ? 'Client, on the Dealer list, Sindh' : 'Client, in Setup', go);
+      if (IX.sold.has(c.name)) add(c.name, 'Client margin', `cust:${c.name}`); });
+    if (navHas('margin')) IX.sold.forEach(c => { if (!seenC.has(c) && hit(c)) add(c, 'Client margin', `cust:${c}`); });
+    /* Brands and products: a white label brand opens its brand page; a VAN brand product opens on Clients, VAN Brands */
+    (ST.products || []).forEach(p => { if (!hit(`${p.brand} ${p.customer} ${p.spec || ''}`)) return; const van = p.channel === 'VAN brand';
+      if (navHas('clients')) add(van ? p.brand : `${p.brand} for ${p.customer}`, van ? 'VAN brand product' : 'Brand page', van ? `vprod:${p.brand}` : `brand:${p.id}`);
+      else add(`${p.brand} for ${p.customer}`, navHas('products') ? 'Product' : 'Recipe', navHas('products') ? `prod:${p.id}` : `rec:${p.latestVersionId || ''}`); });
+    /* The cost boxes by the words people use (R24): labour, FOH, overhead, freight, bag, rate, month end, lock, certificate */
+    [['materials', 'material cost rate raw purchase class'], ['packing', 'packing cost bag bottle carton label liner bill inner'], ['labour', 'labour labor rate wages low high certificate certify'], ['foh', 'foh factory overhead rate low high certificate certify'], ['freight', 'freight cost transport delivery region'], ['month', 'month end actual close lock reopen tie books erp cogs rate check register'], ['next', 'next week costs monday waiting urgent weekly drop correct']].forEach(([k, w]) => { if (hitW(CPARTS[k] + ' ' + w)) add(CPARTS[k], 'Costs', `cost:${k}`); });
+    (ST.packingItems || []).forEach(i => { if (hitW(i.name)) add(i.name, 'Packing item, Packing cost', `pack:${i.name}`); });
+    (ST.materials || []).forEach(m => { if (hit(m.name + ' ' + (m.grade || ''))) add(`${m.name} ${m.grade || ''}`.trim(), 'Material', `mat:${m.name}`); });
+    /* Price lists: the 5 VAN lists, all 5 side by side, the PDF; a KAM's own lists */
+    [['dist', 'distributor list price list'], ['dealer', 'dealer list sindh price list'], ['farmer_pb', 'farmer list punjab price list'], ['farmer_sn', 'farmer list sindh cash price list'], ['farmer_snc', 'farmer list sindh credit price list']].forEach(([k, w]) => { if (hitW(LNAMES[k] + ' ' + w)) add(LNAMES[k], 'Price list, Clients, VAN Brands', `vlist:${k}`); });
+    if (hitW('price lists all 5 side by side grid carry master take off a list')) add('All 5 price lists side by side', 'Price lists', 'vtab:van');
+    if (hitW('make a price list pdf mrp printing list print')) add('Make a price list PDF', 'Price lists', 'vtab:lists');
+    if (VIEWER()) (ST.grants || []).forEach(g => { const s = g.grant_kind === 'client' ? 'wl:' + g.grant_value : g.grant_value; const l = s.startsWith('wl:') ? s.slice(3) + ' monthly list' : AUD[s] || s; if (hitW(l + ' price list pdf')) add(l, 'Your price list', `klist:${s}`); });
+    /* Setup: KAM lists, settings, change record, sheet items */
+    if (hitW('kam lists manager access grant who sees')) { add('Who can see the price lists', 'Price lists', 'placc:'); add('KAM lists', 'Setup, Settings', 'setup:set.people'); }
+    if (hitW('settings company gp target threshold ambition budget')) add('Company settings', 'Setup, Settings', 'setup:set.settings');
+    if (hitW('change record audit who changed log')) add('Change record', 'Setup, Record and checks', 'setup:record.audit');
+    if (hitW('sheet items from your sheets import')) add('Sheet items', 'Setup, Record and checks', 'setup:record.sheet');
+    /* Reports that are built (none "coming later"), and Your own report */
+    REPORTS.filter(r => r.ready && (!r.need || CAN(r.need))).forEach(r => { if (hitW(r.t + ' ' + r.q)) add(r.t, 'Report', `rep:${r.k}`); });
+    if (hitW('your own report make a report saved reports')) add('Your own report', 'Report', 'rep:own');
+    /* The Guide's jobs: a job's words find its row, with its Start */
+    gjMine().forEach(r => { if (hitW(r.j)) add(r.j, 'Job in the Guide', `guide:${r.j}`); });
+  }
+  const st = x => Q && String(x.l).toLowerCase().startsWith(Q) ? 0 : 1; const seen = new Set();
+  return out.filter(x => !/^rec:$/.test(x.go) && canGo(x.go)).filter(x => { const k = x.go + '|' + x.l; if (seen.has(k)) return false; seen.add(k); return true; })
+    .map((x, i) => [x, i]).sort((a, b) => st(a[0]) - st(b[0]) || a[1] - b[1]).map(a => a[0]).slice(0, 40);
+}
+function finderList() { const L = finderItems(finder.q); finder.n = L.length; finder.i = Math.min(finder.i, Math.max(L.length - 1, 0));
+  return L.length ? L.map((x, i) => `<li role="presentation"><button role="option" id="fopt-${i}" tabindex="-1" data-fgo="${esc(x.go)}" aria-selected="${i === finder.i}">${esc(x.l)}<small>${esc(x.s)}</small></button></li>`).join('') : '<li role="presentation" class="ans" style="padding:10px">Nothing found. Try another word, or a part of a name.</li>'; }
+function vFinder() { return `<div class="finder" data-findclose><div class="fb" role="dialog" aria-modal="true" aria-label="Find anything"><input id="fq" type="search" placeholder="Find a client, product, list, report or job" value="${esc(finder.q)}" autocomplete="off" aria-controls="fres" role="combobox" aria-expanded="true" aria-activedescendant="fopt-${finder.i}"><ul id="fres" role="listbox" aria-label="Results">${finderList()}</ul></div></div>`; }
+/** Go to a place by its GOTO key: the same clearing as the top bar (a report, a list, a form or a panel left open does not follow). */
+function finderGo(go) {
+  const [k, v] = goSplit(go); finder = null; closePanel(); panReturn = null; moreOpen = false; drill = { cust: null, prod: null }; openRec = null; openProd = null; sub = null; rep = null;
+  saved = null; dryKey = null; trial = null; ptrial = null; boDoc = null; newRec = null; billEdit = null; costPend = null; lst.open = null; if (p3) p3 = { client: null, prod: null, vform: null, tag: null }; window.scrollTo(0, 0);
+  lfClear(); const g = GOTO[k]; if (g && g.can(v)) g.go(v);
+}
+
+/* ---------- The phone Back button stays inside C2M (push 6c, D-161, R21).
+   Each move to a place, a part of a page (a tab), a client, a brand, a report, or an open panel, Find or More is 1 step in the
+   browser history; filters, chips and typing are not. Back goes 1 step back, and an open panel, Find or More closes first.
+   Text typed and not saved yet: Back first asks on the page, Stay or Leave. The address carries #kind:value from the map of
+   where each job opens (GOTO), so a reload or a shared address opens the same place, if this person can open it. ---------- */
+const NAVT = Math.random().toString(36).slice(2); /* this page load: steps from before a reload are opened from their address */
+let NAVH = [], navI = -1, navSkip = null, navAskTo = null, navPop = 0, navAfter = null; const NAVTYPED = new Set();
+/* navPop: above 0 while a Back or Forward is being drawn; then a step is fixed in place, never added (review 6c, B1).
+   navAfter: the step to put back once the preview has ended and this person's own state is loaded (review 6c, M1). */
+const NAVOK = new Set(['scr', 'appr', 'cost', 'brand', 'client', 'vprod', 'vlist', 'vtab', 'rep', 'setup', 'prod', 'rec', 'cust', 'klist', 'pack', 'mat']);
+try { history.scrollRestoration = 'manual'; } catch (_) {}
+function navSnap() { return { scr, sub, cpart, rep, openProd, ptab, openRec, nsu, nsuP: nsuPart[nsu] || null, inp, cl: { ...cl }, ncpTab: ncp.tab, ncpCl: ncp.cl, lstOpen: lst.open, nmDrill: nm.drill ? { ...nm.drill } : null, phTab, listSel, boDoc, pan, finder: !!finder, moreOpen, pv: PV || null }; }
+/** What makes 2 steps the same place: only what the person moved to, never a filter. */
+function navBase(s) {
+  const b = [s.scr === 'today' ? 'approvals' : s.scr === 'backoffice' ? 'setup' : s.scr];
+  if (s.scr === 'clients') { b.push(s.cl.kind, s.cl.brand); if (s.cl.brand == null) { if (s.cl.kind === 'van') b.push(s.ncpTab, s.ncpTab === 'vlists' ? s.lstOpen : null); else b.push(s.ncpCl); } }
+  else if (s.scr === 'prices') b.push(s.sub, s.ncpTab, s.ncpCl);
+  else if (s.scr === 'costs') b.push(s.cpart);
+  else if (s.scr === 'reports') b.push(s.rep, s.rep === 'prices' ? s.phTab : null);
+  else if (s.scr === 'products') b.push(s.openProd, s.openProd != null ? s.ptab : null);
+  else if (s.scr === 'recipes') b.push(s.openRec);
+  else if (s.scr === 'setup' || s.scr === 'backoffice') b.push(s.nsu, s.nsuP, s.boDoc ? s.boDoc.f : null);
+  else if (s.scr === 'guide') b.push(s.boDoc ? s.boDoc.f : null);
+  else if (s.scr === 'inputs') b.push(s.inp);
+  else if (s.scr === 'margin') b.push(s.nmDrill ? s.nmDrill.cl + '|' + s.nmDrill.pid : null);
+  else if (s.scr === 'lists') b.push(s.listSel);
+  if (s.pv) b.push('preview:' + s.pv); /* a preview of a KAM's screen is its own step */
+  return JSON.stringify(b);
+}
+const navOv = s => s.pan ? 'P' + s.pan.k + ':' + (s.pan.id != null ? s.pan.id : '') : s.finder ? 'F' : s.moreOpen ? 'M' : '';
+const navKey = s => navBase(s) + '#' + navOv(s);
+/** The address of a step: #kind:value, the same keys Find anything and the Guide's Start use. */
+function navHash(s) {
+  const k = s.scr === 'clients' ? (s.cl.brand != null ? 'brand:' + s.cl.brand : s.cl.kind === 'van' ? (s.ncpTab === 'vlists' && s.lstOpen ? 'vlist:' + s.lstOpen : 'vtab:' + (s.ncpTab || '')) : 'client:' + (s.ncpCl || ''))
+    : s.scr === 'costs' ? 'cost:' + (s.cpart || '') : s.scr === 'reports' ? 'rep:' + (s.rep || '') : s.scr === 'products' && s.openProd != null ? 'prod:' + s.openProd
+    : s.scr === 'setup' || s.scr === 'backoffice' ? 'setup:' + s.nsu + (s.nsuP ? '.' + s.nsuP : '') : s.scr === 'today' || s.scr === 'approvals' ? 'appr:' : 'scr:' + s.scr;
+  const i = k.indexOf(':'); return '#' + k.slice(0, i + 1) + encodeURIComponent(k.slice(i + 1));
+}
+/** Open the place an address names, if this person can; otherwise Approvals (or the person's first place). */
+function navFromHash(h) {
+  let go = ''; try { go = decodeURIComponent(String(h || '').replace(/^#/, '')); } catch (_) {}
+  const [k, v] = goSplit(go);
+  if (k === 'brand') { const P = (ST.products || []).find(p => p.id === +v); go = !P ? '' : P.channel === 'VAN brand' ? 'vprod:' + P.brand : go; } /* a brand page is a white label brand; a VAN brand product opens on VAN Brands, Products (review 6c, m4) */
+  if (go && NAVOK.has(goSplit(go)[0]) && canGo(go)) { finderGo(go); return true; }
+  finderGo(canGo('appr:') ? 'appr:' : 'scr:' + ST.me.nav[0]); return false;
+}
+/** What the browser keeps for a step: its number, this page load, and whether it was an open panel, Find or More. */
+const navSt = (i, s) => ({ c2m: i, t: NAVT, o: navOv(s) ? 1 : 0 });
+/** Can this person open the place of a step? (Back and Forward check it as an address does; review 6c, M1.) */
+function navOk(s) { if (!navHas(s.scr)) return false; let go = ''; try { go = decodeURIComponent(navHash(s).slice(1)); } catch (_) { return false; } return canGo(go); }
+/** Put a step back; a place this person cannot open goes where an address to it would (Approvals or their first place). */
+function navLand(s) { navRestore(s); const n = navSnap(); if (!navOk(n)) navFromHash(navHash(n)); }
+/** After every drawing: a new place is a new step; the same place is not. */
+function navSync() {
+  if (!ST || !ST.me) return; const s = navSnap(), k = navKey(s), h = navHash(s);
+  if (navI < 0) { const o = history.state; navI = o && Number.isInteger(o.c2m) && o.c2m >= 0 ? o.c2m : 0; NAVH = []; NAVH[navI] = { k, s, y: 0 }; try { history.replaceState(navSt(navI, s), '', h); } catch (_) {} return; } // after a reload this entry keeps its number, so the entries before and after it still line up (review 6c, m2)
+  const c = NAVH[navI];
+  if (navPop || !c) { if (!c || k !== c.k) { NAVH[navI] = { k, s, y: c ? c.y : 0 }; try { history.replaceState(navSt(navI, s), '', h); } catch (_) {} } else c.s = s; return; } // drawn by Back or Forward: the step is fixed where it is (an item deleted meanwhile, a place this person cannot open); never a new step (review 6c, B1)
+  if (k === c.k) { c.s = s; return; }
+  const prev = NAVH[navI - 1];
+  try {
+    if (navOv(c.s) && !navOv(s) && prev && prev.k === k) { prev.s = s; navI--; navSkip = navI; history.back(); return; } // a panel, Find or More closed by its own button: back to the step under it, no new step
+    if (navOv(c.s) && navBase(c.s) !== navBase(s)) { NAVH[navI] = { k, s, y: 0 }; NAVH.length = navI + 1; history.replaceState(navSt(navI, s), '', h); return; } // left from Find, More or a panel to another place: that place takes its step
+    NAVH.length = navI + 1; NAVH.push({ k, s, y: 0 }); navI++; history.pushState(navSt(navI, s), '', h);
+  } catch (_) {}
+}
+/** Put a step back as it was. */
+function navRestore(s) {
+  if (s.scr !== scr) { saved = null; dryKey = null; trial = null; ptrial = null; billEdit = null; costPend = null; newRec = null; drill = { cust: null, prod: null }; if (p3) p3 = { client: null, prod: null, vform: null, tag: null }; lfClear(); }
+  if (pan && (!s.pan || navOv(s) !== navOv({ pan }))) closePanel(); panReturn = null;
+  scr = s.scr; sub = s.sub; cpart = s.cpart; rep = s.rep; openProd = s.openProd; ptab = s.ptab; openRec = s.openRec; nsu = s.nsu; if (s.nsuP) nsuPart[s.nsu] = s.nsuP; inp = s.inp;
+  cl = { ...s.cl }; ncp.tab = s.ncpTab; ncp.cl = s.ncpCl; if (lst.open !== s.lstOpen) lst = { open: s.lstOpen, t: '', f: '', why: '', form: false };
+  nm.drill = s.nmDrill ? { ...s.nmDrill } : null; phTab = s.phTab; listSel = s.listSel; boDoc = s.boDoc;
+  if (s.pan && !pan && s.pan.k !== 'propose') openPanel(s.pan); finder = s.finder ? { q: '', i: 0 } : null; moreOpen = !!s.moreOpen;
+}
+/** Is there text typed here and not saved? (Find boxes and filters do not count.) */
+const navFid = x => x.id || Object.entries(x.dataset || {}).map(([k, v]) => k + '=' + v).join('&') || x.name || '';
+function navDirty() {
+  if (!NAVTYPED.size) return false;
+  return [...document.querySelectorAll('main input, main textarea, aside.panel input, aside.panel textarea')].some(x => NAVTYPED.has(navFid(x)) && String(x.value || '').trim() !== '' && (x.checkVisibility ? x.checkVisibility() : !!x.offsetParent));
+}
+document.addEventListener('input', e => { const t = e.target; if (!t || !/^(INPUT|TEXTAREA)$/.test(t.tagName)) return; const ty = t.tagName === 'TEXTAREA' ? 'text' : String(t.getAttribute('type') || 'text').toLowerCase();
+  if (!['text', 'number', 'tel', 'email', 'url'].includes(ty) || 'lf' in t.dataset || /^(fq|mq|crq|blpk-q|audq|chq|rq|pq|nmq)$/.test(t.id) || t.closest('.finder, .find')) return;
+  const f = navFid(t); if (f) NAVTYPED.add(f); }, true);
+['click', 'change'].forEach(ev => document.addEventListener(ev, () => { if (navI >= 0 && NAVH[navI]) NAVH[navI].y = scrollY; }, true)); // where the person was, so Back returns there
+function navAskHide() { const a = $('navask'); if (a) a.remove(); navAskTo = null; }
+/** Leave without saving? On the page (no browser dialog): Stay keeps the text, Leave goes back. */
+function navAsk(to) {
+  navAskHide(); navAskTo = to; const d = document.createElement('div'); d.id = 'navask'; d.className = 'navask'; d.setAttribute('role', 'alertdialog'); d.setAttribute('aria-labelledby', 'navaskt');
+  d.innerHTML = '<p id="navaskt"><b>Leave without saving?</b> What you typed here is not saved yet.</p><div><button class="btn" data-navstay>Stay</button><button class="btn ghost" data-navleave>Leave</button></div>';
+  d.addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; e.stopPropagation(); const go = navAskTo; navAskHide();
+    if ('navleave' in b.dataset && go != null && go !== navI) { NAVTYPED.clear(); history.go(go - navI); } });
+  d.addEventListener('keydown', e => { if (e.key === 'Escape') { e.stopPropagation(); navAskHide(); } });
+  document.body.appendChild(d); d.querySelector('[data-navstay]').focus();
+}
+addEventListener('popstate', e => {
+  const st = e.state; if (!ST || !ST.me) return;
+  if (st && st.t === NAVT && navSkip != null && st.c2m === navSkip) { navSkip = null; return; }
+  navSkip = null;
+  const to = st && Number.isInteger(st.c2m) && st.c2m >= 0 ? st.c2m : navI + 1; /* no number: an address typed in the bar, a new step after this one */
+  const own = st && st.t === NAVT && NAVH[to] ? NAVH[to] : null; if (own && to === navI) return;
+  if (navDirty()) { navSkip = navI; history.go(navI - to); navAsk(to); return; } // stay on this step until the person picks Stay or Leave
+  navAskHide(); const from = navI, fk = NAVH[from] ? NAVH[from].k : null, dir = to < from ? -1 : 1;
+  if (!st || !Number.isInteger(st.c2m)) NAVH.length = Math.max(0, to);
+  navI = to; navPop++;
+  try {
+    if (own && PV && own.s.pv !== PV) { navPvEnd(own.s); return; } // Back out of a KAM preview ends the preview and puts back the step as it was, with this person's own rights (review 6c, M1)
+    if (own) navLand(own.s); else navFromHash(location.hash); // a step from before a reload: open what its address names, if this person can (review 6c, m2)
+    render();
+  } finally { navPop--; }
+  window.scrollTo(0, own ? own.y || 0 : 0);
+  /* A step that is now the same place as the one just left (its item was deleted, or a panel, Find or More from before a reload)
+     is passed over, so every Back press shows a change and Back always reaches the first step (review 6c, B1 and m2). */
+  if (fk && NAVH[navI] && NAVH[navI].k === fk && (dir > 0 || navI > 0)) history.go(dir);
+});
+/** End a KAM preview from Back or Forward: load this person's own state, then put back the step (navAfter, in load). */
+function navPvEnd(s) { PV = null; PVBACK = null; navAfter = s; navPop++; load().catch(err => { toast(err.message, true); location.reload(); }).finally(() => { navPop--; }); }
+/* Tabs: the arrow keys, Home and End move along a tab row (role tablist). */
+document.addEventListener('keydown', e => {
+  const t = e.target; if (!t || t.getAttribute('role') !== 'tab' || !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;
+  const L = [...t.closest('[role=tablist]').querySelectorAll('[role=tab]')]; const i = L.indexOf(t);
+  const n = L[e.key === 'Home' ? 0 : e.key === 'End' ? L.length - 1 : (i + (e.key === 'ArrowRight' ? 1 : -1) + L.length) % L.length]; if (!n || n === t) return;
+  e.preventDefault(); const a = Object.keys(n.dataset)[0]; const sel = a ? `[role=tab][data-${a.replace(/[A-Z]/g, c => '-' + c.toLowerCase())}="${CSS.escape(n.dataset[a])}"]` : null;
+  n.click(); setTimeout(() => { const z = sel && document.querySelector(sel); if (z) z.focus(); }, 30);
+});
+
+/* ---------- Today (0.9.0, approved picture A: the next move first, then groups; every line says why and how long) ---------- */
+const WDAY = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const dayName = s => { const d = new Date(d10(s) + 'T00:00:00Z'); return `${WDAY[d.getUTCDay()]} ${d.getUTCDate()} ${MON[d.getUTCMonth()]}`; };
+/** "O2S data as of ..." from the last finished pull (T7, M6). */
+/* ---------- Push 10g (audit C-04): C2M keeps itself up to date. When the tab is shown again after more than 60 seconds, every 2 minutes
+   while it is shown, and at once when the date in Pakistan changes, it reads the state again, but only while nobody is in the middle
+   of something: no panel, editor, effect or Find open, no box being typed in, no save running. ---------- */
+const pkToday = () => new Date(Date.now() + 5 * 3600e3).toISOString().slice(0, 10);
+const busyNow = () => { const a = document.activeElement; return actBusy || !!pan || !!finder || !!moreOpen || !!billEdit || !!editLines || !!newRec || !!trial || !!ptrial || !!propose || !!(saved && Date.now() - (saved.at || 0) < 600000) || !!dryKey || !!PV || (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && a.type !== 'checkbox' && a.type !== 'radio') || !!document.querySelector('.panel, .wn, .rpbox, #app .btn.armed, #navask') || (NAVTYPED.size > 0 && [...document.querySelectorAll('#app input, #app textarea')].some(x => NAVTYPED.has(navFid(x)) && x.value !== x.defaultValue)) || [...document.querySelectorAll('#app input[type=date], #app input[type=month]')].some(x => x.value !== x.defaultValue); }; // push 10g review: typed and not saved, still on the screen (M-1, m-8), an armed 2-step button (m-3); the Saved box on Costs holds it for 10 minutes only (m-4)
+let dayTry = null; // push 10g (review m-2): a new day is tried once per date on this device, so a wrong clock does not read every 30 seconds
+const newDay = () => { const d = pkToday(); if (d === ST.today || d === dayTry) return false; dayTry = d; return true; };
+async function refreshNow() { if (!ST) return false; if (saved && Date.now() - (saved.at || 0) >= 600000) saved = null; if (busyNow()) return false; try { return (await load(true)) !== false; } catch (_) { return false; } } // a failed refresh says nothing; the next one tries again
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && ST && (newDay() || Date.now() - loadedAt > 60000)) refreshNow(); });
+setInterval(() => { if (!ST || document.visibilityState !== 'visible') return; if (newDay() || Date.now() - loadedAt > 120000) refreshNow(); }, 30000);
+const updatedTxt = () => { const t = Number(ST && ST.builtAt) || loadedAt; return t ? 'Updated ' + new Date(t + 5 * 3600e3).toISOString().slice(11, 16) : ''; }; // Pakistan time from the server's clock (review m-2)
+function o2sAsOf() { const f = ST.lastSync && ST.lastSync.finished_at; if (!f) return ST.lastSync === undefined ? '' : 'O2S not pulled yet'; const day = d10(f) === ST.today ? 'today' : fmtD(d10(f)); return `O2S data as of ${day} ${String(f).slice(11, 16)}`; }
+/** A new CFO sees where to start until he closes this once (kept in this browser). */
+function guideHint() { let seen = false; try { seen = localStorage.getItem('c2m.guideSeen') === '1'; } catch (_) {} return CAN('see.margin') && !seen ? `<div class="next"><span>New to C2M? The Guide has your first day in 5 steps and your jobs, each with its numbered steps and a Start button that opens it.</span><button class="btn ghost" data-scr="guide">Open the Guide</button><button class="btn ghost" data-guideseen>Got it</button></div>` : ''; }
+function vToday() {
+  const J = jobs(); const R = ST.me.role; const nmi = nextMove(J); /* push 10e (C-16): renamed from the Margin state's name; dead groupings removed */ const W = waitingOn();
+  const notices = (ST.notices || []).slice();
+  const ages = J.filter(j => j.since).map(j => daysSince(j.since)); const oldest = ages.length ? Math.max(...ages) : null;
+  const nA = J.filter(j => j.kind === 'approve').length, nS = J.filter(j => /^Recipe stuck /.test(j.t) && j.with).length, nD = J.length - nA - nS;
+  const ans = !J.length ? 'Nothing needs you today.' : ADM() ? `${nA ? pl(nA, 'decision needs', 'decisions need') + ' you.' : 'No decision waits for you.'}${nS || nD ? ` Also on your list: ${[nS ? pl(nS, 'recipe', 'recipes') + ' stuck with others' : '', nD ? pl(nD, 'job', 'jobs') + ' to do' : ''].filter(Boolean).join(' and ')}.` : ''}` // push 10b (Tahir, 20 Nov 2026): the decisions first
+    : `${pl(J.length, 'thing needs', 'things need')} you.${oldest ? ` The oldest has waited ${pl(oldest, 'day', 'days')}.` : ''}`;
+  const n = J[nmi];
+  if (!loaded() && CAN('see.margin')) return `${meta([dayName(ST.today), o2sAsOf()])}${head('Today', 'No data in C2M yet.', 'Today fills once the CFO\'s sheets and O2S are loaded: every approval, job and margin line then shows here with its age.')}<div class="nextmove"><div><div class="k">Your next move</div><div class="t">The first load of the CFO's sheets and O2S</div><div class="d">Until it runs, C2M has no clients, products, costs or trucks, so nothing here can be wrong or late.</div></div></div>`;
+  return `${head(ST.me.nav[0] === 'approvals' ? 'Approvals' : 'Today', ans, 'The next move is the first approval waiting for you (recipe and cost steps first, then prices, re-approvals and list revisions, then threshold and target changes; the oldest first). Every line shows how long it has waited; an item waiting more than 2 working days (Monday to Saturday, less the public holidays) is marked stuck. Each line opens in a panel on this screen.', [dayName(ST.today), o2sAsOf(), updatedTxt()].filter(Boolean).join(' · '))}${glStrip('today')}${guideHint()}
+  ${n ? `<div class="nextmove"><div><div class="k">Your next move</div><div class="t">${esc(n.t)}</div><div class="d">${esc(isoWords(String(n.d)).replace(/([^.!?])$/, '$1.'))} ${n.since ? `<span class="${isStuck(n.since) ? 'over' : ''}">Waiting ${wdays(n.since) ? pl(wdays(n.since), 'working day', 'working days') : 'since today'}${isStuck(n.since) ? ', stuck' : ''}.</span>` : ''}</div></div><button class="btn" data-job="${nmi}" data-jk="${esc(J[nmi] ? J[nmi].key : '')}">${n.go1 || (n.kind === 'approve' && n.pan ? 'Open to approve' : n.btn)}</button></div>` : '<div class="nextmove"><div><div class="k">Your next move</div><div class="t">You are up to date.</div></div></div>'}
+  ${homeGrid(J, nmi, W)}
+  <p class="ans endmark" style="margin:14px 0 0;padding-top:10px;border-top:1px solid var(--line)"><b>${J.length ? 'End of your list.' : 'Nothing needs you today.'}</b>${W.length ? ` ${pl(W.length, 'item is', 'items are')} with others; none needs you now.` : ''}</p>
+  ${W.length ? `<details class="box" style="margin-top:10px"><summary><b>With others: ${W.length}.</b> <span class="ans">${(() => { const c = {}; W.forEach(w => { const k = String(w.w).split(',')[0]; c[k] = (c[k] || 0) + 1; }); return Object.entries(c).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${v} ${esc(k)}`).join(', '); })()}</span></summary><div class="items">${W.map(w => `<div class="item k-wait"><div><div class="t">${esc(w.t)} · <span style="font-weight:400">${esc(w.w)}</span></div></div>${ageHtml(w.since)}${w.open ? `<button class="btn ghost" ${Object.entries(w.open).map(([k, v]) => `data-${k}="${v}"`).join(' ')}>Open</button>` : ''}</div>`).join('')}</div></details>` : ''}
+  ${(() => { const lcm = listCheckMark(), up = Number(ST.noticesReadUpto) || 0, nw = notices.filter(x => !(Number(x.id) <= up)), old = notices.filter(x => Number(x.id) <= up); /* push 7f: read notices fold away, per person */
+    const one = x => `<div class="job"><div><div class="t">${esc(isoWords(x.text))}</div><div class="d">${esc(personName(x.by_user))}, ${esc(fmtD(d10(x.at)))}. No approval needed.</div></div></div>`;
+    /* push 10b (C-30, A-08): 3 or more notices by 1 person on 1 day fold into 1 line that opens */
+    const digest = L => { const G = new Map(); L.forEach(x => { const k = String(x.by_user).toLowerCase() + '|' + d10(x.at); (G.get(k) || G.set(k, []).get(k)).push(x); });
+      return [...G.values()].map(g => g.length < 3 ? g.map(one).join('') : `<div class="job"><details class="dg" style="flex:1 1 auto"><summary><b>${pl(g.length, 'update', 'updates')} by ${esc(personName(g[0].by_user))}, ${esc(fmtD(d10(g[0].at)))}</b> <span class="ans">${(() => { const x = isoWords(g[0].text); return esc(x.length > 110 ? x.slice(0, 110).replace(/\s+\S*$/, '') + '…' : x); })()} No approval needed.</span></summary><div class="jobs">${g.map(one).join('')}</div></details></div>`).join(''); };
+    return nw.length || old.length || lcm ? `<h2>For your information${nw.length ? ` <span class="c">${nw.length} new</span>` : ''}</h2>${nw.length || lcm ? `<div class="box jobs">${lcm}${digest(nw)}${nw.length ? `<div class="job"><div></div><button class="btn ghost" data-nread="${Math.max(...nw.map(x => Number(x.id) || 0))}">Mark as read</button></div>` : ''}</div>` : ''}${old.length ? `<details class="box" style="margin-top:8px"><summary>Read notices, last 30 days: ${old.length}</summary><div class="jobs">${old.slice(0, 30).map(one).join('')}${old.length > 30 ? `<div class="job"><div class="d">The newest 30 are shown.</div></div>` : ''}</div></details>` : ''}` : ''; })()}`;
+}
+
+/** Home (D-99 B, D-100): the verdict and the 6-month trend on the left, the jobs on the right, oldest first. */
+function homeVerdict() {
+  const keep = { per: nm.per, hist: nm.hist, grp: nm.grp }; Object.assign(nm, { per: 'fy', hist: 'approved', grp: 'wl' });
+  try {
+    const rows = nmRows().filter(r => nmGrp(r) && nmIn(r)); if (!rows.length) return null; const tot = nmSum(rows);
+    const all = nmRows().filter(r => nmGrp(r) && r.date <= ST.today); const ms = [...new Set(all.map(r => r.date.slice(0, 7)))].sort().slice(-6);
+    return { tot, pts: ms.map(m => ({ m, ...nmSum(all.filter(r => r.date.slice(0, 7) === m)) })).filter(p => p.pct != null && p.tgt != null) };
+  } finally { Object.assign(nm, keep); }
+}
+function homeTrend(pts) {
+  if (pts.length < 2) return '<p class="vfoot">The trend needs 2 months of costed trucks.</p>';
+  const vals = pts.flatMap(p => [p.pct, p.tgt]); const lo = Math.floor((Math.min(...vals) - 1) / 5) * 5, hi = Math.ceil((Math.max(...vals) + 1) / 5) * 5;
+  const W = 380, H = 150, L = 30, R = 106, T = 10, B = 22; const x = i => L + (W - L - R) * i / (pts.length - 1), y = v => T + (H - T - B) * (1 - (v - lo) / (hi - lo));
+  const grid = []; for (let v = lo; v <= hi + 0.001; v += 5) grid.push(`<line class="og" x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}"/><text class="oa" x="${L - 5}" y="${y(v) + 3}" text-anchor="end">${v}%</text>`);
+  const z = pts[pts.length - 1]; let yg = y(z.pct), yt = y(z.tgt); if (Math.abs(yg - yt) < 13) { const mid = (yg + yt) / 2; if (yg >= yt) { yg = mid + 7; yt = mid - 7; } else { yg = mid - 7; yt = mid + 7; } }
+  const part = z.m === ST.today.slice(0, 7) && ST.today.slice(8) !== String(new Date(Date.UTC(+ST.today.slice(0, 4), +ST.today.slice(5, 7), 0)).getUTCDate()); const ml = m => MON[+m.slice(5) - 1] + (part && m === z.m ? '*' : ''); // push 10b (U-06): a month not finished is marked
+  return `<svg class="vt" viewBox="0 0 ${W} ${H}" role="img" aria-label="White label GP % by month against target, last ${pts.length} months">${grid.join('')}<polyline class="tl" points="${pts.map((p, i) => `${x(i)},${y(p.tgt)}`).join(' ')}"/><polyline class="gl" points="${pts.map((p, i) => `${x(i)},${y(p.pct)}`).join(' ')}"/>${pts.map((p, i) => `<circle class="gd" cx="${x(i)}" cy="${y(p.pct)}" r="3"/><text class="oa" x="${x(i)}" y="${H - 6}" text-anchor="middle">${ml(p.m)}</text>`).join('')}<text class="lab" fill="var(--blue)" x="${W - R + 6}" y="${yg + 3}">${ml(z.m)} GP ${z.pct.toFixed(1)}%</text><text class="lab" fill="var(--muted)" x="${W - R + 6}" y="${yt + 3}">${ml(z.m)} target ${z.tgt.toFixed(1)}%</text></svg><div class="vlegend"><span><i></i>GP % in the month</span><span><i class="d"></i>Target % in the month: each product's target, weighted by what was sold</span>${part ? `<span>* ${MON[+z.m.slice(5) - 1]} is 1 to ${+ST.today.slice(8)} ${MON[+z.m.slice(5) - 1]}</span>` : ''}</div>`;
+}
+function homeGrid(J, nm0, W) {
+  const stuckN = J.filter(j => j.since && isStuck(j.since)).length; const ages = J.filter(j => j.since).map(j => daysSince(j.since)); const oldest = ages.length ? Math.max(...ages) : null;
+  let left = '';
+  const V = CAN('see.margin') && loaded() ? homeVerdict() : null;
+  if (V) { const o = V.tot, w = { red: 'Act', amber: 'Watch', green: 'On target', none: 'Not judged' }[o.st] || 'Not judged'; // push 10e (C-11): no target, no "undefined"
+    const gp1 = o.jPct != null ? o.jPct : o.pct, gap = o.tgt > 0 && gp1 != null ? Math.round(o.tgt * 10) / 10 - Math.round(gp1 * 10) / 10 : null; const chip = gap == null || o.dir === 'none' ? w : o.dir === 'on' || Math.abs(gap) < 0.05 ? 'On target' : o.dir === 'short' ? `${Math.abs(gap).toFixed(1)} points below` : `${Math.abs(gap).toFixed(1)} points above`; // review 10b, m7: the GP the status uses // push 10b (U-05): the chip says what it means
+    left = `<div class="verdict"><div class="vk">White label GP · FY to date (${esc(fmtShort(fyStart()))} to ${esc(fmtShort(ST.today))})</div><div class="vbig">${pc(o.pct)}<span class="st ${o.st}">${esc(chip)}</span></div><p class="vsub">${o.tgt > 0 ? `Target ${pc(o.tgt)}${o.dir === 'on' ? '' : ` · ${o.dir} by ${rsM2(Math.abs(o.ag))}`}.` : 'No target set.'}</p>${homeTrend(V.pts)}
+      <div class="vstats" style="grid-template-columns:repeat(2,minmax(0,1fr))"><div><b>${rsM2(o.sales)}</b><span>Sales, FY to date</span></div><div><b>${rsM2(o.gp)}</b><span>GP, FY to date</span></div></div>
+      <p class="vfoot">Trucks out, each at the cost approved on its date. <button class="btn ghost" data-scr="margin">Open margin</button></p></div>`; }
+  else { const k = stuckN ? 'red' : J.length ? 'amber' : 'green', w = stuckN ? `${stuckN} stuck` : J.length ? 'Waiting' : 'Clear';
+    left = `<div class="verdict"><div class="vk">Your day</div><div class="vbig">${J.length}<span class="st ${k}">${w}</span></div><p class="vsub">${J.length ? `${pl(J.length, 'thing needs', 'things need')} you.` : 'Nothing needs you today.'}</p>
+      <div class="vstats"><div><b>${oldest == null ? '–' : oldest ? oldest + 'd' : 'today'}</b><span>Oldest waiting</span></div><div><b>${stuckN}</b><span>Stuck</span></div><div><b>${W.length}</b><span>With others</span></div></div></div>`; }
+  if (!ADM()) { /* review 10b, m12: other roles keep their Today list as it was; the new list is the administrator's Approvals (Tahir's ruling) */
+  const t0 = j => j.since ? d10(j.since) : '9999';
+    const rows = J.map((j, i) => [j, i]).sort((a, b) => { const r = j => (j.kind === 'red' || (j.since && isStuck(j.since))) ? 0 : 1; return r(a[0]) - r(b[0]) || t0(a[0]).localeCompare(t0(b[0])) || (a[0].pri - b[0].pri); });
+    const st = j => (j.kind === 'red' || (j.since && isStuck(j.since))) ? ['red', j.since && isStuck(j.since) ? `Stuck ${wdays(j.since)} working days` : 'Act now'] : j.since ? ['amber', `Waiting ${ageTxt(j.since)}`] : ['grey', 'To do'];
+    const nmi = nm0; /* push 10e (C-16): the next move vToday found, not worked out again */
+    const right = `<div class="jl" data-lft="jobs"><h2 class="gh">${J.length > 1 && nmi >= 0 ? 'Then' : 'Needs you'} <span class="c">${J.length > 1 && nmi >= 0 ? J.length - 1 : J.length}</span></h2>${J.length > 2 || LFQ.jobs ? findBox('jobs', 'Find a job, product or client') : ''}${rows.filter(([j, i]) => i !== nmi || J.length === 1).map(([j, i]) => { const [c, w] = st(j); return `<div class="jrow ${c}"><div><div class="t">${esc(j.t)}</div><div class="d">${i === nmi ? 'Your next move, above.' : esc(isoWords(j.d))}</div></div><span class="sw">${esc(w)}</span>${i === nmi ? '' : `<button class="btn ghost" data-job="${i}" data-jk="${esc(J[i] ? J[i].key : '')}">${j.btn}</button>`}</div>`; }).join('') || '<div class="jrow green"><div class="t">Nothing needs you today.</div><span class="sw">Clear</span></div>'}</div>`;
+    return `<div class="home">${left}${right}</div>`; }
+  /* Push 10b (Tahir, 20 Nov 2026; picture "C2M Approvals redesign"): chips by topic whose counts add up to the list, then 3 groups
+     (to approve, stuck with others, to do); recipes stuck with 1 person are 1 line that opens; ages in working days. */
+  const t0 = j => j.since ? d10(j.since) : '9999';
+  const age = j => j.kind === 'red' && !(j.since && isStuck(j.since)) ? ['red', j.since && wdays(j.since) ? `Act now · ${pl(wdays(j.since), 'working day', 'working days')}` : 'Act now'] : j.since ? (isStuck(j.since) ? ['red', `Stuck ${pl(wdays(j.since), 'working day', 'working days')}`] : ['amber', `Waiting ${wdays(j.since) ? pl(wdays(j.since), 'working day', 'working days') : 'since today'}`]) : j.kind === 'red' ? ['red', 'Act now'] : ['grey', 'To do'];
+  const ord = (a, b) => ((b[0].kind === 'red' || isStuck(b[0].since)) - (a[0].kind === 'red' || isStuck(a[0].since))) || t0(a[0]).localeCompare(t0(b[0])) || (a[0].pri - b[0].pri);
+  const all = J.map((j, i) => [j, i]); const tps = ['All', ...JTOPICS.filter(t => all.some(([j]) => jobTopic(j) === t))]; if (!tps.includes(jtopic)) jtopic = 'All';
+  const inT = ([j]) => jtopic === 'All' || jobTopic(j) === jtopic;
+  const chipsH = tps.length > 2 ? `<div class="chips jchips" role="group" aria-label="Topic">${tps.map(t => `<button data-jtopic="${esc(t)}" aria-pressed="${t === jtopic}">${esc(t)} ${t === 'All' ? J.length : all.filter(([j]) => jobTopic(j) === t).length}</button>`).join('')}</div>` : '';
+  const stuckOf = j => /^Recipe stuck /.test(j.t) && j.with ? j.with : null; // the administrator's stuck recipes, by the role that holds them
+  const row = ([j, i]) => { const [c, w] = age(j); return `<div class="jrow ${c}"><div><div class="t">${esc(j.t)}</div><div class="d">${i === nm0 ? 'Your next move, above.' : esc(isoWords(j.d))}</div></div><span class="sw">${esc(w)}</span>${i === nm0 ? '' : `<button class="btn ghost" data-job="${i}" data-jk="${esc(J[i] ? J[i].key : '')}">${j.btn}</button>`}</div>`; };
+  const L = all.filter(inT); const appr = L.filter(([j]) => j.kind === 'approve').sort(ord), stuck = L.filter(([j]) => stuckOf(j)), todo = L.filter(([j]) => j.kind !== 'approve' && !stuckOf(j)).sort(ord);
+  const byW = new Map(); stuck.forEach(x => { const k = stuckOf(x[0]); (byW.get(k) || byW.set(k, []).get(k)).push(x); });
+  const stuckH = [...byW].map(([who, xs]) => { if (xs.length === 1) return row(xs[0]); xs.sort(ord); const open = jxOpen.has(who), mx = Math.max(...xs.map(([j]) => wdays(j.since)));
+    return `<div class="jrow red hasx" data-lfn="${xs.length}"><div><div class="t">${pl(xs.length, 'recipe', 'recipes')} stuck with the ${esc(who)}</div><div class="d">Not sent on. <button class="jx" data-jx="${esc(who)}" aria-expanded="${open}">${open ? 'Hide' : 'Show ' + xs.length}</button></div></div><span class="sw">Stuck up to ${pl(mx, 'working day', 'working days')}</span><div class="jsub"${open ? '' : ' hidden'}>${xs.map(([j, i]) => `<div><span>${esc(j.t.replace(/^Recipe stuck \d+ working days?: /, ''))} · ${esc(fmtShort(d10(j.since)))}</span><button class="btn ghost" data-job="${i}" data-jk="${esc(J[i] ? J[i].key : '')}">${j.btn}</button></div>`).join('')}</div></div>`; }).join('');
+  const grpH = (label, n, body) => n ? `<div class="jgh gjg"><span>${label}</span><span>${n}</span></div>${body}` : '';
+  const APH = { qc: 'To review', plant: 'To endorse' }; const R0 = ST.me.role;
+  const right = `<div class="jl" data-lft="jobs"><h2 class="gh">Your list <span class="c">${J.length}</span></h2>${J.length > 2 || LFQ.jobs ? findBox('jobs', 'Find a job, product or client') : ''}${chipsH}${grpH(Object.prototype.hasOwnProperty.call(APH, R0) ? APH[R0] : 'To approve', appr.length, appr.map(row).join(''))}${grpH('Stuck with others', stuck.length, stuckH)}${grpH('To do', todo.length, todo.map(row).join(''))}${J.length ? '' : '<div class="jrow green"><div class="t">Nothing needs you today.</div><span class="sw">Clear</span></div>'}</div>`;
+  return `<div class="home">${left}${right}</div>`;
+}
+/* ---------- Margin ---------- */
+/** The CFO and COO see the company answer first on Today (ruling 5d). */
+function inFY(d) { return d >= fyStart(); }
+function marginLine() {
+  const rows = (ST.sales || []).filter(r => inFY(r.date)); const wl = grp(rows.filter(r => r.grp === 'White label'), () => 'w')[0]; if (!wl) return '';
+  const cs = grp(rows.filter(r => r.grp === 'White label'), r => r.cust).filter(c => c.gp != null); const below = cs.filter(c => c.gpT != null && c.target != null && c.gpT < c.target - 0.05).length;
+  return `<div class="next"><span>White label GP ${pc(wl.gp)} FY to date, against the company GP target of ${SET('budget_gp')}% (ambition ${SET('ambition_gp')}%). ${below === cs.length && below ? 'All ' + below : below + ' of ' + cs.length} costed clients below target.</span><button class="btn ghost" data-scr="margin">Open margin</button></div>`;
+}
+const mon = m => { const p = String(m).split('-'); return MON[+p[1] - 1] + ' ' + p[0]; };
+const when = s => { const t = String(s || ''); return t.length >= 16 ? fmtD(t.slice(0, 10)) + ', ' + t.slice(11, 16) : fmtD(t); };
+function basisChips() { return `<div class="chips" aria-label="Expected kg">${[['budget', 'Expected kg: budget'], ['run', 'Expected kg: last 3 months']].map(([k, l]) => `<button data-fb="${k}" aria-pressed="${fbasis === k}">${l}</button>`).join('')}</div>`; }
+function chips() {
+  const months = [...new Set((ST.sales || []).map(s => s.date.slice(0, 7)))].filter(m => m !== ST.today.slice(0, 7));
+  return `<div class="chips">${[['month', 'This month'], ['3m', 'Last 3 months'], ['fy', 'FY to date']].map(([k, l]) => `<button data-per="${k}" aria-pressed="${period === k}">${l}</button>`).join('')}${months.map(m => `<button data-mon="${m}" aria-pressed="${period === 'any' && month === m}">${mon(m)}</button>`).join('')}</div>`;
+}
+/* ---------- 0.9.0 Margin (approved picture B): the answer, 4 figures, the trend against budget, where money is at stake,
+   and the customer table as a working table (search, chips with counts, GP bar, totals, columns, Excel) ---------- */
+const GRPN = { wl: 'White label', van: 'VAN brand', all: 'All sales' };
+const unitOf = r => { const k = r.packId ? packIdx().get(r.packId) : null; return k && k.product.soldPer === 'L' ? 'L' : 'kg'; };
+const qtyTxt = rows => { let kg = 0, L = 0; rows.forEach(r => { if (unitOf(r) === 'L') L += r.kg; else kg += r.kg; }); return [kg ? Math.round(kg).toLocaleString('en-US') + ' kg' : '', L ? Math.round(L).toLocaleString('en-US') + ' L' : ''].filter(Boolean).join(' and ') || '0 kg'; };
+const PERN = () => period === 'fy' ? 'FY to date' : period === '3m' ? 'Last 3 months' : period === 'month' ? 'This month' : mon(month);
+let custQ = ''; // read by Find (SEARCH cq); the 0.9.0 customer table is gone (1.0.0)
+/* ---------- Recipes ---------- */
+const fmtShort = s => { const p = d10(s).split('-'); return p.length === 3 ? `${+p[2]} ${MON[+p[1] - 1]} ${p[0]}` : ''; }; // with the year, as every date (round 4; review r4, findings 8 and 21)
+/** Recipe steps as chips that say who did each step and when (P1, H5: "Himayat reviewed · 17 Oct"); the current step is marked. */
+function stepChips(v) {
+  const order = v.path === 'golive' ? ['draft', 'cost', 'approved'] : v.path === 'other' ? ['draft', 'review', 'cost', 'approved'] : ['draft', 'review', 'endorse', 'cost', 'approved']; // push 7b (R64): the short path skips the Plant Manager; D-170: the go-live correction goes straight to the CFO
+  if (v.state === 'closed') { const c = (v.steps || []).slice().reverse().find(x => x.action === 'closed'); return `<div class="steps"><span class="now">Closed${c ? ` by ${esc(personName(c.by_user))}<small>· ${fmtShort(c.at)}</small>` : ''}</span></div>${c && c.note ? `<p class="ans">Why: ${esc(isoWords(c.note))}</p>` : ''}`; }
+  const cur = order.indexOf(v.state);
+  const DONE = { draft: ['sent', 'resent'], review: ['reviewed'], endorse: ['endorsed'], cost: ['cost_approved'] }; const DV = { draft: 'sent', review: 'checked', endorse: 'endorsed', cost: 'approved cost' };
+  return `<div class="steps">${order.map((st, i) => { if (st === 'approved') return `<span class="${v.state === 'approved' ? 'done' : ''}">Approved</span>`;
+    const done = i < cur || v.state === 'approved'; const s2 = done ? (v.steps || []).slice().reverse().find(x => DONE[st].includes(x.action)) : null;
+    return `<span class="${done ? 'done' : i === cur ? 'now' : ''}">${done && s2 ? `${esc(personName(s2.by_user))} ${DV[st]}<small>· ${fmtShort(s2.at)}</small>` : STEP[st]}</span>`; }).join('')}</div>`;
+}
+function vRecipes() {
+  if (openRec) return vRecipe((ST.recipes || []).find(v => v.id === openRec));
+  const R = ST.me.role; const mine = (ST.recipes || []).filter(v => myStep(v));
+  const seeC = CAN('see.cost'); const P = packIdx();
+  const list = (ST.recipes || []).filter(v => v.state !== 'old' && v.state !== 'closed').sort((a, b) => (myStep(b) ? 1 : 0) - (myStep(a) ? 1 : 0) || a.customer.localeCompare(b.customer));
+  return `${head('Recipes', `${mine.length} waiting for you, ${list.length} in C2M.`, 'C2M keeps the official recipe for each client product. Every version is kept; a change goes the Production Manager, the QC Head, the Plant Manager, then the CFO (another recipe of a product: the Production Manager, the QC Head, then the CFO). A version not going ahead is closed with a reason.')}
+  <div class="next">${mine.length ? `<button class="btn" data-rec="${mine[0].id}">${esc(myJob(mine[0]))}: ${esc(prodNm(mine[0].clientProductId, mine[0].brand))} for ${esc(mine[0].customer)}</button>` : '<span>Nothing waits for you.</span>'}${CAN('recipe.start') ? ' <button class="btn ghost" data-newrec>Write a new recipe version</button>' : ''}</div>
+  ${newRecForm()}
+  ${findBox('recipes', 'Find a product, client or step')}<div class="box wrapx"><table data-lft="recipes"><tr><th>Client product</th><th>Version</th><th>Step</th><th class="r">Kg per kg or L</th>${seeC ? '<th class="r">Materials, Rs per kg or L</th>' : ''}</tr>${list.map(v => `<tr class="go" tabindex="0" data-rec="${v.id}"><td>${esc(prodNm(v.clientProductId, v.brand))} for ${esc(v.customer)}${v.rname && v.rname !== 'Main' ? ` · <i>${esc(v.rname)}</i>` : ''}${v.isDefault && ((ST.products || []).find(p => p.id === v.clientProductId) || {}).others && ((ST.products || []).find(p => p.id === v.clientProductId).others || []).length ? ' <span class="pill p-green">Default</span>' : ''}</td><td>${v.version}</td><td><span class="pill ${v.state === 'approved' ? 'p-green' : myStep(v) ? 'p-amber' : 'p-none'}">${STEP[v.state]}</span></td>${v.lines.length ? `<td class="r num">${v.kgTotal.toFixed(4)}</td>${seeC ? `<td class="r num">${rs2(v.materials)}</td>` : ''}` : `<td class="r ans"${seeC ? ' colspan="2"' : ''}>no lines yet</td>`}</tr>`).join('')}</table></div>`; // push 7d: a draft with no lines says so
+}
+let newRec = null;
+function newRecForm() {
+  if (!newRec) return '';
+  const prods = (ST.products || []).filter(p => !p.followsId && (p.grp === 'White label' || p.recipeState || p.id === newRec.cp));
+  const pk = (ST.products || []).find(p => p.id === newRec.cp); const dn = pk ? pk.defaultName || 'Main' : 'Main'; const k = newRec.kind || 'default';
+  return `<div class="box form" id="nrf"><b>New recipe version</b><label for="nrp">Client product<select id="nrp" data-nrp><option value="">Pick</option>${prods.map(p => `<option value="${p.id}" ${p.id === newRec.cp ? 'selected' : ''}>${esc(prodNm(p.id, p.brand))} for ${esc(p.customer)}${p.recipeState ? ' (has ' + stepTxt(p.recipeState) + ')' : ''}</option>`).join('')}</select></label>
+  ${ST.m007 && (!pk || pk.approvedVersionId) ? `<fieldset class="q1"><legend><b>Which recipe?</b></legend>
+    <label><input type="radio" name="nrk" data-nrk="default"${k === 'default' ? ' checked' : ''}> A new version of the Default recipe (${esc(dn)}): once approved it sets the cost. The Production Manager, the QC Head, the Plant Manager, then the CFO.</label>
+    <label><input type="radio" name="nrk" data-nrk="other"${k === 'other' ? ' checked' : ''}> Another recipe for this product, kept beside the Default (e.g. DAP in place of TSP). The Production Manager writes it, the QC Head checks it and the CFO approves its cost; it never moves cost until the CFO makes it the Default.</label></fieldset>
+  ${k === 'other' ? `<label for="nrnm">Name of this recipe<input id="nrnm" maxlength="80" placeholder="e.g. DAP in place of TSP" value="${esc(newRec.name || '')}"></label>` : ''}` : ''}
+  <label for="nrn">What changes and why (e.g. TSP replaced by DAP)<input id="nrn" value="${esc(newRec.note || '')}"></label><div><button class="btn" data-nrsave>Start from the current recipe</button> <button class="btn ghost" data-nrcancel>Cancel</button></div></div>`;
+}
+function vRecipe(v, o = {}) {
+  if (!v) { if (o.panel || o.product) return '<p class="ans">This recipe version is no longer in C2M.</p>'; openRec = null; return vRecipes(); }
+  const R = ST.me.role; const seeC = CAN('see.cost'); const mine = canStep(v);
+  const order = ['draft', 'review', 'endorse', 'cost', 'approved']; const cur = order.indexOf(v.state);
+  const prod = (ST.products || []).find(p => p.id === v.clientProductId);
+  const prob = recProblem(v), gaps = recGaps(v); const lead = mine ? `Your step: ${myJob(v).split(' ')[0].toLowerCase()}.` : `${stepTxt(v.state).charAt(0).toUpperCase() + stepTxt(v.state).slice(1)}.`;
+  let h = o.product ? (prob ? `<p class="answer">Version ${v.version}: ${esc(prob)}</p>` : '') : o.panel ? `<p class="answer">Version ${v.version}: ${esc(lead)}${prob ? ' ' + esc(prob) : ''}</p>` : `<p class="crumb"><button data-recback>All recipes</button> › Recipe</p>${head(`${prodNm(v.clientProductId, v.brand)} for ${v.customer}, version ${v.version}`, `${mine ? 'Waiting for you.' : esc(lead)}${prob ? (gaps ? ' Material data is missing: see the amber box.' : ' ' + esc(prob)) : ''}`)}`; // push 7g (finding 9): 1 title, 1 answer line
+  h += stepChips(v); h += recNameLine(v);
+  const toLines = v.state === 'draft' && !o.panel && !(editLines && editLines.id === v.id) && CAN('recipe.edit'); // push 7g (finding 9): Open to write opens the line editor
+  if (mine && !o.panel) h += `<div class="next"><b>Your step: ${esc(myJob(v))}.</b> <button class="btn${v.path === 'golive' && v.state === 'draft' ? ' ghost' : ''}" ${toLines ? `data-editlines="${v.id}"` : `data-panrec="${v.id}"`}>Open to ${esc(myJob(v).split(' ')[0].toLowerCase())}</button>${v.path === 'golive' && v.state === 'draft' && !(editLines && editLines.id === v.id) ? ` <button class="btn" data-adv="${v.id}">Send to the CFO</button>` : ''}</div>`; // go-live window: send from the recipe page too (D-170)
+  else if (mine) h += recActions(v); // push 7b (R63, R68, R69)
+  else h += `<p class="ans">${v.state === 'approved' ? 'Approved. A change starts a new version.' : v.state === 'old' ? 'An earlier version, kept for the record.' : v.state === 'closed' ? 'Closed: it did not go ahead. Kept for the record.' : 'With the ' + ROLE_NAME[STEP_ROLE[v.state]] + '.'}${canCloseDraft(v) ? ` <button class="btn ghost" data-rclose="${v.id}">Close this version</button>` : ''}</p>`;
+  h += recDelLine(v); // push 7g (finding 10): Delete after the main action
+  h += closeBox(v);
+  if (sendBack === v.id && !behind) h += `<div class="box form"><label for="sbr">Reason (required)<textarea id="sbr"></textarea></label><label for="sba">Revision advice (required)<textarea id="sba"></textarea></label><div><button class="btn warn" data-sbsend="${v.id}">Send back</button> <button class="btn ghost" data-sbcancel>Cancel</button></div></div>`;
+  // A solid recipe far from 1 kg per kg is checked before its cost is approved (cost review 18 Oct 2026, D-64)
+  if (prod && prod.form === 'solid' && ['cost', 'endorse', 'review'].includes(v.state) && (v.kgTotal < 0.98 || v.kgTotal > 1.20)) h += `<div class="amberbox"><b>Check the quantities:</b> this solid recipe adds to ${v.kgTotal.toFixed(4)} kg of inputs per 1 kg of product. Usual is 0.98 to 1.20 (process loss included); a typing slip here moves the cost of every pack.</div>`;
+  if (v.sentBack && v.state === 'draft') h += `<div class="warnbox">Sent back by ${esc(personName(v.sentBack.by))}, the ${esc(ROLE_NAME[STEP_ROLE[v.sentBack.state]] || '')}: ${esc(dot(v.sentBack.reason))}. Advice: ${esc(dot(v.sentBack.advice))}. ${v.sentBack.state === 'review' ? 'Resending returns it to the QC Head.' : 'Resending returns it straight to them if no line changed; if you change the lines, it goes to the QC Head first.'}</div>`;
+  if (editLines && editLines.id === v.id && !behind) h += linesEditor(v);
+  h += gaps;
+  h += `<div class="two"><div><h2>Recipe: kg of input per 1 ${prod ? prod.soldPer : 'kg'} of product</h2><div class="box wrapx"><table><tr><th>Input, kg per 1 ${prod ? prod.soldPer : 'kg'}</th><th class="r">Qty</th>${seeC ? '<th class="r">Rate</th><th class="r">Rs</th>' : ''}</tr>${v.lines.map(l => `<tr><td>${esc(l.name)} <span class="ans" style="font-size:12px">${esc(matNutTxt(l.gradeId))}</span></td><td class="r num">${l.qty.toFixed(4)}</td>${seeC ? `<td class="r num">${rs2(l.rate)}</td><td class="r num">${rs2(l.cost)}</td>` : ''}</tr>`).join('')}<tr><td><b>Total</b></td><td class="r num"><b>${v.kgTotal.toFixed(4)}</b></td>${seeC ? `<td></td><td class="r num"><b>${rs2(v.materials)}</b></td>` : ''}</tr></table></div>
+  <p class="ans">${v.kgTotal > 1.0005 ? 'Total above 1: process loss carried in the recipe.' : v.kgTotal < 0.9995 ? 'Total below 1: water or a solvent may not be listed.' : ''} ${esc(isoWords(v.note || ''))}</p></div>
+  <div><h2>Nutrient analysis</h2>${nutBox(v.nutrients, !!gaps)}${nutWorking(v)}${recGrade(v)}</div></div>${recChanges(v)}`; // push 7b (R68)
+  const appr = prod && prod.approvedVersionId && prod.approvedVersionId !== v.id ? (ST.recipes || []).find(x => x.id === prod.approvedVersionId) : null;
+  if (seeC && appr && !['approved', 'old'].includes(v.state) && v.materials != null && appr.materials != null) {
+    const dm = v.materials - appr.materials; const dmp = appr.materials ? Math.abs(dm / appr.materials * 100) : 0;
+    /* Neutral when nothing moved, amber up to the re-approval %, red above it (UX review) */
+    h += `<div class="${Math.abs(dm) < 0.005 ? 'notebox' : dmp > (SET('reapprove_pct') || 3) ? 'warnbox' : 'amberbox'}"><b>This version against the approved version ${appr.version}:</b> materials ${rs2(v.materials)} against ${rs2(appr.materials)} per ${prod.soldPer} (${dm >= 0 ? '+' : ''}${rs2(dm)}, ${dm >= 0 ? '+' : ''}${(dm / appr.materials * 100).toFixed(1)}%). The costs below stay on the approved version until the CFO approves this one.</div>`;
+  }
+  if (seeC && prod && !o.product) h += `<h2>Cost per ${prod.soldPer}, by pack (approved version)</h2><div class="box wrapx"><table><tr><th>Pack</th><th class="r">Materials</th><th class="r">Packing</th><th class="r">Labour and FOH (factory overhead)</th><th class="r">Freight</th><th class="r">Cost</th><th>Labour and FOH rate</th></tr>${prod.packs.map(k => k.cost ? `<tr><td>${k.size} ${prod.soldPer}</td><td class="r num">${rs2(k.cost.materials)}</td><td class="r num">${rs2(k.cost.packing)}</td><td class="r num">${rs2(k.cost.conversion)}</td><td class="r num">${rs2(k.cost.freight)}</td><td class="r num"><b>${rs2(k.cost.total)}</b></td><td>${esc(k.cost.rule || 'none')}</td></tr>${billLines(k, prod)}` : `<tr><td>${k.size} ${prod.soldPer}</td><td colspan="6">Not costed: ${esc((k.costGaps && k.costGaps.length ? k.costGaps : ['no approved recipe']).join(', '))}</td></tr>`).join('')}</table></div>`;
+  if (!o.product) h += `<h2>History</h2><div class="box wrapx"><table>${v.steps.slice().reverse().map(s => `<tr><td class="mono">${esc(when(s.at))}</td><td>${esc(VERB[s.action] || s.action.replace('_', ' '))}</td><td>${esc(personName(s.by_user))}</td><td>${esc(isoWords(s.note || ''))}</td></tr>`).join('')}</table></div>`;
+  return h;
+}
+function billLines(k, prod) {
+  const b = (ST.packingBills || []).find(x => x.id === k.billId);
+  if (!b) return prod.packingMode === 'bulk' ? '' : `<tr><td></td><td colspan="6" class="ans">Packing: no bill set${prod.packingMode === 'client' ? ' (client supplies packing)' : ''}</td></tr>`;
+  return `<tr><td></td><td colspan="6" class="ans">Packing bill "${esc(b.name)}": ${b.lines.map(l => `${esc(l.item)} ${rs2(l.price)} x ${l.pieces}${l.level === 'secondary' ? ' / (' + l.packsPerOuter + ' packs x ' + k.size + ')' : ' / ' + k.size} = ${rs2(l.price * l.pieces / ((l.level === 'secondary' ? l.packsPerOuter || 1 : 1) * k.size))}`).join(' · ')}</td></tr>`;
+}
+let ask = null;
+/** Inline reason box (replaces browser prompt boxes, UX review). */
+function askBox(label) { if (behind) return ''; return `<div class="box form ask"><label for="askw">${esc(label)}<textarea id="askw"></textarea></label><div><button class="btn" data-askok>Confirm</button> <button class="btn ghost" data-askcancel>Cancel</button></div></div>`; }
+/* 0.9.0 recipe review (approved picture I): the answer names the problem; each input shows its own nutrient %; the working is shown */
+const matOf = id => (ST.materials || []).find(m => m.gradeId === id) || (ST.rates || []).find(m => m.gradeId === id) || null;
+const fName = f => String(f).replace('%', '').trim();
+/** What a material brings, in words: "N 46%", "S % not entered", "no nutrients", "to classify" (H3). */
+function matNutTxt(id) { const m = matOf(id); if (!m) return ''; const role = m.role || (m.type && /^Non-nutrient/.test(m.type) ? 'none' : (m.fields || []).length ? 'nutrient' : null);
+  if (role === 'none') return 'no nutrients'; if (!(m.fields || []).length) return role === 'nutrient' ? (m.notEntered ? 'nutrients not entered' : '') : 'to classify';
+  return m.fields.map(f => (m.nutrients || {})[f] == null ? `${fName(f)} % not entered` : `${fName(f)} ${Number(m.nutrients[f])}%`).join(', '); }
+/** The 1 thing that stops the analysis being complete, in plain words (H1). */
+function recProblem(v) { const N = v.nutrients || {}; if ((N.notEntered || []).length && !(N.unclassified || []).length) return `${N.notEntered.join(' and ')} ${N.notEntered.length === 1 ? 'needs its' : 'need their'} nutrients entered by the QC Head before the analysis is complete.`; if ((N.unclassified || []).length) return `${N.unclassified.join(' and ')} ${N.unclassified.length === 1 ? 'needs' : 'need'} a class before the analysis is complete.`;
+  const f = (N.fields || []).find(x => x.missing.length); if (f) return `${fName(f.field)} cannot be worked out yet, because ${f.missing.join(' and ')} ${f.missing.length === 1 ? 'has' : 'have'} no ${fName(f.field)} %.`; return ''; }
+/** The working behind each worked-out % (H4): "N = 0.4400 x 46% = 20.2%". */
+function nutWorking(v) { const N = v.nutrients || {}, on = !!ST.m015, B = on && N.basis ? ' ' + N.basis : ''; const out = (N.fields || []).filter(f => f.pct != null && !f.missing.length && !(f.noDensity || []).length).map(f => { const terms = v.lines.map(l => { const m = matOf(l.gradeId); const x = m && (m.nutrients || {})[f.field]; if (x == null || !(m.fields || []).includes(f.field)) return null;
+      const ms = on ? ((m.nutRows || []).find(r => r.label === f.field) || {}).measure || 'w/w' : 'w/w', d = m.density ? m.density.kgPerL : null, L = m.unit === 'L'; // push 7c (review 7c, M2): each term as it is added up
+      const adj = !on ? '' : !L && ms === 'w/v' && d ? ` ÷ ${num4(d)}` : L && ms !== 'w/v' && d ? ` × ${num4(d)}` : '';
+      return `${l.qty.toFixed(4)} × ${Number(x)}%${on && ms === 'w/v' ? ' w/v' : ''}${adj}`; }).filter(Boolean);
+    return terms.length ? `${fName(f.field)} = ${terms.join(' + ')} = ${f.pct.toFixed(2)}%${B}` : null; }).filter(Boolean);
+  const perL = on && N.basis === 'w/v'; return out.length ? `<p class="ans" style="font-size:12.5px">Worked out per 1 ${perL ? 'L' : 'kg'} of product${on ? ' (÷ the density of a material whose % is w/v)' : ''}: ${esc(out.join('; '))}.</p>` : ''; }
+function nutBox(N, gapBox) {
+  const B = ST.m015 && N.basis ? N.basis : null; // push 7c (R72): % w/w for a product sold per kg, % w/v for one sold per L, the other beside it
+  const rows = N.fields.map(n => `<tr><td>${esc(n.field)}${ST.m014 && nutHow(nutByLabel(n.field)) ? ` <span class="ans">${esc(nutHow(nutByLabel(n.field)))}</span>` : ''}</td><td class="r num">${n.pct != null ? n.pct.toFixed(2) + '%' + (B ? ' ' + B + otherB(n.pct, B, N.rho) : '') : ''}${(n.noDensity || []).length ? ` <span class="late">${gapBox ? 'not complete: density missing' : `not complete: density of ${esc(n.noDensity.join(', '))} missing`}</span>` : ''}${n.missing.length ? ` <span class="late">incomplete: ${esc(n.missing.join(', '))} has no ${esc(n.field)}</span>` : ''}</td></tr>`).join('');
+  return `<div class="box wrapx"><table><tr><th>${ST.m014 ? 'Nutrient' : 'Field'}</th><th class="r">% in product${B === 'w/v' ? ', w/v (g per 100 mL)' : B ? ', w/w' : ''}</th></tr>${rows || '<tr><td colspan="2">No nutrient fields for these materials</td></tr>'}
+  ${N.carriers.length ? `<tr><td>Materials that add no nutrients</td><td class="r num">${N.carrierKg.toFixed(4)} kg per ${B === 'w/v' ? 'L' : 'kg'}</td></tr><tr><td colspan="2" class="ans">${N.carriers.map(c => `${esc(c.name)} (${esc(String(c.type || '').replace('Non-nutrient: ', ''))}) ${c.qty.toFixed(4)}`).join(' · ')}</td></tr>` : ''}
+  ${(N.notEntered || []).length && !gapBox ? `<tr><td colspan="2"><span class="late">Nutrients not entered yet by the QC Head: ${esc(N.notEntered.join(', '))}</span></td></tr>` : ''}
+  ${N.unclassified.length && !gapBox ? `<tr><td colspan="2"><span class="late">To classify on ${navHas('inputs') ? 'Inputs' : 'Costs'}, Materials: ${esc(N.unclassified.join(', '))}</span></td></tr>` : ''}</table></div>
+  <p class="ans">${N.complete ? (ST.m014 ? 'Complete: every material is classed and its nutrients entered; a nutrient not entered for a material counts as 0.' : 'Complete: every material is classed and every field entered.') : `Not complete yet: the QC Head classes the materials and enters the values${N.fields.some(f => (f.noDensity || []).length) ? ' and densities' : ''} on ${navHas('inputs') ? 'Inputs' : 'Costs'}, Materials.`} Materials that add no nutrients still count in the weight, so they dilute the %.</p>`;
+}
+
+/* ---------- Edit and Delete on every list (Yawar's feedback; Tahir's rulings 30 Oct 2026, D-139) ----------
+   Edit opens the same form as Add, filled in. Words (names, kind, source) save at once and are logged. A change that moves a cost
+   (a rate, a packing price, a labour or FOH Rs, a freight Rs) is saved as a new dated entry through its own check, so past trucks keep
+   their cost. Delete removes an entry only when nothing uses it, with a reason; its values stay in the change record. When something
+   uses it, C2M names what and offers Take out of use (hidden from forms and pickers, kept for past costs, can be put back). */
+let rowEd = null, rowDel = null; // rowEd {kind, id}; rowDel {kind, id, U: what the server says uses it}
+const KCAN = { grade: 'material.save', pitem: 'packing.manage', bill: 'packing.manage', rule: 'labour.manage', freight: 'freight.edit', customer: 'client.add', product: 'client.add', vanproduct: 'lists.link', recipe: 'recipe.start' };
+const OOUK = { grade: 'material_grade', pitem: 'packing_item', bill: 'packing_bill', customer: 'customer' };
+const isOutOf = (kind, id) => (ST.outOfUseKeys || []).includes(`${OOUK[kind]}:${id}`);
+const custOut = name => { const c = (ST.customers || []).find(x => x.name === name); return !!c && isOutOf('customer', c.id); };
+const outPill = (kind, id) => isOutOf(kind, id) ? ' <span class="pill p-none">out of use</span>' : '';
+/** Edit and Delete for 1 row. o.edit: false when the list keeps its own Edit button; o.van: a VAN brand product. */
+function rowBtns(kind, id, o = {}) {
+  const right = KCAN[kind === 'product' && o.van ? 'vanproduct' : kind]; const out = OOUK[kind] && isOutOf(kind, id);
+  const e = o.edit !== false && CAN(o.editCan || right), d = CAN(right);
+  return `${e ? `<button class="btn ghost" data-rwed="${kind}:${id}">Edit</button>` : ''}${out && CAN(right) ? `<button class="btn ghost" data-rwon="${kind}:${id}">Put back in use</button>` : ''}${d ? `<button class="btn ghost danger" data-rwdel="${kind}:${id}">Delete</button>` : ''}`;
+}
+/** The Edit or Delete box under a row (a Detail row: it moves with its row when sorted and filtered). */
+function rowExtra(kind, id, cols) {
+  if (behind) return ''; let h = '';
+  if (rowDel && rowDel.kind === kind && rowDel.id === id) h = delBox(); else if (rowEd && rowEd.kind === kind && rowEd.id === id) h = edBox();
+  return h ? `<tr class="pkdet"><td colspan="${cols}">${h}</td></tr>` : '';
+}
+function delBox() {
+  const R = rowDel; if (!R.U) return `<div class="box form"><p class="ans" style="margin:0">Checking what uses it…</p></div>`;
+  const U = R.U, more = U.uses.length > 8 ? `<li>and ${U.uses.length - 8} more</li>` : '';
+  if (!U.uses.length) return `<div class="box form"><p style="margin:0"><b>Delete ${esc(U.label)}?</b> Nothing uses it.</p><label for="rwdw">Why it is deleted (required)<textarea id="rwdw"></textarea></label><div><button class="btn warn" data-rwok data-confirm="Confirm: delete ${esc(U.label)}">Delete</button> <button class="btn ghost" data-rwx>Cancel</button></div><p class="ans" style="margin:0">It leaves the list. Its values stay in the change record (Setup, Record and checks).</p></div>`;
+  const ooNeed = OOUK[R.kind] && !ST.m007;
+  const outPart = R.kind === 'product' && U.channel === 'VAN brand' && U.out === 'out' && !U.isOut ? `<div><button class="btn" data-pnoff="${R.id}">Take out of use</button> <button class="btn ghost" data-rwx>Cancel</button></div><p class="ans" style="margin:0">C2M first shows the trucks and open orders that leave its cost.</p>`
+    : U.out === 'out' ? (U.isOut ? '<p class="ans" style="margin:0">It is out of use already.</p>' : ooNeed ? '<p class="ans" style="margin:0">Take out of use is not switched on yet: IT has 1 step to run.</p>' : `<label for="rwdw">Why it goes out of use (required)<textarea id="rwdw"></textarea></label><div><button class="btn" data-rwout>Take out of use</button> <button class="btn ghost" data-rwx>Cancel</button></div><p class="ans" style="margin:0">${R.kind === 'customer' ? 'Hidden from KAM lists, the price list builder and Add a product; its row stays on Clients marked out of use, and its trucks stay on Margin.' : R.kind === 'product' ? (U.channel === 'White label' ? 'Hidden from Products, prices and Margin until it is put back.' : 'Hidden from Products and the lists until it is put back.') : 'Hidden from forms and pickers; every cost already approved keeps it.'} It can be put back.</p>`)
+    : U.out === 'retire' ? `<div><button class="btn" data-rwret="${R.id}">Take it out of use instead</button> <button class="btn ghost" data-rwx>Cancel</button></div>` : '<div><button class="btn ghost" data-rwx>Close</button></div>';
+  return `<div class="box form"><p style="margin:0"><b>${esc(U.label)} cannot be deleted.</b> It is used by:</p><ul style="margin:4px 0 6px 18px;padding:0">${U.uses.slice(0, 8).map(x => `<li>${esc(x)}</li>`).join('')}${more}</ul>${outPart}</div>`;
+}
+/* Edit forms: the Add form of each list, filled in. */
+function edBox() {
+  const E = rowEd;
+  if (E.kind === 'grade') { const m = (ST.rates || []).find(x => x.gradeId === E.id) || (ST.materials || []).find(x => x.gradeId === E.id); if (!m) return '';
+    const mm = (ST.materials || []).find(x => x.gradeId === E.id) || {}; const types = ST.materialTypes || []; const canClass = CAN('nutrient.edit');
+    return `<div class="box form"><b>Edit ${esc(m.name)}, ${esc(m.grade)}</b><div class="row"><label for="rwe-n">Name<input id="rwe-n" value="${esc(m.name)}"></label><label for="rwe-t">Class<select id="rwe-t"${canClass ? '' : ' disabled'}>${types.map(t => `<option value="${t.id}"${Number(t.id) === Number(mm.typeId) ? ' selected' : ''}>${esc(t.name)}</option>`).join('')}</select></label><label for="rwe-u">Unit<select id="rwe-u"><option${m.unit !== 'L' ? ' selected' : ''}>kg</option><option${m.unit === 'L' ? ' selected' : ''}>L</option></select></label><label for="rwe-g">Grade<input id="rwe-g" value="${esc(m.grade)}"></label><label for="rwe-r">Rate, Rs<input id="rwe-r" type="number" step="0.01" value="${m.rate != null ? m.rate : ''}"></label><label for="rwe-s">Source<input id="rwe-s" placeholder="PO or quote" value=""></label></div>
+    <p class="ans" style="margin:0">The name is the material's, for all its grades. A new rate is saved as a new dated rate from today, after C2M shows which costs it moves; the old rate stays for past trucks.</p><div><button class="btn" data-rwsave>Save</button> <button class="btn ghost" data-rwx>Cancel</button></div></div>`; }
+  if (E.kind === 'pitem') { const it = (ST.packingItems || []).find(x => x.id === E.id); if (!it) return '';
+    return `<div class="box form"><b>Edit ${esc(it.name)}</b><div class="row"><label for="rwe-n">Name<input id="rwe-n" value="${esc(it.name)}"></label><label for="rwe-k">Kind<input id="rwe-k" value="${esc(it.kind || '')}" placeholder="bag, label, carton"></label><label for="rwe-r">Price per piece, Rs<input id="rwe-r" type="number" step="0.01" value="${it.price != null ? it.price : ''}"></label></div>
+    <p class="ans" style="margin:0">A new price is saved as a new dated price from today, after C2M shows which costs it moves (and if it is bought per kg); the old price stays for past trucks.</p><div><button class="btn" data-rwsave>Save</button> <button class="btn ghost" data-rwx>Cancel</button></div></div>`; }
+  if (E.kind === 'rule') { const r = (ST.rules || []).find(x => x.id === E.id); if (!r) return '';
+    return `<div class="box form"><b>Edit ${esc(r.name)}</b><div class="row"><label for="rwe-n">Name<input id="rwe-n" value="${esc(r.name)}"></label><label for="rwe-k">Kind<select id="rwe-k" disabled><option>${r.kind === 'labour' ? 'Labour' : 'FOH'}</option></select></label><label for="rwe-r">Rs per kg or L<input id="rwe-r" type="number" step="0.01" value="${Number(r.rsPerKg)}"></label><label for="rwe-f">From (today or earlier)<input id="rwe-f" type="date" max="${ST.today}" value="${String(r.validFrom).slice(0, 10)}"></label><label for="rwe-s">Source<input id="rwe-s" value="${esc(r.source || '')}"></label></div>
+    <p class="ans" style="margin:0">Applies to: <b>${esc(ruleScope(r))}</b>. Kind and who it applies to stay: for another scope add a new rate and take this one out of use. A new Rs or date is saved as a new rate with the same scope that replaces this one, and costs that move more than ${SET('reapprove_pct')}% wait for re-approval.</p><div id="eff-rw"></div><div><button class="btn" data-rwsave>Save</button> <button class="btn ghost" data-rwx>Cancel</button></div></div>`; }
+  if (E.kind === 'freight') { const f = (ST.freight || []).find(x => Number(x.id) === E.id); if (!f) return '';
+    return `<div class="box form"><b>Edit freight, ${esc(f.segment)}, ${esc(f.region)}</b><div class="row"><label for="rwe-sg">Segment<select id="rwe-sg" disabled><option>${esc(f.segment)}</option></select></label><label for="rwe-rg">Region<input id="rwe-rg" value="${esc(f.region)}" disabled></label><label for="rwe-r">Rs per kg<input id="rwe-r" type="number" step="0.01" value="${Number(f.rs_per_kg)}"></label><label for="rwe-f">From<input id="rwe-f" type="date" value="${ST.today}"></label></div>
+    <p class="ans" style="margin:0">Saved as a freight rate from the date given; this row stays as the rate before it. Segment and region stay: for another region use Set freight below.</p>${weekNote('rw', false, true)}<div id="eff-rw"></div><div><button class="btn" data-rwsave>Save</button> <button class="btn ghost" data-rwx>Cancel</button></div></div>`; }
+  return '';
+}
+/** Pickers leave out what is out of use, unless it is already the one picked. */
+const inUseOr = (kind, id, keep) => !isOutOf(kind, id) || Number(id) === Number(keep);
+/* Edit a white label product with the Add a product form, filled in (D-139). Its form (kg or L) and where its recipe comes from stay. */
+function p3EditOpen(p) {
+  const fol = p.followsId; return { editId: p.id, cust: p.customerId, brand: p.brand, o2s: (p.o2sNames || []).filter(n => n.trim().toLowerCase() !== p.brand.trim().toLowerCase()).join(' | '), typeId: p.typeId || '', follows: fol || '', same: fol ? 'yes' : 'no',
+    pvariant: p.pvariantId || '', family: '', variant: '', form: p.form, mode: p.packingMode || 'VAN', packs: p.packs.map(k => ({ id: k.id, size: String(k.size), billId: k.billId || '', only: !!k.clientOnly, fixed: true, keep: k.approvedCost != null || k.price != null || !!k.waitingProposal, remove: false })) };
+}
+/* ---------- The Default recipe (Tahir, 30 Oct 2026, D-140) ---------- */
+/** The approved recipes of a product: the Default first (it sets cost, price for target and margin), then the others with their cost beside it, for reading only. */
+function recipesBox(p) {
+  if (!p || !(p.others || []).length) return '';
+  const def = (ST.recipes || []).find(v => v.id === p.approvedVersionId); const seeC = CAN('see.cost');
+  const cell = (k, tot) => { if (tot == null || !k.cost) return '<td class="r num">not costed</td>'; const d = tot - k.cost.total; return `<td class="r num">${rs2(tot)}<span class="sub2">${Math.abs(d) < 0.005 ? 'same as the Default' : `${d > 0 ? '+' : ''}${rs2(d)} against the Default`}</span></td>`; };
+  return `<h2>Approved recipes: ${1 + p.others.length}</h2><p class="ans">Only the <b>Default</b> sets cost, price for target and margin. The others are kept approved, so a product can be made another way and switched back with no new steps; their cost is shown here for reading only.</p>
+  <div class="box wrapx"><table><tr><th>Recipe</th><th>Version</th>${seeC ? p.packs.map(k => `<th class="r">${k.size} ${p.soldPer}, Rs per ${p.soldPer}</th>`).join('') : ''}<th></th></tr>
+  <tr><td><b>${esc(def ? def.rname : p.defaultName)}</b> <span class="pill p-green">Default</span></td><td>${def ? def.version : ''}</td>${seeC ? p.packs.map(k => `<td class="r num">${k.cost ? rs2(k.cost.total) : 'not costed'}</td>`).join('') : ''}<td>${def ? `<button class="btn ghost" data-rec="${def.id}">Open</button>` : ''}</td></tr>
+  ${p.others.map(o => `<tr><td>${esc(o.name)}</td><td>${o.version}</td>${seeC ? p.packs.map(k => cell(k, ((o.packs || []).find(x => x.id === k.id) || {}).total)).join('') : ''}<td><div class="acts"><button class="btn ghost" data-rec="${o.id}">Open</button>${CAN('recipe.step.cost') && ST.m007 ? `<button class="btn ghost" data-rwdef="${o.id}" data-confirm="Confirm: make ${esc(o.name)} the Default">Make default</button>` : ''}</div></td></tr>`).join('')}</table></div>
+  ${CAN('recipe.step.cost') ? `<p class="ans">Make default: every pack of ${esc(p.brand)} gets a new approved cost from that moment; trucks from tomorrow carry it, earlier trucks keep theirs. The COO is told.</p>` : ''}`;
+}
+/** On a recipe page: its name, whether it is the Default, Make default, and Delete for a draft. */
+function recNameLine(v) {
+  const prod = (ST.products || []).find(p => p.id === v.clientProductId); if (!prod) return '';
+  const many = (prod.others || []).length > 0 || v.rname !== 'Main' || prod.defaultName !== 'Main';
+  const def = v.isDefault, other = v.rname !== prod.defaultName;
+  let h = many ? `<p class="ans" style="margin:6px 0">Recipe <b>${esc(v.rname)}</b>${def ? ' <span class="pill p-green">Default</span> It sets cost, price for target and margin.' : v.state === 'approved' ? ' <span class="pill p-none">approved, not the Default</span> Its cost is shown for reading only.' : other ? ` · another recipe of this product: the Production Manager writes it, the CFO approves its cost (the Default is ${esc(prod.defaultName)}).` : ''}</p>` : '';
+  if (v.state === 'approved' && !def && CAN('recipe.step.cost') && ST.m007) h += `<div class="next"><span>Make this the Default: every pack gets a new approved cost from that moment; trucks from tomorrow carry it. The COO is told.</span><button class="btn" data-rwdef="${v.id}" data-confirm="Confirm: make ${esc(v.rname)} the Default">Make default</button></div>`;
+  return h;
+}
+/** Delete this draft, placed after the step's main action (push 7g, finding 10). */
+function recDelLine(v) { return v.state === 'draft' && CAN('recipe.start') ? `<div style="margin:6px 0"><button class="btn ghost danger" data-rwdel="recipe:${v.id}">Delete this draft</button></div>${rowDel && rowDel.kind === 'recipe' && rowDel.id === v.id && !behind ? delBox() : ''}` : ''; }
+document.addEventListener('click', async e => {
+  const t = e.target.closest('button'); if (!t || !ST) return; const d = t.dataset;
+  const keys = Object.keys(d).filter(k => k.startsWith('rw')); if (!keys.length) return;
+  if (d.confirm && !d.armed) return; // the 2-step confirm is handled by the main handler
+  const kid = s => { const [k, i] = String(s).split(':'); return { kind: k, id: +i }; };
+  if (d.rwed) { const K = kid(d.rwed); rowDel = null; rowEd = K; }
+  else if (d.rwdel) { const K = kid(d.rwdel); rowEd = null; rowDel = { ...K, U: null }; render(); try { rowDel.U = await api(`/api/c2m/uses/${K.kind}/${K.id}`); } catch (er) { toast(er.message, true); rowDel = null; } }
+  else if ('rwx' in d) { rowDel = null; rowEd = null; }
+  else if ('rwok' in d) { if (!need([['rwdw', 'Write why it is deleted.']])) return; const R = rowDel; const j = await act('/api/c2m/delete', { kind: R.kind, id: R.id, why: val('rwdw') }, j => `Deleted: ${j.label}. Its values are in the change record.`); if (!j) return; rowDel = null; if (R.kind === 'recipe') { openRec = null; recSel = null; } if (R.kind === 'product' && openProd === R.id) openProd = null; }
+  else if ('rwout' in d) { if (!need([['rwdw', 'Write why it goes out of use.']])) return; const R = rowDel, why = val('rwdw');
+    const j = R.kind === 'product' ? await act(`/api/c2m/products/${R.id}/inuse`, { on: false, why }, 'Taken out of use. Put it back from Setup, Clients, Out of use.') // one of our products goes through its own check (data-pnoff), shown in the box instead
+      : await act('/api/c2m/outofuse', { kind: R.kind, id: R.id, why }, 'Taken out of use. It is hidden from forms and pickers; its row shows Put back in use.');
+    if (!j) return; rowDel = null; if (R.kind === 'product' && openProd === R.id) openProd = null; }
+  else if (d.rwon) { const K = kid(d.rwon); if (!(await act('/api/c2m/outofuse', { kind: K.kind, id: K.id, on: true }, 'Back in use.'))) return; }
+  else if (d.rwret) { rowDel = null; ask = { kind: 'retire', id: +d.rwret }; }
+  else if (d.rwdef) { const j = await act(`/api/c2m/recipes/${d.rwdef}/default`, {}, j => `It is the Default now: ${pl(j.packs, 'pack cost', 'pack costs')} approved from today. The COO is told.`); if (!j) return; }
+  else if ('rwsave' in d) { const E = rowEd;
+    if (E.kind === 'grade') { const m = (ST.rates || []).find(x => x.gradeId === E.id) || (ST.materials || []).find(x => x.gradeId === E.id) || {}; const mm = (ST.materials || []).find(x => x.gradeId === E.id) || {};
+      if (!need([['rwe-n', 'Write the material name.'], ['rwe-g', 'Write the grade, e.g. Standard.']])) return;
+      /* Every field is read before the first save: a save redraws the form from the saved data, so a field read after it gives
+         the old value (audit 4 Nov 2026, fault A1: a new rate typed with a new name was lost). */
+      const F = { n: val('rwe-n'), g: val('rwe-g'), u: val('rwe-u'), r: val('rwe-r'), s: val('rwe-s') || '' }; const ty = $('rwe-t'); const tyv = ty && !ty.disabled ? Number(ty.value) : null;
+      const words = F.n.trim() !== m.name || F.g.trim() !== m.grade || F.u !== (m.unit || 'kg'); const cls = tyv != null && tyv !== Number(mm.typeId) && !!mm.materialId;
+      if (words && !(await act(`/api/c2m/edit/grade/${E.id}`, { name: F.n, grade: F.g, unit: F.u }, 'Saved. The change is in the change record.'))) return;
+      if (cls && !(await act(`/api/c2m/materials/${mm.materialId}/type`, { typeId: tyv }, 'Class saved.'))) return;
+      rowEd = null;
+      if (F.r !== '' && Number(F.r) !== Number(m.rate) && CAN('rate.save')) { trial = { gradeId: E.id, rate: Number(F.r), source: F.s, conf: false, res: null }; render(); toast((words || cls ? 'Name or class saved. ' : '') + 'Check the effect of the new cost below, then save it.'); $('trf') && $('trf').scrollIntoView({ block: 'center' }); return; }
+      if (!words && !cls) toast('Nothing to save: nothing was changed.'); }
+    else if (E.kind === 'pitem') { const it = (ST.packingItems || []).find(x => x.id === E.id) || {};
+      if (!need([['rwe-n', 'Write the item name.']])) return; const F = { n: val('rwe-n'), k: val('rwe-k') || '', r: val('rwe-r') }; // read before the first save (fault A2)
+      const words = F.n.trim() !== it.name || F.k.trim() !== (it.kind || '');
+      if (words && !(await act(`/api/c2m/edit/pitem/${E.id}`, { name: F.n, kind: F.k }, 'Saved. The change is in the change record.'))) return;
+      const np = F.r; rowEd = null;
+      if (np !== '' && Number(np) !== Number(it.price)) { ptrial = { itemId: E.id, buy: it.buy ? 'kg' : 'piece', source: '', conf: false, warn: null, price: Number(np) }; render(); toast((words ? 'Name saved. ' : '') + 'Check the new price below: give its source, then save it.'); return; }
+      if (!words) toast('Nothing to save: nothing was changed.'); }
+    else if (E.kind === 'rule') { const r = (ST.rules || []).find(x => x.id === E.id) || {};
+      if (!need([['rwe-n', 'Write the rate name.'], ['rwe-r', 'Type Rs per kg or L.']])) return;
+      const F = { n: val('rwe-n'), r: val('rwe-r'), f: val('rwe-f'), s: val('rwe-s') || '' }; // read before the save (audit 4 Nov 2026)
+      const cost = Number(F.r) !== Number(r.rsPerKg) || F.f !== String(r.validFrom).slice(0, 10);
+      if (cost) { const rb = { name: F.n, rsPerKg: F.r, validFrom: F.f, source: F.s }; if (!(await effectFirst(`/api/c2m/rules/conversion/${E.id}/replace`, rb, 'eff-rw'))) return; if (!(await act(`/api/c2m/rules/conversion/${E.id}/replace`, rb, j => `Saved as a new rate from ${fmtD(F.f || ST.today)}; the old one is out of use.${j.reapproval ? ' ' + pl(j.reapproval, 'pack waits', 'packs wait') + ' for re-approval.' : ''}`))) return; }
+      else if (F.n.trim() !== r.name || F.s !== (r.source || '')) { if (!(await act(`/api/c2m/edit/rule/${E.id}`, { name: F.n, source: F.s }, 'Saved. The change is in the change record.'))) return; }
+      else toast('Nothing to save: nothing was changed.');
+      rowEd = null; }
+    else if (E.kind === 'freight') { const f = (ST.freight || []).find(x => Number(x.id) === E.id) || {};
+      if (!need([['rwe-r', 'Type Rs per kg.']])) return;
+      const F = { r: val('rwe-r'), f: val('rwe-f') || ST.today }; const fb = { segment: f.segment, region: f.region, rsPerKg: F.r, validFrom: F.f, ...wkBody('rw') }; if (!(await effectFirst('/api/c2m/freight', fb, 'eff-rw'))) return; if (!(await act('/api/c2m/freight', fb, j => `Freight ${f.segment}, ${f.region} saved at Rs ${n2(F.r)} per kg from ${fmtD(F.f)}.`))) return; rowEd = null; }
+  }
+  else return;
+  render();
+});
+
+/* ---------- 0.8.0: work in a panel on Today (ruling 2, 18 Oct 2026) ---------- */
+function vPanel() {
+  const P = pan; let t = 'Item', b = '';
+  if (P.k === 'rec') { const v = (ST.recipes || []).find(x => x.id === P.id); t = v ? `${v.brand} for ${v.customer}, version ${v.version}` : 'Recipe'; b = vRecipe(v, { panel: true }) + (v && navHas('products') ? `<p><button class="btn ghost" data-openprod="${v.clientProductId}">Open the product page</button></p>` : ''); }
+  else if (P.k === 'reapp') { const x = (ST.reapprovals || []).find(y => y.id === P.id); t = CAN('reapproval.decide') ? 'Re-approve cost' : 'Waiting for the CFO\'s re-approval'; b = x ? reappBox(x) : '<p class="ans">Done: this re-approval item is closed.</p>'; }
+  else if (P.k === 'notcosted') { t = 'Packs not costed'; b = notCostedList(); }
+  else if (P.k === 'glrev') { t = 'Costs that become approved'; b = glRevBox(); }
+  else if (P.k === 'names') { const N = pnRows(); t = 'Names to settle'; // 1.0.2: what waits, then the way to Setup, Products and variants, where each is settled
+    N.wrongSize = []; N.settle = []; // 1.0.3: list rows are carried into the master once, in Clients, VAN Brands, Prices by list
+    b = `<p class="ans">Each name below is settled in Setup, Products and variants, by the COO or the CFO: an O2S name is kept as a spelling of its product, so its trucks are costed.</p>${N.o2s.length ? `<h3>O2S names with no product: ${N.o2s.length}</h3><ul>${N.o2s.slice(0, 12).map(u => `<li>${esc(u.name)} · pack ${pnSize(u.size)}: ${rsM2(u.rs)} of sales with no cost</li>`).join('')}${N.o2s.length > 12 ? `<li>and ${N.o2s.length - 12} more</li>` : ''}</ul>` : ''}${N.wrongSize.length ? `<h3>List rows linked to a pack of another size: ${N.wrongSize.length}</h3><ul>${N.wrongSize.slice(0, 12).map(x => `<li>${esc(LISTNAME[x.list] || x.list)}: ${esc(N.nowName(x))}</li>`).join('')}</ul><p class="ans">Unlink each in Setup, Products and variants, then link the right pack.</p>` : ''}${N.settle.length ? `<h3>List rows with no pack: ${N.settle.length}</h3><ul>${N.settle.slice(0, 12).map(x => `<li>${esc(LISTNAME[x.list] || x.list)}: ${esc(N.nowName(x))}</li>`).join('')}${N.settle.length > 12 ? `<li>and ${N.settle.length - 12} more</li>` : ''}</ul>` : ''}<p><button class="btn" data-pngo>Open Product names</button></p>`; }
+  else if (P.k === 'carry') { t = 'Carry the price lists into the master'; const n = (ST.listItems || []).length; // 1.0.3
+    b = lmDone() ? '<p class="ans">Done: the price lists are carried into the master.</p>' : `<p class="ans">1 master list: each VAN brand pack is held once and the distributor, dealer and farmer lists become its price columns, printed from it under 1 name, products A to Z, packs small to large. Today's ${pl(n, 'list row is', 'list rows are')} carried into the master once, on 1 screen: C2M matches most by name and size for you to check; you pick the master product of each name it cannot match, once for every list; the rows that would leave the printed lists are shown before anything moves. Prices do not change.</p><p><button class="btn" data-lm-open>Open the carry-over screen</button></p>`; }
+  else if (P.k === 'imports') { t = 'Items from your sheets'; b = boImport(false); }
+  else if (P.k === 'lrev') { t = 'VAN brand list revision'; b = revBox(true, P.id); }
+  else if (P.k === 'prop') { t = 'Price proposal'; b = propPanel(P.id); }
+  else if (P.k === 'propose') { t = 'Propose a price'; b = proposeBody() || '<p class="ans">Sent. Close this panel.</p>'; }
+  else if (P.k === 'tochange') { t = P.only === 'noprice' ? 'Packs costed with no price' : 'White label prices to change'; b = toChangeBody(P.only); }
+  else if (P.k === 'actuals') { t = 'Monthly actuals and checks'; b = boActuals(true); }
+  else if (P.k === 'mats') { t = 'Materials to complete'; b = matTable(); }
+  else if (P.k === 'setreq') { t = 'Threshold change'; b = setReqBox(P.id); }
+  else if (P.k === 'treq') { t = 'Target change'; b = tReqBox(P.id); }
+  return `<div class="scrim${['prop', 'propose'].includes(P.k) ? ' light' : ''}" data-panclose></div><aside class="panel${['prop', 'propose'].includes(P.k) ? ' narrow' : ''}" role="dialog" aria-modal="true" aria-label="${esc(t)}"><div class="panel-h"><h2 class="pt"><b tabindex="-1">${esc(t)}</b></h2><button class="btn ghost" data-panclose>Close</button></div>${b}</aside>`;
+}
+/** Re-approval item: Yawar approves all, approves ticked, or closes it as wrong; Tahir reads it. */
+function reappBox(x) {
+  const lines = x.items.map(i => `${esc(i.label)}: ${i.first ? `no approved cost yet, first cost ${rs2(i.to)}` : `approved ${rs2(i.from)}, now ${rs2(i.to)} (${i.pct == null || !isFinite(i.pct) ? '–' : (i.pct > 0 ? '+' : '') + i.pct.toFixed(1) + '%'})`}`).join('<br>'); // push 10e (C-36): an old item with no % does not blank the panel
+  if (!CAN('reapproval.decide')) return `<div class="warnbox"><b>Read only:</b> ${esc(isoWords(x.cause))}<br>${lines}</div>`;
+  return `<div class="warnbox"><b>Cause:</b> ${esc(isoWords(x.cause))}<br>${lines}<div style="margin-top:6px"><button class="btn" data-reapp="${x.id}" data-confirm="Confirm: approve all ${x.items.length}">Approve all</button> <button class="btn ghost" data-reappsome="${x.id}">Approve ticked only</button> <button class="btn ghost" data-reappno="${x.id}">Close: the change was wrong</button></div><div class="cols" style="margin-top:6px">${x.items.map(i => `<label><input type="checkbox" data-rpi="${x.id}:${i.packId}" checked> ${esc(i.label)}</label>`).join('')}</div>${ask && ask.kind === 'reappno' && ask.id === x.id ? askBox('Why close this without new costs? (e.g. rate typed wrong; then save the right rate)') : ''}</div>`;
+}
+/** The packs Yawar's Today counts as not costed, each with what is missing. */
+function notCostedList() {
+  const rows = []; (ST.products || []).forEach(p => (p.packs || []).forEach(k => { if (k.costGaps && k.costGaps.length && (!k.costGaps.includes('no approved recipe') || p.grp === 'White label')) rows.push({ p, k }); }));
+  return `<p class="ans">A pack is costed only when every part of its cost is there. Until then no price can be proposed or checked for it.</p><div class="box wrapx"><table class="cards"><tr><th>Pack</th><th>What is missing</th><th></th></tr>${rows.map(({ p, k }) => `<tr><td data-l="Client pack">${esc(p.brand)} ${k.size} ${p.soldPer} for ${esc(p.customer)}</td><td data-l="What is missing">${esc(k.costGaps.join(', '))}</td><td><button class="btn ghost" data-openprod="${p.id}" data-ptab="cost">Open the product</button></td></tr>`).join('') || '<tr><td colspan="3">Every pack is costed.</td></tr>'}</table></div>`;
+}
+/** Costs that become approved when the go-live window closes (push 10a, Tahir 20 Nov 2026): every pack whose cost today differs from
+ *  its approved cost, as glClose will write it on the day after the last day; a pack not fully costed keeps its old approved cost. */
+function glRevRows() {
+  const out = { moved: [], small: [], first: [], left: [], none: [] }; const thr0 = SET('reapprove_pct'), thr = thr0 == null || !isFinite(thr0) ? 3 : Number(thr0); // the server's default is 3 (lib REAPPROVE_DEFAULT; review 10a, m2)
+  for (const [, k] of packIdx()) { const p = k.product; if (!p || p.active === false) continue;
+    const r = { p, k, label: `${p.brand} ${szTxt({ ...k, product: p })} for ${p.customer}` };
+    if (!k.cost) { (k.approvedCost == null ? out.none : out.left).push(r); continue; } // review 10a, M1: left keeps its approved cost; none has none and gets none
+    const now = Number(k.cost.total), ap = k.approvedCost == null ? null : Number(k.approvedCost);
+    if (ap == null) { r.now = now; out.first.push(r); continue; }
+    if (Math.abs(now - ap) < 0.005) continue;
+    r.now = now; r.ap = ap; r.pct = ap ? (now - ap) / ap * 100 : null; (r.pct != null && Math.abs(r.pct) > thr ? out.moved : out.small).push(r); }
+  ['moved', 'small'].forEach(g => out[g].sort((a, b) => Math.abs(b.pct || 0) - Math.abs(a.pct || 0)));
+  out.n = out.moved.length + out.small.length + out.first.length; return out;
+}
+function glRevBox() {
+  const G = ST.golive || {}; const R = glRevRows(); const thr = SET('reapprove_pct') == null ? 3 : SET('reapprove_pct'); const day = G.until ? fmtShort(addDays(G.until, 1)) : 'the day after the last day';
+  const tbl = (L, withAp) => `<div class="box wrapx tall"><table class="cards"><tr><th>Pack</th>${withAp ? '<th class="r">Approved cost</th>' : ''}<th class="r">Cost today</th>${withAp ? '<th class="r">Change</th>' : ''}<th></th></tr>${L.map(r => `<tr><td data-l="Pack">${esc(r.label)}</td>${withAp ? `<td data-l="Approved cost" class="r num">${n2(r.ap)}</td>` : ''}<td data-l="Cost today" class="r num">${n2(r.now)}</td>${withAp ? `<td data-l="Change" class="r num${Math.abs(r.pct || 0) > Number(thr) ? ' over' : ''}">${r.pct == null ? '–' : (r.pct > 0 ? '+' : '') + r.pct.toFixed(1) + '%'}</td>` : ''}<td><button class="btn ghost" data-openprod="${r.p.id}" data-ptab="cost">Open</button></td></tr>`).join('')}</table></div>`;
+  return `<p class="ans">${G.on ? `On ${esc(day)}` : 'When the go-live window closes'}, each pack below takes its cost that day as its approved cost. Costs are Rs per kg or L. ${pl(R.n, 'pack', 'packs')} today${R.left.length ? `; ${pl(R.left.length, 'pack is', 'packs are')} not fully costed and ${R.left.length === 1 ? 'keeps its' : 'keep their'} approved cost` : ''}${R.none.length ? `; ${pl(R.none.length, 'pack has', 'packs have')} no cost and no approved cost, and stay${R.none.length === 1 ? 's' : ''} without one until ${R.none.length === 1 ? 'its' : 'their'} cost is complete` : ''}.</p>
+  ${R.moved.length ? `<h3>Moved more than ${esc(thr)}%: ${R.moved.length}</h3>${tbl(R.moved, true)}` : `<p class="ans">No pack has moved more than ${esc(thr)}% from its approved cost.</p>`}
+  ${R.small.length ? `<details class="box"><summary>Moved ${esc(thr)}% or less: ${R.small.length}</summary>${tbl(R.small, true)}</details>` : ''}
+  ${R.first.length ? `<details class="box"><summary>No approved cost yet, takes its first: ${R.first.length}</summary>${tbl(R.first, false)}</details>` : ''}
+  ${R.left.length ? `<details class="box"><summary>Not fully costed, keeps its approved cost: ${R.left.length}</summary><ul>${R.left.map(r => `<li>${esc(r.label)}: keeps Rs ${n2(r.k.approvedCost)}; missing ${esc((r.k.costGaps || []).join(', ') || 'part of its cost')}</li>`).join('')}</ul></details>` : ''}
+  ${R.none.length ? `<details class="box"><summary>No cost and no approved cost, stays without one: ${R.none.length}</summary><ul>${R.none.map(r => `<li>${esc(r.label)}: missing ${esc((r.k.costGaps || []).join(', ') || 'part of its cost')}</li>`).join('')}</ul></details>` : ''}`;
+}
+/** 1 price proposal. Approve and send back are done only in the panel (ruling 2); elsewhere the card opens it. */
+/** Tahir's approval in its panel (approved picture J, F3 to F5): the figures as tiles, Yawar's reason set apart, thumb-sized buttons. */
+function approveCard(p) {
+  const k = packIdx().get(p.packId); const W = (ST.proposals || []).filter(x => x.status === 'proposed').sort((a, b) => String(a.at).localeCompare(String(b.at))); const pos = W.findIndex(x => x.id === p.id) + 1;
+  const c = k && k.cost ? k.cost.total : null, ac = k ? k.approvedCost : null, t = k ? k.product.target : null; const gp = c != null && p.price > 0 ? (p.price - c) / p.price * 100 : null, gpa = ac != null && p.price > 0 ? (p.price - ac) / p.price * 100 : null; // push 10e (C-37)
+  const x = exposure().find(e => e.id === p.packId); const newKg = kgFrom(x, p.urgent ? ST.today : monFrom(d10(p.from) > ST.today ? d10(p.from) : ST.today)); const adds = x && p.prev != null ? (p.price - p.prev) * newKg : null; const u = k ? k.product.soldPer : 'kg';
+  return `<div class="job" style="display:block"><p class="kick"><span>${p.urgent ? 'Urgent price' : 'Approve price'}${pos ? ` · ${pos} of ${W.length}` : ''}</span><span>${p.at ? 'waiting ' + ageTxt(p.at) : ''}</span></p>
+  <p class="answer">${esc(packName(p.packId))}: ${p.prev != null ? 'Rs ' + n2(p.prev) + ' to ' : ''}Rs ${n2(p.price)}${p.urgent ? ', urgent: in force today when you approve it' : p.from ? ', from Monday ' + esc(fmtShort(monFrom(d10(p.from) > ST.today ? d10(p.from) : ST.today))) : ''}</p>${p.urgent ? `<div class="quote"><small>CFO: urgent because</small>${esc(p.urgent)}</div>` : ''}
+  <div class="tiles4"><div class="tile"><div class="l">GP on cost today</div><div class="v ${gp != null && t != null ? ({ red: 'over', amber: 'late' }[gpTone(gp, t)] || 'ok') : 'ok'}">${pc(gp)}</div></div><div class="tile"><div class="l">GP on approved cost</div><div class="v">${pc(gpa)}</div></div><div class="tile"><div class="l">Target</div><div class="v">${pc(t)}</div></div><div class="tile"><div class="l">Floor</div><div class="v">${k && k.floor != null ? k.floor.toFixed(2) : '–'}</div></div>${adds != null ? `<div class="tile"><div class="l">${Math.round(newKg).toLocaleString('en-US')} new ${u}, ${SET('forward_months')} months</div><div class="v">${adds >= 0 ? '+' : '−'}Rs ${Math.round(Math.abs(adds)).toLocaleString('en-US')}</div></div>` : ''}</div>
+  ${p.belowReason ? `<div class="quote"><small>CFO: below target because</small>${esc(p.belowReason)}</div>` : ''}${p.reason ? `<p class="ans" style="margin:4px 0">Reason printed on the client's list: ${esc(p.reason)}</p>` : ''}${p.urgent ? '' : `<p class="ans" style="margin:4px 0">Prices change on a Monday, the cost day: today's price stays until then.</p>`}
+  <div class="big"><button class="btn" data-pok="${p.id}" data-confirm="Confirm: approve Rs ${n2(p.price)}">Approve</button><button class="btn ghost" data-pback="${p.id}">Send back with a reason</button></div></div>`;
+}
+function propCard(p, inPanel) {
+  const R = ST.me.role; const act = p.status === 'proposed' && CAN('price.approve') && (ADM() || p.byAdmin) ? 'approve' : p.status === 'sent_back' && CAN('price.propose') ? 'resend' : null;
+  if (inPanel && act === 'approve') return approveCard(p);
+  return `<div class="job"><div><div class="t">${esc(packName(p.packId))}: ${p.prev != null ? 'Rs ' + n2(p.prev) + ' to ' : ''}Rs ${n2(p.price)}</div>${p.status === 'proposed' ? propNums(p) : ''}<div class="d">${p.status === 'proposed' ? 'Waiting for the COO' : p.status === 'cancelled' ? 'Cancelled by a newer approval' : p.status === 'withdrawn' ? 'Withdrawn by the COO before its date' : p.status === 'approved' ? 'Approved by ' + esc(p.decidedBy || '') + (p.from && String(p.from).slice(0, 10) > ST.today ? ', takes over on ' + fmtD(p.from) : '') : 'Sent back by the COO: ' + esc(p.backReason || '')}. ${esc(p.reason || '')}${p.belowReason ? ' Below target: ' + esc(p.belowReason) : ''}</div></div>
+  ${!act ? '' : !inPanel ? `<div><button class="btn ghost" data-panprop="${p.id}">${act === 'approve' ? 'Open to approve' : 'Open to revise'}</button></div>` : act === 'approve' ? `<div><button class="btn" data-pok="${p.id}" data-confirm="Confirm: approve Rs ${n2(p.price)}">Approve</button> <button class="btn ghost" data-pback="${p.id}">Send back</button></div>` : `<div><button class="btn" data-presend="${p.id}">Revise and resend</button></div>`}</div>`;
+}
+function propBackForm() { return propose && propose.back && !behind ? `<div class="box form"><label for="pbr">Reason for sending back (required)<textarea id="pbr"></textarea></label><div><button class="btn warn" data-pbsend="${propose.back}">Send back to the CFO</button> <button class="btn ghost" data-pbcancel>Cancel</button></div></div>` : ''; }
+function propPanel(id) {
+  const p = (ST.proposals || []).find(x => x.id === id); if (!p) return '<p class="ans">This proposal is no longer listed.</p>';
+  return `<div class="box jobs">${propCard(p, true)}</div>${propBackForm()}${proposeForm()}`;
+}
+function toChangeTable(L) {
+  const R = ST.me.role; const selId = pan && pan.k === 'propose' ? pan.id : null;
+  const fam = x => `<i class="fam" style="background:${(x.k && x.k.product.fam) || '#8796A5'}" title="${esc((x.k && x.k.product.typeName) || 'no product type')}"></i>`; const stripe = x => x.why.some(w => ['below cost', 'no price', 'below floor'].includes(w)) ? 'r-red' : x.why.includes('below target') ? (gpTone(x.gp, x.target) === 'red' ? 'r-red' : 'r-amber') : 'r-none';
+  return `<div class="box wrapx"><table class="wt cards"><thead><tr><th>Pack</th><th class="r">Price</th><th class="r">Cost</th><th class="r">GP %</th><th class="r">Price for target</th><th class="r">Floor</th><th class="r">Rs at stake</th><th>Why on this list</th>${CAN('price.propose') ? '<th></th>' : ''}</tr></thead><tbody>${L.map(x => `<tr class="${stripe(x)}${x.id === selId ? ' sel' : ''}"><td data-l="Client pack">${fam(x)}${esc(x.cust)} · <span class="nw">${esc(x.prod)}</span></td><td data-l="Price" class="r num">${x.price != null ? x.price.toFixed(2) : 'none'}</td><td data-l="Cost" class="r num">${x.c.toFixed(2)}</td><td data-l="GP %" class="r num ${x.gp != null ? ({ red: 'over', amber: 'late' }[gpTone(x.gp, x.target)] || '') : ''}">${x.gp != null ? x.gp.toFixed(1) + '%' : '–'}</td><td data-l="Price for target" class="r num">${x.tp ? x.tp.toFixed(2) : '–'}</td><td data-l="Floor" class="r num ${x.floor != null && x.price != null && x.price < x.floor ? 'over' : ''}">${x.floor != null ? x.floor.toFixed(2) : '–'}</td><td data-l="Rs at stake" class="r num">${x.price != null ? Math.round(x.fwd).toLocaleString('en-US') : '–'}</td><td data-l="Why on this list">${whyPill(x)}</td>${CAN('price.propose') ? `<td>${x.k && x.k.waitingProposal ? '<span class="pill p-amber">with the COO</span>' : `<button class="btn ghost" data-propose="${x.id}">${x.price == null ? 'Set a price' : 'Propose'}</button>`}</td>` : ''}</tr>`).join('') || '<tr><td colspan="9">None in this group.</td></tr>'}</tbody></table></div>`;
+}
+function toChangeBody(only) { const L = toChange().filter(x => only === 'noprice' ? x.why.includes('no price') : only === 'price' ? !x.why.includes('no price') && !(x.k && x.k.waitingProposal) : true); /* push 10e (C-17): the panel lists what its job counted */ return `${basisChips()}${toChangeTable(L)}<p class="ans">Rs at stake = price gap to target GP x expected kg less kg already on open POs. Contribution floor = materials + packing + freight + labour per kg: the lowest price that still adds to FOH recovery.</p>`; }
+/** Propose a price, in a side panel (D4 to D6): price now, approved cost, cost today and floor; GP on both costs; the Rs it adds over the expected kg. */
+function proposeBody() {
+  if (!propose || propose.back || behind) return '';
+  const k = packIdx().get(propose.packId); if (!k || !k.cost) return '<p class="ans">This pack is not costed, so no price can be proposed for it.</p>';
+  const c = k.cost.total, ac = k.approvedCost, u = k.product.soldPer;
+  return `<p class="answer"><i class="fam" style="background:${k.product.fam || '#8796A5'}" title="${esc(k.product.typeName || 'no product type')}"></i>${esc(packLabel(k))} for ${esc(k.product.customer)}</p>${propose.was ? `<div class="warnbox">The COO sent this back: ${esc(propose.was)}</div>` : ''}
+  <div class="tiles4"><div class="tile"><div class="l">Price now</div><div class="v">${k.price != null ? k.price.toFixed(2) : '–'}</div></div><div class="tile"><div class="l">Approved cost</div><div class="v">${ac != null ? ac.toFixed(2) : '–'}</div></div><div class="tile"><div class="l">Cost today</div><div class="v">${c.toFixed(2)}</div></div><div class="tile"><div class="l">Floor</div><div class="v">${k.floor != null ? k.floor.toFixed(2) : '–'}</div></div></div>
+  <div class="form" id="pf" style="padding:0"><label for="ppv">New price, Rs per ${u}<input id="ppv" type="number" step="1" min="0" inputmode="numeric" value="${propose.v}"></label>
+  <div id="pplive" aria-live="polite">${propLive(k)}</div>
+  <label for="ppn">Reason printed on the client's list<input id="ppn" value="${esc(propose.reason || '')}" placeholder="e.g. Raw material cost change" aria-describedby="ppnh"></label><span class="ans" id="ppnh" style="margin:-4px 0 0;font-size:12px">${propose.err === 'ppn' ? '<b class="over">Write the reason the client will read before sending.</b>' : 'Write it for the client to read.'}</span>
+  <div id="ppbelow">${propBelow(k)}</div>
+  <div class="row">${cycFields('pp', propose.from, propose.urg, propose.urgWhy)}<label for="ppt">Till (last day, optional)<input id="ppt" type="date" min="${propose.from || ST.today}" value="${propose.till || ''}"></label></div>
+  <div id="ppadd">${propAdds(k)}</div>
+  <div class="assume"><b>What happens after you send</b><ol style="margin:4px 0 0;padding-left:18px"><li>Nothing changes until the COO approves.</li><li>Prices change on a Monday, the cost day. Once approved, the new price starts on the Monday picked (today's price stays until then); if that Monday passes while it waits, on the next Monday. Urgent: it starts the day the COO approves it.</li><li>POs already received keep the price on the PO, so their GP and the trucks already sold do not change. Margin reads the price on each PO.</li><li>The new price goes on this client's next price list and is what new POs are checked against. Rs at stake counts only the new kg, from its start date.</li></ol></div>
+  <div><button class="btn" data-psend>Send to the COO</button> <button class="btn ghost" data-pcancel>Cancel</button></div></div>`;
+}
+/* The parts of the propose panel that follow what Yawar types, redrawn on every key without redrawing the inputs (UX review M1) */
+function propNow(k) { const c = k.cost.total, ac = k.approvedCost, v = Number(propose.v), t = k.product.target; const gp = v > 0 ? (v - c) / v * 100 : null; return { c, ac, v, t, gp, gpa: ac != null && v > 0 ? (v - ac) / v * 100 : null, tp: t == null ? null : c / (1 - t / 100), below: t != null && gp != null && gp < t }; }
+function propLive(k) { const N = propNow(k); const cls = N.gp == null ? '' : N.gp < 0 || (k.floor != null && N.v < k.floor) ? 'over' : N.below ? 'late' : 'ok';
+  return `<p class="ans" style="margin:0">GP <b class="${cls}">${pc(N.gp)}</b> on today's cost (${pc(N.gpa)} on approved cost).${N.t != null ? ` Target ${pc(N.t)} needs ${rs2(N.tp)}.` : ' No target set.'}${k.floor != null && N.v > 0 && N.v < k.floor ? ' <b class="over">Below contribution floor.</b>' : ''}</p>${k.price != null && N.v > 0 && N.v < k.price - 0.005 ? `<div class="warnbox" style="margin:6px 0 0">Rs ${n2(k.price - N.v)} lower than today's price of Rs ${n2(k.price)}.</div>` : ''}`; }
+function propBelow(k) { return propNow(k).below ? `<label for="ppr">Below target: why? The COO reads this<textarea id="ppr">${esc(propose.r || '')}</textarea></label>` : ''; }
+function propAdds(k) { const N = propNow(k); const x = exposure().find(e => e.id === k.id); const newKg = kgFrom(x, propose.from || ST.today); const adds = x && k.price != null ? (N.v - k.price) * newKg : null; const u = k.product.soldPer;
+  return `${propose.from && propose.from > ST.today ? `<p class="ans" style="margin:0">Dated ahead: today's price stays in force until ${fmtD(propose.from)}.</p>` : ''}<p class="ans" style="margin:0">${adds != null ? `On ${Math.round(newKg).toLocaleString('en-US')} new ${u} in ${SET('forward_months')} months (${x.kg3.toLocaleString('en-US')} expected less ${Math.round(x.openKg).toLocaleString('en-US')} already on open POs${propose.from && propose.from > ST.today ? ', counted from its start date' : ''}) this ${adds >= 0 ? 'adds' : 'takes away'} ${rs(Math.abs(adds))}.` : k.price == null ? (k.priceEnded ? `No price today: the last approved price, Rs ${n2(k.priceEnded.price)}, ended on ${fmtD(k.priceEnded.till)}.${k.lastPoPrice != null ? ` The last O2S PO price was Rs ${n2(k.lastPoPrice)}.` : ''}` : 'No price today, so there is no change in Rs to work out.') : ''}</p>`; }
+/** Read the panel's inputs into propose and redraw only its live parts. */
+function propRefresh() { if (!propose || !$('ppv')) return; propose.v = Number(val('ppv')); propose.from = val('ppf'); { const u = $('ppu'); if (u) propose.urg = u.checked; } if ($('ppw')) propose.urgWhy = val('ppw'); propose.till = val('ppt'); propose.reason = val('ppn'); if ($('ppr')) propose.r = val('ppr');
+  const k = packIdx().get(propose.packId); if (!k || !k.cost) return; $('pplive').innerHTML = propLive(k); $('ppadd').innerHTML = propAdds(k);
+  const hadBelow = !!$('ppr'), wantBelow = propNow(k).below; if (hadBelow !== wantBelow) $('ppbelow').innerHTML = propBelow(k);
+  const t = $('ppt'); if (t) t.min = propose.from || ST.today; }
+function setReqBox(id) {
+  const open = (ST.settingRequests || []).filter(r => r.status === 'open' && (id == null || r.id === id));
+  return open.length ? open.map(r => `<div class="warnbox"><b>${esc(r.summary)}</b><br>Proposed by ${esc(personName(r.by_user))}. ${CAN('settings.approve') && (ADM() || r.byAdmin) ? `<div style="margin-top:6px"><button class="btn" data-setok="${r.id}" data-confirm="Confirm: approve">Approve</button> <button class="btn ghost" data-setno="${r.id}">Refuse</button></div>` : 'Waiting for the COO.'}</div>`).join('') : '<p class="ans">No threshold change is waiting.</p>';
+}
+const tgtTo = r => Number(r.to_gp) > 0 ? Number(r.to_gp) + '%' : `company target ${SET('budget_gp')}%`;
+const tgtVerb = r => { const a = r.from_gp == null ? Number(SET('budget_gp')) : Number(r.from_gp), b = Number(r.to_gp) > 0 ? Number(r.to_gp) : Number(SET('budget_gp')); return b > a ? 'Raise' : b < a ? 'Lower' : 'Set'; }; // push 10b (A-05): a target change says which way, so "23.2% to 34.3%" does not read as a range
+function tgtEffTxt(r) { const e = tgtEffect(r.client_product_id, Number(r.to_gp) > 0 ? Number(r.to_gp) : SET('budget_gp')); return e ? ` Margin, FY to date: ${shortTxt(e.now)} now, ${shortTxt(e.after)} with the new target; it applies to ${e.months.map(mon).join(', ')} too.` : ' No trucks yet, so Margin does not move.'; }
+function tReqBox(id) {
+  const open = (ST.targetRequests || []).filter(r => r.status === 'open' && (id == null || r.id === id));
+  return `<div class="box jobs">${open.length ? open.map(r => `<div class="job"><div><div class="t">${esc(r.brand)} for ${esc(r.customer)}: ${r.from_gp == null ? `company target ${SET('budget_gp')}%` : r.from_gp + '%'} to ${tgtTo(r)}</div><div class="d">${esc(r.reason)}. Asked by ${esc(personName(r.by_user) || 'CFO')}.${tgtEffTxt(r)}</div></div>${CAN('targets.approve') && (ADM() || r.byAdmin) ? `<div><button class="btn" data-tok="${r.id}" data-confirm="Confirm: approve ${esc(tgtTo(r))}">Approve</button> <button class="btn ghost" data-tno="${r.id}">Refuse</button></div>` : CAN('targets.propose') && r.by_user === ST.me.user ? `<div><button class="btn ghost" data-tretract="${r.id}" data-confirm="Confirm: take back">Take back</button></div>` : ''}</div>`).join('') : '<div class="job"><div><div class="t">No target change is waiting.</div></div></div>'}</div>`;
+}
+
+/* ---------- 0.8.0: Products, 1 page per client product (ruling 3) ---------- */
+const RANKS = { 'p-red': 0, 'p-amber': 1, 'p-none': 2, 'p-green': 3 };
+function recState(p) {
+  if (p.followsId) return p.approvedVersionId ? ['p-green', `follows ${p.followsBrand}`] : ['p-none', `follows ${p.followsBrand}: no approved recipe`];
+  if (!p.recipeState) return ['p-none', 'no recipe in C2M'];
+  if (STEP_ROLE[p.recipeState]) return ['p-amber', `${p.approvedVersionId ? 'new version: ' : ''}${stepTxt(p.recipeState)}`];
+  return p.approvedVersionId ? ['p-green', 'approved'] : ['p-none', stepTxt(p.recipeState)];
+}
+/** Add a pack to a client product (review r12): its first cost then waits on Approvals when the recipe is approved. */
+function addPackBox(p) {
+  const bills = (ST.packingBills || []).filter(b => inUseOr('bill', b.id)); // out of use bills are not offered (D-139)
+  return `<details class="how" style="margin:10px 0"><summary>Add a pack</summary><div class="box form" style="margin-top:6px"><div class="row"><label for="apks-${p.id}">Pack size, ${p.soldPer}<input id="apks-${p.id}" inputmode="decimal" style="width:100px" autocomplete="off"></label>${p.packingMode === 'bulk' ? '' : `<label for="apkb-${p.id}" style="flex:1 1 240px">Packing bill<select id="apkb-${p.id}"><option value="">${p.packingMode === 'client' ? 'None: the client supplies it' : 'Pick the packing bill'}</option>${bills.map(b => `<option value="${b.id}">${esc(b.name)}</option>`).join('')}</select></label>`}<button class="btn" data-apk="${p.id}">Add pack</button></div><p class="ans" style="margin:0">${p.approvedVersionId && !p.followsId ? 'Its first cost goes to Approvals for the CFO at once.' : p.followsId ? 'the CFO approves its cost on this page (Approve cost).' : 'It gets a cost once the recipe is approved.'}</p></div></details>`;
+}
+/** Each pack's state in its own words; GP on cost today (ruling 2). */
+function packState(p, k) {
+  if (!k.cost) return ['p-none', 'not costed'];
+  if (p.channel === 'VAN brand') return ['p-none', 'priced in the VAN brand lists'];
+  return priceState(k, p.target, k.price > 0 ? (k.price - k.cost.total) / k.price * 100 : null); // 1 rule with Prices, By customer (re-review)
+}
+const prodState = p => p.packs.length ? p.packs.map(k => packState(p, k)).sort((a, b) => RANKS[a[0]] - RANKS[b[0]])[0] : ['p-none', 'no pack'];
+/** + New opens its form here, on Products, in place (review F1): no jump to Setup. */
+function newHere() {
+  const pick = p3 && p3.pick ? `<div class="box form"><b>Put a variant on a client</b><label for="p3pkc" style="max-width:360px">Which client?<select id="p3pkc" data-p3pickc><option value="">Pick the client</option>${(ST.customers || []).filter(c => (c.grp === 'White label' || c.grp === 'Both') && !isOutOf('customer', c.id)).sort((a, b) => a.name.localeCompare(b.name)).map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select></label><p class="ans" style="margin:0">A client that is not in the list: + New, Add a client.</p><div><button class="btn ghost" data-p3pickx>Cancel</button></div></div>` : '';
+  const f = (p3 && (p3.client || p3.prod || p3.vform)) ? `${p3ClientForm()}${p3ProdForm()}${p3VarForm()}` : '';
+  return pick || f ? `<div id="newhere">${pick}${f}</div>` : '';
+}
+function vProducts() {
+  const P = (ST.products || []).find(x => x.id === openProd); if (openProd && P) return vProduct(P); openProd = null;
+  const R = ST.me.role; const all = (ST.products || []).slice().sort((a, b) => a.customer.localeCompare(b.customer) || a.brand.localeCompare(b.brand));
+  const F = { all: () => true, todo: p => todo(p)[0] !== 'p-green', wl: p => p.grp === 'White label', van: p => p.channel === 'VAN brand', progress: p => !p.followsId && !!STEP_ROLE[p.recipeState], notcosted: p => p.packs.some(k => !k.cost), below: p => p.packs.some(k => ['below cost', 'below floor', 'below target', 'well below target'].includes(packState(p, k)[1])) };
+  const L = { all: 'All', wl: 'White label', van: 'VAN brand', progress: 'Recipe in progress', notcosted: 'Not costed', below: 'Below cost or target' };
+  const todo = p => { const ps = p.packs.map(k => packState(p, k)[1]); if (p.packs.some(k => !k.cost)) return ['p-red', 'Not costed']; if (ps.includes('below cost') || ps.includes('below floor')) return ['p-red', 'Fix price']; const sv = prodState(p); if (sv[0] === 'p-red') return ['p-red', /no price/.test(sv[1]) ? 'Set price' : 'Fix price']; if (STEP_ROLE[p.recipeState] === R && !p.followsId) return ['p-red', 'Your step']; if (ps.includes('well below target')) return ['p-red', 'Well below target']; if (ps.includes('below target')) return ['p-amber', 'Below target']; if (!p.followsId && STEP_ROLE[p.recipeState]) return ['p-amber', 'With ' + ROLE_NAME[STEP_ROLE[p.recipeState]]]; return ['p-green', 'OK']; };
+  if (prodC && !all.some(p => p.customer === prodC)) prodC = '';
+  const q = prodQ.trim().toLowerCase(); const list = all.filter(F[prodF] || F.all).filter(p => !prodC || p.customer === prodC).filter(p => !q || `${p.brand} ${p.customer}`.toLowerCase().includes(q));
+  const cls = [...new Set(all.map(p => p.customer))].map(c => ({ c, n: all.filter(p => p.customer === c).length, t: all.filter(p => p.customer === c && todo(p)[0] !== 'p-green').length }));
+  const nc = all.filter(F.notcosted).length, bl = all.filter(F.below).length, ip = all.filter(F.progress).length;
+  if (!loaded()) return head('Products', 'No client products in C2M yet: they come with the load of the CFO\'s sheets.', 'Each client product has 1 page: its recipe and every version, its cost by pack, its price, and its history.');
+  const td = p => todo(p), needs = p => td(p)[0] !== 'p-green';
+  const nTodo = all.filter(needs).length;
+  const shown = list.length, auto = !!q || prodF !== 'all' || !!prodC;
+  const byC = cls.map(x => ({ ...x, ps: list.filter(p => p.customer === x.c) })).filter(x => x.ps.length);
+  const sumPills = ps => { const m = {}; ps.filter(needs).forEach(p => { const k = td(p); m[k[1]] = m[k[1]] || [k[0], 0]; m[k[1]][1]++; }); return Object.entries(m).slice(0, 3).map(([l, [c, n]]) => `<span class="pill ${c}">${n} ${esc(l.toLowerCase())}</span>`).join(' '); };
+  const newMenu = CAN('variant.add') || CAN('client.add') || CAN('targets.propose') ? `<details class="newm"><summary class="btn">+ New</summary><div class="pp" role="menu">${[['variant', 'variant.add', 'Add a variant', 'A new form of a product, its recipe copied as a draft.'], ['client', 'client.add', 'Put a variant on a client', 'Pick the client, then answer 1 question about its recipe.'], ['target', 'targets.propose', 'Change a target GP', 'On Clients, White Label, Target column; the COO approves.'], ['newclient', 'client.add', 'Add a client', 'Name, what it buys, its O2S names.']].filter(j => CAN(j[1])).map(j => `<button class="mi" role="menuitem" data-newjob="${j[0]}"><b>${j[2]}</b><span>${j[3]}</span></button>`).join('')}${CAN('recipe.start') ? '<button class="mi" role="menuitem" data-newrec><b>Write a new recipe version</b><span>For a product that already has one.</span></button>' : ''}</div></details>` : '';
+  if (!loaded()) return head('Products', 'No client products in C2M yet: they come with the load of the CFO\'s sheets.', 'Each client product has 1 page: its recipe and every version, its cost by pack, its price, and its history.');
+  const ro = !CAN('see.price'); // read only (Majid): no price jobs on his list (review r4, finding 23)
+  const CH = ro ? [['all', 'All'], ['notcosted', 'Not costed'], ['progress', 'Recipe in progress']] : [['all', 'All'], ['todo', 'To do'], ['notcosted', 'Not costed'], ['progress', 'Recipe in progress'], ['below', 'Below cost or target']];
+  return `${head('Products', `${(() => { const ours = all.filter(p => p.channel === 'VAN brand').length; return `${pl(all.length - ours, 'client product', 'client products')}${ours ? ` and ${pl(ours, 'of our products', 'of our products')}` : ''}`; })()}, ${pl(cls.length, 'client', 'clients')}. ${!CAN('price.propose') && !CAN('recipe.step.cost') ? 'To read: open a product for its recipe, packs and cost. Add a variant from + New.' : nTodo ? `${nTodo} need action: ${Object.entries(all.filter(needs).reduce((m, p) => { const l = td(p)[1].toLowerCase(); m[l] = (m[l] || 0) + 1; return m; }, {})).map(([l, n]) => `${n} ${l}`).join(', ')}.` : 'All are in order.'}`, 'Each client product has 1 page: its recipe and every version, its cost by pack, its price, and its history. A client product belongs to 1 client; a VAN brand product is 1 pack sold in every channel. Open a client to see its products, then click a product to open its page. Press + New to add a variant, put a variant on a client, change a target or add a client.')}
+  ${newRecForm()}
+  <div class="ptools"><input id="pq" type="search" value="${esc(prodQ)}" placeholder="Find a product or client" aria-label="Find a product or client">${newMenu}<div class="chips">${CH.map(([k, l]) => `<button data-pf="${k}" aria-pressed="${prodF === k}">${l} (${all.filter(F[k] || F.all).length})</button>`).join('')}</div></div>${newHere()}
+  ${byC.map(x => { const op = auto || prodOpen.has(x.c); return `<div class="cr"><button class="crh" data-pco="${esc(x.c)}" aria-expanded="${op}">${csq(x.c)}<b>${esc(x.c)}</b><span class="sub">${pl(x.ps.length, 'product', 'products')}${ro ? '' : x.t ? ` · ${x.t} to do` : ' · all in order'}</span>${ro ? '' : sumPills(x.ps)}<span class="chev" aria-hidden="true">${op ? '▾' : '▸'}</span></button>${op ? `<div class="wrapx"><table class="cards"><tr><th>Product</th><th>To do</th><th>Recipe</th><th>Packs, cost today per kg or L</th></tr>${x.ps.map(p => { const rs_ = recState(p); return `<tr class="go" tabindex="0" data-openprod="${p.id}" aria-label="Open ${esc(p.brand)} for ${esc(p.customer)}"><td data-l="Product"><b>${esc(p.brand)}</b></td><td data-l="To do"><span class="pill ${td(p)[0]}">${esc(td(p)[1])}</span></td><td data-l="Recipe"><span class="pill ${rs_[0]}">${esc(rs_[1])}</span></td><td data-l="Packs" class="num">${p.packs.map(k => `${k.size} ${p.soldPer}: ${k.cost ? k.cost.total.toFixed(2) : 'not costed'}`).join(' · ') || 'no pack'}</td></tr>`; }).join('')}</table></div>` : ''}</div>`; }).join('') || '<div class="box"><p class="ans">No product matches.</p></div>'}
+  <p class="ans" style="margin:6px 0 0">${shown} of ${all.length} products shown.</p>`;
+}
+let wfPack = null, costPend = null, pkOpen = {}, ptypeEdit = false;
+/** A change that moves cost (product type, reprocessed, packing bill) waits for Save, so a stray arrow key cannot save it (UX review M3). */
+const cpOn = (kind, id) => !!costPend && costPend.kind === kind && costPend.id === id;
+const costPendBox = n => `<div class="warnbox" style="margin:6px 0"><b>Not saved yet.</b> Saving recosts ${pl(n, 'pack', 'packs')}; a pack whose cost moves more than ${SET('reapprove_pct')}% goes to re-approval. <button class="btn" data-cpsave>Save</button> <button class="btn ghost" data-cpcancel>Cancel</button></div>`;
+/** Cost waterfall for 1 pack, Rs per kg or L, to scale (P2): materials, packing, labour, FOH, freight, then the full cost. */
+function waterfall(p, k) {
+  const c = k.cost; const lab = k.labour != null ? k.labour : null; const parts = [['Materials', c.materials, 'wb-mat'], ['Packing', c.packing, 'wb-mat']].concat(lab != null ? [['Labour', lab, 'wb-mat'], ['FOH', c.conversion - lab, 'wb-mat']] : [['Labour and FOH', c.conversion, 'wb-mat']]).concat([['Freight', c.freight || 0, 'wb-mat']]);
+  const W = 560, H = 270, L = 12, B = 30, T = 26, n = parts.length + 1, bw = (W - L * 2) / n * 0.72, gap = (W - L * 2) / n, top = c.total * 1.08, y = v => T + (H - T - B) * (1 - v / top);
+  let run = 0; const bars = parts.map(([l, v], i) => { const y0 = y(run), y1 = y(run + v); run += v; const x = L + i * gap + (gap - bw) / 2; return `<rect class="wb-mat" x="${x}" y="${Math.min(y0, y1)}" width="${bw}" height="${Math.max(Math.abs(y0 - y1), 1.5)}" opacity="${i === 0 ? 1 : 0.75}"/><text class="lbl" x="${x + bw / 2}" y="${Math.min(y0, y1) - 6}" text-anchor="middle">${v.toFixed(2)}</text>${wfLab(x + bw / 2, H, l)}`; }).join('');
+  const xc = L + parts.length * gap + (gap - bw) / 2;
+  const tail = `<rect class="wb-cost" x="${xc}" y="${y(c.total)}" width="${bw}" height="${y(0) - y(c.total)}"/><text class="lbl" x="${xc + bw / 2}" y="${y(c.total) - 6}" text-anchor="middle" font-weight="600">${c.total.toFixed(2)}</text><text x="${xc + bw / 2}" y="${H - 10}" text-anchor="middle">Cost</text>`;
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Cost waterfall, ${k.size} ${p.soldPer} pack: total Rs ${n2(c.total)}"><line class="grid" x1="${L}" x2="${W - L}" y1="${y(0)}" y2="${y(0)}"/>${bars}${tail}</svg>`;
+}
+/** A waterfall label: a long one on 2 lines, so labels do not run into each other on a phone (push 7g, review). */
+const wfLab = (x, H, l) => { const w = String(l).split(' '); if (w.length < 2 || l.length < 10) return `<text x="${x}" y="${H - 10}" text-anchor="middle">${esc(l)}</text>`; const h = Math.ceil(w.length / 2);
+  return `<text x="${x}" y="${H - 22}" text-anchor="middle"><tspan x="${x}">${esc(w.slice(0, h).join(' '))}</tspan><tspan x="${x}" dy="1.1em">${esc(w.slice(h).join(' '))}</tspan></text>`; };
+/** Correct a mistake on a client product: rename, take out of use, remove a pack that has no cost or price yet (audit, 23 Oct 2026). */
+function correctBox(p, top) {
+  if (!CAN('client.add') || p.channel !== 'White label') return '';
+  const ed = p3.prod && p3.prod.editId === p.id; const del = rowDel && rowDel.kind === 'product' && rowDel.id === p.id;
+  if (top) return `${ed ? p3ProdForm(true) : ''}${del && !behind ? delBox() : ''}`; // push 7g: the Edit and Delete forms open under the action bar
+  return `<details class="how" style="margin-top:10px"><summary>Correct a mistake on this product</summary><div class="box form" style="margin:6px 0 0"><div class="row"><label for="ed-b-${p.id}">Client product name, as on its bag<input id="ed-b-${p.id}" value="${esc(p.brand)}"></label><label for="ed-o-${p.id}" style="flex:1 1 260px">O2S spellings, separated by |<input id="ed-o-${p.id}" value="${esc((p.o2sNames || []).join(' | '))}"></label><button class="btn ghost" data-pedit="${p.id}">Save names</button></div><p class="ans" style="margin:4px 0 8px">O2S matches trucks to this product by these names, so change them only to fix a wrong spelling.</p>
+  <div class="row"><button class="btn ghost" data-puse="${p.id}" data-on="0" data-confirm="Confirm: take out of use">Take out of use</button><span class="ans" style="margin:0">Hides it from Products, prices and Margin: its trucks leave Margin until it is put back (Setup, Clients, Clients and their products, Out of use).</span></div>
+  ${(() => { const inRe = id => (ST.reapprovals || []).some(x => (x.items || []).some(i => i.packId === id)); const rm = p.packs.length > 1 ? p.packs.filter(k => k.approvedCost == null && k.price == null && !k.priceEnded && !k.waitingProposal && !k.nextPrice && !inRe(k.id)) : []; return rm.length ? `<p class="ans" style="margin:10px 0 4px">A pack added by mistake can be removed while it has no approved cost and no price. Its trucks, if any, stop matching a pack.</p><div class="row">${rm.map(k => `<button class="btn ghost danger" data-prm="${k.id}" data-confirm="Confirm: remove the ${k.size} ${p.soldPer} pack">Remove ${k.size} ${p.soldPer}</button>`).join('')}</div>` : '<p class="ans" style="margin:10px 0 0">No pack can be removed: each has an approved cost or a price, or the product has only 1 pack.</p>'; })()}</div></details>`;
+}
+function vProduct(p) {
+  const R = ST.me.role, yw = CAN('price.propose'), ypt = CAN('product.classify'), ypk = CAN('packing.manage');
+  const vers = (ST.recipes || []).filter(v => v.clientProductId === p.id).sort((a, b) => b.version - a.version);
+  const inProg = vers.find(v => STEP_ROLE[v.state]), appr = vers.find(v => v.id === p.approvedVersionId) || vers.find(v => v.state === 'approved'); // the Default first (D-140)
+  const sel = vers.find(v => v.id === recSel) || inProg || appr || vers[0];
+  const k0 = p.packs.find(k => k.cost && k.price != null) || p.packs.find(k => k.cost) || p.packs[0];
+  let ans;
+  if (!appr && !(p.followsId && p.approvedVersionId)) ans = `No approved recipe yet${inProg ? `: version ${inProg.version} is with ${ROLE_NAME[STEP_ROLE[inProg.state]]}` : ''}.`;
+  else if (!k0 || !k0.cost) ans = `Not costed: ${((k0 && k0.costGaps) || ['no pack']).join(', ')}.`;
+  else { const gp = k0.price != null ? (k0.price - k0.cost.total) / k0.price * 100 : null; ans = `Cost ${rs2(k0.cost.total)} per ${p.soldPer} on the ${k0.size} ${p.soldPer} pack${!CAN('see.price') ? '' : '; '}${!CAN('see.price') ? '' : p.channel === 'VAN brand' ? 'priced in the VAN brand lists' : `price ${k0.price != null ? rs2(k0.price) : 'none'}; ${gp == null ? 'no GP without a price' : `GP ${pc(gp)}`}${p.target > 0 ? ` against a ${pc(p.target)} target` : ', no target set'}`}.`; }
+  if (ptab === 'price') ptab = 'cost';
+  const T = [['recipe', 'Recipe'], ['cost', 'Cost by pack'], ['history', 'History']]; // 1.0.0: prices live in Client prices, sales in Margin; 1.0.1: History back as a 3rd tab (Tahir, 19 Oct 2026, D-82)
+  if (!T.some(x => x[0] === ptab)) ptab = 'recipe';
+  const ids = p.packs.map(k => k.id); const van = p.channel === 'VAN brand';
+  const canProp = k => yw && !van && k && k.cost && !k.waitingProposal;
+  let b = '';
+  if (ptab === 'recipe') {
+    b = p.followsId ? p3FollowNote(p) + (appr ? '' : '') + (vers.length ? '' : '') : vers.length ? `<div class="chips" aria-label="Versions">${vers.map(v => `<button data-recver="${v.id}" aria-pressed="${v.id === sel.id}">Version ${v.version} · ${esc(stepTxt(v.state))}</button>`).join('')}</div>${vRecipe(sel, { product: true })}${recipesBox(p)}` : '<p class="ans">No recipe in C2M yet. The Production Manager writes the first version.</p>';
+  } else if (ptab === 'cost') {
+    const hidePr = van || !CAN('see.price'); // a role without prices sees cost only, not "price none" (review r4, finding 6)
+    const bills = ST.packingBills || []; const costed = p.packs.filter(k => k.cost); const wk = costed.find(k => k.id === wfPack) || (k0 && k0.cost ? k0 : costed[0]);
+    const tp = k => k.cost && p.target != null ? k.cost.total / (1 - p.target / 100) : null; const gpk = k => k.cost && k.price != null ? (k.price - k.cost.total) / k.price * 100 : null;
+    const stripe = k => hidePr && !van ? 'r-none' : ({ 'p-red': 'r-red', 'p-amber': 'r-amber', 'p-green': 'r-green' }[packState(p, k)[0]] || 'r-none');
+    b = `${wk ? `<div class="cards2"><div class="card"><h3>Cost waterfall, ${wk.size} ${p.soldPer} pack, Rs per ${p.soldPer}</h3><p class="sub">Each bar adds to the one before it; the last bar is the full cost.</p>${costed.length > 1 ? `<div class="chips" aria-label="Pack">${costed.map(k => `<button data-wfpack="${k.id}" aria-pressed="${k.id === wk.id}">${k.size} ${p.soldPer}</button>`).join('')}</div>` : ''}${waterfall(p, wk)}
+      <p class="ans" style="font-size:12.5px;margin:6px 0 0">${wk.price != null && !hidePr ? `Price ${rs2(wk.price)} is ${Math.abs(wk.price - wk.cost.total).toFixed(2)} ${wk.price >= wk.cost.total ? 'above' : 'below'} cost. ` : ''}${wk.floor != null ? `Floor ${rs2(wk.floor)} = materials + packing + freight + labour.` : ''}</p></div>
+      </div>` : '<p class="ans">No pack is costed yet; what is missing shows in the table below.</p>'}
+    ${ypt && !ptypeEdit && !cpOn('ptype', p.id) && !cpOn('reproc', p.id) ? `<div class="infol"><span>Product type: ${esc(p.typeName || 'none')} · ${p.reprocessed ? 'reprocessed' : 'not reprocessed'}${p.packingMode ? ' · packing: ' + esc(p.packingMode) : ''}. The product type decides the labour and FOH rate.</span><button class="btn ghost" data-ptypeedit>Change</button></div>` : ''}${ypt && (ptypeEdit || cpOn('ptype', p.id) || cpOn('reproc', p.id)) ? `<div class="row" style="margin:0 0 10px"><label for="ptype-${p.id}">Product type<select id="ptype-${p.id}" data-ptype="${p.id}"><option value="">None</option>${(ST.productTypes || []).map(t => `<option value="${t.id}" ${t.id === (cpOn('ptype', p.id) ? costPend.value : p.typeId) ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}<option value="__new">New type...</option></select></label><label style="display:flex;gap:6px;align-items:center"><input type="checkbox" data-reproc="${p.id}" ${(cpOn('reproc', p.id) ? costPend.value : p.reprocessed) ? 'checked' : ''}> Reprocessed</label></div>${cpOn('ptype', p.id) || cpOn('reproc', p.id) ? costPendBox(p.packs.length) : ''}${ask && ask.kind === 'ptype' ? askBox('Name of the new product type (e.g. Granulation Line)') : ''}` : ''}${!ypt ? `<p class="ans">Product type: ${esc(p.typeName || 'none')} · ${p.reprocessed ? 'reprocessed' : 'not reprocessed'}${p.packingMode ? ' · packing: ' + esc(p.packingMode) : ''}</p>` : ''}
+    ${!van && CAN('client.add') && p.active !== false ? addPackBox(p) : ''}
+    <h2>Packs: ${pl(p.packs.length, 'pack', 'packs')}, Rs per ${p.soldPer}, cost today</h2><div class="box wrapx"><table class="wt cards" id="pkt"><thead><tr><th data-key="1">Pack</th><th class="r" data-key="2">Cost today</th><th class="r"${hidePr ? ' data-key="3"' : ''}>Approved cost</th>${hidePr ? '' : '<th class="r">Price now</th><th class="r" data-key="3">GP %</th><th class="r">Target %</th><th class="r">Price for target</th><th data-key="4">State</th>'}<th></th></tr></thead><tbody>${p.packs.map(k => { const c = k.cost ? k.cost.total : null; const gp = gpk(k); const t2 = tp(k); const st = packState(p, k); const op = !!pkOpen[k.id];
+      const main = `<tr class="${stripe(k)}"><td class="nw"><b>${k.size} ${p.soldPer}</b>${k.nextPrice ? `<span class="sub2">Rs ${n2(k.nextPrice.price)} from ${esc(fmtShort(k.nextPrice.from))}</span>` : ''}</td><td class="r num" data-l="Cost today">${c != null ? c.toFixed(2) : '–'}</td><td class="r num" data-l="Approved cost">${k.approvedCost != null ? k.approvedCost.toFixed(2) : '–'}</td>${hidePr ? '' : `<td class="r num" data-l="Price now">${k.price != null ? k.price.toFixed(2) : k.priceEnded ? 'ended' : '–'}</td><td class="r num ${gp != null ? ({ red: 'over', amber: 'late' }[gpTone(gp, p.target)] || '') : ''}" data-l="GP %">${pc(gp)}</td><td class="r num" data-l="Target %">${pc(p.target)}</td><td class="r num" data-l="Price for target">${t2 != null ? t2.toFixed(2) : '–'}</td><td data-l="State"><span class="pill ${st[0]}">${esc(st[1])}</span></td>`}<td class="nw">${yw && !van && k.cost ? (k.waitingProposal ? '<span class="pill p-amber">with the COO</span> ' : `<button class="btn ghost" data-propose="${k.id}">Propose a price</button> `) : ''}<button class="btn ghost" style="margin-left:8px" data-pkopen="${k.id}" aria-expanded="${op}">${op ? 'Hide detail' : 'Detail'}</button></td></tr>`; // push 7g: phone labels (5), 1 colour rule (3), Detail spaced (20)
+      const det = !op ? '' : `<tr class="pkdet"><td colspan="${hidePr ? 4 : 9}">${k.cost ? `<b>Cost by part, Rs per ${p.soldPer}:</b> materials ${rs2(k.cost.materials)} + packing ${rs2(k.cost.packing)} + labour and FOH ${rs2(k.cost.conversion)}${k.labour != null ? ` (labour ${rs2(k.labour)}, FOH ${rs2(k.cost.conversion - k.labour)}, rate "${esc(k.cost.rule || 'none')}")` : ` (rate "${esc(k.cost.rule || 'none')}")`} + freight ${rs2(k.cost.freight)} = <b>${rs2(k.cost.total)}</b>.${k.floor != null ? ` Floor ${rs2(k.floor)} = materials + packing + freight + labour.` : ''}` : `<b>Not costed:</b> ${esc((k.costGaps && k.costGaps.length ? k.costGaps : ['no approved recipe']).join(', '))}.`}${hidePr ? '' : `<br><b>Price:</b> ${k.price != null ? rs2(k.price) : 'none'}${k.priceSource === 'approved' ? ` from ${esc(fmtD(k.priceFrom))}` : k.priceSource === 'O2S PO' ? ', from the last O2S PO' : ''}${k.prevPrice != null ? `; previous ${rs2(k.prevPrice)}` : ''}${t2 != null && k.price != null && t2 > k.price ? `; ${rs2(t2 - k.price)} short of the price for target` : ''}.`}</td></tr>${billLines(k, p)}`;
+      return main + det; }).join('') || `<tr><td colspan="${hidePr ? 4 : 9}">No pack.</td></tr>`}</tbody></table></div>
+      <p class="ans">Price for target = cost today ÷ (1 − target %). Open Detail for the cost parts, the floor, the price now and before, and the packing bill of a pack; every price change is on the History tab.</p>
+    ${ypk ? `<details class="how"${(ST.products || []).length && p.packs.some(k => cpOn('assign', k.id)) ? ' open' : ''}><summary>Change the packing bill of a pack</summary><div class="box wrapx"><table><tr><th>Pack</th><th>Packing bill</th></tr>${p.packs.map(k => `<tr><td>${k.size} ${p.soldPer}</td><td><select data-assign="${k.id}" aria-label="Packing bill for ${k.size} ${p.soldPer}"><option value="">None</option>${bills.filter(x => inUseOr('bill', x.id, k.billId)).map(x => `<option value="${x.id}" ${x.id === (cpOn('assign', k.id) ? costPend.value : k.billId) ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select>${cpOn('assign', k.id) ? (k.billId != null && wkHeld() ? `<p class="ans wk">Moving it to another bill takes effect Monday ${esc(fmtShort(WK().next))}; it waits in Next week's costs.</p>` : '') + costPendBox(1) : ''}</td></tr>`).join('')}</table></div><p class="ans">A change recosts the pack; it waits for re-approval if the cost moves. Packing bills and their items are kept in Costs, Packing cost.</p></details>` : ''}
+    ${p.packs.some(k => k.sheet && k.cost) ? `<h2>The CFO's sheet of 13 Oct against C2M</h2><div class="box wrapx"><table><tr><th>Pack</th><th class="r">Sheet</th><th class="r">C2M today</th><th class="r">Gap</th></tr>${p.packs.filter(k => k.sheet && k.cost).map(k => { const d = k.cost.total - k.sheet.total; return `<tr><td>${k.size} ${p.soldPer}</td><td class="r num">${rs2(k.sheet.total)}</td><td class="r num">${rs2(k.cost.total)}</td><td class="r num ${Math.abs(d / k.sheet.total) > 0.03 ? 'over' : ''}">${d >= 0 ? '+' : ''}${d.toFixed(2)}</td></tr>`; }).join('')}</table></div>` : ''}`;
+  } else if (ptab === 'phist') {
+    const H = (ST.priceHistory || []).filter(x => ids.includes(x.packId)).sort((a, b) => b.from.localeCompare(a.from) || b.id - a.id); const sizeOf = id => { const k = p.packs.find(x => x.id === id); return k ? `${k.size} ${p.soldPer}` : ''; };
+    b = van ? '<p class="ans">A VAN brand pack is 1 product sold in every channel; its prices are set per channel through the VAN brand list revisions (Clients, VAN Brands, Price lists, See all 5 side by side), not per pack.</p>'
+      : `<p class="ans">Every approved price of this product, newest first, with its dates and who approved it. Prices loaded from the CFO's sheets carry the sheet's dates.</p>${findBox('phist', 'Find a pack, reason or person')}<div class="box wrapx"><table class="wt" data-lft="phist"><thead><tr><th>Pack</th><th class="r">Price</th><th class="r">Previous</th><th class="r">Change</th><th>From</th><th>Till</th><th>Reason</th><th>Approved by</th></tr></thead><tbody>${H.map(x => { const ch = x.prev ? (x.price - x.prev) / x.prev * 100 : null; return `<tr class="${x.from <= ST.today && (!x.to || x.to >= ST.today) ? 'r-green' : 'r-none'}"><td>${sizeOf(x.packId)}</td><td class="r num">${x.price.toFixed(2)}</td><td class="r num">${x.prev != null ? x.prev.toFixed(2) : ''}</td><td class="r num">${ch != null ? (ch > 0 ? '+' : '') + ch.toFixed(1) + '%' : 'new'}</td><td class="mono">${esc(fmtD(x.from))}</td><td class="mono">${x.to ? esc(fmtD(x.to)) : 'open'}</td><td>${esc(x.reason || '')}</td><td>${esc(x.decidedBy ? personName(x.decidedBy) : 'loaded')}${x.decidedAt ? ', ' + esc(fmtD(d10(x.decidedAt))) : ''}</td></tr>`; }).join('') || '<tr><td colspan="8">No approved price yet.</td></tr>'}</tbody></table></div>
+      <p class="ans" style="font-size:12.5px">Green: the price in force today.</p><h2>Proposals for this product</h2><div class="box jobs">${(ST.proposals || []).filter(x => ids.includes(x.packId) && x.status !== 'replaced').slice().reverse().map(x => propCard(x, false)).join('') || '<div class="job"><div><div class="t">No proposal yet.</div></div></div>'}</div>`;
+  } else if (ptab === 'sales') {
+    const tr = (ST.sales || []).filter(s => ids.includes(s.packId)).slice().sort((a, b) => a.date < b.date ? 1 : -1); const op = (ST.open || []).filter(o => ids.includes(o.packId));
+    const g = grp(tr.filter(r => r.date >= fyStart()), () => 'x')[0];
+    b = `<p class="ans">${g ? `FY to date: ${qtyTxt(tr.filter(r => r.date >= fyStart()))} shipped for ${rsM(g.sales)}, GP ${pc(g.gp)}. ` : 'No truck this financial year. '}${op.length ? `${Math.round(op.reduce((s, o) => s + o.kg, 0)).toLocaleString('en-US')} ${p.soldPer} open on ${new Set(op.map(o => o.po)).size} POs.` : 'No open PO.'}</p>
+    ${op.length ? `<h2>Open POs still to ship</h2><div class="box wrapx"><table><tr><th>PO</th><th>Received</th><th>Client line</th><th>Pack</th><th class="r">Open ${p.soldPer}</th><th class="r">PO price</th><th class="r">GP on cost today</th></tr>${op.map(o => `<tr><td class="mono">${esc(o.po)}</td><td class="mono nw">${esc(fmtD(o.received))}</td><td>${esc(o.cust)}</td><td class="nw">${o.pack} ${p.soldPer}</td><td class="r num">${Math.round(o.kg).toLocaleString('en-US')}</td><td class="r num">${o.price.toFixed(2)}</td><td class="r num">${o.cost != null && o.price ? pc((o.price - o.cost) / o.price * 100) : '–'}</td></tr>`).join('')}</table></div>` : ''}
+    <h2>Trucks out</h2>${findBox('trucks', 'Find a date, PO or client')}<div class="box wrapx"><table data-lft="trucks"><tr><th>Date</th><th>PO</th><th>Client line</th><th>Pack</th><th class="r">Kg or L</th><th class="r">PO price</th><th class="r">Approved cost on date</th><th class="r">GP</th></tr>${tr.map(r => `<tr><td class="mono nw">${esc(fmtD(r.date))}</td><td class="mono">${esc(r.po)}</td><td>${esc(r.cust)}${r.ch && van ? ' <span class="ans">' + esc(r.ch) + '</span>' : ''}</td><td class="nw">${r.pack} ${p.soldPer}</td><td class="r num">${r.kg.toLocaleString('en-US')}</td><td class="r num">${r.price.toFixed(2)}</td><td class="r num">${r.cost != null ? r.cost.toFixed(2) : '–'}</td><td class="r num">${r.cost != null && r.price ? pc((r.price - r.cost) / r.price * 100) : '–'}</td></tr>`).join('') || '<tr><td colspan="8">No truck yet.</td></tr>'}</table></div>`;
+  } else {
+    const steps = vers.flatMap(v => (v.steps || []).map(s => ({ ...s, version: v.version }))).sort((a, b) => String(b.at).localeCompare(String(a.at)));
+    b = `<h2>Recipe steps, every version</h2><div class="box wrapx"><table><tr><th>When</th><th>Version</th><th>Step</th><th>Who</th><th>Note</th></tr>${steps.map(s => `<tr><td class="mono">${esc(when(s.at))}</td><td>${s.version}</td><td>${esc(String(s.action).replace('_', ' '))}</td><td>${esc(personName(s.by_user))}</td><td>${esc(isoWords(s.note || ''))}</td></tr>`).join('') || '<tr><td colspan="5">No recipe yet.</td></tr>'}</table></div>`;
+  }
+  const chipV = inProg || appr;
+  return `<p class="crumb"><button data-prodback>All products</button> › ${esc(p.customer)} › ${esc(p.brand)}</p><h1 class="topic"><i class="fam" style="background:${p.fam || '#8796A5'}" title="${esc(p.typeName || 'no product type')}"></i>${esc(p.brand)} · ${esc(p.customer)}</h1><p class="answer">${esc(ans)}</p>
+  ${chipV && ptab !== 'recipe' ? stepChips(chipV) : ''}
+  <div class="next"><span>${esc(p.typeName || 'No product type')} · ${p.grp === 'White label' ? 'White label' : 'VAN brand'} · sold per ${p.soldPer}${p.spec ? ' · ' + esc(p.spec) : ''}${chipV ? ' · recipe version ' + chipV.version : ''}${p3ProdLine(p)}</span>${CAN('recipe.start') && !p.followsId ? `<button class="btn ghost" data-newrec="${p.id}">Write a new recipe version</button>` : ''}${p3Ready() && CAN('variant.add') && p.channel === 'VAN brand' && !p.followsId ? `<button class="btn ghost" data-p3vopen="${p.id}">Add a variant</button>` : ''}${p.followsId && CAN('recipe.step.cost') && p3FollowPending(p) ? `<button class="btn" data-p3appr="${p.id}">Approve cost</button>` : ''}${canProp(k0) && ptab !== 'cost' ? `<button class="btn" data-propose="${k0.id}">Propose a price</button>` : ''}${CAN('client.add') && p.channel === 'White label' ? `<button class="btn ghost" data-p3edit="${p.id}" title="Opens the Add a product form, filled in">Edit this product</button><button class="btn ghost danger" data-rwdel="product:${p.id}" title="Removes it only if nothing uses it">Delete</button>` : ''}</div>${CAN('recipe.start') ? newRecForm() : ''}${p3.vform && String(p3.vform.from) === String(p.id) ? p3VarForm() : ''}
+  ${CAN('targets.propose') && p.grp === 'White label' ? `<div class="infol"><span>Target GP: ${p.target > 0 ? pc(p.target) + (p.targetDefault ? ' (the company target)' : '') : 'none set'}. Targets change on Clients, White Label, in the Target column, sent to the COO with prices.</span><button class="btn ghost" data-gotgt="${esc(p.customer)}">Change on Clients</button></div>` : CAN('targets.propose') ? `<details class="how"><summary>Target GP: ${p.target > 0 ? pc(p.target) + (p.targetDefault ? ' (the company target)' : '') : 'none set'}. Change it</summary><div class="box form" style="margin:6px 0 10px"><span class="ans">Margin judges this product against its target.</span><div class="row"><label for="tg-${p.id}">New target, %<input type="number" step="0.1" id="tg-${p.id}" style="width:90px"></label><label for="tr-${p.id}" style="flex:1 1 220px">Why<input id="tr-${p.id}" placeholder="the reason the COO will read"></label><button class="btn ghost" data-treq="${p.id}">Send to the COO</button></div><span class="ans" style="font-size:12px">The COO approves it on Approvals. Until then the target does not change.</span></div></details>` : ''}
+  <div class="subnav" role="tablist" aria-label="Product page">${T.map(([k, l]) => `<button role="tab" data-ptab="${k}" aria-selected="${ptab === k}">${l}</button>`).join('')}</div>${correctBox(p, true)}${b}${correctBox(p)}`; // push 7g (finding 20): 1 action bar under the title; Propose a price once
+}
+
+/* ---------- 0.8.0: Inputs, 1 materials table for Himayat and Yawar (ruling 4) ---------- */
+function vInputs(only) {
+  const R = ST.me.role, seeR = !!ST.rates, yw = CAN('rate.save'), ym = CAN('material.save'), yp = CAN('packing.manage'); if (only) inp = only;
+  const subs = seeR && (yp || CAN('see.margin')) ? [['materials', ST.m014 ? 'Materials and nutrients' : 'Materials'], ['packing', 'Packing items'], ['bills', 'Packing bills']] : [['materials', 'Materials']]; // push 7a: the Production Manager sees materials, not packing
+  if (!subs.some(x => x[0] === inp)) inp = 'materials';
+  const M = ST.materials || []; const todo = M.filter(m => matState(m)[0] === 'p-amber').length;
+  const ans = !M.length ? 'No materials in C2M yet: they come with the load of the CFO\'s sheets.' : seeR ? `${M.length} materials and ${(ST.packingItems || []).length} packing items. ${todo ? pl(todo, 'material needs', 'materials need') + ' a class or nutrient %.' : 'Every material is classed and entered.'}` : todo ? `${pl(todo, 'material needs', 'materials need')} you.` : 'Every material is classed and entered.';
+  const h = ST.m014 ? `The QC Head keeps 1 list of nutrients, each with its basis (K2O, not K) and whether it is % w/w or w/v. On a material he adds any nutrient from the list with its % and certificate; a class (Nitrogen source, Binder) only suggests which. A material saved by him is complete: a nutrient not on it counts as 0. He also enters each product's declared grade, what its label promises, and C2M checks the Default recipe against it (a warning, never a block). The QC Head or the Production Manager may add a material with no rate; the CFO adds the rate, and until then a recipe using it cannot pass the cost step. The CFO keeps every rate, the latest purchase rate with its source, and C2M warns when a rate moves more than ${SET('rate_warn_pct')}% up or down. Packing items are priced per piece; a packing bill calls items per pack.` : `The QC Head classes each material and enters its nutrient %; the CFO keeps its rate, the latest purchase rate with its source. A rate is market information: the CFO saves it himself, with no approval. C2M warns when a rate moves more than ${SET('rate_warn_pct')}% up or down, and products whose cost moves more than ${SET('reapprove_pct')}% come back for re-approval, in 1 item per cause. A material is a nutrient source or adds no nutrients: a nutrient source asks for the fields of its class (KOH asks K%); binders, fillers, anti-caking agents, wetting agents, colours and pH adjusters add no nutrients, count in the recipe's weight and cost, and add 0 to its analysis. Packing items are priced per piece; a packing bill calls items per pack: per kg = price per piece / pack size; a secondary item (a carton of 2 packs) adds price / (packs x pack size).`;
+  let b = '';
+  if (inp === 'materials') b = `${trial && yw ? trialBox() : ''}${matArea()}`; // push 7a: Materials, Nutrients, Classes, Declared grades (D-162)
+  else if (inp === 'packing') b = `${ptrial && yp ? ptrialBox() : ''}${findBox('pitems', 'Find a packing item or kind')}<div class="box wrapx"><table data-lft="pitems"><tr><th>Item</th><th>Kind</th><th class="r">Price per piece</th><th>Date</th><th>Source</th>${yp ? '<th></th>' : ''}</tr>${(ST.packingItems || []).map(i => `<tr><td>${esc(i.name)}${outPill('pitem', i.id)}</td><td>${esc(i.kind || '')}</td><td class="r num">${rs2(i.price)}${wkNext('packing_rate', i.id)}${i.buy ? `<br><span class="ans">${rs2(i.buy.perKg)} per kg ÷ ${i.buy.piecesPerKg} pieces</span>` : ''}</td><td class="mono nw">${esc(fmtD(i.date || ''))}</td><td>${esc(i.source || '')}</td>${yp ? `<td><div class="acts"><button class="btn ghost" data-ptry="${i.id}">Change price</button>${rowBtns('pitem', i.id)}</div></td>` : ''}</tr>${rowExtra('pitem', i.id, yp ? 6 : 5)}`).join('') || '<tr><td colspan="6">No packing item yet.</td></tr>'}</table></div>
+    ${yp ? `<div class="box form" style="margin-top:10px"><b>Add a packing item</b><div class="row"><label for="pin">Name<input id="pin"></label><label for="pik">Kind<input id="pik" placeholder="bag, label, carton"></label>${buyFields('pi', pinBuy)}<label for="pis">Source (required)<input id="pis" placeholder="PO number or quote"></label><button class="btn" data-pinew>Add</button></div><p class="ans" id="pi-work" style="margin:4px 0 0">${buyWork('pi')}</p></div>` : ''}`;
+  else b = `${billEdit ? billEditor() : ''}${yp ? '<div class="next"><span>A bill is given to a pack on the product page, Cost by pack.</span><button class="btn ghost" data-billnew>New packing bill</button></div>' : ''}${findBox('bills', 'Find a packing bill, item or pack')}<div class="box wrapx"><table data-lft="bills"><tr><th>Bill</th><th>Lines</th><th>Used by</th>${yp ? '<th></th>' : ''}</tr>${(ST.packingBills || []).map(x => { const used = []; (ST.products || []).forEach(p => p.packs.forEach(k => { if (k.billId === x.id) used.push(`${p.brand} ${k.size} ${p.soldPer}`); })); return `<tr><td>${esc(x.name)}${outPill('bill', x.id)}</td><td>${x.lines.map(l => `${l.level === 'secondary' ? 'Secondary: ' : ''}${esc(l.item)} x ${l.pieces}${l.level === 'secondary' ? ' per ' + l.packsPerOuter + ' packs' : ''} (${rs2(l.price)})`).join('<br>')}</td><td>${used.length ? esc(used.slice(0, 4).join(', ')) + (used.length > 4 ? ` and ${used.length - 4} more` : '') : '<span class="ans">no pack</span>'}</td>${yp ? `<td><div class="acts"><button class="btn ghost" data-billedit="${x.id}">Edit</button>${rowBtns('bill', x.id, { edit: false })}</div></td>` : ''}</tr>${rowExtra('bill', x.id, yp ? 4 : 3)}`; }).join('') || '<tr><td colspan="4">No packing bill yet.</td></tr>'}</table></div>`;
+  if (only) return b;
+  return `${head('Inputs', ans, h)}${subs.length > 1 ? `<div class="subnav" role="tablist" aria-label="Inputs">${subs.map(([k, l]) => `<button role="tab" data-inp="${k}" aria-selected="${inp === k}">${l}</button>`).join('')}</div>` : ''}${b}`;
+}
+/** 1 materials table: class and nutrient % (Himayat edits; Yawar since push 7f only reads), and for Yawar and Tahir the rate, its date and source. */
+/** A material's last costs, newest first (R28: the full history and downloads come in Reports). */
+const histOpen = new Set();
+function histRow(r, cols) { const H = (r.history || []).slice(0, 6); return `<tr class="sub"><td colspan="${cols}"><div class="wrapx"><table><tr><th>From</th><th class="r">Cost, Rs per ${esc(r.unit || 'kg')}</th><th class="r">Change</th><th>Source</th><th>By</th></tr>${H.map((h, i) => { const pv = H[i + 1]; const ch = pv && pv.rate ? (h.rate - pv.rate) / pv.rate * 100 : null; return `<tr><td class="mono nw">${esc(fmtShort(String(h.date).slice(0, 10)))}</td><td class="r num">${n2(h.rate)}</td><td class="r num">${ch == null ? '' : (ch > 0 ? '+' : '') + ch.toFixed(1) + '%'}</td><td>${esc(h.source || '')}</td><td>${esc(personName(h.by))}</td></tr>`; }).join('')}</table></div><span class="ans">The last ${H.length} ${H.length === 1 ? 'cost' : 'costs'}.</span></td></tr>`; }
+function matTable() {
+  const R = ST.me.role; const ed = CAN('nutrient.edit'); const yw = CAN('rate.save');
+  const M = (ST.materials || []).slice().sort((a, b) => a.name.localeCompare(b.name)); const rate = new Map((ST.rates || []).map(r => [r.gradeId, r])); const seeR = !!ST.rates && (yw || CAN('see.margin')); // the Production Manager reads cost on his recipes, not every rate and its source (review 7a, M4)
+  const todo = M.filter(m => matState(m)[0] === 'p-amber'); const used = new Set((ST.recipes || []).filter(v => v.state !== 'old' && v.state !== 'closed').flatMap(v => v.lines.map(l => l.gradeId)));
+  const q = matQ.trim().toLowerCase();
+  const noRate = M.filter(m => m.noRate || (rate.has(m.gradeId) && rate.get(m.gradeId).rate == null)); // push 7a: added with no rate, waiting for the CFO
+  const list = (matFilter === 'todo' ? todo : matFilter === 'none' ? M.filter(m => m.role === 'none') : matFilter === 'norate' ? noRate : M).filter(m => !q || m.name.toLowerCase().includes(q));
+  return `<div class="chips">${[['todo', `To do (${todo.length})`], ['none', 'Adds no nutrients'], ...(noRate.length || matFilter === 'norate' ? [['norate', `Waiting for a rate (${noRate.length})`]] : []), ['all', `All (${M.length})`]].map(([k, l]) => `<button data-matf="${k}" aria-pressed="${matFilter === k}">${l}</button>`).join('')}</div>
+  <div class="find"><label for="mq" class="ans" style="margin:0">Find a material</label><input id="mq" value="${esc(matQ)}"><span class="ans" style="margin:0">${list.length} shown</span></div>
+  <div class="box wrapx"><table class="cards"><tr><th>Material</th><th>Class</th><th>${ST.m014 ? 'Nutrients, % in the material' : 'Values, % in the material'}</th><th>State</th>${seeR ? '<th class="r">Rate, Rs</th><th>Date and source</th>' : ''}${yw ? '<th></th>' : ''}</tr>${list.map(m => { const st = matState(m); const pend = matPend[m.materialId]; const r = rate.get(m.gradeId) || {}; return `<tr><td data-l="Material"><b>${esc(m.name)}</b> <span class="ans">${esc(m.grade)}${used.has(m.gradeId) ? ' · in a recipe' : ''}</span></td>
+  <td data-l="Class">${ed ? `${classSelect(m, pend)}${pend && pend !== m.typeId ? ` <button class="btn" data-mclassok="${m.materialId}">Save class</button> <button class="btn ghost" data-mclassno="${m.materialId}">Cancel</button>${m.role === 'nutrient' && Object.keys(m.nutrients || {}).length && (ST.materialTypes.find(t => t.id === pend) || {}).nutrient_role !== 'nutrient' ? '<br><span class="late">Saving clears its nutrient values (kept in the change record).</span>' : ''}` : ''}` : esc(m.type || '')}</td>
+  <td data-l="Nutrients, % in the material">${ST.m014 ? `${nutLine(m)} <button class="btn ghost" data-n7mopen="${m.gradeId}" aria-label="Open ${esc(m.name)}, ${esc(m.grade)}">Open</button>` : m.role !== 'nutrient' ? '<span class="ans">none asked</span>' : nutEdit === m.gradeId && !behind ? m.fields.map(f => `<label style="display:inline-flex;gap:4px;align-items:center">${esc(f)}<input id="nut-${esc(f)}" type="number" step="0.01" min="0" max="100" style="width:72px" value="${(m.nutrients || {})[f] ?? ''}"></label>`).join(' ') + ` <label style="display:inline-flex;gap:4px;align-items:center"><input type="checkbox" id="nut0"> Blank fields are 0 (tick only if the certificate shows none)</label> <button class="btn" data-nutsave="${m.gradeId}">Save</button> <button class="btn ghost" data-nutcancel>Cancel</button>` : `${m.fields.map(f => `${esc(f)} ${(m.nutrients || {})[f] ?? '<span class="late">?</span>'}`).join(', ')}${ed ? ` <button class="btn ghost" data-nut="${m.gradeId}">Enter %</button>` : ''}`}</td>
+  <td data-l="State"><span class="pill ${st[0]}">${esc(st[1])}</span>${outPill('grade', m.gradeId)}</td>${seeR ? `<td data-l="Rate, Rs" class="r num">${r.rate != null ? n2(r.rate) : '<span class="late">no rate</span>'}${wkNext('rate', m.gradeId)}</td><td data-l="Date and source"><span class="mono nw">${esc(fmtD(r.date || ''))}</span> ${esc(r.source || '')}</td>` : ''}${yw ? `<td><div class="acts"><button class="btn ghost" data-try="${m.gradeId}" aria-label="Change the cost of ${esc(m.name)}">Change cost</button><details class="rowmenu"${histOpen.has(m.gradeId) || (rowEd && rowEd.kind === 'grade' && rowEd.id === m.gradeId) || (rowDel && rowDel.kind === 'grade' && rowDel.id === m.gradeId) ? ' open' : ''}><summary aria-label="More for ${esc(m.name)}">More</summary><div>${(r.history || []).length ? `<button class="btn ghost" data-mhist="${m.gradeId}" aria-expanded="${histOpen.has(m.gradeId)}">History</button>` : ''}${rowBtns('grade', m.gradeId)}</div></details></div></td>` : ''}</tr>${rowExtra('grade', m.gradeId, (seeR ? 6 : 4) + (yw ? 1 : 0))}${histOpen.has(m.gradeId) ? histRow(r, (seeR ? 6 : 4) + (yw ? 1 : 0)) : ''}`; }).join('') || `<tr><td colspan="${seeR ? 7 : 4}">Nothing here.</td></tr>`}</table></div>`;
+}
+
+/* ---------- Push 7a (Tahir, 9 Nov 2026, R60 to R62 and R66, D-162): Materials and nutrients ----------
+   1 nutrient list kept by the QC Head; a material card where any nutrient from the list is added with its % and certificate;
+   classes as labels that suggest nutrients; each product's declared grade checked against its Default recipe; a material may
+   be added with no rate, and waits for the CFO's rate. Before migration 014 the old materials table applies (ST.m014 false). */
+let mtab = 'materials', mcOpen = null, mcDraft = null, mcNew = null, nlEdit = null, nlNew = null, clEdit = null, clNew = null, dgEdit = null, dgQ = '', mtAdd = false, pdEdit = null; // pdEdit: push 7c, a product's density being typed
+let mtDraft = {}, nlDraft = null, clDraft = null; // what was typed, kept when the page draws again for any reason (review 7a, minor 3)
+const NUTS = () => ST.nutrientList || [];
+const nutOf = id => NUTS().find(n => n.id === Number(id));
+const nutByLabel = l => NUTS().find(n => n.label.toLowerCase() === String(l).toLowerCase());
+const nutHow = n => n ? [n.basis, !ST.m015 && n.measure === 'w/v' ? '% w/v' : ''].filter(Boolean).join(', ') : ''; // push 7c: after 015 the basis is on each value
+const usedIn = gid => [...new Set((ST.recipes || []).filter(v => v.state !== 'old' && v.state !== 'closed' && v.lines.some(l => l.gradeId === gid)).map(v => v.brand + (v.customer && v.customer !== 'VAN brand' ? ' for ' + v.customer : '')))]; // 1 product once, however many versions use it (push 7d)
+function matArea() {
+  if (!ST.m014) return matTable() + matAddForm(); // before migration 014: as before
+  const T = [['materials', 'Materials'], ['nutrients', 'Nutrients'], ['classes', 'Classes'], ['declared', 'Declared grades']];
+  if (!T.some(t => t[0] === mtab)) mtab = 'materials';
+  const b = mtab === 'nutrients' ? nutList() : mtab === 'classes' ? classList() : mtab === 'declared' ? declList() : mcOpen != null && matOf(mcOpen) ? matCard() : matTable() + matAddForm();
+  return `${ST.nutCopyFailed ? `<div class="next" style="border-left-color:var(--over)"><span><b>The nutrients entered before could not be copied into the new list yet.</b> C2M tries again each time the page is opened. Tell Ahmer: ${esc(ST.nutCopyFailed)}</span></div>` : ''}<div class="subnav" role="tablist" aria-label="Materials and nutrients">${T.map(([k, l]) => `<button role="tab" data-n7tab="${k}" aria-selected="${mtab === k}">${l}</button>`).join('')}</div>${b}`;
+}
+/** What a material carries, in 1 line: "N 12, OM 45, Amino acids 80"; or why not yet. */
+function nutLine(m) {
+  if (m.role === 'none') return '<span class="ans">adds no nutrients</span>'; if (m.role !== 'nutrient') return '<span class="late">to classify</span>';
+  const R = m.nutRows || []; const miss = (m.fields || []).filter(f => (m.nutrients || {})[f] == null);
+  return `${R.length ? esc(R.map(r => `${r.label} ${num4(r.pct)}`).join(', ')) : ''}${miss.length ? `${R.length ? '; ' : ''}<span class="late">to enter: ${esc(miss.join(', '))}</span>` : !R.length ? '<span class="late">nutrients not entered</span>' : ''}`;
+}
+const num4 = v => String(Math.round(Number(v) * 10000) / 10000);
+/** The add a material form: with a rate for the CFO (as before); without a rate for the QC Head and Production Manager (R66). */
+function matAddForm() {
+  const ym = CAN('material.save'), ya = CAN('material.add'); if (!ym && !ya) return '';
+  const T = ST.materialTypes || [];
+  if (!ST.m014) return ym ? `<div class="box form" style="margin-top:10px"><b>Add a material or a new grade</b><div class="row"><label for="mtn">Name<input id="mtn"></label><label for="mtt">Class<select id="mtt">${T.map(t => `<option value="${t.id}">${esc(t.name)}</option>`).join('')}</select></label><label for="mtu">Unit<select id="mtu"><option>kg</option><option>L</option></select></label><label for="mtg">Grade<input id="mtg" value="Standard"></label><label for="mtr">Rate, Rs<input id="mtr" type="number" step="0.01"></label><label for="mts">Source<input id="mts" placeholder="PO or quote"></label><button class="btn" data-mtsave>Add</button></div></div>${classForm()}` : ''; // before migration 014: exactly as before (review 7a, minor 1)
+  if (!mtAdd) return `<div class="next" style="margin-top:10px"><span>${ym ? 'A new material or a new grade of one, with its rate; or without a rate, to add it later.' : 'A material not in the list: add it here. The CFO adds its rate; until then a recipe using it cannot pass the cost step.'}</span><button class="btn ghost" data-n7mtadd="1">Add a material</button></div>`;
+  return `<div class="box form" style="margin-top:10px" id="mtform"><b>Add a material or a new grade</b>
+  <div class="row"><label for="mtn" style="flex:1 1 220px">Name<input id="mtn" autocomplete="off" value="${esc(mtDraft.mtn || '')}"></label><label for="mtg">Grade<input id="mtg" value="${esc(mtDraft.mtg ?? 'Standard')}"></label>
+  <label for="mtt">Class<select id="mtt">${T.filter(t => t.nutrient_role === 'unclassified').concat(T.filter(t => t.nutrient_role === 'nutrient'), T.filter(t => t.nutrient_role === 'none')).map(t => `<option value="${t.id}"${String(mtDraft.mtt) === String(t.id) ? ' selected' : ''}>${esc(t.nutrient_role === 'unclassified' ? t.name + ' (the QC Head sets it)' : t.name)}</option>`).join('')}</select></label>
+  <label for="mtu">Unit<select id="mtu"><option>kg</option><option${mtDraft.mtu === 'L' ? ' selected' : ''}>L</option></select></label></div>
+  <div class="row">${ym ? `<label for="mtr">Rate, Rs per kg or L<input id="mtr" inputmode="decimal" placeholder="empty: no rate yet" value="${esc(mtDraft.mtr || '')}"></label>` : ''}<label for="mts" style="flex:1 1 300px">${ym ? 'Source of the rate, or the supplier' : 'Supplier, or why it is needed'}<input id="mts" placeholder="${ym ? 'PO or quote' : 'e.g. Trial for Root Plus; supplier Ali Traders'}" autocomplete="off" value="${esc(mtDraft.mts || '')}"></label></div>
+  <p class="ans" style="margin:0">${ym ? 'With a rate it is costed from today. Without one it waits on your Approvals list as "waits for your rate".' : 'The CFO is told and adds the rate. The QC Head enters its nutrients.'}</p>
+  <div><button class="btn" data-n7mtsave="1">Add</button> <button class="btn ghost" data-n7mtadd="0">Cancel</button></div></div>`;
+}
+/** A material card (R61): every nutrient the material carries, from the list, with its % and certificate. */
+function matCard() {
+  const m = matOf(mcOpen), ed = CAN('nutrient.edit') && m.role === 'nutrient', newOk = CAN('nutrient.list');
+  if (!mcDraft || mcDraft.gradeId !== m.gradeId) { const rows = (m.nutRows || []).map(r => ({ nutrientId: r.nutrientId, pct: String(r.pct), measure: r.measure || 'w/w', cert: r.cert || '', certDate: r.certDate || '' }));
+    if (!m.checked) (m.suggest || []).forEach(l => { const n = nutByLabel(l); if (n && !n.hidden && !rows.some(r => r.nutrientId === n.id)) rows.push({ nutrientId: n.id, pct: '', cert: '', certDate: '' }); });
+    mcDraft = { gradeId: m.gradeId, rows, dirty: false }; }
+  if (!mcDraft.den) mcDraft.den = { v: m.density ? String(m.density.kgPerL) : '', src: m.density ? m.density.source || '' : '', date: m.density ? m.density.date || '' : '' }; // push 7c (R70)
+  const U = usedIn(m.gradeId), free = NUTS().filter(n => !n.hidden && !mcDraft.rows.some(r => r.nutrientId === n.id));
+  const st = matState(m);
+  const rows = mcDraft.rows.map((r, i) => { const n = nutOf(r.nutrientId) || { label: '?', name: '' }; return `<tr><td data-l="Nutrient"><b>${esc(n.label)}</b>${n.name && n.name !== n.label ? ` <span class="ans">${esc(n.name)}</span>` : ''}</td><td data-l="Basis">${esc(nutHow(n)) || '<span class="ans">not stated</span>'}</td>
+    <td data-l="% in the material" class="r">${ed ? `<input id="mc-p-${i}" data-n7mc="${i}" inputmode="decimal" style="width:84px" value="${esc(r.pct)}" aria-label="% of ${esc(n.label)} in ${esc(m.name)}">` : `<span class="num">${esc(r.pct)}</span>`}</td>
+    ${ST.m015 ? `<td data-l="w/w or w/v">${ed ? `<select id="mc-m-${i}" data-n7mc="${i}" aria-label="Is the % of ${esc(n.label)} w/w or w/v"><option value="w/w"${r.measure !== 'w/v' ? ' selected' : ''}>w/w</option><option value="w/v"${r.measure === 'w/v' ? ' selected' : ''}>w/v</option></select>` : esc(r.measure || 'w/w')}</td>` : ''}
+    <td data-l="Certificate">${ed ? `<input id="mc-c-${i}" data-n7mc="${i}" style="width:200px" maxlength="120" value="${esc(r.cert)}" placeholder="lab report, supplier certificate" aria-label="Certificate for ${esc(n.label)}">` : esc(r.cert)}</td>
+    <td data-l="Date">${ed ? `<input id="mc-d-${i}" data-n7mc="${i}" type="date" max="${esc(ST.today)}" value="${esc(r.certDate)}" aria-label="Certificate date for ${esc(n.label)}">` : esc(r.certDate ? fmtD(r.certDate) : '')}</td>
+    ${ed ? `<td><button class="btn ghost danger" data-n7mcrm="${i}">Remove</button></td>` : ''}</tr>`; }).join('');
+  return `<p class="crumb" style="margin:0 0 8px"><button class="lnk" data-n7mcclose="1">Materials</button> › <b>${esc(m.name)}</b></p>
+  <div class="hd" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center"><h2 style="margin:0;text-transform:none;letter-spacing:0;font-size:17px;color:var(--ink)">${esc(m.name)} <span class="ans">${esc(m.grade)}</span></h2><span class="pill p-none">Class: ${esc(m.type || 'to classify')}</span><span class="pill ${st[0]}">${esc(st[1])}</span>${m.noRate ? '<span class="pill p-amber">waits for the CFO\'s rate</span>' : ''}</div>
+  <p class="ans">${U.length ? `Used in ${pl(U.length, 'product', 'products')}: ${esc(U.slice(0, 5).join('; '))}${U.length > 5 ? ` and ${U.length - 5} more` : ''}.` : 'In no recipe yet.'} ${m.checked && m.checkedBy ? `Nutrients saved by ${esc(personName(m.checkedBy))}${m.checkedAt ? ' on ' + esc(fmtD(String(m.checkedAt).slice(0, 10))) : ''}.` : ''}</p>
+  ${m.role !== 'nutrient' ? `<p class="ans">${m.role === 'none' ? 'This material adds no nutrients: it counts in a recipe\'s weight and cost and adds 0 to its analysis.' : 'Pick its class first, on the Materials list.'}</p>` : `<div class="box wrapx"><table class="cards"><tr><th>Nutrient</th><th>Basis</th><th class="r">% in the material</th>${ST.m015 ? '<th>w/w or w/v</th>' : ''}<th>Certificate</th><th>Date</th>${ed ? '<th></th>' : ''}</tr>${rows || `<tr><td colspan="${(ed ? 6 : 5) + (ST.m015 ? 1 : 0)}">No nutrient yet.</td></tr>`}
+  ${ed ? `<tr><td colspan="${ST.m015 ? 7 : 6}"><div class="row" style="align-items:flex-end"><label for="mc-add">Add a nutrient<select id="mc-add" data-n7mcadd="1"><option value="">Pick from the list</option>${free.map(n => `<option value="${n.id}">${esc(n.label)}${n.name && n.name !== n.label ? ' · ' + esc(n.name) : ''}${n.basis ? ' (' + esc(n.basis) + ')' : ''}</option>`).join('')}${newOk ? '<option value="new">Not in the list: add a new nutrient</option>' : ''}</select></label></div>
+  ${mcNew ? nutForm('mcn', mcNew, 'Add to the list and to this material') : ''}</td></tr>` : ''}</table></div>
+  ${ST.m015 ? denBox(m, ed) : ''}
+  ${ed ? `<p class="ans">A nutrient not listed here counts as 0 in every recipe that uses ${esc(m.name)}. Type each % as the certificate gives it${ST.m015 ? ', as received (not on a dry basis), and say whether it is w/w (kg per 100 kg) or w/v (g per 100 mL). A certificate in g per L: divide by 10 (40 g per L is 4% w/v). A w/v figure can be above 100. A figure in v/v, or in ppm with no unit, cannot be used: ask the supplier for w/w or w/v' : ''}.</p><div><button class="btn" data-n7mcsave="1">Save</button> <button class="btn ghost" data-n7mcclose="1">Cancel</button></div>` : ''}`}`;
+}
+/** Push 7c (R70, R71): a material's density, kg per L at 20 °C, entered by the QC Head. Needed when any value on the card is w/v
+ *  (the material is dosed in kg) or w/w (dosed in L). Saved on its own, at once, with its source. */
+function denBox(m, ed) {
+  const D = mcDraft.den, need = (mcDraft.rows || []).filter(r => (m.unit === 'L') === (r.measure !== 'w/v')).length;
+  const saved = m.density ? `${num4(m.density.kgPerL)} kg per L <span class="ans">${esc(m.density.source || '')}${m.density.date ? ', ' + esc(fmtD(m.density.date)) : ''}</span>` : '<span class="ans">none entered</span>';
+  const tag = need && !m.density ? ` <span class="pill p-amber">needed: ${pl(need, 'value is', 'values are')} ${m.unit === 'L' ? 'w/w' : 'w/v'}</span>` : '';
+  if (!ed) return `<p><b>Density</b>, kg per L at 20 °C: ${saved}${tag}</p>`;
+  return `<div class="box form" style="margin-top:8px"><div><b>Density of ${esc(m.name)}</b>, kg per L at 20 °C, as supplied${tag} <span class="ans">Now: ${saved}</span></div>
+  <div class="row" style="align-items:flex-end"><label for="mcd-v">Kg per L<input id="mcd-v" inputmode="decimal" style="width:90px" value="${esc(D.v)}" placeholder="e.g. 1.20"></label><label for="mcd-s" style="flex:1 1 220px">Where it comes from (required)<input id="mcd-s" maxlength="120" value="${esc(D.src)}" placeholder="lab report, supplier certificate"></label><label for="mcd-d">Date<input id="mcd-d" type="date" max="${esc(ST.today)}" value="${esc(D.date)}"></label><button class="btn ghost" data-n7den="grade" data-id="${m.gradeId}">Save density</button></div>
+  <p class="ans" style="margin:0">Only a material with a value on the other basis needs it: C2M never takes 1.0 for a missing density. Clear the box and save to remove it.</p></div>`;
+}
+/** The fields of a nutrient: shown as, name, basis, measure. */
+function nutForm(p, v, btn) {
+  return `<div class="box form" style="margin-top:8px"><div class="row"><label for="${p}-l">Shown as<input id="${p}-l" maxlength="24" value="${esc(v.label || '')}" placeholder="e.g. Amino acids, K2O, N" autocomplete="off"></label>
+  <label for="${p}-n" style="flex:1 1 180px">Full name<input id="${p}-n" maxlength="60" value="${esc(v.name || '')}" placeholder="e.g. Free amino acids" autocomplete="off"></label>
+  <label for="${p}-b" style="flex:1 1 180px">Basis<input id="${p}-b" maxlength="60" value="${esc(v.basis || '')}" placeholder="e.g. as K2O, Total N" autocomplete="off"></label>
+  ${ST.m015 ? '' : `<label for="${p}-m">Measured as<select id="${p}-m"><option value="w/w"${v.measure !== 'w/v' ? ' selected' : ''}>% weight in weight (w/w)</option><option value="w/v"${v.measure === 'w/v' ? ' selected' : ''}>% weight in volume (w/v)</option></select></label>`}</div>
+  <p class="ans" style="margin:0">${ST.m015 ? 'Whether a figure is w/w or w/v is set on each material and each label, as its certificate states it. ' : ''}1 nutrient, 1 basis: K2O and K are 2 nutrients, so they never add up together. C2M stops a second one shown the same way.</p>
+  <div><button class="btn" data-n7nsave="${p}">${esc(btn)}</button> <button class="btn ghost" data-n7ncancel="${p}">Cancel</button></div></div>`;
+}
+const nutRead = p => ({ label: val(p + '-l'), name: val(p + '-n'), basis: val(p + '-b'), measure: $(p + '-m') ? val(p + '-m') : undefined }); // push 7c: no measure box after 015
+/** The Nutrients tab (R60). */
+function nutList() {
+  const ed = CAN('nutrient.list'); const use = new Map(); (ST.materials || []).forEach(m => (m.nutRows || []).forEach(r => use.set(r.nutrientId, (use.get(r.nutrientId) || 0) + 1)));
+  const dec = new Map(); Object.values(ST.declared || {}).forEach(L => L.forEach(d => dec.set(d.nutrientId, (dec.get(d.nutrientId) || 0) + 1)));
+  const L = NUTS().slice().sort((a, b) => a.hidden - b.hidden || a.label.localeCompare(b.label));
+  return `<p class="ans">${pl(L.filter(n => !n.hidden).length, 'nutrient', 'nutrients')} in the list${L.some(n => n.hidden) ? `, ${L.filter(n => n.hidden).length} hidden` : ''}. Every material and every declared grade picks from it, so the same nutrient adds up across all materials in a recipe.${ed ? '' : ' The QC Head keeps it.'}</p>
+  ${ed && !nlNew ? '<div class="next"><span>A nutrient not in the list.</span><button class="btn ghost" data-n7nlnew="1">Add a nutrient</button></div>' : ''}${nlNew ? nutForm('nln', nlNew, 'Add to the list') : ''}
+  <div class="box wrapx"><table class="cards"><tr><th>Shown as</th><th>Full name</th><th>Basis</th>${ST.m015 ? '' : '<th>Measured as</th>'}<th class="r">Materials</th><th class="r">Labels</th>${ed ? '<th></th>' : ''}</tr>${L.map(n => nlEdit === n.id ? `<tr><td colspan="${(ed ? 7 : 6) - (ST.m015 ? 1 : 0)}">${nutForm('nle', nlDraft || n, 'Save')}</td></tr>` : `<tr${n.hidden ? ' style="opacity:.65"' : ''}><td data-l="Shown as"><b>${esc(n.label)}</b>${n.hidden ? ' <span class="pill p-none">hidden</span>' : ''}</td><td data-l="Full name">${esc(n.name)}</td><td data-l="Basis">${esc(n.basis) || '<span class="ans">not stated</span>'}</td>${ST.m015 ? '' : `<td data-l="Measured as">${n.measure === 'w/v' ? '% w/v' : '% w/w'}</td>`}<td data-l="Materials" class="r num">${use.get(n.id) || 0}</td><td data-l="Labels" class="r num">${dec.get(n.id) || 0}</td>${ed ? `<td><div class="acts"><button class="btn ghost" data-n7nledit="${n.id}">Edit</button><button class="btn ghost" data-n7nlhide="${n.id}" data-hide="${n.hidden ? 0 : 1}">${n.hidden ? 'Show again' : 'Hide'}</button></div></td>` : ''}</tr>`).join('') || `<tr><td colspan="7">No nutrient yet.</td></tr>`}</table></div>
+  <p class="ans">A hidden nutrient stays on the materials and labels that have it, and is not offered for new ones. A nutrient is never deleted, so old records keep their meaning.</p>`;
+}
+/** The Classes tab (R61): a class is a label; it suggests nutrients, it locks none. */
+function classList() {
+  const ed = CAN('nutrient.list') || CAN('material.save'); const T = (ST.materialTypes || []).filter(t => t.nutrient_role !== 'unclassified');
+  const cnt = new Map(); (ST.materials || []).forEach(m => cnt.set(m.typeId, (cnt.get(m.typeId) || 0) + 1));
+  const sug = t => String(t.nutrient_fields || '').split('|').filter(Boolean).map(f => { const l = f.replace(/\s*%\s*$/, '').trim(); const n = nutByLabel(l); return n ? n.label : l; });
+  const picks = (p, on) => `<fieldset class="row" style="border:0;padding:0;margin:4px 0;gap:6px 14px"><legend class="ans" style="padding:0">Nutrients it suggests (the QC Head may add any other on a material)</legend>${NUTS().filter(n => !n.hidden || on.includes(n.label)).map(n => `<label style="display:inline-flex;gap:4px;align-items:center;flex-direction:row"><input type="checkbox" data-n7clpick="${p}" value="${n.id}"${on.some(x => x.toLowerCase() === n.label.toLowerCase()) ? ' checked' : ''}> ${esc(n.label)}</label>`).join('')}</fieldset>`;
+  const form = (p, v, btn) => `<div class="box form" style="margin-top:8px"><div class="row"><label for="${p}-n" style="flex:1 1 240px">Class name<input id="${p}-n" maxlength="66" value="${esc(v.name || '')}" placeholder="e.g. Amino acid source" autocomplete="off"></label>${v.id ? '' : `<label for="${p}-r">Carries nutrients?<select id="${p}-r" data-n7clrole="${p}"><option value="nutrient"${v.role !== 'none' ? ' selected' : ''}>Yes</option><option value="none"${v.role === 'none' ? ' selected' : ''}>No: binder, filler and the like</option></select></label>`}</div>
+    ${(v.role || 'nutrient') === 'nutrient' ? picks(p, v.sug || []) : '<p class="ans" style="margin:0">It counts in weight and cost and adds 0 to every nutrient.</p>'}<div><button class="btn" data-n7clsave="${p}">${esc(btn)}</button> <button class="btn ghost" data-n7clcancel="${p}">Cancel</button></div></div>`;
+  const row = t => clEdit === t.id ? `<tr><td colspan="${ed ? 4 : 3}">${form('cle', clDraft && clDraft.id === t.id ? clDraft : { id: t.id, name: t.name, role: t.nutrient_role, sug: sug(t) }, 'Save')}</td></tr>` : `<tr><td data-l="Class"><b>${esc(t.name)}</b></td><td data-l="Suggests">${t.nutrient_role === 'none' ? '<span class="ans">adds no nutrients</span>' : esc(sug(t).join(', ')) || '<span class="ans">nothing</span>'}</td><td data-l="Materials" class="r num">${cnt.get(t.id) || 0}</td>${ed ? `<td><button class="btn ghost" data-n7cledit="${t.id}">Edit</button></td>` : ''}</tr>`;
+  return `<p class="ans">A class groups materials (Nitrogen source, Amino acid source, Binder). It suggests which nutrients to fill on a material and locks none: any nutrient from the list can be added on the material card.</p>
+  ${ed && !clNew ? '<div class="next"><span>A group not in the list.</span><button class="btn ghost" data-n7clnew="1">Add a class</button></div>' : ''}${clNew ? form('cln', clNew, 'Add class') : ''}
+  <div class="box wrapx"><table class="cards"><tr><th>Class</th><th>Suggests</th><th class="r">Materials</th>${ed ? '<th></th>' : ''}</tr>
+  <tr><td colspan="${ed ? 4 : 3}" class="ans"><b>Carries nutrients</b></td></tr>${T.filter(t => t.nutrient_role === 'nutrient').map(row).join('')}
+  <tr><td colspan="${ed ? 4 : 3}" class="ans"><b>Adds no nutrients</b></td></tr>${T.filter(t => t.nutrient_role === 'none').map(row).join('')}</table></div>`;
+}
+/** The Default recipe's analysis of a product (its own, or the VAN product it follows). */
+function defaultRec(p) { const own = (ST.recipes || []).find(v => v.isDefault && v.clientProductId === p.id); if (own) return own; const f = p.followsId; return f ? (ST.recipes || []).find(v => v.isDefault && v.clientProductId === f) || null : null; }
+const decOf = id => (ST.declared || {})[id] || [];
+/** The Declared grades tab (R62): what each label promises, against what the Default recipe gives. Below is a warning, never a block. */
+function declList() {
+  const ed = CAN('grade.declare'); const q = dgQ.trim().toLowerCase();
+  const P = (ST.products || []).filter(p => p.active !== false).filter(p => !q || `${p.brand} ${p.customer}`.toLowerCase().includes(q)).sort((a, b) => a.brand.localeCompare(b.brand) || String(a.customer).localeCompare(String(b.customer)));
+  const all = (ST.products || []).filter(p => p.active !== false); const chk = p => { const v = defaultRec(p); return v ? gradeCheckP(decOf(p.id), v.nutrients, ST.m015 ? prodRho(p.id) : null) : { state: decOf(p.id).length ? 'norecipe' : 'none', rows: [] }; };
+  const C = all.map(chk); const below = C.filter(c => c.state === 'below').length, none = all.filter(p => !decOf(p.id).length).length;
+  const row = p => { const D = decOf(p.id), v = defaultRec(p), c = chk(p);
+    if (dgEdit && dgEdit.id === p.id) return `<tr><td colspan="${ed ? 5 : 4}">${declForm(p)}</td></tr>`;
+    const N = v ? v.nutrients || {} : {}, B = ST.m015 && N.basis ? N.basis : null, rho = ST.m015 ? prodRho(p.id) : null; // push 7c (R72): in the analysis' basis, the other beside it
+    const got = v ? (N.fields || []).filter(f => f.pct != null).map(f => `${esc(f.field)} ${f.pct.toFixed(2)}${B ? '% ' + B + otherB(f.pct, B, rho) : ''}`).join(' · ') : '';
+    const why = c.state === 'unknown' ? [...new Set(c.rows.filter(r => r.state === 'unknown').map(r => r.why))].join('; ') : '';
+    const pill = c.state === 'meets' ? '<span class="pill p-green">meets the label</span>' : c.state === 'below' ? c.rows.filter(r => r.state === 'below').map(r => `<span class="pill p-red">${esc(r.label)} below by ${r.by}</span>`).join(' ') : c.state === 'unknown' ? `<span class="pill p-amber">${ST.m015 && why ? 'not complete: ' + esc(why) : 'analysis not complete'}</span>` : c.state === 'norecipe' ? '<span class="pill p-none">no Default recipe</span>' : '<span class="pill p-amber">no grade entered</span>';
+    return `<tr><td data-l="Product"><b>${esc(p.brand)}</b> <span class="ans">${esc(p.customer)}</span></td><td data-l="On the label">${D.length ? D.map(d => `<span class="pill p-none">${esc(d.label)} ${num4(d.pct)}%${ST.m015 ? ' ' + esc(d.measure || (isPerL(p.id) ? 'w/v' : 'w/w')) : ''}${d.tol ? ' −' + num4(d.tol) : ''}</span>`).join(' ') : '<span class="ans">not entered</span>'}${ST.m015 ? pdCell(p, D, v) : ''}</td><td data-l="Default recipe gives">${got || '<span class="ans">–</span>'}</td><td data-l="Check">${pill}</td>${ed ? `<td><button class="btn ghost" data-n7dgedit="${p.id}">${D.length ? 'Edit' : 'Enter'}</button></td>` : ''}</tr>`; };
+  return `<p class="ans">${pl(all.length - none, 'product has', 'products have')} a declared grade; ${none} ${none === 1 ? 'has' : 'have'} none yet. ${below ? `<b style="color:var(--over)">${pl(below, 'Default recipe is', 'Default recipes are')} below the label.</b>` : 'No Default recipe is below its label.'} The check is a warning: it stops nothing.</p>
+  <div class="find"><label for="dgq" class="ans" style="margin:0">Find a product</label><input id="dgq" type="search" value="${esc(dgQ)}" autocomplete="off"><span class="ans" style="margin:0">${P.length} shown</span></div>
+  <div class="box wrapx"><table class="cards"><tr><th>Product</th><th>On the label, % (− tolerance)</th><th>Default recipe gives, %</th><th>Check</th>${ed ? '<th></th>' : ''}</tr>${P.map(row).join('') || '<tr><td colspan="5">Nothing here.</td></tr>'}</table></div>
+  <p class="ans">Tolerance: the points below the label still taken as meeting it, set by the QC Head for each nutrient. A nutrient no material in the recipe carries is 0.${ST.m015 ? ' A product sold per kg is worked out in % w/w, one sold per L in % w/v (g per 100 mL); a label on the other basis needs the product\'s density, entered by the Production Manager.' : ''}</p>`;
+}
+/** Push 7c (R70, R73): a product's density, kg per L at 20 °C, entered by the Production Manager. Needed when a label is on the other
+ *  basis from the analysis. For a product sold per L, the Default recipe's lines added up are shown beside it as a hint only. */
+function pdCell(p, D, v) {
+  const fl = !!p.followsId, x = fl ? null : (ST.productDensity || {})[p.id], fol = fl ? (ST.productDensity || {})[p.followsId] : null, perL = isPerL(p.id), may = !fl && (CAN('recipe.edit') || ADM());
+  const other = D.some(d => (d.measure || (perL ? 'w/v' : 'w/w')) !== (perL ? 'w/v' : 'w/w')), need = other && !x && !fol;
+  const kgL = v ? (v.lines || []).filter(l => (matOf(l.gradeId) || {}).unit !== 'L').reduce((s, l) => s + Number(l.qty || 0), 0) : 0, inL = v && (v.lines || []).some(l => (matOf(l.gradeId) || {}).unit === 'L'); // review 7c, minor 7: kg lines only
+  const hint = perL && kgL ? ` <span class="ans">the Default recipe's lines add to ${kgL.toFixed(4)} kg per L${inL ? ', lines in L left out' : ''} (a hint only, not used)</span>` : '';
+  if (pdEdit && pdEdit.id === p.id) return `<div class="box form" style="margin-top:6px"><div><b>Density of ${esc(p.brand)}</b>, kg per L at 20 °C${hint}</div>
+    <div class="row" style="align-items:flex-end"><label for="pdd-v">Kg per L<input id="pdd-v" inputmode="decimal" style="width:90px" value="${esc(pdEdit.v)}" placeholder="e.g. 1.25"></label><label for="pdd-s" style="flex:1 1 200px">Where it comes from (required)<input id="pdd-s" maxlength="120" value="${esc(pdEdit.src)}" placeholder="lab report, batch sheet"></label><label for="pdd-d">Date<input id="pdd-d" type="date" max="${esc(ST.today)}" value="${esc(pdEdit.date)}"></label><button class="btn ghost" data-n7den="product" data-id="${p.id}">Save density</button> <button class="btn ghost" data-n7pd="">Cancel</button></div>
+    <p class="ans" style="margin:0">Clear the box and save to remove it. C2M never takes 1.0 for a missing density.</p></div>`;
+  const now = x ? `density ${num4(x.kgPerL)} kg per L` : fol ? `density ${num4(fol.kgPerL)} kg per L, from ${(prodOf(p.followsId) || {}).brand || 'the product it follows'}` : fl && other ? `the density is entered on ${(prodOf(p.followsId) || {}).brand || 'the product it follows'}` : '';
+  if (!now && !need && !(perL && may)) return '';
+  return `<div class="ans" style="margin-top:4px">${now ? esc(now) : ''}${need ? ' <span class="pill p-amber">density needed: a label is on the other basis</span>' : ''}${now ? hint : ''}${may ? ` <button class="btn ghost sm" data-n7pd="${p.id}">${x ? 'Change density' : 'Enter density'}</button>` : ''}</div>`;
+}
+/** Page copies of lib.perUnitPct, lib.toBasis and lib.gradeCheck (c2m-lib.js, push 7c), so the page and the server agree. */
+function perUnitPctP(v, measure, unit, density) { const x = Number(v), d = Number(density) > 0 ? Number(density) : null, w = measure === 'w/v'; if (!isFinite(x)) return null; if (unit === 'L') return w ? x : d ? x * d : null; return w ? (d ? x / d : null) : x; }
+function toBasisP(pct, from, to, rho) { if (pct == null) return null; if (from === to) return pct; const d = Number(rho) > 0 ? Number(rho) : null; if (!d) return null; return from === 'w/w' ? pct * d : pct / d; }
+function gradeCheckP(declared, N, rho) {
+  const F = new Map(((N && N.fields) || []).map(f => [String(f.field).toLowerCase(), f])); const nb = (N && N.basis) || 'w/w', r0 = rho != null ? rho : N && N.rho;
+  const rows = (declared || []).map(d => { const f = F.get(String(d.label).toLowerCase()); const pct = Number(d.pct), tol = Number(d.tol) || 0; const lb = d.measure === 'w/v' || d.measure === 'w/w' ? d.measure : nb; let got = null, why = null;
+    if (f && !(f.missing || []).length && !(f.noDensity || []).length && f.pct != null) got = f.pct; else if (!f && N && N.complete) got = 0; else if (f && (f.noDensity || []).length) why = `density of ${f.noDensity.join(', ')} missing`;
+    if (got != null && got !== 0 && lb !== nb) { const c = toBasisP(got, nb, lb, r0); if (c == null) { got = null; why = `the product density is missing (the label is ${lb})`; } else got = c; }
+    if (got != null && !(N && N.complete) && got < pct - tol - 1e-9) got = null; // not complete: a low figure is unknown, not below (review 7a, M3)
+    const state = got == null ? 'unknown' : got >= pct - tol - 1e-9 ? 'meets' : 'below'; return { label: d.label, pct, tol, measure: lb, got, state, why: state === 'unknown' ? (why || 'the analysis is not complete') : null, by: state === 'below' ? Math.round((pct - got) * 100) / 100 : 0 }; });
+  return { rows, state: !rows.length ? 'none' : rows.some(r => r.state === 'below') ? 'below' : rows.some(r => r.state === 'unknown') ? 'unknown' : 'meets' };
+}
+const prodOf = id => (ST.products || []).find(x => x.id === Number(id)) || null;
+/** A product's density, kg per L (R70): its own, or for a product that follows another's recipe, that product's; null when none. */
+const prodRho = id => { const P = ST.productDensity || {}, p = prodOf(id); return ((p && p.followsId ? P[p.followsId] : P[id]) || {}).kgPerL || null; }; // a follower uses its owner's (review 7c, minor 2)
+const isPerL = id => (prodOf(id) || {}).soldPer === 'L';
+/** R72: the same figure on the other basis, in brackets, when the product density is known. */
+const otherB = (pct, basis, rho) => { const o = basis === 'w/v' ? 'w/w' : 'w/v'; const c = toBasisP(pct, basis, o, rho); return c == null ? '' : ` <span class="ans">(${c.toFixed(2)}% ${o})</span>`; };
+function declForm(p) {
+  const lDef = isPerL(p.id) ? 'w/v' : 'w/w'; // push 7c: a label on a product sold per L is read as w/v until the QC Head says otherwise
+  if (!dgEdit.rows) dgEdit.rows = decOf(p.id).map(d => ({ nutrientId: d.nutrientId, pct: String(d.pct), tol: String(d.tol || ''), measure: d.measure || lDef }));
+  const free = NUTS().filter(n => !n.hidden && !dgEdit.rows.some(r => r.nutrientId === n.id));
+  return `<div class="box form"><b>${esc(p.brand)} <span class="ans">${esc(p.customer)}</span>: what the label promises</b>
+  <div class="wrapx"><table><tr><th>Nutrient</th><th class="r">% on the label</th><th class="r">Tolerance, points below</th><th></th></tr>${dgEdit.rows.map((r, i) => { const n = nutOf(r.nutrientId) || { label: '?' }; return `<tr><td><b>${esc(n.label)}</b> <span class="ans">${esc(nutHow(n))}</span></td><td class="r"><input id="dg-p-${i}" data-n7dg="${i}" inputmode="decimal" style="width:80px" value="${esc(r.pct)}" aria-label="% of ${esc(n.label)} on the label">${ST.m015 ? ` <select id="dg-m-${i}" aria-label="Is the label's ${esc(n.label)} w/w or w/v"><option value="w/w"${(r.measure || lDef) !== 'w/v' ? ' selected' : ''}>w/w</option><option value="w/v"${(r.measure || lDef) === 'w/v' ? ' selected' : ''}>w/v</option></select>` : ''}</td><td class="r"><input id="dg-t-${i}" data-n7dg="${i}" inputmode="decimal" style="width:80px" value="${esc(r.tol)}" placeholder="0" aria-label="Tolerance for ${esc(n.label)}"></td><td><button class="btn ghost danger" data-n7dgrm="${i}">Remove</button></td></tr>`; }).join('')}
+  <tr><td colspan="4"><label for="dg-add">Add a nutrient<select id="dg-add" data-n7dgadd="1"><option value="">Pick from the list</option>${free.map(n => `<option value="${n.id}">${esc(n.label)}${n.basis ? ' (' + esc(n.basis) + ')' : ''}</option>`).join('')}</select></label></td></tr></table></div>
+  ${ST.m015 ? `<p class="ans" style="margin:4px 0">w/w or w/v: as the label states it. A label in g per L: divide by 10.</p>` : ''}
+  <div><button class="btn" data-n7dgsave="${p.id}">Save</button> <button class="btn ghost" data-n7dgcancel="1">Cancel</button></div></div>`;
+}
+/** Keep what was typed on the card and the declared grade form when the page draws again. */
+function n7sync() {
+  if (mcDraft) mcDraft.rows.forEach((r, i) => { const p = $('mc-p-' + i); if (p) { r.pct = p.value; r.cert = val('mc-c-' + i) || ''; r.certDate = val('mc-d-' + i) || ''; if ($('mc-m-' + i)) r.measure = val('mc-m-' + i); } });
+  if (mcDraft && mcDraft.den && $('mcd-v')) mcDraft.den = { v: val('mcd-v') || '', src: val('mcd-s') || '', date: val('mcd-d') || '' };
+  if (pdEdit && $('pdd-v')) Object.assign(pdEdit, { v: val('pdd-v') || '', src: val('pdd-s') || '', date: val('pdd-d') || '' });
+  if (dgEdit && dgEdit.rows) dgEdit.rows.forEach((r, i) => { const p = $('dg-p-' + i); if (p) { r.pct = p.value; r.tol = val('dg-t-' + i) || ''; if ($('dg-m-' + i)) r.measure = val('dg-m-' + i); } });
+  if (mcNew && $('mcn-l')) mcNew = nutRead('mcn'); if (nlNew && $('nln-l')) nlNew = nutRead('nln');
+}
+document.addEventListener('input', e => { const t = e.target; if (!t || !t.id) return; const id = t.id; let m; // every box of these forms keeps its value in a draft at once (review 7a, minor 3)
+  if ((m = id.match(/^mc-([pcdm])-(\d+)$/)) && mcDraft && mcDraft.rows[+m[2]]) { mcDraft.rows[+m[2]][{ p: 'pct', c: 'cert', d: 'certDate', m: 'measure' }[m[1]]] = t.value; if (m[1] === 'm') { mcDraft.dirty = true; render(); const f = $(id); if (f) f.focus(); } } // focus kept (review 7c, minor 9)
+  else if ((m = id.match(/^mcd-([vsd])$/)) && mcDraft && mcDraft.den) mcDraft.den[{ v: 'v', s: 'src', d: 'date' }[m[1]]] = t.value;
+  else if ((m = id.match(/^pdd-([vsd])$/)) && pdEdit) pdEdit[{ v: 'v', s: 'src', d: 'date' }[m[1]]] = t.value;
+  else if ((m = id.match(/^dg-([ptm])-(\d+)$/)) && dgEdit && dgEdit.rows && dgEdit.rows[+m[2]]) dgEdit.rows[+m[2]][{ p: 'pct', t: 'tol', m: 'measure' }[m[1]]] = t.value;
+  else if (/^mt[ngsr]$/.test(id)) mtDraft[id] = t.value;
+  else if ((m = id.match(/^(mcn|nln|nle)-([lnb])$/))) { const o = m[1] === 'mcn' ? mcNew : m[1] === 'nln' ? nlNew : nlDraft; if (o) o[{ l: 'label', n: 'name', b: 'basis' }[m[2]]] = t.value; }
+  else if ((m = id.match(/^(cln|cle)-n$/))) { const o = m[1] === 'cln' ? clNew : clDraft; if (o) o.name = t.value; } });
+document.addEventListener('change', e => { const t = e.target; if (!t) return; const id = t.id || ''; let m;
+  if (/^mt[tu]$/.test(id)) mtDraft[id] = t.value;
+  else if ((m = id.match(/^(mcn|nln|nle)-m$/))) { const o = m[1] === 'mcn' ? mcNew : m[1] === 'nln' ? nlNew : nlDraft; if (o) o.measure = t.value; }
+  else if (t.dataset && t.dataset.n7clpick) { const o = t.dataset.n7clpick === 'cln' ? clNew : clDraft; const n = nutOf(t.value); if (o && n) { o.sug = (o.sug || []).filter(x => x.toLowerCase() !== n.label.toLowerCase()); if (t.checked) o.sug.push(n.label); } } });
+document.addEventListener('input', e => { const t = e.target; if (!t) return; if (t.id === 'dgq') { dgQ = t.value; render(); const n = $('dgq'); if (n) { n.focus(); n.setSelectionRange(n.value.length, n.value.length); } } else if (t.dataset && 'n7mc' in t.dataset && mcDraft) mcDraft.dirty = true; });
+document.addEventListener('change', e => { const t = e.target, d = t && t.dataset; if (!d) return;
+  if ('n7mcadd' in d) { n7sync(); if (t.value === 'new') mcNew = { measure: 'w/w' }; else if (t.value) { mcDraft.rows.push({ nutrientId: +t.value, pct: '', cert: '', certDate: '' }); mcDraft.dirty = true; } render(); const f = $(t.value === 'new' ? 'mcn-l' : 'mc-p-' + (mcDraft.rows.length - 1)); if (f) f.focus(); }
+  else if ('n7dgadd' in d) { n7sync(); if (t.value) dgEdit.rows.push({ nutrientId: +t.value, pct: '', tol: '', measure: isPerL(dgEdit.id) ? 'w/v' : 'w/w' }); render(); const f = $('dg-p-' + (dgEdit.rows.length - 1)); if (f) f.focus(); }
+  else if (d.n7clrole) { const p = d.n7clrole; if (p === 'cln') { clNew.name = val('cln-n'); clNew.role = t.value; } render(); } });
+document.addEventListener('click', async e => {
+  const b = e.target.closest && e.target.closest('[data-n7pd],[data-n7den],[data-n7tab],[data-n7mopen],[data-n7mcclose],[data-n7mcrm],[data-n7mcsave],[data-n7nsave],[data-n7ncancel],[data-n7nlnew],[data-n7nledit],[data-n7nlhide],[data-n7clnew],[data-n7cledit],[data-n7clsave],[data-n7clcancel],[data-n7dgedit],[data-n7dgrm],[data-n7dgsave],[data-n7dgcancel],[data-n7mtadd],[data-n7mtsave]'); if (!b || !ST) return;
+  const d = b.dataset; e.preventDefault(); n7sync();
+  if (d.n7den) { const g = d.n7den === 'grade', F = g ? mcDraft.den : (pdEdit || {}); const nm = g ? (matOf(+d.id) || {}).name : (prodOf(+d.id) || {}).brand; // push 7c (R70)
+    const j = await act('/api/c2m/density', { kind: d.n7den, id: +d.id, kgPerL: F.v, source: F.src, date: F.date }, x => x.removed ? `Density of ${nm} removed` : `Density of ${nm} saved: ${x.kgPerL} kg per L`); if (j) { if (g) mcDraft.den = null; else pdEdit = null; render(); } return; }
+  if (d.n7pd != null) { pdEdit = d.n7pd === '' ? null : (() => { const x = (ST.productDensity || {})[+d.n7pd]; return { id: +d.n7pd, v: x ? String(x.kgPerL) : '', src: x ? x.source || '' : '', date: x ? x.date || '' : '' }; })(); render(); const f = $('pdd-v'); if (f) f.focus(); return; }
+  if (d.n7tab) { mtab = d.n7tab; mcOpen = null; mcDraft = null; mcNew = null; }
+  else if (d.n7mopen) { if (pan) closePanel(); if (scr !== 'inputs' && scr !== 'costs') goPlace('inputs'); if (scr === 'costs') cpart = 'materials'; inp = 'materials'; mcOpen = +d.n7mopen; mcDraft = null; mcNew = null; mtab = 'materials'; }
+  else if (d.n7mcclose) { mcOpen = null; mcDraft = null; mcNew = null; }
+  else if (d.n7mcrm != null) { mcDraft.rows.splice(+d.n7mcrm, 1); mcDraft.dirty = true; }
+  else if (d.n7mcsave) { const m0 = matOf(mcDraft.gradeId) || {}, F = mcDraft.den, was = m0.density ? String(m0.density.kgPerL) : ''; // review 7c, minor 3: a density typed and not yet saved is saved with the card
+    if (ST.m015 && F && String(F.v || '').trim() !== was && !(await act('/api/c2m/density', { kind: 'grade', id: mcDraft.gradeId, kgPerL: F.v, source: F.src, date: F.date }, x => x.removed ? `Density of ${m0.name} removed` : `Density of ${m0.name} saved: ${x.kgPerL} kg per L`))) return;
+    const j = await act(`/api/c2m/grades/${mcDraft.gradeId}/nutrients`, { rows: mcDraft.rows }, `Nutrients saved for ${m0.name || 'the material'}`); if (j) { mcOpen = null; mcDraft = null; mcNew = null; render(); } return; }
+  else if (d.n7nsave) { const p = d.n7nsave; if (p === 'nle') { const j = await act(`/api/c2m/nutrients/${nlEdit}`, nutRead('nle'), 'Nutrient saved'); if (j) { nlEdit = null; nlDraft = null; render(); } return; }
+    const v = nutRead(p); const j = await act('/api/c2m/nutrients', v, x => `${x.label} added to the nutrient list`); if (!j) return;
+    if (p === 'mcn') { mcNew = null; if (mcDraft) mcDraft.rows.push({ nutrientId: j.id, pct: '', cert: '', certDate: '' }); render(); const f = mcDraft && $('mc-p-' + (mcDraft.rows.length - 1)); if (f) f.focus(); return; }
+    nlNew = null; render(); return; }
+  else if (d.n7ncancel) { if (d.n7ncancel === 'mcn') mcNew = null; else if (d.n7ncancel === 'nln') nlNew = null; else { nlEdit = null; nlDraft = null; } }
+  else if (d.n7nlnew) nlNew = { measure: 'w/w' };
+  else if (d.n7nledit) { nlEdit = +d.n7nledit; nlDraft = { ...nutOf(nlEdit) }; }
+  else if (d.n7nlhide) { const n = nutOf(d.n7nlhide); await act(`/api/c2m/nutrients/${d.n7nlhide}`, { hidden: d.hide === '1' }, d.hide === '1' ? `${n.label} hidden: kept where it is used, not offered for new entries` : `${n.label} shown again`); render(); return; }
+  else if (d.n7clnew) clNew = { role: 'nutrient', sug: [] };
+  else if (d.n7cledit) { clEdit = +d.n7cledit; const t0 = (ST.materialTypes || []).find(t => t.id === clEdit) || {}; clDraft = { id: clEdit, name: t0.name, role: t0.nutrient_role, sug: String(t0.nutrient_fields || '').split('|').filter(Boolean).map(f => { const l = f.replace(/\s*%\s*$/, '').trim(); const n = nutByLabel(l); return n ? n.label : l; }) }; }
+  else if (d.n7clcancel) { if (d.n7clcancel === 'cln') clNew = null; else { clEdit = null; clDraft = null; } }
+  else if (d.n7clsave) { const p = d.n7clsave; const ids = [...document.querySelectorAll(`[data-n7clpick="${p}"]`)].filter(x => x.checked).map(x => +x.value);
+    if (p === 'cln') { const role = val('cln-r') || 'nutrient'; const j = await act('/api/c2m/material-types', { name: val('cln-n'), role, nutrientIds: ids }, x => `Class added: ${x.name}`); if (j) { clNew = null; render(); } return; }
+    const j = await act(`/api/c2m/material-types/${clEdit}`, { name: val('cle-n'), nutrientIds: ids }, 'Class saved'); if (j) { clEdit = null; clDraft = null; render(); } return; }
+  else if (d.n7dgedit) dgEdit = { id: +d.n7dgedit };
+  else if (d.n7dgrm != null) dgEdit.rows.splice(+d.n7dgrm, 1);
+  else if (d.n7dgcancel) dgEdit = null;
+  else if (d.n7dgsave) { const j = await act(`/api/c2m/products/${d.n7dgsave}/declared`, { rows: dgEdit.rows }, 'Declared grade saved'); if (j) { dgEdit = null; render(); } return; }
+  else if (d.n7mtadd) { mtAdd = d.n7mtadd === '1'; if (!mtAdd) mtDraft = {}; }
+  else if (d.n7mtsave) { const rate = CAN('material.save') ? val('mtr') : ''; const j = await act('/api/c2m/materials', { name: val('mtn'), typeId: +val('mtt'), unit: val('mtu'), grade: val('mtg'), rate, source: val('mts') }, rate ? 'Material added with its rate' : 'Material added. The CFO is told to add its rate.'); if (j) { mtAdd = false; mtDraft = {}; render(); } return; }
+  render();
+});
+
+/* ---------- Push 7b (Tahir, 9 Nov 2026, R63 to R65, R67 to R69, D-163): the recipe path, Majid's editor, Himayat's check ----------
+   R63 a resend goes back to the QC Head when the lines changed since it was sent back; R64 the short path is Majid, Himayat, Yawar;
+   R65 notices (server); R67 the editor shows grade and nutrients, % of mix, a live total and the analysis against the declared grade;
+   R68 the check shows what changed, the grade check and data gaps, and a comment is needed only when something is red; R69 close. */
+let closeRec = null, recComment = {}; // a comment typed, kept per version (review 7b, minor 7)
+const myJob = v => v.state === 'draft' && v.sentBack ? 'Revise recipe' : MYJOB[v.state];
+const dot = s => String(s == null ? '' : s).trim().replace(/[.!?]+$/, '');
+const lineSigP = lines => (lines || []).map(l => `${Number(l.gradeId)}:${Number(Number(l.qty).toFixed(8))}`).sort().join('|');
+/** Where a resend goes (copy of lib.resendTo, c2m-lib.js). */
+function resendToP(v) { if (v.path === 'golive') return 'cost'; const sb = v.sentBack; if (!sb || sb.state === 'review') return 'review'; const to = v.backSig == null || v.backSig !== lineSigP(v.lines) ? 'review' : sb.state; return v.path === 'other' && to === 'endorse' ? 'review' : to; }
+const passTxt = v => v.state === 'draft' ? (v.sentBack ? `Resend to the ${ROLE_NAME[STEP_ROLE[resendToP(v)]]}` : v.path === 'golive' ? 'Send to the CFO' : 'Send to the QC Head') : v.state === 'review' ? (v.path === 'other' ? 'Pass to the CFO' : 'Pass to the Plant Manager') : v.state === 'endorse' ? 'Endorse' : 'Approve cost';
+/** What a material carries, short, for the picker: "N 46, OM 45", "adds no nutrients", "to classify", "nutrients not entered". */
+function matShort(m) { if (!m) return ''; if (m.role === 'none') return 'adds no nutrients'; if (m.role !== 'nutrient') return 'to classify';
+  const t = Object.entries(m.nutrients || {}).map(([k, x]) => `${fName(k)} ${Number(x)}`).join(', '); return ST.m014 && m.checked === false ? (t ? t + '; not all entered' : 'nutrients not entered') : t; }
+/** The approved version this one is compared with: the same recipe's, else the product's Default. */
+function recBase(v) { const R = ST.recipes || []; return R.filter(x => x.clientProductId === v.clientProductId && x.state === 'approved' && x.id !== v.id && (x.rname || 'Main') === (v.rname || 'Main')).sort((a, b) => b.version - a.version)[0] || (() => { const p = (ST.products || []).find(p => p.id === v.clientProductId); return p && p.approvedVersionId && p.approvedVersionId !== v.id ? R.find(x => x.id === p.approvedVersionId) : null; })(); }
+/** R68: what changed against the approved version, line by line (no Rs). */
+function recChanges(v) {
+  if (['approved', 'old', 'closed'].includes(v.state)) return ''; const a = recBase(v);
+  if (!a) return `<h2>What changed</h2><p class="ans">The first version of this recipe: nothing to compare.</p>`;
+  const sum = L => { const M = new Map(); L.forEach(l => { const o = M.get(l.gradeId); M.set(l.gradeId, o ? { ...o, qty: o.qty + l.qty } : { ...l }); }); return M; }; // a grade on 2 lines is added up (review 7b, minor 8)
+  const A = sum(a.lines), B = sum(v.lines), rows = [];
+  for (const [g, l] of B) { const o = A.get(g); if (!o) rows.push([l, null, l.qty, 'added']); else if (Math.abs(o.qty - l.qty) > 1e-9) rows.push([l, o.qty, l.qty, '']); }
+  for (const [g, o] of A) if (!B.has(g)) rows.push([o, o.qty, null, 'removed']);
+  return `<h2>What changed against approved version ${a.version}</h2>${rows.length ? `<div class="box wrapx"><table><tr><th>Material · grade</th><th class="r">Was, kg per ${isPerL(v.clientProductId) ? 'L' : 'kg'}</th><th class="r">Now</th></tr>${rows.map(([l, was, now, k]) => `<tr><td>${esc(l.name)} · ${esc(l.grade || '')}${k ? ` <span class="pill ${k === 'added' ? 'p-blue' : 'p-red'}">${k}</span>` : ''}</td><td class="r num">${was == null ? '–' : was.toFixed(4)}</td><td class="r num"><b>${now == null ? '–' : now.toFixed(4)}</b></td></tr>`).join('')}</table></div>` : '<p class="ans">No line changed.</p>'}`;
+}
+/** R62 and R68: the declared grade against this version's analysis. */
+function recGrade(v) {
+  if (!ST.m014 || ['old', 'closed'].includes(v.state)) return ''; const D = decOf(v.clientProductId);
+  if (!D.length) return `<p class="ans">No declared grade for this product yet, so the label is not checked.${CAN('grade.declare') ? ' Enter it on Inputs, Declared grades.' : ''}</p>`;
+  const c = gradeCheckP(D, v.nutrients, ST.m015 ? prodRho(v.clientProductId) : null), M = ST.m015 ? r => ' ' + esc(r.measure) : () => ''; // push 7c: in the label's basis
+  return `<h2>Against the label</h2><div class="box wrapx"><table><tr><th>Nutrient</th><th class="r">On the label</th><th class="r">This recipe gives</th><th>Check</th></tr>${c.rows.map(r => `<tr><td>${esc(r.label)}</td><td class="r num">${num4(r.pct)}%${M(r)}${r.tol ? ` <span class="ans">−${num4(r.tol)}</span>` : ''}</td><td class="r num">${r.got != null ? r.got.toFixed(2) + '%' + M(r) : (() => { const f = ((v.nutrients || {}).fields || []).find(f => String(f.field).toLowerCase() === r.label.toLowerCase()); return f && f.pct != null && !(ST.m015 && r.measure !== (v.nutrients || {}).basis) ? f.pct.toFixed(2) + '% so far' : '–'; })()}</td><td>${r.state === 'meets' ? '<span class="pill p-green">meets</span>' : r.state === 'below' ? `<span class="pill p-red">below by ${r.by}</span>` : `<span class="pill p-amber">${ST.m015 && r.why ? (/density/i.test(r.why) ? 'density missing' : 'not complete: ' + esc(r.why)) : 'analysis not complete'}</span>`}</td></tr>`).join('')}</table></div><p class="ans">A warning only: it stops nothing. Below the label needs a comment to pass.</p>`;
+}
+/** R68: materials on this recipe whose data is missing, each with Open for the QC Head (he fixes it himself, then passes). */
+function recGaps(v) {
+  if (['approved', 'old', 'closed'].includes(v.state)) return '';
+  const G = v.lines.map(l => { const m = matOf(l.gradeId); if (!m) return null; const w = m.role === 'unclassified' || !m.role ? 'needs a class' : m.role === 'nutrient' && ST.m014 && m.checked === false ? 'nutrients not entered' : m.role === 'nutrient' && (m.fields || []).some(f => (m.nutrients || {})[f] == null) ? 'a nutrient % is missing' : needDen(m) ? 'its density is missing' : null; const r = m.noRate || (ST.rates && (ST.rates.find(x => x.gradeId === l.gradeId) || {}).rate === null) ? "waits for the CFO's rate" : null; return w || r ? { l, m, w: [w, r].filter(Boolean).join('; ') } : null; }).filter(Boolean);
+  if (!G.length) return '';
+  return `<div class="amberbox"><b>Material data missing on this recipe:</b><ul style="margin:6px 0 0;padding-left:18px">${G.map(g => `<li>${esc(g.l.name)} · ${esc(g.l.grade || '')}: ${esc(g.w)}${CAN('nutrient.edit') && ST.m014 && /class|nutrient/.test(g.w) ? ` <button class="btn ghost sm" data-n7mopen="${g.l.gradeId}">Open material</button>` : ''}</li>`).join('')}</ul>${CAN('nutrient.edit') ? '<p class="ans" style="margin:6px 0 0">Fix it on the material yourself, then come back here and pass it: no need to send it back for this.</p>' : `<p class="ans" style="margin:6px 0 0">${[G.some(g => /class|nutrient|density/.test(g.w)) ? "The QC Head enters a material's class, nutrients and density" : '', G.some(g => /rate/.test(g.w)) ? "the CFO enters a material's rate" : ''].filter(Boolean).join('; ').replace(/^t/, 'T')}.</p>`}</div>`;
+}
+/** The step buttons, the comment and the reason it is needed (R68), Close (R69). */
+function recActions(v) {
+  const rv = ['review', 'endorse'].includes(v.state), fl = v.flags || [];
+  const unsaved = v.state === 'draft' && editLines && editLines.id === v.id && lineSigP(editLines.lines) !== lineSigP(v.lines); // review 7b, minor 7
+  const where = v.state === 'draft' && v.path === 'golive' ? ' Go-live window: it goes straight to the CFO.' : v.state === 'draft' && v.sentBack ? (resendToP(v) === 'review' && v.sentBack.state !== 'review' ? (v.backSig == null ? ' C2M does not know whether the lines changed since it was sent back, so it goes to the QC Head first.' : ' The lines changed since it was sent back, so it goes to the QC Head first.') : v.sentBack.state === 'review' ? '' : ' No line changed since it was sent back, so it goes straight back to whoever sent it.') : '';
+  return `<div class="next"><b>Your step: ${esc(myJob(v))}.</b>${where ? `<span class="ans">${esc(where.trim())}</span>` : ''}</div>
+  ${rv ? `<label for="rcm" style="display:block;margin:6px 0">Comment ${fl.length ? `<b class="late">needed, because ${esc(fl.join('; '))}</b>` : '<span class="ans">(optional; kept on the step)</span>'}<textarea id="rcm" data-ver="${v.id}" maxlength="400">${esc(recComment[v.id] || '')}</textarea></label>` : ''}
+  ${unsaved ? '<p class="late" style="margin:4px 0">Save lines first: the lines typed in the editor are not saved yet, and only saved lines are sent.</p>' : ''}<div class="acts"><button class="btn" data-adv="${v.id}"${v.state === 'cost' ? ' data-confirm="Confirm: approve cost"' : ''}${unsaved ? ' disabled' : ''}>${esc(passTxt(v))}</button>${v.state !== 'draft' ? ` <button class="btn ghost" data-sb="${v.id}">Send back to the Production Manager</button> <button class="btn ghost" data-rclose="${v.id}">Close this version</button>` : ''}${v.state === 'draft' && CAN('recipe.edit') ? ` <button class="btn ghost" data-editlines="${v.id}">Edit lines</button>` : ''}</div>`;
+}
+const canCloseDraft = v => v.state === 'draft' && v.sentBack && (v.sentBack.by === ST.me.user || ADM()) && CAN('recipe.step.' + v.sentBack.state);
+function closeBox(v) { if (closeRec !== v.id || behind) return ''; return `<div class="box form"><b>Close this version</b><p class="ans" style="margin:0">It stops here and is kept, with its lines and steps. The Production Manager is told and reads your reason; the next version starts from the approved one.</p><label for="rcl">Why it is closed (required)<textarea id="rcl" maxlength="400"></textarea></label><div><button class="btn warn" data-rclosego="${v.id}">Close it</button> <button class="btn ghost" data-rclosecancel>Cancel</button></div></div>`; }
+/** R67: Majid's line editor: grade and nutrients in the picker, a Find box, % of mix, the live total and analysis against the label. */
+function linesEditor(v) {
+  const pool = (ST.materials || ST.rates || []).filter(m => inUseOr('grade', m.gradeId) || editLines.lines.some(l => l.gradeId === m.gradeId)).slice().sort((a, b) => a.name.localeCompare(b.name) || String(a.grade).localeCompare(String(b.grade)));
+  const opt = (m, sel) => `<option value="${m.gradeId}"${sel ? ' selected' : ''}>${esc(m.name)} · ${esc(m.grade || '')}${matShort(m) ? ' — ' + esc(matShort(m)) : ''}</option>`;
+  const U = isPerL(v.clientProductId) ? 'L' : 'kg'; // a product sold per L: kg of input per 1 L of product (review 7c, M1)
+  return `<div class="box form" id="el-box" data-cp="${v.clientProductId}"><b>Edit draft lines</b> <span class="ans">kg of input per 1 ${U} of product${U === 'L' ? ' (a material bought in L: L per 1 L)' : ''}; % of the mix is worked out as you type</span>
+  <div class="wrapx"><table><tr><th>Material · grade — what it carries</th><th class="r">Kg per ${isPerL(v.clientProductId) ? 'L' : 'kg'}</th><th class="r">% of mix</th><th></th></tr>
+  ${editLines.lines.map((l, i) => `<tr><td><select data-el-m="${i}" aria-label="Material, line ${i + 1}">${pool.map(m => opt(m, m.gradeId === l.gradeId)).join('')}</select></td><td class="r"><input inputmode="decimal" data-el-q="${i}" value="${esc(String(l.qty))}" style="width:90px" aria-label="Kg per ${U}, line ${i + 1}"></td><td class="r num" id="el-pc-${i}"></td><td><button class="btn ghost danger" data-el-del="${i}">Remove</button></td></tr>`).join('')}
+  <tr class="tot"><td><b>Total</b></td><td class="r num"><b id="el-tot"></b></td><td class="r num"><b id="el-totpc"></b></td><td></td></tr></table></div>
+  <div class="row" style="align-items:flex-end"><label for="el-find" style="flex:1 1 220px">Find a material: name, grade or nutrient<input id="el-find" type="search" value="${esc(editLines.find || '')}" autocomplete="off"></label><label for="el-addm" style="flex:2 1 280px">Material to add<select id="el-addm">${elAddOpts(pool)}</select></label><label for="el-addq">Kg per ${U}<input id="el-addq" inputmode="decimal" style="width:90px" value="${esc(editLines.addQ || '')}"></label><button class="btn ghost" data-el-addgo>Add the line</button></div>
+  <div id="el-live" aria-live="polite"></div>
+  <div><button class="btn${v.path === 'golive' && canStep(v) ? ' ghost' : ''}" data-el-save="${v.id}">Save lines</button>${v.path === 'golive' && canStep(v) ? ` <button class="btn" data-el-send="${v.id}">Save lines and send to the CFO</button>` : ''} <button class="btn ghost" data-el-cancel>Cancel</button></div></div>`; // go-live window: save and send in 1 press (Tahir, 17 Nov 2026, D-170)
+}
+function elAddOpts(pool) { const q = String(editLines.find || '').trim().toLowerCase(); const A = (pool || []).filter(m => !editLines.lines.some(l => l.gradeId === m.gradeId) && (!q || `${m.name} ${m.grade} ${matShort(m)}`.toLowerCase().includes(q)));
+  return A.map(m => `<option value="${m.gradeId}"${String(editLines.addG) === String(m.gradeId) ? ' selected' : ''}>${esc(m.name)} · ${esc(m.grade || '')}${matShort(m) ? ' — ' + esc(matShort(m)) : ''}</option>`).join('') || '<option value="">Nothing matches</option>'; }
+/** The analysis of the lines as typed (the engine's rule: kg per kg or per L x % in the material, per 1 kg or 1 L of product). */
+function elCalc() {
+  const L = editLines.lines, tot = L.reduce((s, l) => s + (Number(l.qty) > 0 ? Number(l.qty) : 0), 0), sums = new Map(), gaps = [], noDen = new Map(); let complete = true;
+  for (const l of L) { const m = matOf(l.gradeId), q = Number(l.qty) > 0 ? Number(l.qty) : 0; if (!m) { complete = false; gaps.push('a material not in the list'); continue; } if (m.role === 'none') continue;
+    if (m.role !== 'nutrient') { complete = false; gaps.push(`${m.name} needs a class`); continue; }
+    if (ST.m014 && m.checked === false) { complete = false; gaps.push(`${m.name}: nutrients not entered yet`); }
+    { const bl = (m.fields || []).filter(f => (m.nutrients || {})[f] == null); if (bl.length) { complete = false; if (!(ST.m014 && m.checked === false)) gaps.push(`${m.name}: ${bl.map(fName).join(', ')} % not entered`); } } // push 7f: the blank % named
+    const ms = new Map((m.nutRows || []).map(r => [r.label, r.measure])), den = m.density ? m.density.kgPerL : null;
+    for (const [k, x] of Object.entries(m.nutrients || {})) { const pc = ST.m015 ? perUnitPctP(x, ms.get(k) || 'w/w', m.unit, den) : Number(x); // push 7c: w/v ÷ the material's density
+      if (pc == null) { complete = false; if (!noDen.has(k)) noDen.set(k, []); if (!noDen.get(k).includes(m.name)) noDen.get(k).push(m.name); continue; } sums.set(k, (sums.get(k) || 0) + q * pc); } }
+  noDen.forEach((ms, k) => gaps.push(`density of ${ms.join(', ')} missing (${k})`));
+  const cp = editLines.cp, perL = ST.m015 && isPerL(cp);
+  return { tot, complete, gaps: [...new Set(gaps)], perL, N: { complete, basis: perL ? 'w/v' : 'w/w', rho: ST.m015 ? prodRho(cp) : null, fields: [...new Set([...sums.keys(), ...noDen.keys()])].map(field => ({ field, pct: noDen.has(field) ? null : sums.get(field) || 0, missing: [], noDensity: noDen.get(field) || [] })) } };
+}
+function elLive() {
+  const box = $('el-box'); if (!box || !editLines) return; const C = elCalc();
+  editLines.lines.forEach((l, i) => { const c = $('el-pc-' + i); if (c) c.textContent = C.tot > 0 && Number(l.qty) > 0 ? (Number(l.qty) / C.tot * 100).toFixed(1) : '–'; });
+  const t = $('el-tot'); if (t) t.textContent = C.tot.toFixed(4); const tp = $('el-totpc'); if (tp) tp.textContent = C.tot > 0 ? '100.0' : '–';
+  const D = ST.m014 ? decOf(+box.dataset.cp) : []; const g = D.length ? gradeCheckP(D, C.N) : null; const B = ST.m015 ? ' ' + C.N.basis : '';
+  const lab = f => { const r = g && g.rows.find(r => r.label.toLowerCase() === String(f).toLowerCase()); const lb = r && ST.m015 ? ' ' + r.measure : ''; return r ? (r.state === 'below' ? ` <span class="late">(label ${num4(r.pct)}${lb}, below)</span>` : r.state === 'meets' ? ` <span class="ans">(label ${num4(r.pct)}${lb}, meets)</span>` : ` <span class="ans">(label ${num4(r.pct)}${lb})</span>`) : ''; };
+  const parts = C.N.fields.filter(f => f.pct != null).sort((a, b) => b.pct - a.pct).map(f => `${esc(fName(f.field))} ${f.pct.toFixed(2)}%${B}${lab(f.field)}`);
+  const miss = g ? g.rows.filter(r => !C.N.fields.some(f => f.field.toLowerCase() === r.label.toLowerCase())).map(r => `${esc(r.label)} 0% <span class="late">(label ${num4(r.pct)}${C.complete ? ', below' : ''})</span>`) : [];
+  const L = $('el-live'); if (L) L.innerHTML = `<div class="${g && g.state === 'below' ? 'amberbox' : 'notebox'}"><b>As you type, per 1 ${C.perL ? 'L' : 'kg'} of product:</b> ${parts.concat(miss).join(' · ') || 'no nutrient yet'}.${C.gaps.length ? ` <span class="late">Not complete: ${esc(C.gaps.join('; '))}.</span>` : ''}${C.perL ? (C.tot ? ` <span class="ans">The lines add to ${C.tot.toFixed(4)} kg per L${C.N.rho ? `; the product's density is ${num4(C.N.rho)}` : ''} (a hint only).</span>` : '') : C.tot && (C.tot < 0.98 || C.tot > 1.2) ? ` <span class="late">The lines add to ${C.tot.toFixed(4)} kg per kg; usual is 0.98 to 1.20.</span>` : ''}${g ? ' Below the label is a warning, not a block: you can still send it, and the QC Head sees the same.' : ''}</div>`;
+}
+document.addEventListener('input', e => { const t = e.target; if (!t || !editLines) return; const d = t.dataset || {};
+  if (d.elQ != null) { const x = String(t.value).replace(',', '.').trim(); editLines.lines[+d.elQ].qty = x === '' || isNaN(Number(x)) ? x : Number(x); elLive(); }
+  else if (t.id === 'el-addq') editLines.addQ = t.value;
+  else if (t.id === 'el-find') { editLines.find = t.value; const s = $('el-addm'); if (s) s.innerHTML = elAddOpts((ST.materials || ST.rates || []).filter(m => inUseOr('grade', m.gradeId))); }
+  });
+document.addEventListener('input', e => { const t = e.target; if (t && t.id === 'rcm') recComment[t.dataset.ver] = t.value; });
+
+/* ---------- 0.8.0: Setup, what drives C2M; work moved to Today (ruling 5) ---------- */
+/* ---------- Rate and packing price trials (Inputs) ---------- */
+function trialBox() {
+  const g = (ST.rates || []).find(r => r.gradeId === trial.gradeId); const T = trial.res || { warning: {}, impact: [] };
+  const w = T.warning || {};
+  return `<div class="box form" id="trf"><b>Change cost: ${esc(g.name)}</b><p class="ans" style="margin:0">Now ${rs2(g.rate)} (${esc(g.date || '')}).</p>
+  <div class="row"><label for="trv">New rate, Rs<input id="trv" type="number" value="${trial.rate}"></label><label for="trs" style="flex:1 1 240px">Source, PO number or quote (required)<input id="trs" value="${esc(trial.source || '')}"></label><button class="btn ghost" data-trcalc>Show effect</button></div>
+  ${w.warn && w.pct != null ? `<div class="warnbox"><b>Did you mean ${rs2(trial.rate)}?</b> That is ${w.pct.toFixed(0)}% ${w.pct > 0 ? 'above' : 'below'} the last saved rate. <label style="display:inline-flex;gap:6px;align-items:center;color:var(--ink)"><input type="checkbox" id="trc" ${trial.conf ? 'checked' : ''}> Yes, I meant this rate</label></div>` : ''}
+  <div class="box wrapx"><table><tr><th>Pack</th><th class="r">Cost now</th><th class="r">Cost after</th><th class="r">Change</th><th class="r">Extra cost on open POs, Rs</th><th class="r">Price for target</th></tr>${T.impact.length ? T.impact.map(i => `<tr><td>${esc(i.label)}</td><td class="r num">${rs2(i.now)}</td><td class="r num">${rs2(i.after)}</td><td class="r num ${i.pct > 0 ? 'over' : 'ok'}">${i.pct != null ? i.pct.toFixed(1) + '%' : 'first rate'}${i.reapprove && !GLON() ? ` <span class="pill p-amber">re-approve: ${i.pctApproved > 0 ? '+' : ''}${i.pctApproved.toFixed(1)}% on approved ${rs2(i.approved)}</span>` : ''}</td><td class="r num">${rs(i.rsOnOpen)}</td><td class="r num">${rs2(i.priceForTarget)}</td></tr>`).join('') : '<tr><td colspan="6">Click "Show effect". No approved recipe uses this material if the list stays empty.</td></tr>'}</table></div>
+  ${weekNote('tr', g.rate == null)}<div><button class="btn" data-trsave ${(w.warn && !trial.conf) || !(trial.rate > 0) || !String(trial.source || '').trim() ? 'disabled' : ''}>${saveWord('Save cost', g.rate == null)}</button> <button class="btn ghost" data-trdrop>Drop</button> <span class="ans" id="trhint"${String(trial.source || '').trim() ? ' hidden' : ''}>Add the source to save.</span></div></div>`;
+}
+/** Bought per piece, or per kg with pieces per kg (plastic inners, Yawar 26 Oct 2026). p = id prefix. */
+function buyFields(p, mode, v) {
+  v = v || {};
+  return `<label for="${p}-buy">Bought per<select id="${p}-buy" data-buymode="${p}"><option value="piece"${mode === 'kg' ? '' : ' selected'}>Piece</option><option value="kg"${mode === 'kg' ? ' selected' : ''}>Kg (e.g. plastic inners)</option></select></label>`
+    + (mode === 'kg' ? `<label for="${p}-kg">Price per kg, Rs<input id="${p}-kg" type="number" step="any" data-buyin="${p}" value="${v.kg ?? ''}"></label><label for="${p}-n">Pieces in 1 kg<input id="${p}-n" type="number" step="any" placeholder="e.g. 29" data-buyin="${p}" value="${v.n ?? ''}"></label>`
+      : `<label for="${p}-pp">Price per piece, Rs<input id="${p}-pp" type="number" step="any" data-buyin="${p}" value="${v.pp ?? ''}"></label>`);
+}
+/** The working, shown as he types: 860 ÷ 29 = Rs 29.66 per piece; on a 25 kg pack Rs 1.19 per kg. */
+function buyWork(p) {
+  const m = (document.getElementById(p + '-buy') || {}).value || (p === 'pi' ? pinBuy : (ptrial && ptrial.buy)) || 'piece';
+  if (m !== 'kg') return '';
+  const kg = Number((document.getElementById(p + '-kg') || {}).value), n = Number((document.getElementById(p + '-n') || {}).value);
+  if (!(kg > 0) || !(n > 0)) return 'Price per piece = price per kg ÷ pieces in 1 kg. On a pack, C2M then divides by the pack size, e.g. (860 ÷ 29) ÷ 25 kg = Rs 1.19 per kg.';
+  const pc = kg / n; return `${rs2(kg)} ÷ ${n} = <b>${rs2(pc)} per piece</b>. On a 25 kg pack that is ${rs2(pc / 25)} per kg; C2M uses each pack's own size.`;
+}
+function buyBody(p) {
+  const m = val(p + '-buy') || 'piece';
+  return m === 'kg' ? { buy: 'kg', perKg: val(p + '-kg'), piecesPerKg: val(p + '-n') } : { buy: 'piece', price: Number(val(p + '-pp')) };
+}
+function ptrialBox() {
+  const it = (ST.packingItems || []).find(i => i.id === ptrial.itemId);
+  return `<div class="box form" id="ptf"><b>Change packing price: ${esc(it.name)}</b><p class="ans" style="margin:0">Now ${rs2(it.price)} per piece${it.buy ? ` (${rs2(it.buy.perKg)} per kg ÷ ${it.buy.piecesPerKg} pieces)` : ''}.</p>
+  <div class="row">${buyFields('pt', ptrial.buy, it.buy ? { kg: it.buy.perKg, n: it.buy.piecesPerKg, pp: ptrial.price ?? it.price } : { pp: ptrial.price ?? it.price })}<label for="pts" style="flex:1 1 240px">Source, PO number or quote (required)<input id="pts" value="${esc(ptrial.source || '')}"></label></div>
+  <p class="ans" id="pt-work" style="margin:0">${buyWork('pt')}</p>
+  ${ptrial.warn != null ? `<div class="warnbox"><b>Did you mean ${rs2(ptrial.warn.price)} per piece?</b> That is ${ptrial.warn.pct.toFixed(0)}% from the last price. <label style="display:inline-flex;gap:6px;align-items:center;color:var(--ink)"><input type="checkbox" id="ptc" ${ptrial.conf ? 'checked' : ''}> Yes, I meant this price</label></div>` : ''}
+  ${weekNote('pt', it.price == null)}<div id="eff-pt"></div><div><button class="btn" data-ptsave>${saveWord('Save price', it.price == null)}</button> <button class="btn ghost" data-ptdrop>Drop</button> <span class="ans">Packs whose cost moves more than ${SET('reapprove_pct')}% go to re-approval.</span></div></div>`;
+}
+/** Live, without redrawing the box (review C8: a redraw lost the first click and the typing). */
+function trialSync() {
+  if (trial) { const sv = document.querySelector('[data-trsave]'); const src = val('trs'); trial.source = src; const r = Number(val('trv'));
+    if (trial.res && r !== trial.resRate) { trial.res = null; trial.conf = false; const f = document.getElementById('trf'); if (f) { f.querySelectorAll('.warnbox').forEach(x => x.remove()); const tb = f.querySelector('table'); if (tb) tb.innerHTML = '<tr><td>The rate changed: click "Show effect" again.</td></tr>'; } } // a stale effect is never shown for a new rate (review r12)
+    const w = trial.res && trial.res.warning || {}; if (sv) sv.disabled = (w.warn && !trial.conf) || !(r > 0) || !String(src || '').trim();
+    const h = document.getElementById('trhint'); if (h) h.hidden = !!String(src || '').trim(); }
+  ['pt', 'pi'].forEach(p => { const el = document.getElementById(p + '-work'); if (el) el.innerHTML = buyWork(p); });
+}
+
+/* ---------- Prices ---------- */
+/** The state of 1 white label pack at today's price (By customer and the product page). 1 colour rule: red = below the
+ *  contribution floor, below cost, or costed with no price; red also when more than 2 points short of the GP target; amber = short within 2 points; green = on target; grey = no target or not costed. */
+const ALLC = ''; const STRANK = { 'p-red': 0, 'p-amber': 1, 'p-none': 2, 'p-green': 3 }, STRIPE = { 'p-red': 'r-red', 'p-amber': 'r-amber', 'p-green': 'r-green', 'p-none': 'r-none' };
+function priceState(k, target, gp) {
+  if (!k.cost) return ['p-none', 'not costed'];
+  if (!(k.price > 0)) return ['p-red', k.waitingProposal ? 'no price, with the COO' : k.nextPrice ? `no price, Rs ${n2(k.nextPrice.price)} from ${fmtShort(k.nextPrice.from)}` : k.priceEnded ? `price ended ${fmtShort(k.priceEnded.till)}` : 'costed, no price'];
+  if (k.floor != null && k.price < k.floor) return ['p-red', 'below floor']; // the floor is below cost, so it is checked first: the worse of the 2 (re-review)
+  if (gp < 0) return ['p-red', 'below cost'];
+  if (target == null) return ['p-none', 'no target'];
+  return gp < target - 0.05 ? (gpTone(gp, target) === 'red' ? ['p-red', 'well below target'] : ['p-amber', 'below target']) : ['p-green', 'on target'];
+}
+/** White label packs with a full cost and no price (T6, D7): they cannot be sold at a checked price. */
+const noPrice = memo(noPrice0); // push 10f (C-22)
+function noPrice0() { const out = []; for (const [id, k] of packIdx()) { if (k.product.grp !== 'White label' || !k.cost || k.price > 0 || k.waitingProposal || k.nextPrice) continue; const t = k.product.target;
+  out.push({ id, cust: k.product.customer, prod: packLabel(k), brand: k.product.brand, pack: k.size, price: null, c: k.cost.total, tp: t == null ? null : k.cost.total / (1 - t / 100), gp: null, target: t, gapPts: 0, kg3: 0, openKg: 0, fwd: 0, fwdLoss: 0, floor: k.floor, unit: k.product.soldPer === 'L' ? 'L' : 'kg', why: ['no price'], k }); } return out; }
+const toChange = memo(toChange0, () => fbasis + '|' + SET('forward_months')); // push 10f (C-22)
+function toChange0() {
+  const ex = exposure(); const out = []; const P = packIdx();
+  for (const x of ex) {
+    const k = P.get(x.id); const cust = (ST.customers || []).find(c => c.name === x.cust) || {};
+    const why = []; if (x.gp < 0) why.push('below cost'); else if (x.target != null && x.gp < x.target - 0.05) why.push('below target'); if (cust.priceRule === 'time' && (!x.priceFrom || String(x.priceFrom).slice(0, 10) <= addDays(ST.today, -30))) why.push('revision due');
+    if (x.floor != null && x.price < x.floor) why.push('below floor');
+    if (why.length && x.next) why.push('next');
+    if (why.length) out.push({ ...x, why, k });
+  }
+  return out.sort((a, b) => b.fwd - a.fwd || b.gapPts - a.gapPts).concat(noPrice());
+}
+/** The reason a pack is on the list, as a pill (D1). */
+const whyPill = x => x.why.map(w => w === 'below target' ? `<span class="pill ${gpTone(x.gp, x.target) === 'red' ? 'p-red' : 'p-amber'}">below target ${x.target != null ? x.target.toFixed(1) : ''}</span>` : w === 'revision due' ? '<span class="pill p-none">revision due</span>' : w === 'next' ? `<span class="pill p-none">Rs ${n2(x.next.price)} from ${esc(fmtShort(x.next.from))}</span>` : `<span class="pill p-red">${w === 'no price' ? (x.k && x.k.priceEnded ? `price ended ${esc(fmtShort(x.k.priceEnded.till))}` : 'costed, no price') : esc(w)}</span>`).join(' ');
+function vPrices() {
+  const s = sub || 'change'; const R = ST.me.role;
+  const nW = (ST.proposals || []).filter(p => p.status === 'proposed').length; const nD = [...packIdx().values()].filter(k => k.nextPrice).length; const ALL = toChange();
+  const tabs = `<div class="subnav" role="tablist" aria-label="Prices">${[['change', 'To change', ALL.length], ['proposals', 'With the COO', nW], ['waiting', 'Waiting for date', nD], ['client', 'By client'], ['lists', 'Price lists'], ['vanlists', 'VAN brand lists']].map(([k, l, n]) => `<button role="tab" data-sub="${k}" aria-selected="${s === k}">${l}${n != null ? ` <span class="tc">${n}</span>` : ''}</button>`).join('')}</div>`;
+  if (s === 'lists') return head('Prices', 'Price lists: build, check and send.', '1 builder for every audience. Pick who it is for, pick the fields, check the document, then create the PDF. Cost and margin can never be printed. C2M numbers each document (VAN/PL/year/number) and keeps the rows exactly as issued.') + tabs + vListsBuilder();
+  if (s === 'vanlists') { const w = (ST.listRevisions || []).filter(r => r.status === 'proposed').length; return head('Prices', `VAN brand lists: ${pl(w, 'revision waits', 'revisions wait')} for the COO.`, 'The CFO proposes new list prices with a reason and dates; the COO approves or sends back on his Today. A revision dated today changes the list on approval; one dated ahead waits for its date (a PDF dated on or after it already shows the new prices).') + tabs + revBox(false); }
+  if (s === 'waiting') return head('Prices', nD ? `${pl(nD, 'price is', 'prices are')} approved and waiting for ${nD === 1 ? 'its' : 'their'} date.` : 'No approved price is waiting for a later date.', 'A price approved with a later start date waits here; today\'s price stays in force until then. The COO can withdraw a waiting price before its date.') + tabs + (waitingPrices() || '<div class="box jobs"><div class="job"><div><div class="t">Nothing is waiting.</div></div></div></div>');
+  if (s === 'change') {
+    const G = { all: ALL, noprice: ALL.filter(x => x.why.includes('no price')), cost: ALL.filter(x => x.why.includes('below cost')), target: ALL.filter(x => x.why.includes('below target')), due: ALL.filter(x => { const w = x.why.filter(y => y !== 'next'); return w.length === 1 && w[0] === 'revision due'; }) };
+    const L = G[pgrp] || G.all; const c = G.cost.length, t = G.target.length, n = G.noprice.length;
+    if (!loaded()) return `${head('Prices', 'No client prices in C2M yet: they come with the load of the CFO\'s sheets.', 'Once loaded, every white label price that is below cost, below target, below contribution, costed with no price, or due for revision is listed here with its reason.')}${tabs}`;
+    return `${head('Prices', ALL.length ? `${CAN('price.approve') ? `${pl(ALL.length, 'client price', 'client prices')} to change; the CFO proposes` : `${pl(ALL.length, 'client price needs', 'client prices need')} you`}${[n ? `${n} ${n === 1 ? 'has' : 'have'} no price` : '', c ? `${c} ${c === 1 ? 'is' : 'are'} below cost` : '', t ? `${t} ${t === 1 ? 'is' : 'are'} below target` : ''].filter(Boolean).length ? ': ' + [n ? `${n} ${n === 1 ? 'has' : 'have'} no price` : '', c ? `${c} ${c === 1 ? 'is' : 'are'} below cost` : '', t ? `${t} ${t === 1 ? 'is' : 'are'} below target` : ''].filter(Boolean).join(', ') : ''}.` : 'No client price needs changing.', 'Flagged when costed with no price, below cost, below target GP on today\'s cost, below the contribution floor, or due for monthly revision. Sorted by Rs at stake. The CFO proposes in a panel; the COO approves on his Today.')}
+    ${tabs}<div class="wtbar"><div class="chips">${[['all', 'All'], ['noprice', 'No price'], ['cost', 'Below cost'], ['target', 'Below target'], ['due', 'Revision due only']].filter(([k]) => k === 'all' || G[k].length).map(([k, l]) => `<button data-pgrp="${k}" aria-pressed="${(G[pgrp] ? pgrp : 'all') === k}">${l} ${G[k].length}</button>`).join('')}</div><span class="sp"></span>${basisChips().replace('class="chips"', 'class="chips" style="margin:0"')}</div>
+    ${toChangeTable(L)}
+    <p class="ans">${CAN('price.propose') ? 'Propose opens a panel beside the list.' : `The CFO proposes from this list. Your approvals open on Approvals (${nW} waiting).`} Rs at stake = price gap to target GP x expected kg less kg already on open POs. Contribution floor = materials + packing + freight + labour per kg.</p>`;
+  }
+  if (s === 'client') {
+    const custs = [...new Set((ST.products || []).filter(p => p.grp === 'White label').map(p => p.customer))].sort((a, b) => a.localeCompare(b)); priceCust = priceCust && (custs.includes(priceCust) || priceCust === ALLC) ? priceCust : ALLC; const all = priceCust === ALLC;
+    if (!custs.length) return `${head('Prices', 'No white label client in C2M yet.', 'Client-wise white label prices show here once the clients and their products are loaded.')}${tabs}`; // seen live on 18 Oct with no data: it read ": 0 packs."
+    const prods = (ST.products || []).filter(p => (all || p.customer === priceCust) && p.grp === 'White label'); let tot = 0, costT = 0;
+    const SB = new Map(), OB = new Map(); (ST.sales || []).forEach(x => { if (x.packId) (SB.get(x.packId) || SB.set(x.packId, []).get(x.packId)).push(x); }); (ST.open || []).forEach(x => { if (x.packId) (OB.get(x.packId) || OB.set(x.packId, []).get(x.packId)).push(x); });
+    const rows = []; prods.forEach(p => p.packs.forEach(k => {
+      const trAll = SB.get(k.id) || [], tr = trAll.filter(x => inP(x.date)); const prices = trAll.map(t => t.price).concat((OB.get(k.id) || []).map(o => o.price));
+      const act = tr.length ? tr.reduce((s, t) => s + t.kg * t.price, 0) / tr.reduce((s, t) => s + t.kg, 0) : null; const kg = tr.reduce((s, t) => s + t.kg, 0);
+      if (k.cost && act != null) { tot += act * kg; costT += k.cost.total * kg; }
+      const gp = k.cost && k.price > 0 ? (k.price - k.cost.total) / k.price * 100 : null;
+      rows.push({ name: `${all ? p.customer + ' · ' : ''}${p.brand} ${k.size} ${p.soldPer}`, fam: p.fam, cur: k.price, prev: k.prevPrice, hi: prices.length ? Math.max(...prices) : null, lo: prices.length ? Math.min(...prices) : null, act, cost: k.cost ? k.cost.total : null, target: p.target, gp, st: priceState(k, p.target, gp) });
+    }));
+    rows.sort((a, b) => (STRANK[a.st[0]] - STRANK[b.st[0]]) || a.name.localeCompare(b.name));
+    const n = c => rows.filter(x => x.st[1] === c).length; const onT = n('on target');
+    const nIn = f => rows.filter(f).length; const tally = [['below floor', n('below floor')], ['below cost', n('below cost')], ['with no price', nIn(x => /price/.test(x.st[1]) && x.st[0] === 'p-red')], ['below target', n('below target')], ['no target', n('no target')], ['not costed', n('not costed')]].filter(x => x[1]).map(([l, c]) => `${c} ${l}`).join(', ');
+    return `${head('Prices', `${all ? 'All white label clients' : esc(priceCust)}: ${onT} of ${pl(rows.length, 'pack', 'packs')} on target${tally ? '; ' + esc(tally) : ''}.`, 'Every white label pack of the client(s) at today\'s price against cost today and its GP target. State: red = below the contribution floor, below cost, or with no price (with the COO, waiting for a date, or ended); red also when more than 2 points short of the GP target; amber = short within 2 points; green = on target; grey = no target or not costed yet. Packs that need action come first. This judges each pack\'s price today; Margin judges what clients actually bought, so a client can be red on Margin for a large Rs gap while its packs show amber here. GP here is on cost at the Labour and FOH rates; targets were set on full cost. The average row is trucks shipped in the period chosen on Margin, at cost today. Add or remove columns to suit you.')}${tabs}
+    <div class="cols"><label for="pcu">Client <select id="pcu"><option value="${ALLC}" ${all ? 'selected' : ''}>All clients</option>${custs.map(c => { const r = (ST.products || []).filter(p => p.customer === c && p.grp === 'White label').flatMap(p => p.packs.map(k => priceState(k, p.target, k.cost && k.price > 0 ? (k.price - k.cost.total) / k.price * 100 : null)[1])); return `<option value="${esc(c)}" ${c === priceCust ? 'selected' : ''}>${esc(c)} (${r.filter(x => x === 'on target').length} of ${r.length} on target)</option>`; }).join('')}</select></label>${Object.entries({ prev: 'Previous price', hilo: 'High and low', margin: 'GP and target', port: 'Portfolio average', actual: 'O2S actual price' }).map(([k, l]) => `<label><input type="checkbox" data-col="${k}" ${cols[k] ? 'checked' : ''}> ${l}</label>`).join('')}</div>
+    <div class="box wrapx"><table class="wt cards"><thead><tr><th>Product and pack</th><th class="r">Price now</th>${cols.prev ? '<th class="r">Previous</th>' : ''}${cols.hilo ? '<th class="r">High</th><th class="r">Low</th>' : ''}${cols.actual ? '<th class="r">O2S actual</th>' : ''}${cols.margin ? '<th class="r">GP on cost today</th><th class="r">Target</th>' : ''}<th>State</th></tr></thead><tbody>
+    ${rows.map(x => `<tr class="${STRIPE[x.st[0]] || 'r-none'}"><td data-l="Product and pack"><i class="fam" style="background:${esc(x.fam || '#8796A5')}"></i><span class="nw">${esc(x.name)}</span></td><td data-l="Price now" class="r num">${x.cur != null ? x.cur.toFixed(2) : 'none'}</td>${cols.prev ? `<td data-l="Previous" class="r num">${x.prev != null ? x.prev.toFixed(2) : '–'}</td>` : ''}${cols.hilo ? `<td data-l="High" class="r num">${x.hi != null ? x.hi.toFixed(2) : '–'}</td><td data-l="Low" class="r num">${x.lo != null ? x.lo.toFixed(2) : '–'}</td>` : ''}${cols.actual ? `<td data-l="O2S actual" class="r num">${x.act != null ? x.act.toFixed(2) : '–'}</td>` : ''}${cols.margin ? `<td data-l="GP on cost today" class="r num ${x.gp == null ? '' : x.st[0] === 'p-red' ? 'over' : x.st[0] === 'p-amber' ? 'late' : x.st[0] === 'p-green' ? 'ok' : ''}">${pc(x.gp)}</td><td data-l="Target" class="r num">${pc(x.target)}</td>` : ''}<td data-l="State"><span class="pill ${x.st[0]}">${esc(x.st[1])}</span></td></tr>`).join('') || `<tr><td colspan="9">No pack for ${all ? 'any client' : 'this client'}.</td></tr>`}</tbody>
+    ${cols.port && cols.margin ? `<tfoot><tr><td><b>${all ? 'All clients' : 'Portfolio'} average, shipped ${esc(PERN().toLowerCase())}</b></td><td></td>${cols.prev ? '<td></td>' : ''}${cols.hilo ? '<td></td><td></td>' : ''}${cols.actual ? '<td></td>' : ''}<td data-l="GP on cost today" class="r num"><b>${tot ? pc((tot - costT) / tot * 100) : '–'}</b></td><td></td><td></td></tr></tfoot>` : ''}</table></div>`;
+  }
+  const props = (ST.proposals || []).filter(p => p.status !== 'replaced').slice().reverse();
+  return `${head('Prices', `Price proposals: ${nW} waiting for the COO.`, 'The CFO proposes; the COO approves or sends back with a reason, in a panel. A price below target GP carries the CFO\'s written reason.')}${tabs}
+  <div class="box jobs">${props.length ? props.map(p => propCard(p, false)).join('') : '<div class="job"><div><div class="t">No proposals yet.</div></div></div>'}</div>`;
+}
+/** What Tahir decides on: cost, GP at the new price, target, contribution floor, and Rs over the forward kg. */
+function propNums(p) {
+  const k = packIdx().get(p.packId); if (!k || !k.cost) return '<div class="d">Cost not loaded for this pack.</div>';
+  const c = k.cost.total, gp = p.price > 0 ? (p.price - c) / p.price * 100 : null, t = k.product.target; /* push 10e (C-37) */ const x = exposure().find(e => e.id === p.packId);
+  const nk = kgFrom(x, p.from); const rsMove = x && p.prev != null ? (p.price - p.prev) * nk : null; const u = k.product.soldPer;
+  return `<div class="d">Cost ${rs2(c)} · GP at this price <b class="${gp < 0 ? 'over' : t != null && gp < t ? 'late' : 'ok'}">${pc(gp)}</b> · target ${pc(t)}${t != null ? ' (needs ' + rs2(c / (1 - t / 100)) + ')' : ''} · contribution floor ${rs2(k.floor)}${rsMove != null ? ` · ${rsMove >= 0 ? '+' : '−'}${rs(Math.abs(rsMove))} on ${Math.round(nk).toLocaleString('en-US')} new ${u} in ${SET('forward_months')} months` : ''}</div>`;
+}
+/** Prices approved for a later date: shown on Prices, withdrawable by Tahir before they take over. */
+function waitingPrices(cl) { // cl: only that client's packs (Client prices, 1.0.0 review finding 6)
+  const up = [...packIdx().values()].filter(k => k.nextPrice && (cl == null || k.product.customer === cl)); if (!up.length) return '';
+  return `<h2>Approved, waiting for their date</h2><div class="box jobs">${up.map(k => `<div class="job"><div><div class="t">${esc(packLabel(k))} for ${esc(k.product.customer)}: Rs ${n2(k.nextPrice.price)} from ${fmtD(k.nextPrice.from)}</div><div class="d">${k.price != null && k.priceSource === 'approved' ? `Today's price Rs ${n2(k.price)} stays in force until then${k.priceTill && k.priceTill < k.nextPrice.from ? ' (it ends on ' + fmtD(k.priceTill) + ')' : ''}.` : 'No approved price is in force before then' + (k.price != null ? ` (last O2S PO price Rs ${n2(k.price)})` : '') + '.'}</div></div>${CAN('price.withdraw') ? `<button class="btn ghost" data-pwd="${k.nextPrice.id}">Withdraw</button>` : ''}</div>${ask && ask.kind === 'pwd' && ask.id === k.nextPrice.id ? askBox('Why withdraw this waiting price?') : ''}`).join('')}</div>`;
+}
+function proposeForm() { return proposeBody(); }
+
+
+/* ---------- 0.9.0 Excel export: a real .xlsx (zip, stored), made in the browser; no library ---------- */
+const CRCT = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+const crc32 = b => { let c = 0xFFFFFFFF; for (let i = 0; i < b.length; i++) c = CRCT[(c ^ b[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; };
+function zipStore(files) {
+  const enc = new TextEncoder(); const parts = [], cen = []; let off = 0;
+  for (const f of files) { const nm = enc.encode(f.name), d = enc.encode(f.text), c = crc32(d);
+    const h = new DataView(new ArrayBuffer(30)); h.setUint32(0, 0x04034b50, true); h.setUint16(4, 20, true); h.setUint16(12, 0x21, true); h.setUint32(14, c, true); h.setUint32(18, d.length, true); h.setUint32(22, d.length, true); h.setUint16(26, nm.length, true);
+    parts.push(new Uint8Array(h.buffer), nm, d);
+    const e = new DataView(new ArrayBuffer(46)); e.setUint32(0, 0x02014b50, true); e.setUint16(4, 20, true); e.setUint16(6, 20, true); e.setUint16(14, 0x21, true); e.setUint32(16, c, true); e.setUint32(20, d.length, true); e.setUint32(24, d.length, true); e.setUint16(28, nm.length, true); e.setUint32(42, off, true);
+    cen.push(new Uint8Array(e.buffer), nm); off += 30 + nm.length + d.length; }
+  const cs = cen.reduce((a, x) => a + x.length, 0); const z = new DataView(new ArrayBuffer(22)); z.setUint32(0, 0x06054b50, true); z.setUint16(8, files.length, true); z.setUint16(10, files.length, true); z.setUint32(12, cs, true); z.setUint32(16, off, true);
+  return new Blob([...parts, ...cen, new Uint8Array(z.buffer)], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+}
+const xesc = v => String(v).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '');
+const colL = i => { let s = ''; i++; while (i) { const m = (i - 1) % 26; s = String.fromCharCode(65 + m) + s; i = Math.floor((i - 1) / 26); } return s; };
+/** sheets: [{ name, rows: [[header...], [cell...]], bold }]; numbers stay numbers; row "bold" (0, the first, unless set) is bold. */
+function xlsxBlob(sheets) {
+  const sx = sheets.map((sh, si) => ({ name: `xl/worksheets/sheet${si + 1}.xml`, text: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>${sh.rows.map((r, ri) => `<row r="${ri + 1}">${r.map((v, ci) => { const ref = colL(ci) + (ri + 1), st = ri === (sh.bold != null ? sh.bold : 0) ? ' s="1"' : ''; return v == null || v === '' ? '' : typeof v === 'number' && isFinite(v) ? `<c r="${ref}"${st}><v>${v}</v></c>` : `<c r="${ref}" t="inlineStr"${st}><is><t xml:space="preserve">${xesc(v)}</t></is></c>`; }).join('')}</row>`).join('')}</sheetData></worksheet>` }));
+  const files = [{ name: '[Content_Types].xml', text: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>${sheets.map((x, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')}</Types>` },
+    { name: '_rels/.rels', text: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>' },
+    { name: 'xl/workbook.xml', text: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>${sheets.map((x, i) => `<sheet name="${xesc(String(x.name).replace(/[\\/?*[\]:]/g, ' ').slice(0, 31))}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join('')}</sheets></workbook>` },
+    { name: 'xl/_rels/workbook.xml.rels', text: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${sheets.map((x, i) => `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join('')}<Relationship Id="rId${sheets.length + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>` },
+    { name: 'xl/styles.xml', text: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border/></borders><cellStyleXfs count="1"><xf/></cellStyleXfs><cellXfs count="2"><xf/><xf fontId="1" applyFont="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>' }].concat(sx);
+  return zipStore(files);
+}
+function saveXlsx(base, sheets) { const url = URL.createObjectURL(xlsxBlob(sheets)); const a = document.createElement('a'); a.href = url; a.download = `C2M ${base} ${ST.today}.xlsx`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 30000); toast('Excel file saved to your downloads.'); }
+/** The old Export to Excel buttons now go through the report tools: Excel of exactly what is on the screen (push 5a). */
+function exportXls(k) { if (RTDEF[k]) rtDownload(k, 'xlsx'); }
+/* ---------- Report tools (push 5a, R28, R30, R48 to R50, D-157): 1 bar and 1 table for every report ----------
+   From and Till with quick dates (every report opens on the current month, R49; "This year" is the financial year from 1 July);
+   Columns (each report's choice kept in this browser); a tick box per row and 1 for all rows shown; Excel, CSV and PDF of what is
+   on the screen: the ticked rows that are shown, else every row shown, and only the columns shown. PDF is the browser's print box
+   (R50): a clean print page, then "Save as PDF". Tick and column state live here, so they survive every redraw. */
+const RT = {}, RTDEF = {};
+const RTQ = [['month', 'This month'], ['last', 'Last month'], ['m3', 'Last 3 months'], ['year', 'This year'], ['all', 'All']];
+/** The From and Till of a quick choice; All is no limit (''). */
+function rtRange(q) {
+  const t = ST.today, m1 = t.slice(0, 7) + '-01';
+  if (q === 'last') { const e = addDays(m1, -1); return [e.slice(0, 7) + '-01', e]; }
+  if (q === 'm3') { const a = addDays(m1, -1).slice(0, 7) + '-01', b = addDays(a, -1).slice(0, 7) + '-01'; return [b, t]; } // this month and the 2 before it
+  if (q === 'year') return [fyStart(), t];
+  if (q === 'all') return ['', ''];
+  return [m1, t];
+}
+function rtS(k) {
+  if (!RT[k] || RT[k].day !== ST.today) { const [from, till] = rtRange('month'); let hide = null; try { const v = localStorage.getItem('c2m.rtcols.' + k); if (v) hide = JSON.parse(v); } catch (_) {}
+    RT[k] = { from, till, q: 'month', ticks: new Set(), hide: Array.isArray(hide) ? hide : null, colsOpen: false, day: ST.today }; }
+  return RT[k];
+}
+/** A date inside the report's From and Till (both kept). A row with no date shows only under All. */
+const rtIn = (k, d) => { const s = rtS(k), x = d10(d); if (!x) return !s.from && !s.till; return (!s.from || x >= s.from) && (!s.till || x <= s.till); };
+/** The period in words, for the answer line: the quick choice, or the dates typed. */
+const rtPer = k => { const s = rtS(k); const q = RTQ.find(x => x[0] === s.q); if (q) return s.q === 'all' ? 'All dates' : q[1]; return s.from && s.till ? `${fmtD(s.from)} to ${fmtD(s.till)}` : s.from ? `From ${fmtD(s.from)}` : s.till ? `Till ${fmtD(s.till)}` : 'All dates'; };
+const rtDatesTxt = def => { if (def.dated === false) return def.asOf || 'As today'; const s = rtS(def.k); return s.from || s.till ? `From ${s.from ? fmtD(s.from) : 'the first date'} till ${s.till ? fmtD(s.till) : 'today'}` : 'All dates'; };
+const rtCols = (k, cols) => { const s = rtS(k); const hide = s.hide || cols.filter(c => c.off).map(c => c.k); const sh = cols.filter(c => !hide.includes(c.k)); return sh.length ? sh : cols.slice(0, 1); };
+/** Each row's key: its own, made unique when 2 rows would share 1 (the 2nd gets #2). */
+function rtIds(rows, f) { const seen = new Map(); rows.forEach(r => { const b = String(f(r)); const n = (seen.get(b) || 0) + 1; seen.set(b, n); r._id = n > 1 ? b + '#' + n : b; }); return rows; }
+const rtNum = (v, dp) => Number(v).toLocaleString('en-US', { minimumFractionDigits: dp || 0, maximumFractionDigits: dp || 0 });
+/** A cell as text: the column's own words (f), else its value; numbers with the column's decimals. */
+function rtTxt(c, r) { const v = c.f ? c.f(r) : c.x(r); return v == null || v === '' ? '' : typeof v === 'number' ? (isFinite(v) ? rtNum(v, c.dp) : '') : String(v); }
+const rtCell = (c, r) => c.h ? c.h(r) : esc(rtTxt(c, r));
+const pkTime = () => new Date(Date.now() + 5 * 36e5).toISOString().slice(11, 16); // Pakistan time
+const rtWho = () => `${String(ST.me.name || ST.me.user || '').trim().split(/\s+/)[0]}, ${fmtD(ST.today)} ${pkTime()}`;
+/**
+ * The bar and the table of a report. def: { k, name, dated (false: no dates), asOf (words when not dated), cols: [{ k, l, r (right),
+ * dp (decimals), off (hidden until picked), tot (shown in the total row), x (value for Excel and CSV), f (words), h (html) }],
+ * rows (each with _id; _cls, _tr), foot (the total row: its fields, with _lbl), extra (the report's own chips, html), filt (its filters
+ * in words, for the downloads), sheets (more Excel sheets), empty }.
+ */
+function rtView(def) {
+  const s = rtS(def.k); RTDEF[def.k] = def; const ids = new Set(def.rows.map(r => r._id)); [...s.ticks].forEach(i => { if (!ids.has(i)) s.ticks.delete(i); }); // a tick stays only on a row still shown
+  const C = rtCols(def.k, def.cols), nT = s.ticks.size, allT = def.rows.length > 0 && def.rows.every(r => s.ticks.has(r._id)), k = esc(def.k);
+  const dates = def.dated === false ? '' : `<div class="rtd"><label for="rtf-${k}">From<input type="date" id="rtf-${k}" data-rtfrom="${k}" value="${esc(s.from)}"></label><label for="rtt-${k}">Till<input type="date" id="rtt-${k}" data-rtto="${k}" value="${esc(s.till)}"></label></div><div class="chips rtq" aria-label="Quick dates">${RTQ.map(([q, l]) => `<button data-rtk="${k}" data-rtq="${q}" aria-pressed="${s.q === q}">${l}</button>`).join('')}</div>`;
+  const cols = `<div class="colsmenu"><button class="btn ghost" data-rtk="${k}" data-rtcols aria-expanded="${s.colsOpen}">Columns: ${C.length} of ${def.cols.length} shown</button>${s.colsOpen ? `<div class="box rtcl">${def.cols.map((c, i) => `<label><input type="checkbox" id="rtc-${k}-${i}" data-rtk="${k}" data-rtcol="${esc(c.k)}"${C.includes(c) ? ' checked' : ''}> ${esc(c.l)}</label>`).join('')}<span class="ans" style="font-size:12px">Kept as you leave them, in this browser.</span></div>` : ''}</div>`;
+  const tick = nT ? `${pl(nT, 'row ticked', 'rows ticked')}: only ${nT === 1 ? 'it goes' : 'they go'} in a download` : `No row ticked: all ${pl(def.rows.length, 'row', 'rows')} shown go in a download`;
+  const td = (c, inner) => `<td${c.r ? ' class="r num"' : ''}>${inner}</td>`;
+  const foot = def.foot ? `<tfoot><tr><td></td>${C.map((c, i) => td(c, c.tot ? rtCell(c, def.foot) : i === 0 ? esc(def.foot._lbl || 'Total') : '')).join('')}</tr></tfoot>` : '';
+  return `${def.extra ? `<div class="wtbar rtbar">${def.extra}</div>` : ''}${dates ? `<div class="wtbar rtbar">${dates}</div>` : ''}
+  <div class="wtbar rtbar">${cols}<span class="ans" data-rtn>${tick}</span><span class="sp"></span><button class="btn ghost" data-rtk="${k}" data-rtdl="xlsx">Excel</button><button class="btn ghost" data-rtk="${k}" data-rtdl="csv">CSV</button><button class="btn ghost" data-rtk="${k}" data-rtdl="pdf">PDF</button>${OWADJ[def.k] ? `<button class="btn ghost" data-rtk="${k}" data-rtadj title="Open this report in Your own report, to change it further">Adjust</button>` : OWNOADJ[def.k] ? `<button class="btn ghost" disabled title="${esc(OWNOADJ[def.k])}" aria-label="Adjust: ${esc(OWNOADJ[def.k])}">Adjust</button>` : ''}</div>
+  <div class="box wrapx"><table class="wt rtt" data-nosort data-rtt="${k}"><thead><tr><th class="rtx"><input type="checkbox" id="rta-${k}" data-rtk="${k}" data-rtall aria-label="Tick all ${def.rows.length} rows shown"${allT ? ' checked' : ''}></th>${C.map(c => `<th${c.r ? ' class="r"' : ''}>${esc(c.l)}</th>`).join('')}</tr></thead>
+  <tbody>${def.rows.map((r, i) => `<tr${r._cls ? ` class="${r._cls}"` : ''}${r._tr || ''}><td class="rtx"><input type="checkbox" id="rtk-${k}-${i}" data-rtk="${k}" data-rttick="${esc(r._id)}" aria-label="Tick this row"${s.ticks.has(r._id) ? ' checked' : ''}></td>${C.map(c => td(c, rtCell(c, r))).join('')}</tr>`).join('') || `<tr><td colspan="${C.length + 1}">${esc(def.empty || 'No row in these dates.')}</td></tr>`}</tbody>${foot}</table></div>`;
+}
+/** A click on the bar or a tick. true: nothing to redraw (a download). */
+function rtClick(t, d) {
+  const k = d.rtk, s = rtS(k), def = RTDEF[k]; if (!def) return false;
+  if (d.rtq) { s.q = d.rtq; [s.from, s.till] = rtRange(d.rtq); return false; }
+  if ('rtcols' in d) { s.colsOpen = !s.colsOpen; return false; }
+  if (d.rtcol != null) { let hide = s.hide || def.cols.filter(c => c.off).map(c => c.k); hide = t.checked ? hide.filter(x => x !== d.rtcol) : hide.concat(d.rtcol);
+    if (hide.length >= def.cols.length) { toast('Keep at least 1 column.', true); return false; } s.hide = hide; try { localStorage.setItem('c2m.rtcols.' + k, JSON.stringify(hide)); } catch (_) {} return false; }
+  if (d.rttick != null) { if (t.checked) s.ticks.add(d.rttick); else s.ticks.delete(d.rttick); return false; }
+  if ('rtall' in d) { if (t.checked) def.rows.forEach(r => s.ticks.add(r._id)); else s.ticks.clear(); return false; }
+  if (d.rtdl) { rtDownload(k, d.rtdl); return true; }
+  if ('rtadj' in d) { const sp = OWADJ[k] ? OWADJ[k]() : null; if (!sp) { toast('This report cannot be opened in Your own report as it stands.', true); return true; } owOpen(sp); return false; } /* Adjust (push 5b, D-158) */
+  return false;
+}
+/** What a download holds: the ticked rows shown, else every row shown; the columns shown; the total row only with nothing ticked. */
+function rtOut(k) { const def = RTDEF[k], s = rtS(k); const C = rtCols(k, def.cols); const R = s.ticks.size ? def.rows.filter(r => s.ticks.has(r._id)) : def.rows; return { def, C, R, foot: !s.ticks.size && def.foot ? def.foot : null }; }
+const rtRaw = (c, r) => { const v = c.x(r); return typeof v === 'number' ? (isFinite(v) ? (c.dp ? +v.toFixed(c.dp) : v) : '') : v == null ? '' : String(v); };
+/** The rows of a download: name, dates and filters, who and when, an empty row, then the header and the rows (the header is row 5). */
+function rtGrid(o, who) {
+  const top = [[o.def.name], [[rtDatesTxt(o.def), o.def.filt].filter(Boolean).join(' · ')], [`${who} by ${rtWho()}`], []];
+  const foot = o.foot ? [o.C.map((c, i) => c.tot ? rtRaw(c, o.foot) : i === 0 ? (o.foot._lbl || 'Total') : '')] : [];
+  return top.concat([o.C.map(c => c.l)], o.R.map(r => o.C.map(c => rtRaw(c, r))), foot);
+}
+function dlBlob(blob, name, msg) { const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 30000); toast(msg); }
+/** CSV: quotes where a cell needs them; a text cell that a spreadsheet would read as a formula starts with ' (as a typed cell would). */
+const csvCell = v => { if (v == null || v === '') return ''; if (typeof v === 'number') return isFinite(v) ? String(v) : ''; let s = String(v); if (/^[=+\-@\t\r]/.test(s)) s = "'" + s; /* a text cell never starts as a formula (review 5a, finding 1) */ return /[",\r\n]|^\s|\s$/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+const rtCsv = o => '﻿' + rtGrid(o, 'Downloaded').map(r => r.map(csvCell).join(',')).join('\r\n') + '\r\n';
+function rtDownload(k, kind) {
+  const o = rtOut(k); if (!o) return; const base = `C2M ${o.def.name} ${ST.today}`;
+  if (kind === 'csv') return dlBlob(new Blob([rtCsv(o)], { type: 'text/csv;charset=utf-8' }), base + '.csv', 'CSV file saved to your downloads.');
+  if (kind === 'xlsx') return dlBlob(xlsxBlob([{ name: o.def.sheet || 'Report', rows: rtGrid(o, 'Downloaded'), bold: 4 }].concat(o.def.sheets ? o.def.sheets() : [])), base + '.xlsx', 'Excel file saved to your downloads.');
+  if (kind === 'pdf') return rtPrint(o);
+}
+/** PDF (R50): a print-only page of the report as shown; the browser's print box opens, and the person picks "Save as PDF". */
+function rtPrint(o) {
+  const old = $('rtprint'); if (old) old.remove(); const el = document.createElement('div'); el.id = 'rtprint';
+  el.innerHTML = `<h1>${esc(o.def.name)}</h1><p class="rtps">${esc([rtDatesTxt(o.def), o.def.filt, pl(o.R.length, 'row', 'rows')].filter(Boolean).join(' · '))}</p>
+  <table><thead><tr>${o.C.map(c => `<th${c.r ? ' class="r"' : ''}>${esc(c.l)}</th>`).join('')}</tr></thead><tbody>${o.R.map(r => `<tr>${o.C.map(c => `<td${c.r ? ' class="r"' : ''}>${esc(rtTxt(c, r))}</td>`).join('')}</tr>`).join('')}</tbody>
+  ${o.foot ? `<tfoot><tr>${o.C.map((c, i) => `<td${c.r ? ' class="r"' : ''}>${c.tot ? esc(rtTxt(c, o.foot)) : i === 0 ? esc(o.foot._lbl || 'Total') : ''}</td>`).join('')}</tr></tfoot>` : ''}</table>
+  <p class="rtpf">C2M · Vital Agri Nutrients · printed by ${esc(rtWho())} · prices without FED</p>`;
+  document.body.appendChild(el); document.body.classList.add('rtp');
+  const done = () => { el.remove(); document.body.classList.remove('rtp'); window.removeEventListener('afterprint', done); }; window.addEventListener('afterprint', done);
+  window.print();
+}
+/** Data a report reads on opening (cost history, VAN list history), fetched once per load of C2M's data. */
+const REPD = { st: null };
+function repData(kind) {
+  if (REPD.st !== ST) { Object.keys(REPD).forEach(x => delete REPD[x]); REPD.st = ST; }
+  const x = REPD[kind]; if (x) return x;
+  const y = REPD[kind] = { busy: true, data: null, err: null };
+  api('/api/c2m/reports/' + kind).then(j => { y.data = j; }, e => { y.err = e.message || 'C2M could not read the report.'; }).finally(() => { y.busy = false; if (scr === 'reports') render(); });
+  return y;
+}
+
+/* ---------- 0.9.0 Reports (approved pictures E, F, G): 14 cards in 4 groups; GP bridge and PO price against approved price are built,
+   the other 12 are drawn for Tahir's approval first and come in 0.9.1 (Tahir, 18 Oct 2026) ---------- */
+const REPORTS = [
+  { k: 'costs', g: 'Cost', t: 'Cost history', q: 'How has each pack\'s approved cost moved, and why?', ready: 1 },
+  { k: 'prices', g: 'Prices', t: 'Price history', q: 'What did each client and each VAN list pay, from when to when?', ready: 1 },
+  { k: 'pocheck', g: 'Prices', t: 'PO price against approved price', q: 'Are O2S POs following approved prices?', ready: 1 }, { k: 'listcheck', g: 'Prices', t: 'VAN brand PO against its price list', q: 'Are VAN brand POs at the price on their list?', ready: 1, need: 'see.price' },
+  { k: 'vanmargin', g: 'Prices', t: 'VAN brand list margin', q: 'Do the list prices cover cost and freight and meet the list\'s target?', ready: 1 },
+  { k: 'margin', g: 'Money', t: 'Margin by client and brand', q: 'Which clients and brands earned what, in any dates?', ready: 1 },
+  { k: 'bridge', g: 'Money', t: 'GP bridge, monthly', q: 'Why did GP move against last month and budget?', ready: 1 }, { k: 'custprof', g: 'Money', t: 'Client profitability', q: 'Which clients to push, fix, hold or drop?' },
+  { k: 'mix', g: 'Money', t: 'Product and mix', q: 'Which products earn most per kg?' }, { k: 'volume', g: 'Money', t: 'Volume against budget kg', q: 'Are we selling the budgeted kg?', note: 'A client budget is set in sales Rs and GP Rs, not kg: this report is redrawn on that budget.' },
+  { k: 'revstatus', g: 'Prices', t: 'Price revision status', q: 'Which prices are due, below target or stuck?' }, { k: 'locked', g: 'Prices', t: 'Short of target on open POs', q: 'Which open POs will ship below target, and by how many Rs?' },
+  { k: 'rateshock', g: 'Cost', t: 'Rate shock and rupee', q: 'If a material or the rupee moves, what happens to GP?', note: 'Needs the share of each material bought in dollars; C2M does not hold it yet.' },
+  { k: 'foc', g: 'Cost', t: 'FOC and samples', q: 'What do free samples cost?', note: 'FOC lines come from O2S; sample issues outside O2S are not in C2M yet.' },
+  { k: 'ageing', g: 'Control', t: 'Approvals ageing', q: 'What waits, with whom, for how long?' }, { k: 'quality', g: 'Control', t: 'Margin data quality', q: 'How much of the GP shown can we trust?' }, { k: 'books', g: 'Control', t: 'Tie to the books', q: 'Do C2M sales and COGS agree with the ERP?' }]; // push 5a (D-157): Conversion recovery left "Coming later": Costs, Month end answers it
+let rep = null, repQ = '', brMonth = null, brGrp = 'wl', poF = 'all', lcF = 'flag';
+const seenGet = k => { try { return localStorage.getItem('c2m.seen.' + k); } catch (_) { return null; } };
+const seenSet = (k, v) => { try { localStorage.setItem('c2m.seen.' + k, v); } catch (_) {} };
+/** What makes a built report "new since you last looked" (R1): a new closed month, or new PO lines. Kept in this browser only. */
+const repSig = k => k === 'bridge' ? (bridge().b || '') : k === 'pocheck' ? String((ST.poLines || []).length) + '|' + ((ST.poLines || []).map(x => x.received || '').sort().pop() || '') : k === 'listcheck' ? ((ST.listCheck && ST.listCheck.lines) || []).map(x => x.po + ':' + x.state).join(',') : k === 'vanmargin' ? (ST.listItems || []).map(x => x.id + ':' + [x.data.now, x.data.nsv, x.data.disc, x.data.pb, x.data.sn, x.data.snc, x.data.packId].map(v => v ?? '').join('/')).join(',') : '';
+function vReports() {
+  const REPS = REPORTS.filter(r => !r.need || CAN(r.need)); // a report only for the roles that receive its data (review 4 Nov, finding 8)
+  if (rep === 'own') return vOwn(); // Your own report (push 5b, R52, D-158)
+  if (rep) { const r = REPS.find(x => x.k === rep); if (r) { if (r.ready) seenSet(r.k, repSig(r.k)); return r.k === 'bridge' ? vBridge() : r.k === 'pocheck' ? vPoCheck() : r.k === 'listcheck' ? vListCheck() : r.k === 'vanmargin' ? vVanMargin() : r.k === 'costs' ? vCostHist() : r.k === 'prices' ? vPriceHist() : r.k === 'margin' ? vMarginRep() : vRepLater(r); } rep = null; }
+  const isNew = r => r.ready && seenGet(r.k) !== repSig(r.k); const nNew = REPS.filter(isNew).length; const q = repQ.trim().toLowerCase();
+  return `${head('Reports', `${REPS.filter(r => r.ready).length} reports ready${nNew ? `, ${nNew} with something new since you last looked` : ''}. ${REPS.filter(r => !r.ready).length} more are coming.`, 'Each card names the 1 question its report answers. Every report opens on the current month with its answer line; on each you can pick the dates, the columns and the rows (tick them), and download what is on the screen as Excel, CSV or PDF. "New" means the report has data you have not opened yet in this browser.')}
+  <div class="wtbar"><input type="search" id="rq" value="${esc(repQ)}" placeholder="Find a report" aria-label="Find a report"></div>
+  ${owLanding()}
+  <div class="rgroups">${['Cost', 'Prices', 'Money', 'Control'].filter(g => REPS.some(r => r.g === g && r.ready)).map(g => `<section><h2 class="gh">${g}</h2>${REPS.filter(r => r.g === g && r.ready && (!q || (r.t + ' ' + r.q).toLowerCase().includes(q))).map(r => `<button class="rcard ${r.ready ? 'ready' : 'later'}" data-rep="${r.k}"><b>${esc(r.t)}${isNew(r) ? '<em>new</em>' : r.ready ? '' : '<em>not built yet</em>'}</b><span>${esc(r.q)}</span></button>`).join('') || '<p class="ans">No report matches.</p>'}</section>`).join('')}</div>
+  <details class="how"><summary>Coming later (${REPS.filter(r => !r.ready).length})</summary><div class="rgroups">${REPS.filter(r => !r.ready && (!q || (r.t + ' ' + r.q).toLowerCase().includes(q))).map(r => `<button class="rcard later" data-rep="${r.k}"><b>${esc(r.t)}</b><span>${esc(r.q)}</span></button>`).join('')}</div></details>`;
+}
+const repCrumb = t => `<p class="crumb"><button data-repback>Reports</button> › ${esc(t)}</p>`;
+function vRepLater(r) { return `${repCrumb(r.t)}${head(r.t, `Not built yet: its picture goes to ${ADM() ? 'you' : 'COO'} for approval first, then it is built.`, '')}<div class="next"><span><b>The question it answers:</b> ${esc(r.q)}</span></div>${r.note ? `<div class="assume"><b>To settle first</b>${esc(r.note)}</div>` : ''}`; }
+/** GP bridge between 2 closed months (R2, approved picture F). Parts add to the change exactly, or the report refuses to show. */
+function bridge() {
+  const cur = ST.today.slice(0, 7); const all = salesRows().filter(r => r.date.slice(0, 7) < cur && (brGrp === 'all' || (brGrp === 'wl' ? r.grp === 'White label' : r.grp === 'VAN brand')));
+  const months = [...new Set(all.map(r => r.date.slice(0, 7)))].sort(); if (months.length < 2) return { ok: false, why: 'The bridge needs 2 closed months of trucks.', months };
+  const b = brMonth && months.includes(brMonth) && months.indexOf(brMonth) > 0 ? brMonth : months[months.length - 1]; const a = addDays(b + '-01', -1).slice(0, 7);
+  if (!months.includes(a)) return { ok: false, why: `No trucks in ${mon(a)} to compare ${mon(b)} with.`, months, b };
+  const costed = all.filter(r => r.cost != null); const unc = all.filter(r => r.cost == null && [a, b].includes(r.date.slice(0, 7))).reduce((s, r) => s + r.kg * r.price, 0);
+  const PXI = packIdx();
+  const key = r => (r.packId ? 'p' + r.packId : 'x' + pkey(r)) + '|' + r.cust; /* a VAN brand pack is shared by many buyers */ const M = new Map();
+  /* cr: each truck's cost restated at today's labour and FOH basis; the gap between cost and cr is the 13 Oct change of
+     conversion basis, shown as its own Method bar. Kg and L are kept apart in Volume and Mix. */
+  costed.forEach(r => { const m = r.date.slice(0, 7); if (m !== a && m !== b) return; const k = key(r); const cr = r.costBands != null ? r.costBands : r.cost; if (!M.has(k)) M.set(k, { name: `${r.cust} · ${r.packId && PXI.get(r.packId) ? packLabel(PXI.get(r.packId)) : r.brand + ' ' + r.pack}`, /* the product name */ u: unitOf(r), k0: 0, r0: 0, c0: 0, q0: 0, k1: 0, r1: 0, c1: 0, q1: 0 }); const x = M.get(k); if (m === a) { x.k0 += r.kg; x.r0 += r.kg * r.price; x.c0 += r.kg * r.cost; x.q0 += r.kg * cr; } else { x.k1 += r.kg; x.r1 += r.kg * r.price; x.c1 += r.kg * r.cost; x.q1 += r.kg * cr; } });
+  const D = [...M.values()].map(x => ({ ...x, p0: x.k0 ? x.r0 / x.k0 : null, p1: x.k1 ? x.r1 / x.k1 : null, cc0: x.k0 ? x.c0 / x.k0 : null, cc1: x.k1 ? x.c1 / x.k1 : null, qq0: x.k0 ? x.q0 / x.k0 : null, qq1: x.k1 ? x.q1 / x.k1 : null }));
+  const com = D.filter(x => x.k0 > 0 && x.k1 > 0); const GP0 = D.reduce((s, x) => s + x.r0 - x.c0, 0), GP1 = D.reduce((s, x) => s + x.r1 - x.c1, 0);
+  let volume = 0, mix = 0;
+  for (const u of ['kg', 'L']) { const cu = com.filter(x => x.u === u); const K0 = cu.reduce((s, x) => s + x.k0, 0), K1 = cu.reduce((s, x) => s + x.k1, 0); if (!K0 || !K1) continue;
+    const gbar0 = cu.reduce((s, x) => s + (x.r0 - x.c0), 0) / K0; volume += (K1 - K0) * gbar0; mix += cu.reduce((s, x) => s + (x.k1 / K1 - x.k0 / K0) * K1 * (x.p0 - x.cc0), 0); }
+  const price = com.reduce((s, x) => s + (x.p1 - x.p0) * x.k1, 0), costAll = com.reduce((s, x) => s + (x.cc0 - x.cc1) * x.k1, 0);
+  const cost = com.reduce((s, x) => s + (x.qq0 - x.qq1) * x.k1, 0), method = costAll - cost;
+  const nl = D.filter(x => !(x.k0 > 0 && x.k1 > 0)).reduce((s, x) => s + (x.r1 - x.c1) - (x.r0 - x.c0), 0);
+  const sum = GP0 + price + volume + mix + cost + method + nl; if (Math.abs(sum - GP1) > 1) return { ok: false, why: `The parts do not add to the change (Rs ${n0(sum - GP1)} apart), so the bridge is not shown.`, months, b };
+  const A = mon(a).slice(0, 3), Bm = mon(b).slice(0, 3);
+  const mid = [{ l: 'Price', v: price, how: `Σ (${Bm} price − ${A} price) × ${Bm} kg or L` }, { l: 'Volume', v: volume, how: `(${Bm} total − ${A} total) × ${A} GP per kg, and the same per L` }, { l: 'Mix', v: mix, how: `Change in product shares × ${Bm} total × each product's ${A} GP per kg or L (kg and L apart)` }, { l: 'Cost', v: cost, how: `Σ (${A} cost − ${Bm} cost) × ${Bm} kg or L, both months at today's labour and FOH basis` }]
+    .concat(Math.abs(method) >= 0.5 ? [{ l: 'Method', v: method, how: 'Trucks costed on the CFO\'s 13 Oct sheet restated at today\'s labour and FOH: the change to C2M\'s Labour and FOH rates in place of the sheet\'s own, plus any labour or FOH rate change since the sheet; not a material or packing cost change' }] : [])
+    .concat([{ l: 'New and lost', v: nl, how: 'GP of products sold in only 1 of the 2 months' }]);
+  const parts = [{ l: mon(a), v: GP0, how: `GP Rs in ${mon(a)}` }].concat(mid, [{ l: mon(b), v: GP1, how: `${Math.round(GP0).toLocaleString('en-US')} + ${mid.map(x => Math.round(x.v).toLocaleString('en-US')).join(' + ').replace(/\+ -/g, '− ')}` }]);
+  return { ok: true, a, b, GP0, GP1, parts, months, unc, detail: D.map(x => ({ name: x.name, k0: Math.round(x.k0), k1: Math.round(x.k1), p0: x.p0 != null ? +x.p0.toFixed(2) : '', p1: x.p1 != null ? +x.p1.toFixed(2) : '', c0: x.cc0 != null ? +x.cc0.toFixed(2) : '', c1: x.cc1 != null ? +x.cc1.toFixed(2) : '', g0: x.p0 != null ? x.p0 - x.cc0 : null, g1: x.p1 != null ? x.p1 - x.cc1 : null })) };
+}
+/** Rs in short form for chart labels: 2.14M, 81K, 950. */
+const fmtRsShort = v => Math.abs(v) >= 1e6 ? (v / 1e6).toFixed(2) + 'M' : Math.abs(v) >= 1e3 ? Math.round(v / 1e3) + 'K' : String(Math.round(v));
+function vBridge() {
+  const B = bridge(); const gch = `<div class="chips" aria-label="Sales group">${Object.entries(GRPN).map(([k, l]) => `<button data-brgrp="${k}" aria-pressed="${brGrp === k}">${l}</button>`).join('')}</div>`;
+  const mch = (B.months || []).length > 1 ? `<div class="chips" aria-label="Month">${B.months.slice(1).map(m => `<button data-brmon="${m}" aria-pressed="${(B.b || '') === m}">${mon(m)} against ${mon(addDays(m + '-01', -1).slice(0, 7)).slice(0, 3)}</button>`).join('')}</div>` : '';
+  if (!B.ok) return `${repCrumb('GP bridge, monthly')}${head('GP bridge', B.why, '')}<div class="wtbar">${gch}</div>${mch}`;
+  const d = B.GP1 - B.GP0; const mid = B.parts.slice(1, -1).filter(x => Math.round(x.v));
+  const WORD = { Price: ['better prices', 'lower prices'], Volume: ['more volume', 'lower volume'], Mix: ['a better mix', 'a weaker mix'], Cost: ['lower cost', 'higher cost'], Method: ['the change of cost method', 'the change of cost method'], 'New and lost': ['new products', 'lost products'] };
+  const list = a => a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1]; const cap = t => t.charAt(0).toUpperCase() + t.slice(1);
+  const neg = mid.filter(x => x.v < 0).sort((x, y) => x.v - y.v), pos = mid.filter(x => x.v > 0).sort((x, y) => y.v - x.v);
+  const negTxt = neg.length ? cap(list(neg.map((x, i) => `${WORD[x.l][1]} ${i === 0 ? 'took ' : ''}${rs(-x.v)}`))) : '';
+  const posTxt = pos.length ? `${list(pos.map(x => WORD[x.l][0]))} ${neg.length ? 'gave back' : 'added'} ${rs(pos.reduce((t, x) => t + x.v, 0))}` : '';
+  const ans = Math.abs(d) < 0.5 ? 'GP did not change.' : `GP ${d < 0 ? 'fell' : 'rose'} ${rs(Math.abs(d))}. ${negTxt}${negTxt && posTxt ? '; ' : ''}${negTxt ? posTxt : cap(posTxt)}.`;
+  // waterfall to scale
+  const W = 640, H = 300, L = 50, Rr = 10, T = 26, Bt = 32, n = B.parts.length; let run = 0; const vals = []; B.parts.forEach((x, i) => { if (i === 0) { run = x.v; vals.push([0, x.v]); } else if (i === n - 1) vals.push([0, x.v]); else { vals.push([run, run + x.v]); run += x.v; } });
+  /* Axis on round steps; when every value is well above 0 the axis starts at a round value, marked on both total bars,
+     so a small move is not lost on a tall scale (UX review S13) */
+  const all = vals.flatMap((v, i) => i === 0 || i === n - 1 ? [v[1]] : v), mn = Math.min(...all), mx = Math.max(...all); const niceStep = r => { const p10 = Math.pow(10, Math.floor(Math.log10(r || 1))); return [1, 2, 2.5, 5, 10].map(m => m * p10).find(m => m >= r) || 10 * p10; };
+  const cut = mn > 0 && (mx - mn) < mx * 0.4; let lo, hi, step;
+  if (cut) { const sp = mx - mn || mx * 0.1; step = niceStep(sp / 3); lo = Math.floor((mn - sp * 0.35) / step) * step; hi = Math.ceil((mx + sp * 0.15) / step) * step; }
+  else { lo = Math.min(0, mn); step = niceStep((mx - lo) / 4); hi = Math.ceil(mx * 1.06 / step) * step; } if (!(hi > lo)) hi = lo + step; const y = v => T + (H - T - Bt) * (1 - (Math.max(v, lo) - lo) / (hi - lo)); const gw = (W - L - Rr) / n, bw = gw * 0.68;
+  const tv = []; for (let v = Math.ceil(lo / step) * step; v <= hi + 0.5; v += step) tv.push(v);
+  const tick = tv.map(v => `<line class="grid" x1="${L}" x2="${W - Rr}" y1="${y(v)}" y2="${y(v)}"/><text x="${L - 6}" y="${y(v) + 4}" text-anchor="end">${fmtRsShort(v)}</text>`).join('');
+  const brk = xx => cut ? `<path class="brk" d="M${xx - 3} ${y(lo) - 10} l${bw + 6} -6 M${xx - 3} ${y(lo) - 4} l${bw + 6} -6"/>` : '';
+  const bars = B.parts.map((x, i) => { const [v0, v1] = vals[i]; const zero = i && i < n - 1 && Math.round(x.v) === 0; const cls = i === 0 || i === n - 1 || zero ? 'wb-total' : x.v >= 0 ? 'wb-up' : 'wb-down'; const xx = L + i * gw + (gw - bw) / 2; const top = Math.min(y(v0), y(v1)), h = Math.max(Math.abs(y(v0) - y(v1)), 1.5); const lab = i === 0 || i === n - 1 ? fmtRsShort(x.v) : zero ? '0' : (x.v >= 0 ? '+' : '-') + fmtRsShort(Math.abs(x.v));
+    return `<rect class="${cls}" x="${xx}" y="${top}" width="${bw}" height="${h}"/>${i === 0 || i === n - 1 ? brk(xx) : ''}<text class="lbl" x="${xx + bw / 2}" y="${x.v < 0 && i && i < n - 1 ? top + h + 14 : top - 6}" text-anchor="middle">${lab}</text><text x="${xx + bw / 2}" y="${H - 10}" text-anchor="middle">${esc(x.l.replace(/ \d{4}$/, '').replace('New and lost', 'New/lost'))}</text>`; }).join('');
+  return `${repCrumb('GP bridge, monthly')}${meta(`${mon(B.b)} against ${mon(B.a)}`)}${head('GP bridge', ans, 'Price, volume, mix and cost are worked out on packs sold in both months; packs sold in only 1 of the 2 months go to "New and lost". Kg and L are kept apart in volume and mix. Cost compares both months with trucks costed on the CFO\'s 13 Oct sheet restated at today\'s labour and FOH; the difference shows as its own Method bar. Only costed trucks count; the open month is not used until it closes. The parts must add to the change exactly; the report refuses to show if they do not.')}
+  <div class="wtbar">${gch}</div>${mch}
+  <div class="cards2"><div class="card"><h3>Rs, ${esc(GRPN[brGrp].toLowerCase())}, ${esc(mon(B.a).slice(0, 3))} to ${esc(mon(B.b).slice(0, 3))}</h3><p class="sub">Grey bars are the 2 months; green adds, red takes away. M is Rs million, K is Rs thousand.${cut ? ` The axis starts at Rs ${fmtRsShort(lo)}, not 0, so the moves can be seen.` : ''}</p><svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="GP bridge waterfall">${tick}${bars}</svg></div>
+  <div class="card"><h3>How each bar is worked out</h3>${rtView({ k: 'bridge', name: 'GP bridge, monthly', sheet: 'Bridge', dated: false, asOf: `${mon(B.b)} against ${mon(B.a)}, ${GRPN[brGrp].toLowerCase()}`, filt: '', empty: 'No part.',
+    cols: [{ k: 'part', l: 'Part', x: x => x.l }, { k: 'how', l: 'How it is worked out', x: x => x.how, h: x => `<span style="font-size:12.5px">${esc(x.how)}</span>` }, { k: 'rs', l: 'Rs', r: 1, x: x => Math.round(x.v), h: x => `<span class="${x._mid ? (x.v < 0 ? 'over' : x.v > 0 ? 'ok' : '') : ''}">${x._mid && x.v > 0 ? '+' : ''}${Math.round(x.v).toLocaleString('en-US')}</span>` }],
+    rows: rtIds(B.parts.map((x, i, A) => ({ ...x, _mid: i > 0 && i < A.length - 1, _tr: i === A.length - 1 ? ` style="font-weight:600" data-gpa="${Math.round(B.GP0)}"` : '' })), x => x.l),
+    sheets: () => [{ name: 'By pack', rows: [['Pack', `Kg or L ${B.a}`, `Kg or L ${B.b}`, `Price ${B.a}`, `Price ${B.b}`, `Cost ${B.a}`, `Cost ${B.b}`, `GP Rs ${B.a}`, `GP Rs ${B.b}`]].concat(B.detail.map(d => [d.name, d.k0, d.k1, d.p0, d.p1, d.c0, d.c1, d.g0 != null ? Math.round(d.g0 * d.k0) : '', d.g1 != null ? Math.round(d.g1 * d.k1) : ''])) }] })}
+  <p class="ans" style="font-size:12.5px">The parts add to the change exactly; each figure is rounded to the rupee, so the rounded parts can differ from the total by a few rupees.${B.unc ? ` Trucks with no cost (${rs(B.unc)} of sales in the 2 months) are left out.` : ''}</p></div></div>`;
+}
+/** The approved price in force for a pack on a date: the same rule as the server (latest start on or before the date, not ended). */
+function priceOn0(packId, date, skip) { let best = null; (ST.priceHistory || []).forEach(p => { if (p.packId !== packId || p.from > date || (p.to && p.to < date) || (skip && skip(p))) return; if (!best || p.from > best.from || (p.from === best.from && p.id > best.id)) best = p; }); return best; }
+/** The approved price a PO is checked against (F-20, F-30; Tahir, 4 Nov 2026, D-145: "PO checked by its time"). A price approved on the PO's own date
+ *  counts only if it was approved at or before the PO was entered (enteredAt, Pakistan time); with no entry time it does not count, and the price
+ *  in force the day before is used. Mirrors lib.priceCountsForPo on the server. */
+function priceCounts(p, date, enteredAt) { const at = p.decidedAt ? String(p.decidedAt).slice(0, 19) : null, day = d10(date); if (!at || at.slice(0, 10) !== day) return true; return !!enteredAt && at <= String(enteredAt).slice(0, 19); }
+function priceOn(packId, date, enteredAt) {
+  if (enteredAt === undefined) return priceOn0(packId, date); // not a PO check: the price in force that day
+  const day = d10(date); const best = priceOn0(packId, day);
+  if (!best || priceCounts(best, day, enteredAt)) return best;
+  const skip = p => !priceCounts(p, day, enteredAt); // the same rule for the day before: a back-dated price approved on the PO's day after entry never counts (review 4 Nov)
+  return priceOn0(packId, day, skip) || priceOn0(packId, addDays(day, -1), skip);
+}
+/** Every O2S PO line against the approved price on its received date (R3, approved picture G). */
+function poCheck() {
+  const cur = ST.today.slice(0, 7), last = addDays(cur + '-01', -1).slice(0, 7); const inPer = d => !!d && rtIn('pocheck', d); // the report's From and Till (R49: opens on the current month)
+  const P = packIdx(); const all = (ST.poLines || []).filter(l => l.grp === 'White label' && !l.foc && inPer(l.received)).map(l => { const k = l.packId ? P.get(l.packId) : null; const ap = l.packId ? priceOn(l.packId, l.received, l.enteredAt || null) : null; const a = ap ? ap.price : null; const diff = a != null ? a - l.price : null;
+    return { ...l, k, name: k ? packLabel(k) : `${l.brand} ${l.pack}`, ap: a, gap: diff != null ? Math.max(diff, 0) * l.kg : 0, state: !l.packId ? 'not placed on a pack' : a == null ? 'no approved price' : diff > 0.005 ? 'below approved' : diff < -0.005 ? 'above approved' : 'as approved' }; }).sort((a, b) => b.gap - a.gap || String(b.received).localeCompare(String(a.received)));
+  const F = { all: () => true, below: x => x.state === 'below approved', as: x => x.state === 'as approved' || x.state === 'above approved', none: x => x.state === 'no approved price' || x.state === 'not placed on a pack' };
+  return { all, F, list: all.filter(F[poF] || F.all), cur, last };
+}
+function vPoCheck() {
+  const P = poCheck(); const below = P.all.filter(P.F.below); const tot = below.reduce((s, x) => s + x.gap, 0); const perN = rtPer('pocheck');
+  const LBL = { all: 'All', below: 'Below approved', as: 'As or above approved', none: 'No approved price or pack' };
+  const pill = st => st === 'below approved' ? 'p-red' : /^no |^not /.test(st) ? 'p-none' : 'p-green';
+  const unitOfL = x => x.k && x.k.product.soldPer === 'L' ? 'L' : 'kg';
+  const rows = rtIds(P.list.map(x => ({ ...x, _cls: x.state === 'below approved' ? 'r-red' : /^no |^not /.test(x.state) ? 'r-none' : 'r-green' })), x => `${x.po}|${x.cust}|${x.name}|${x.received}`);
+  const cols = [{ k: 'po', l: 'PO', x: x => x.po, h: x => `<span class="mono">${esc(x.po)}</span>` }, { k: 'rcv', l: 'Received', x: x => x.received || '', f: x => fmtShort(x.received) },
+    { k: 'pack', l: 'Client · pack', x: x => `${x.cust} · ${x.name}`, h: x => `<i class="fam" style="background:${(x.k && x.k.product.fam) || '#8796A5'}"></i>${esc(x.cust)} · ${esc(x.name)}` },
+    { k: 'qty', l: 'Qty, kg or L', r: 1, x: x => Math.round(x.kg), f: x => `${n0(x.kg)} ${unitOfL(x)}` }, { k: 'ap', l: 'Approved', r: 1, dp: 2, x: x => x.ap, f: x => x.ap != null ? n2(x.ap) : '–' },
+    { k: 'on', l: 'On PO', r: 1, dp: 2, x: x => x.price }, { k: 'gap', l: 'Below approved, Rs', r: 1, tot: 1, x: x => Math.round(x.gap), h: x => `<span class="${x.gap > 0 ? 'over' : ''}">${n0(x.gap)}</span>` },
+    { k: 'st', l: 'State', x: x => x.state, h: x => `<span class="pill ${pill(x.state)}">${x.state}</span>` }];
+  const extra = `<div class="chips" aria-label="Lines">${Object.keys(P.F).map(k => `<button data-pof="${k}" aria-pressed="${poF === k}">${LBL[k]} ${P.all.filter(P.F[k]).length}</button>`).join('')}</div>`;
+  return `${repCrumb('PO price against approved price')}${meta([perN, o2sAsOf()])}${head('PO price against approved price', P.all.length ? `${perN}: ${below.length} of ${pl(P.all.length, 'PO line was', 'PO lines were')} entered below the approved price: ${rs(tot)} below approved price.` : `${perN}: no white label PO line.`, 'Approved price = the price in force on the PO\'s received date (time-based clients); for fixed per PO clients the received date is taken as the PO\'s start. Gap per line = the larger of (approved − on PO) and 0, times the quantity, so a line above the approved price never hides one below it. FOC lines (price 0) are left out. A line C2M cannot place on a client pack shows as such; fix its name in Setup, Record and checks, From O2S. VAN brand lines are priced by the channel lists and are not in this report. The dates are the PO\'s received date; C2M keeps PO lines from 1 July, the start of this financial year.')}
+  ${rtView({ k: 'pocheck', name: 'PO price against approved price', sheet: 'PO lines', cols, rows, extra, filt: LBL[poF] !== 'All' ? 'Lines: ' + LBL[poF] : '', foot: { _lbl: pl(rows.length, 'line', 'lines'), gap: rows.reduce((s, x) => s + x.gap, 0) }, empty: 'No line in this view.' })}`;
+}
+
+/* ---------- VAN brand PO against its price list (Tahir, 4 Nov 2026, D-146; F-32) ----------
+   The server checks each VAN brand PO line against the list in force on its date (c2m-pricecheck.js); this page only shows the marks.
+   Within 1% of the list price is "at list price". It never blocks a PO and changes nothing on Margin. */
+const LCSTATE = { at: 'At list price', above: 'Above list', below: 'Below list', off: 'Not on its list', cost: 'Cost only, no list', none: 'Not checked' };
+const LCPILL = { at: 'p-green', above: 'p-amber', below: 'p-red', off: 'p-amber', cost: 'p-none', none: 'p-none' };
+const LCROW = { at: 'r-green', above: 'r-amber', below: 'r-red', off: 'r-amber', cost: 'r-none', none: 'r-none' };
+/** The marked lines and their counts. Flagged = above, below or not on its list (what the CFO and COO act on). */
+function listCheck(k) { // k: a report's dates (the report); none: every line since the first list (the mark on Approvals)
+  const L = ST.listCheck || { lines: [] }; const P = packIdx();
+  const all = (L.lines || []).filter(x => !k || rtIn(k, x.received)).map(x => { const k = x.packId ? P.get(x.packId) : null; return { ...x, k, name: k ? packLabel(k) : `${x.brand} ${x.pack}` }; })
+    .sort((a, b) => ['below', 'above', 'off', 'none', 'cost', 'at'].indexOf(a.state) - ['below', 'above', 'off', 'none', 'cost', 'at'].indexOf(b.state) || Math.abs(b.diffPct || 0) - Math.abs(a.diffPct || 0) || String(b.received).localeCompare(String(a.received)));
+  const F = { flag: x => ['above', 'below', 'off'].includes(x.state), all: () => true, at: x => x.state === 'at', above: x => x.state === 'above', below: x => x.state === 'below', off: x => x.state === 'off', cost: x => x.state === 'cost', none: x => x.state === 'none' };
+  const n = k => all.filter(F[k]).length;
+  return { L, all, F, n, list: all.filter(F[lcF] || F.flag) };
+}
+function vListCheck() {
+  const C = listCheck('listcheck'); const L = C.L; const tot = C.all.length; const perN = rtPer('listcheck');
+  const LBL = { flag: 'Off their list', all: 'All', at: 'At list price', above: 'Above list', below: 'Below list', off: 'Not on its list', cost: 'Cost only', none: 'Not checked' };
+  const ans = !ST.listCheck ? 'Your role does not see this report.' : !tot ? `${perN}: no VAN brand PO line.` : `${perN}: ${C.n('flag')} of ${pl(tot, 'VAN brand PO line is', 'VAN brand PO lines are')} off their list: ${C.n('below')} below, ${C.n('above')} above, ${C.n('off')} not on its list. ${C.n('at')} at list price.${C.all.some(x => x.dflt) ? ` ${pl(C.all.filter(x => x.dflt).length, 'farmer PO line had', 'farmer PO lines had')} no region in O2S and ${C.all.filter(x => x.dflt).length === 1 ? 'is' : 'are'} taken as on the Farmer list, Punjab.` : ''}`;
+  const howTxt = `Each VAN brand PO line is compared with the price list in force on the PO's date. Distributor, and Punjab dealer: the distributor list, ex FED. Sindh dealer: the dealer list, net price ex FED. COBO: the farmer list, Sindh cash. VGreen: the farmer list, Punjab. Farmer PO: the farmer list for its region; in Sindh, cash or credit by the PO's payment terms (Advance or COD is cash); a farmer with no region in O2S is taken as on the Farmer list, Punjab. The farmer list includes FED, so the PO price is taken with FED. Within ${L.tol || 1}% of the list price counts as at list price. A client's own pack is checked against its cost only. POs dated before ${fmtShort(L.first || '2026-10-11')} are not checked${L.before ? ` (${L.before} this FY)` : ''}. FOC lines are left out. The dates are the PO date. This report marks only: it never blocks a PO and Margin keeps the price O2S entered (ruled 4 Nov 2026).${L.regionRead === false ? ' The region on each PO is not switched on yet: IT has 1 step to run. Until then a dealer\'s region is read from his C2M client record, and farmer POs are taken as on the Farmer list, Punjab; after the step, O2S is pulled again.' : L.regionPulled === false ? ' The region on each PO is ready but no pull has filled it yet: press Pull now (Setup, Record and checks, From O2S), or wait for the morning pull.' : ''} A farmer list price includes FED: a PO that charges FED is taken with FED; a PO that charges none (FED None in O2S) is taken as entered.`;
+  const u = x => x.k && x.k.product.soldPer === 'L' ? 'L' : 'kg';
+  const rows = rtIds(C.list.map(x => ({ ...x, _cls: LCROW[x.state] })), x => `${x.po}|${x.name}|${x.received}`);
+  const why = x => x.why || (x.state === 'cost' && x.gp != null ? `GP ${x.gp}% on its cost on the PO date` : '');
+  const cols = [{ k: 'po', l: 'PO', x: x => x.po, h: x => `<span class="mono">${esc(x.po)}</span>` }, { k: 'date', l: 'PO date', x: x => x.received, f: x => fmtShort(x.received) },
+    { k: 'buyer', l: 'Client line and pack', x: x => `${x.cust}${x.region ? ', ' + x.region : ''} · ${x.name}`, h: x => `<i class="fam" style="background:${(x.k && x.k.product.fam) || '#8796A5'}"></i>${esc(x.cust)}${x.region ? ', ' + esc(x.region) : ''} · ${esc(x.name)}` },
+    { k: 'region', l: 'Region', off: 1, x: x => x.region || '' }, { k: 'terms', l: 'Payment terms', off: 1, x: x => x.terms || '' },
+    { k: 'qty', l: 'Qty, kg or L', r: 1, x: x => Math.round(x.kg), f: x => `${n0(x.kg)} ${u(x)}` },
+    { k: 'with', l: 'Compared with', x: x => (x.colLabel || '') + (x.dflt ? ' (no region in O2S)' : ''), h: x => `${esc(x.colLabel || '')}${x.dflt ? '<span class="sub2">no region in O2S: taken as Punjab</span>' : ''}${why(x) ? `<div class="ans" style="font-size:12px">${esc(why(x))}</div>` : ''}` }, { k: 'why', l: 'Why', off: 1, x: why },
+    { k: 'list', l: 'List, per pack', r: 1, x: x => x.listPrice != null ? x.listPrice : '' }, { k: 'on', l: 'On PO, per pack', r: 1, x: x => x.poPrice != null ? x.poPrice : '' },
+    { k: 'diff', l: 'Difference %', r: 1, x: x => x.diffPct != null ? x.diffPct : '', h: x => `<span class="${x.state === 'below' ? 'over' : ''}">${x.diffPct != null ? (x.diffPct > 0 ? '+' : '') + x.diffPct + '%' : ''}</span>` },
+    { k: 'st', l: 'State', x: x => LCSTATE[x.state], h: x => `<span class="pill ${LCPILL[x.state]}">${LCSTATE[x.state]}</span>` }];
+  const extra = `<div class="chips" aria-label="Lines">${Object.keys(LBL).map(k => `<button data-lcf="${k}" aria-pressed="${lcF === k}">${LBL[k]} ${C.n(k)}</button>`).join('')}</div>`;
+  return `${repCrumb('VAN brand PO against its price list')}${meta([perN, 'Checked since ' + fmtShort(L.first || '2026-10-11'), o2sAsOf()])}${head('VAN brand PO against its price list', ans, howTxt)}
+  ${rtView({ k: 'listcheck', name: 'VAN brand PO against its price list', sheet: 'PO lines', cols, rows, extra, filt: 'Lines: ' + LBL[lcF], foot: { _lbl: pl(rows.length, 'line', 'lines') + '. Prices in Rs per pack.' }, empty: 'No line in this view.' })}`;
+}
+/** The mark on Approvals (D-146): a line for the CFO and COO when VAN brand POs are off their list. No approval; nothing is blocked. */
+function listCheckMark() {
+  if (!ST.listCheck || !CAN('see.price')) return ''; const C = listCheck(); const f = C.n('flag'); if (!f) return '';
+  return `<div class="job"><div><div class="t">${pl(f, 'VAN brand PO line is', 'VAN brand PO lines are')} off their price list since ${esc(fmtShort(C.L.first))}: ${C.n('below')} below, ${C.n('above')} above, ${C.n('off')} not on its list.</div><div class="d">Marked only: no PO is blocked and Margin keeps the price O2S entered. No approval needed.</div></div>${canGo('rep:listcheck') ? '<button class="btn ghost" data-fgo="rep:listcheck" data-fgoall="1">Open the report</button>' : ''}</div>`; /* no button that cannot open (review 6b, m1) */
+}
+
+/* ---------- VAN brand list margin (picture approved by Tahir, 19 Oct 2026; D-70, D-72, D-73) ----------
+   Each VAN brand list row carries its C2M pack (data.packId), linked by Yawar once; cost is read through that link only.
+   GP on every list is before freight, on the price without FED: distributor price ex FED, dealer NSV ex FED before the
+   additional discount, farmer price / (1 + FED %). Each row against its product's GP target (1.0.1, I-41, D-81; was the ambition GP, D-73);
+   the portfolio against those targets weighted by sales. A row marked "not a C2M pack" is left out. */
+let vmFarm = 'pb', vmOpen = false; const vmPick = {}, vmWas = {};
+const VMFARM = { pb: 'Farmer Punjab', sn: 'Farmer Sindh cash', snc: 'Farmer Sindh credit' };
+const VMLIST = { dist: 'Distributor', dealer: 'Dealer', farmer: 'Farmer' };
+const VMSIZE = /(\d+(?:\.\d+)?)\s*-?\s*(kgs?|liters?|litres?|ltrs?|l|ml|gms?|grams?|g)\b/i; // as lib LSIZE
+const vmNorm = s => String(s || '').toLowerCase().replace(/[^a-z0-9.]+/g, ' ').replace(/\b0+(\d)/g, '$1').trim();
+/** Size and unit written in a list row: "25 Kg" is 25 kg, "500 ml" is 0.5 L. */
+function vmSize(s) { const m = String(s || '').match(VMSIZE); if (!m) return null; const u = m[2].toLowerCase(); return { v: u === 'ml' || /^g/.test(u) ? Number(m[1]) / 1000 : Number(m[1]), u: /^(kg|g)/.test(u) ? 'kg' : 'L' }; }
+/** A pack a list row may be linked to: when the row's size and unit can be read, only a pack of that size and unit (a link renames the printed row; review 1.0.2 re-check, finding 1). The server checks the same. */
+const fitsRow = (x, k) => { const z = x.list === 'farmer' ? vmSize(x.data.p) : vmSize(x.data.pack); return !z || (Math.abs(Number(k.size) - z.v) < 1e-6 && (k.product.soldPer || 'kg') === z.u); };
+/** A suggested pack for a list row: the same name once the size is taken out, the same size and the same unit (kg or L).
+ * Only a suggestion: it is marked on the screen, and Yawar checks it before Save. */
+function vmSuggest(list, d, van) {
+  const z = list === 'farmer' ? vmSize(d.p) : vmSize(d.pack); if (!z) return null;
+  const base = vmNorm(String(d.p).replace(new RegExp(VMSIZE.source, 'ig'), ''));
+  const hit = van.filter(k => Math.abs(Number(k.size) - z.v) < 1e-6 && (k.product.soldPer || 'kg') === z.u && vmNorm(k.product.brand) === base);
+  return hit.length === 1 ? hit[0].id : null;
+}
+/** GP on a list price per pack without FED against cost per pack, % (F-22). */
+function vmGp(price, cpp) { return price > 0 && cpp != null ? (price - cpp) / price * 100 : null; }
+const vmRowName = x => `${x.data.p}${x.data.pack ? ' · ' + x.data.pack : ''}`;
+function vanMargin() {
+  const fed = FEDP(); const P = packIdx();
+  const van = [...P.values()].filter(k => k.product.channel === 'VAN brand').sort((a, b) => packLabel(a).localeCompare(packLabel(b)));
+  const items = ST.listItems || [];
+  const stored = x => x.data.packId != null ? Number(x.data.packId) : null;
+  const linked = x => { const id = stored(x); return id != null && P.has(id) && P.get(id).product.channel === 'VAN brand'; };
+  const gone = x => stored(x) != null && !linked(x); // linked to a pack that is no longer an active VAN brand pack
+  const by = new Map();
+  for (const x of items) { if (!linked(x) || !VMLIST[x.list]) continue; const pid = stored(x); if (!by.has(pid)) by.set(pid, { k: P.get(pid), dist: [], dealer: [], farmer: [] }); by.get(pid)[x.list].push(x.data); }
+  const NAME = { dist: 'distributor', dealer: 'dealer', farmer: VMFARM[vmFarm].toLowerCase() };
+  const KEY = { dist: 'dist', dealer: 'dealer', farmer: 'farmer_' + vmFarm }; // each list's own target and freight (lt_, lf_; R39, R40)
+  /* GP after the list's freight, judged on the list's own target, as Clients, VAN Brands, Price lists (lcJudge; push 5a, D-157). */
+  const cell = (price, cpp, l, size) => { if (!(price > 0)) return null; const t = LSET('lt_' + KEY[l]), fr = LSET('lf_' + KEY[l]); const frp = fr != null ? fr * size : null; const J = lcJudge(cpp, price, frp, t);
+    return { price, frp, t, gp: J.gp, st: J.st, c: J.st === 'cost' ? 'over' : J.st === 'below' ? 'late' : J.st === 'ok' ? 'ok' : '' }; };
+  const first = (arr, f) => { const r = arr.find(d => Number(f(d)) > 0); return r ? Number(f(r)) : null; }; // the first row of the list with a price
+  const rows = [...by.values()].map(g => {
+    const k = g.k; const size = Number(k.size); const cpp = k.cost ? (k.cost.total - (k.cost.freight || 0)) * size : null; // cost before freight; the list's freight is its own part
+    const fp = first(g.farmer, d => d[vmFarm]);
+    const L = { dist: cell(first(g.dist, d => d.now), cpp, 'dist', size), dealer: cell(first(g.dealer, d => d.nsv), cpp, 'dealer', size), farmer: cell(fp != null ? fp / (1 + fed / 100) : null, cpp, 'farmer', size) };
+    const priced = Object.entries(L).filter(([, v]) => v); const judged = priced.filter(([, v]) => ['cost', 'below', 'ok'].includes(v.st)); const nj = priced.length - judged.length;
+    const worst = st => judged.filter(([, v]) => v.st === st).sort((a, b) => (a[1].gp - a[1].t) - (b[1].gp - b[1].t) || a[1].gp - b[1].gp)[0];
+    let st, wl = null; const nt = nj ? `; ${pl(nj, 'list', 'lists')} not judged` : '';
+    if (cpp == null) st = ['p-none', 'not costed'];
+    else if (!priced.length) st = ['p-none', 'no list price'];
+    else if (worst('cost')) { wl = NAME[worst('cost')[0]]; st = ['p-red', 'below cost: ' + wl + nt]; }
+    else if (worst('below')) { wl = NAME[worst('below')[0]]; st = ['p-amber', 'below target: ' + wl + nt]; }
+    else if (judged.length) st = ['p-green', 'at or above target' + nt];
+    else st = ['p-none', 'freight or target not set'];
+    const dup = Math.max(g.dist.length, g.dealer.length, g.farmer.length);
+    const wgp = judged.length ? Math.min(...judged.map(([, v]) => v.gp)) : null;
+    return { k, name: packLabel(k), cpp, L, st, wl, dup, wgp };
+  }).sort((a, b) => (STRANK[a.st[0]] - STRANK[b.st[0]]) || ((a.wgp ?? Infinity) - (b.wgp ?? Infinity)) || a.name.localeCompare(b.name)); // worst state, then worst GP
+  // Portfolio GP: VAN brand trucks this FY at the approved cost on each truck's date, after each sale's list freight (as Margin, R46)
+  const vs = (ST.sales || []).filter(r => r.grp === 'VAN brand' && r.date >= fyStart());
+  const cs = vs.filter(r => r.cost != null), sRs = cs.reduce((t, r) => t + r.kg * r.price, 0); // portfolio target: each product's target weighted by sales (as Margin, F-23)
+  const gRs = cs.reduce((t, r) => t + r.kg * (r.price - r.cost - (r.lfr > 0 ? r.lfr : 0)), 0); const sold = vs.length ? { gp: sRs ? gRs / sRs * 100 : null } : null;
+  const js = cs.filter(r => saleTgt(r) != null), jRs = js.reduce((t, r) => t + r.kg * r.price, 0); /* judged as Margin (R55): each sale on its list's target */
+  const A1 = jRs ? js.reduce((t, r) => t + saleTgt(r) * r.kg * r.price, 0) / jRs : null; const A = A1 > 0 ? A1 : null; if (sold && jRs) sold.jgp = js.reduce((t, r) => t + r.kg * (r.price - r.cost - (r.lfr > 0 ? r.lfr : 0)), 0) / jRs * 100; if (sold) sold.mixed = jRs > 0 && jRs < sRs;
+  const marked = items.filter(x => !linked(x) && x.data.noPack); // marked not a C2M pack
+  return { rows, items, unlinked: items.filter(x => !linked(x) && !x.data.noPack), marked, gone, van, A, fed, sold, linked, stored, KEY };
+}
+/** What each row's select shows: Yawar's pick, else the stored link, else a suggestion (only for a row with no link). */
+function vmCurrent(x, V) {
+  if (vmPick[x.id] !== undefined) return { v: vmPick[x.id] === '' ? null : Number(vmPick[x.id]), how: 'picked' };
+  const s0 = V.stored(x); if (s0 != null) return { v: s0, how: 'saved' };
+  if (x.data.noPack) return { v: null, how: 'nopack' }; // marked not a C2M pack: no suggestion
+  const sg = vmSuggest(x.list, x.data, V.van); return sg != null ? { v: sg, how: 'suggested' } : { v: null, how: 'none' };
+}
+/** The links Save sends: every row, shown or not, whose current pick differs from what is stored (suggestions included, and counted). */
+function vmChanges(V = vanMargin()) { const out = []; for (const x of V.items) { if (x.data.noPack && !V.linked(x)) { delete vmPick[x.id]; continue; } /* a marked row shows no pick: a pick left from before (another tab) never re-links it (review 1.0.1 re-check) */ const c = vmCurrent(x, V); if (c.v !== V.stored(x)) out.push({ id: x.id, packId: c.v, how: c.how, was: x.id in vmWas ? vmWas[x.id] : (x.data.packId != null ? Number(x.data.packId) : null) }); } return out; }
+function vVanMargin() {
+  const V = vanMargin(), yw = CAN('lists.mark'), lk = CAN('lists.link'), P = packIdx(); // lk: Tahir links too (1.0.2, D-85); the mark stays Yawar's
+  const below = V.rows.filter(r => r.st[0] === 'p-red' || r.st[0] === 'p-amber').length, red = V.rows.filter(r => r.st[0] === 'p-red').length, w0 = V.rows[0];
+  const port = V.sold && V.sold.gp != null ? `VAN brand portfolio GP ${pc(V.sold.gp)} on what was sold, FY to date, after list freight${V.A != null ? `${V.sold.mixed ? `; ${pc(V.sold.jgp)} on the sales judged` : ''}, against a ${pc(V.A)} target (each sale\'s price list target, weighted by sales)` : '; not judged: no price list has a target set yet'}.` : 'No VAN brand sales read from O2S this FY.';
+  const worst = w0 && w0.st[0] === 'p-red' ? ` ${esc(w0.name)} is below cost on the ${w0.wl} list${red > 1 ? `; ${red} packs are below cost` : ''}.` : w0 && w0.st[0] === 'p-amber' ? ` Furthest below: ${esc(w0.name)} on the ${w0.wl} list.` : '';
+  const ans = !V.rows.length ? `${port} No list row is linked to its C2M pack yet.` : `${port} ${below} of ${V.rows.length} VAN brand packs below their list's target after freight on at least 1 list.${worst}`;
+  const LL = { dist: 'Distributor, ex FED', dealer: 'Dealer NSV, ex FED', farmer: VMFARM[vmFarm] + ', ex FED' };
+  const gpTxt = c => !c ? '' : c.st === 'nofr' ? 'freight not set' : c.st === 'none' ? 'not costed' : pc(c.gp) + (c.st === 'notgt' ? ', no target' : '');
+  const cols = [{ k: 'pack', l: 'VAN brand pack', x: r => r.name, h: r => `<span class="nw">${esc(r.name)}</span>${r.dup > 1 ? ` <span class="pill p-none" data-vmdup title="${r.dup} rows of 1 list are linked to this pack: the first with a price is used">${r.dup} rows</span>` : ''}` },
+    { k: 'cpp', l: 'Cost today, per pack, before freight', r: 1, x: r => r.cpp != null ? Math.round(r.cpp) : '', f: r => r.cpp != null ? n0(r.cpp) : '–' }]
+    .concat(...['dist', 'dealer', 'farmer'].map(l => [{ k: l, l: LL[l], r: 1, x: r => r.L[l] ? Math.round(r.L[l].price) : '', f: r => r.L[l] ? n0(r.L[l].price) : 'none' },
+      { k: l + 'fr', l: 'Freight per pack', r: 1, off: 1, x: r => r.L[l] && r.L[l].frp != null ? +r.L[l].frp.toFixed(2) : '', f: r => r.L[l] ? (r.L[l].frp != null ? n2(r.L[l].frp) : 'not set') : '' },
+      { k: l + 't', l: 'Target %', r: 1, off: 1, x: r => r.L[l] && r.L[l].t != null ? r.L[l].t : '', f: r => r.L[l] ? (r.L[l].t != null ? pc(r.L[l].t) : 'not set') : '' },
+      { k: l + 'gp', l: 'GP after freight', r: 1, x: r => r.L[l] && r.L[l].gp != null && !['nofr', 'none'].includes(r.L[l].st) ? +r.L[l].gp.toFixed(2) : gpTxt(r.L[l]), f: r => gpTxt(r.L[l]), h: r => `<span class="${r.L[l] ? r.L[l].c : ''}">${esc(gpTxt(r.L[l]))}</span>` }]),
+    [{ k: 'st', l: 'State', x: r => r.st[1], h: r => `<span class="pill ${r.st[0]}" data-vmst>${esc(r.st[1])}</span>` }]);
+  const rows = rtIds(V.rows.map(r => ({ ...r, _cls: STRIPE[r.st[0]] || 'r-none', _tr: ` data-vmpack="${r.k.id}"` })), r => 'p' + r.k.id);
+  const setTxt = ['dist', 'dealer', 'farmer'].map(l => { const t = LSET('lt_' + V.KEY[l]), f = LSET('lf_' + V.KEY[l]); return `${LL[l].replace(', ex FED', '').replace(' NSV', '')}: target ${t != null ? pc(t) : 'not set'}, freight ${f != null ? 'Rs ' + n2(f) + ' per kg or L' : 'not set'}`; }).join('; ');
+  const extra = `<div class="chips" aria-label="Farmer list">${Object.entries(VMFARM).map(([k, l]) => `<button data-vmfarm="${k}" aria-pressed="${vmFarm === k}">${l}</button>`).join('')}</div>`;
+  const sheets = () => [{ name: 'Links', rows: [['List', 'List row', 'C2M pack']].concat(V.items.map(x => [VMLIST[x.list] || x.list, vmRowName(x), V.linked(x) ? packLabel(packIdx().get(V.stored(x))) : x.data.noPack ? 'Not a C2M pack' : V.gone(x) ? 'Pack no longer active' : 'Not linked'])) }];
+  const ch = lk ? vmChanges(V) : []; const nSug = ch.filter(c => c.how === 'suggested').length;
+  const sel = x => { const c = vmCurrent(x, V); const s0 = V.stored(x); const extra = s0 != null && !V.linked(x) ? `<option value="${s0}"${c.v === s0 ? ' selected' : ''}>Pack no longer active (${s0})</option>` : '';
+    return `<select data-vmlink="${x.id}" aria-label="C2M pack for ${esc(vmRowName(x))}">${lmDone() ? '' : `<option value=""${c.v == null ? ' selected' : ''}>Not linked</option>`}${extra}${V.van.filter(k => k.id === c.v || k.id === s0 || fitsRow(x, k)).map(k => { const held = k.id !== c.v && V.items.some(y => y !== x && y.list === x.list && vmCurrent(y, V).v === k.id); /* a pack another row of the list is on: only as a swap, both moved in 1 save (review 1.0.3) */ return `<option value="${k.id}"${c.v === k.id ? ' selected' : ''}>${esc(packLabel(k))}${held ? ' · on this list now: move that row too' : ''}</option>`; }).join('')}</select>${c.how === 'suggested' ? ' <span class="pill p-amber" data-vmsug>suggested: check</span>' : c.how === 'picked' && c.v !== s0 ? ' <span class="pill p-none">changed</span>' : ''}`; };
+  const shown = vmOpen ? V.items : V.unlinked.concat(V.marked); const nGone = V.items.filter(V.gone).length; const nNone = V.unlinked.length - nGone;
+  const mkTxt = V.marked.length ? ` ${pl(V.marked.length, 'row is marked not a C2M pack: left out of this report; it no longer stops', 'rows are marked not a C2M pack: left out of this report; they no longer stop')} a new pack being added to its list.` : '';
+  const linkTxt = (V.unlinked.length ? `${nNone ? pl(nNone, 'list row has', 'list rows have') + ' no pack' : ''}${nNone && nGone ? '; ' : ''}${nGone ? pl(nGone, 'row is', 'rows are') + ' linked to a pack no longer active' : ''}: left out of the table above.` : `All ${V.items.length - V.marked.length} list rows to be costed are linked.`) + mkTxt;
+  return `${repCrumb('VAN brand list margin')}${meta(['Lists in force today', 'FED ' + V.fed + '%', o2sAsOf()])}${head('VAN brand list margin', ans, 'GP after freight = (list price per pack without FED − cost today per pack − the list\'s freight per pack) ÷ list price per pack without FED, on every list, as on Clients, VAN Brands, Price lists. Distributor: price ex FED. Dealer: NSV ex FED, before the additional discount. Farmer: the farmer price ÷ (1 + FED %). Cost per pack = cost today per kg or L, before freight, × pack size; freight per pack = the list\'s freight Rs per kg or L × pack size. Each list is judged on its own target: red below cost after freight, amber more than 0.05 points below the list\'s target, green at or above it; the state names the worst list shown. A list with no freight set says "freight not set" and is not judged; one with no target shows its GP and is not judged. Each list row reads its cost through the C2M pack the CFO linked it to, never through names or O2S; if 2 rows of a list are linked to 1 pack, the first with a price is used. Portfolio GP: VAN brand trucks this FY at the approved cost on each truck\'s date, after each sale\'s list freight, against each product\'s target weighted by sales.')}
+  <p class="ans" style="font-size:12.5px" data-vmset>${esc(setTxt)}.</p>
+  ${rtView({ k: 'vanmargin', name: 'VAN brand list margin', sheet: 'Packs', dated: false, asOf: 'Lists in force today, ' + fmtD(ST.today), cols, rows, extra, filt: VMFARM[vmFarm], sheets, empty: 'No list row is linked to its C2M pack yet.' })}
+  ${!lmDone() ? `<div class="box"><b>Links: each list row to its C2M pack</b><p class="ans" id="vmltxt" style="margin:4px 0 8px">${linkTxt} ${lk ? 'The rows are carried into the master once, on 1 screen: then every list row belongs to its VAN brand pack and nothing is linked row by row. <button class="btn ghost" data-lm-open>Carry into the master</button>' : 'the COO or the CFO carries the lists into the master.'}</p></div>`
+  : `<div class="box"><b>Each list row and its master pack</b><p class="ans" id="vmltxt" style="margin:4px 0 8px">The lists are carried into the master: every list price belongs to a VAN brand pack. ${lk ? 'If a price sits on the wrong pack, move it here to a pack of the same size, then Save: the row prints under that pack\'s name at once, and the other of the COO and the CFO is told (no approval, ruling of 20 Oct 2026). To swap 2 rows, move both, then Save once. A pack no longer sold is taken off its list on Clients, VAN Brands, Price lists, See all 5 side by side.' : 'The COO or the CFO moves a price that sits on the wrong pack.'}</p>
+  <div class="wtbar"><button class="btn ghost" data-vmopen aria-pressed="${vmOpen}">${vmOpen ? 'Hide the rows' : `Show all ${V.items.length} rows`}</button>${lk ? `<span class="sp"></span><button class="btn" data-vmsave${ch.length ? '' : ' disabled'}>Save ${pl(ch.length, 'move', 'moves')}</button>` : ''}</div>
+  ${vmOpen ? `<div class="wrapx"><table class="wt cards" id="vml"><thead><tr><th>List</th><th>List row</th><th>Master pack</th></tr></thead><tbody>${V.items.map(x => `<tr><td data-l="List">${VMLIST[x.list] || esc(x.list)}</td><td data-l="List row">${esc(vmRowName(x))}</td><td data-l="Master pack">${lk ? sel(x) : V.linked(x) ? esc(packLabel(P.get(V.stored(x)))) : 'Pack no longer active'}</td></tr>`).join('')}</tbody></table></div>` : ''}</div>`}`;
+}
+/* ---------- Cost history (push 5a, R28, R51: pack cost only; D-157) ----------
+   Every approved cost of every pack (c2m_cost_version), with its parts, its change against the same pack's cost before it, why and who.
+   "Last per pack": each pack's newest cost in the dates, with its change from the cost before the dates. Each rate's own history stays
+   on its History in Costs. */
+let chM = 'all', chCl = '', chQ = '';
+const chPack = r => `${r.cust} · ${r.brand} · ${r.size != null ? packTxt(r.size, r.soldPer) : 'pack'}`;
+const chg = (a, b) => b ? (a - b) / b * 100 : null;
+const chgTxt = v => v == null ? 'first' : (v > 0.0005 ? '+' : v < -0.0005 ? '−' : '') + Math.abs(v).toFixed(1) + '%';
+/** The rows of the report: in the dates and filters, every approval or the last per pack. */
+function costHist(all) {
+  const q = chQ.trim().toLowerCase(); const hit = r => (!chCl || r.cust === chCl) && (!q || (r.brand + ' ' + r.cust).toLowerCase().includes(q));
+  const inD = all.filter(r => rtIn('costs', r.from) && hit(r));
+  let rows = inD.map(r => ({ ...r, base: r.prev, chg: r.prev != null ? chg(r.total, r.prev) : null }));
+  if (chM === 'last') { const by = new Map(); inD.forEach(r => { const g = by.get(r.packId) || []; g.push(r); by.set(r.packId, g); });
+    rows = [...by.values()].map(g => { g.sort((a, b) => a.from.localeCompare(b.from) || a.id - b.id); const n = g[g.length - 1], e = g[0]; return { ...n, base: e.prev, chg: e.prev != null ? chg(n.total, e.prev) : null, n: g.length }; }); }
+  rows.sort((a, b) => b.from.localeCompare(a.from) || b.id - a.id);
+  return rtIds(rows, r => 'v' + r.id);
+}
+function vCostHist() {
+  const R = repData('costs'); const crumb = repCrumb('Cost history');
+  if (R.busy) return `${crumb}${head('Cost history', 'Loading…', '')}`;
+  if (R.err) return `${crumb}${head('Cost history', 'The cost history could not be read: ' + esc(R.err), '')}<p><button class="btn ghost" data-rep-retry="costs">Try again</button></p>`;
+  const all = (R.data && R.data.rows) || []; const rows = costHist(all); const per = rtPer('costs');
+  const packs = new Set(rows.map(r => r.packId)).size; const mv = rows.filter(r => r.chg != null).sort((a, b) => Math.abs(b.chg) - Math.abs(a.chg))[0];
+  const ans = !rows.length ? `${per}: no pack had a new approved cost.` : `${per}: ${pl(packs, 'pack', 'packs')} had a new approved cost.${mv && Math.abs(mv.chg) >= 0.05 ? ` ${esc(mv.brand)} ${esc(packTxt(mv.size, mv.soldPer))} for ${esc(mv.cust)} moved most: ${mv.chg > 0 ? 'up' : 'down'} ${Math.abs(mv.chg).toFixed(1)}%, from Rs ${n2(mv.base)} to Rs ${n2(mv.total)} per ${mv.soldPer}.` : ''}`;
+  const custs = [...new Set(all.map(r => r.cust))].sort((a, b) => a.localeCompare(b));
+  const cols = [{ k: 'from', l: 'From', x: r => d10(r.from), f: r => fmtD(r.from) }, { k: 'pack', l: 'Client · brand · pack', x: chPack },
+    { k: 'mat', l: 'Materials', r: 1, dp: 2, x: r => r.materials }, { k: 'pk', l: 'Packing', r: 1, dp: 2, x: r => r.packing }, { k: 'lf', l: 'Labour + FOH', r: 1, dp: 2, x: r => r.conversion }, { k: 'fr', l: 'Freight', r: 1, dp: 2, x: r => r.freight },
+    { k: 'tot', l: 'Total, Rs per kg or L', r: 1, dp: 2, x: r => r.total, h: r => `<b>${n2(r.total)}</b>` }, { k: 'was', l: 'Was', r: 1, dp: 2, off: 1, x: r => r.base },
+    { k: 'chg', l: 'Change', r: 1, x: r => r.chg != null ? +r.chg.toFixed(2) : 'first', f: r => chgTxt(r.chg), h: r => `<span class="${r.chg > 0.05 ? 'late' : ''}">${chgTxt(r.chg)}</span>` },
+    { k: 'why', l: 'Why', x: r => r.cause }, { k: 'who', l: 'Approved by', x: r => personName(r.by) }];
+  const extra = `<label class="rtsel">Client <select data-chcl aria-label="Client"><option value="">All clients</option>${custs.map(c => `<option${c === chCl ? ' selected' : ''}>${esc(c)}</option>`).join('')}</select></label><input type="search" id="chq" value="${esc(chQ)}" placeholder="Find a brand" aria-label="Find a brand"><div class="chips" aria-label="Show">${[['all', 'Every approval'], ['last', 'Last per pack']].map(([k, l]) => `<button data-chm="${k}" aria-pressed="${chM === k}">${l}</button>`).join('')}</div>`;
+  return `${crumb}${meta([per, 'Pack cost only'])}${head('Cost history', ans, 'Every approved cost of every pack, with its parts in Rs per kg or L: materials, packing, labour and FOH (factory overhead) together as each approved cost keeps them, and freight. Change compares with the same pack\'s approved cost before it; "first" is a pack\'s first approved cost. "Last per pack" shows each pack\'s newest cost in the dates, with its change from the cost before the dates. A cost applies to trucks from the day after it is approved. Each rate\'s own history stays on its History in Costs.')}
+  ${rtView({ k: 'costs', name: 'Cost history', sheet: 'Pack cost', cols, rows, extra, filt: [chCl ? 'Client: ' + chCl : '', chQ.trim() ? 'Brand: ' + chQ.trim() : '', chM === 'last' ? 'Last per pack' : 'Every approval'].filter(Boolean).join(' · '), empty: 'No approved cost in these dates.' })}`;
+}
+/** The approved cost of a pack in force on a date, from the cost history: from the day after its approval; before the first, the first (as Margin). */
+function costOnDay(all, packId, day) { let pick = null, first = null; for (const r of all) { if (r.packId !== packId) continue; if (!first || r.from < first.from || (r.from === first.from && r.id < first.id)) first = r; if (d10(r.from) < day && (!pick || r.from > pick.from || (r.from === pick.from && r.id > pick.id))) pick = r; } return pick || (first ? { ...first, later: true } : null); } /* none before the day: the first cost, as Margin does for trucks before a pack's first cost, marked as approved later (review 5a, finding 2) */
+
+/* ---------- Price history (push 5a, R28, R30; D-157): 2 tabs ----------
+   Client prices: every approved white label price, from when to when, with the GP it gave at the cost in force on its first day.
+   VAN lists: every approved list price on the 5 lists, from the first data load (GET /api/c2m/reports/prices). */
+let phTab = 'wl', phCl = '', phShow = 'all', phList = 'all';
+const PHLIST = { dist: 'Distributor', dealer: 'Dealer, Sindh', farmer_pb: 'Farmer, Punjab', farmer_sn: 'Farmer, Sindh cash', farmer_snc: 'Farmer, Sindh credit' };
+function vPriceHist() {
+  const C = repData('costs'), L = repData('prices'); const crumb = repCrumb('Price history');
+  const tabs = nTabs('phtab', [['wl', 'Client prices'], ['van', 'VAN lists']], phTab, 'Price history');
+  if (C.busy || L.busy) return `${crumb}${head('Price history', 'Loading…', '')}${tabs}`;
+  if (C.err || L.err) return `${crumb}${head('Price history', 'The price history could not be read: ' + esc(C.err || L.err), '')}${tabs}<p><button class="btn ghost" data-rep-retry="prices">Try again</button></p>`;
+  return phTab === 'van' ? vPhVan(L.data || { rows: [] }, crumb, tabs) : vPhWl((C.data && C.data.rows) || [], crumb, tabs);
+}
+/** Every approved white label price, with its GP at its start: Price history and Your own report (push 5b) read the same rows. */
+function phWlBase(costs) {
+  const P = packIdx();
+  return (ST.priceHistory || []).map(p => { const k = P.get(p.packId); if (k && k.product.grp !== 'White label') return null; const c = costOnDay(costs, p.packId, p.from); const gp = c && p.price > 0 ? (p.price - c.total) / p.price * 100 : null; const later = !!(c && c.later);
+    return { ...p, k, cust: k ? k.product.customer : 'Pack no longer active', name: k ? `${k.product.customer} · ${k.product.brand} · ${szTxt(k)}` : 'A pack no longer active', size: k ? Number(k.size) : null, u: k && k.product.soldPer === 'L' ? 'L' : 'kg', gp, later, tgt: k ? tgtOf(k.product.target) : null, chg: p.prev ? chg(p.price, p.prev) : null }; }).filter(Boolean);
+}
+function vPhWl(costs, crumb, tabs) {
+  const now = ST.today; const inForce = p => p.from <= now && (!p.to || p.to >= now);
+  const base = phWlBase(costs);
+  const custs = [...new Set(base.map(r => r.cust))].sort((a, b) => a.localeCompare(b));
+  const rows = rtIds(base.filter(r => (!phCl || r.cust === phCl) && (phShow === 'now' ? inForce(r) : rtIn('prices', r.from))).sort((a, b) => b.from.localeCompare(a.from) || b.id - a.id), r => 'p' + r.id);
+  const low = r => r.gp != null && r.tgt != null && r.gp < r.tgt - 0.05; const nLow = rows.filter(low).length; const per = phShow === 'now' ? 'In force today' : rtPer('prices');
+  const ans = !rows.length ? (phShow === 'now' ? 'No client price is in force today.' : `${per}: no client price changed.`) : phShow === 'now' ? `In force today: ${pl(rows.length, 'client price', 'client prices')}; ${nLow ? `${nLow} went in below target GP, each with its reason.` : 'none went in below target GP.'}` : `${per}: ${pl(rows.length, 'client price', 'client prices')} changed. ${nLow ? `${nLow} went in below target GP, each with its reason.` : 'None went in below target GP.'}`;
+  const tillTxt = r => r.to ? fmtD(r.to) : r.from > now ? 'not yet in force' : 'in force';
+  const cols = [{ k: 'pack', l: 'Client · brand · pack', x: r => r.name }, { k: 'from', l: 'From', x: r => r.from, f: r => fmtD(r.from) }, { k: 'till', l: 'Till', x: r => r.to || tillTxt(r), f: tillTxt },
+    { k: 'kg', l: 'Rs per kg or L', r: 1, dp: 2, x: r => r.price }, { k: 'pk', l: 'Rs per pack', r: 1, x: r => r.size != null ? Math.round(r.price * r.size * 100) / 100 : '', f: r => r.size != null ? n0(r.price * r.size) : '' },
+    { k: 'was', l: 'Was', r: 1, dp: 2, x: r => r.prev, f: r => r.prev != null ? n2(r.prev) : 'first' }, { k: 'chg', l: 'Change', r: 1, x: r => r.chg != null ? +r.chg.toFixed(2) : 'first', f: r => chgTxt(r.chg) },
+    { k: 'gp', l: 'GP at its start', r: 1, x: r => r.gp != null ? +r.gp.toFixed(2) : 'no cost then', f: r => r.gp != null ? pc(r.gp) + (r.later ? ' (on its first cost, approved later)' : '') : 'no cost then', h: r => `<span class="${low(r) ? 'late' : ''}">${r.gp != null ? pc(r.gp) : 'no cost then'}</span>${r.later && r.gp != null ? '<small>on its first cost, approved later</small>' : ''}` },
+    { k: 'tgt', l: 'Target', r: 1, off: 1, x: r => r.tgt, f: r => r.tgt != null ? pc(r.tgt) : '' },
+    { k: 'why', l: 'Reason · approved by', x: r => [r.reason || '', r.decidedBy ? `${personName(r.decidedBy)}${r.decidedAt ? ', ' + fmtShort(r.decidedAt) : ''}` : ''].filter(Boolean).join(' · ') }];
+  const extra = `<label class="rtsel">Client <select data-phcl aria-label="Client"><option value="">All clients</option>${custs.map(c => `<option${c === phCl ? ' selected' : ''}>${esc(c)}</option>`).join('')}</select></label><div class="chips" aria-label="Show">${[['all', 'Every price'], ['now', 'In force today']].map(([k, l]) => `<button data-phshow="${k}" aria-pressed="${phShow === k}">${l}</button>`).join('')}</div>`;
+  return `${crumb}${meta([per, 'Client prices'])}${head('Price history', ans, 'Every approved white label price, from when to when. Rs per pack = Rs per kg or L × the pack size. GP at its start = (price − the pack\'s approved cost in force on the price\'s first day) ÷ price; a cost applies from the day after its approval, and before a pack\'s first approved cost its first cost is used, as in Margin. Below target: more than 0.05 points under the product\'s target. "In force today" ignores the dates. Prices are without FED.')}${tabs}
+  ${rtView({ k: 'prices', name: 'Price history, client prices', sheet: 'Client prices', dated: phShow !== 'now', asOf: 'In force today, ' + fmtD(now), cols, rows, extra, filt: [phCl ? 'Client: ' + phCl : '', phShow === 'now' ? 'In force today' : 'Every price'].filter(Boolean).join(' · '), empty: 'No client price in this view.' })}`;
+}
+function vPhVan(D, crumb, tabs) {
+  const P = packIdx(); const nameOf = r => { const k = r.packId != null ? P.get(r.packId) : null; return k ? packLabel(k) : `${r.product}${r.pack ? ' ' + r.pack : ''}`; };
+  const rows = rtIds((D.rows || []).filter(r => (phList === 'all' || r.list === phList) && rtIn('vanp', r.from)).map(r => ({ ...r, name: nameOf(r), chg: r.was ? chg(r.price, r.was) : null })).sort((a, b) => b.from.localeCompare(a.from) || (PHLIST[a.list] || '').localeCompare(PHLIST[b.list] || '') || a.name.localeCompare(b.name)), r => `${r.list}|${r.product}|${r.pack}|${r.from}`);
+  const per = rtPer('vanp'); const nRev = rows.filter(r => !r.first).length;
+  const ans = !rows.length ? `${per}: no VAN list price took effect${phList !== 'all' ? ' on the ' + PHLIST[phList] + ' list' : ''}.` : `${per}: ${pl(rows.length, 'VAN list price', 'VAN list prices')} took effect${phList !== 'all' ? ' on the ' + PHLIST[phList] + ' list' : ' on the 5 lists'}; ${nRev ? `${nRev} by an approved revision` : 'none by a revision'}${rows.length - nRev ? `, ${rows.length - nRev} from the first data load` : ''}.`;
+  const tillTxt = r => r.till ? fmtD(r.till) : r.from > ST.today ? 'not yet in force' : r.off ? 'taken off the list' : 'in force';
+  const cols = [{ k: 'list', l: 'List', x: r => PHLIST[r.list] || r.list }, { k: 'pack', l: 'Product · pack', x: r => r.name }, { k: 'from', l: 'From', x: r => r.from, f: r => fmtD(r.from) }, { k: 'till', l: 'Till', x: r => r.till || tillTxt(r), f: tillTxt },
+    { k: 'price', l: 'Price per pack', r: 1, x: r => r.price, f: r => n0(r.price) }, { k: 'was', l: 'Was', r: 1, x: r => r.was != null ? r.was : '', f: r => r.was != null ? n0(r.was) : '—' },
+    { k: 'chg', l: 'Change', r: 1, x: r => r.chg != null ? +r.chg.toFixed(2) : 'first', f: r => chgTxt(r.chg) },
+    { k: 'why', l: 'Reason · approved by', x: r => r.first ? 'From the first data load' : [r.reason || '', r.by ? `${personName(r.by)}${r.at ? ', ' + fmtShort(r.at) : ''}` : ''].filter(Boolean).join(' · ') }];
+  const extra = `<div class="chips" aria-label="List">${[['all', 'All 5']].concat(Object.entries(PHLIST)).map(([k, l]) => `<button data-phlist="${k}" aria-pressed="${phList === k}">${l}</button>`).join('')}</div>`;
+  return `${crumb}${meta([per, 'VAN lists'])}${head('Price history', ans, 'Every approved price on the 5 VAN brand lists, from when to when: the distributor price ex FED, the dealer price before discount (NSV) ex FED, and the farmer prices with FED, as printed on each list. Was and Change compare with the same row\'s price before.')}${tabs}
+  <p class="ans" style="font-size:12.5px" data-phfirst>VAN list history starts at the first data load (${esc(fmtD(D.first))}); every approved revision since then is shown.</p>
+  ${rtView({ k: 'vanp', name: 'Price history, VAN lists', sheet: 'VAN lists', cols, rows, extra, filt: phList === 'all' ? 'All 5 lists' : PHLIST[phList], empty: 'No list price took effect in these dates.' })}`;
+}
+
+/* ---------- Margin by client and brand (push 5a, R30; D-157) ----------
+   The same sales rows and cost rules as Margin (nmRows, nmCost, nmSum, each truck at the cost approved before its gate pass, VAN brand
+   sales by buyer line after each sale's list freight), for any dates. So the totals agree with Margin for the same dates. Target: each
+   product's target GP for white label; for VAN brands the target of the list each sale was on (R55, 6 Nov; was the company ambition GP). Labour and FOH under
+   or over charged stays a company line (Month end, Margin); it is not spread to clients. */
+let mbKind = 'all', mbRows = 'cl'; const mbOpen = new Set();
+/** Sums of 1 group of trucks: kg, L, sales, cost, GP and GP % exactly as nmSum; the report's target and against target on top. */
+function mbSum(rows) { const o = nmSum(rows); return { kg: o.kg, L: o.L, sales: o.sales, cost: o.cost, gp: o.gp, pct: o.pct, tgt: o.tgt, ag: o.ag, nj: o.nj, jPct: o.jPct, mixed: o.mixed, n: rows.length }; } /* the same target as Margin (R55) */
+function mbData() {
+  const keep = nm.hist; nm.hist = 'approved'; // the approved view, as Margin opens; the sums are worked out here, inside this view
+  try {
+    const kind = r => mbKind === 'all' || (mbKind === 'wl' ? r.grp === 'White label' : r.grp === 'VAN brand');
+    const inD = (ST.sales || []).filter(r => rtIn('margin', r.date) && kind(r)); const costed = inD.filter(r => nmCost(r) != null), unc = inD.filter(r => nmCost(r) == null);
+    const tot = mbSum(costed); const by = new Map(); costed.forEach(r => { const g = by.get(r.cust) || []; g.push(r); by.set(r.cust, g); });
+    const cl = [...by].map(([c, rs]) => { const kids = new Map(); rs.forEach(r => { const g = kids.get(r.packId) || []; g.push(r); kids.set(r.packId, g); });
+      return { cust: c, s: mbSum(rs), kids: [...kids].map(([pid, g]) => ({ pid, s: mbSum(g) })).sort((a, b) => b.s.sales - a.s.sales) }; }).sort((a, b) => b.s.sales - a.s.sales || a.cust.localeCompare(b.cust));
+    return { tot, cl, unc, costed };
+  } finally { nm.hist = keep; }
+}
+const rsM1 = v => Math.abs(v) >= 1e6 ? 'Rs ' + (v / 1e6).toFixed(2) + 'M' : 'Rs ' + n0(v);
+function vMarginRep() {
+  const M = mbData(); const per = rtPer('margin'); const T = M.tot;
+  const best = M.cl.slice().sort((a, b) => b.s.gp - a.s.gp)[0], short = M.cl.filter(x => x.s.ag < -0.5).sort((a, b) => a.s.ag - b.s.ag)[0];
+  const ans = !M.costed.length ? `${per}: no costed trucks.` : `${per}: GP ${rsM1(T.gp)}, ${pc(T.pct)} on ${rsM1(T.sales)} sales${T.mixed ? `; on the sales judged ${pc(T.jPct)} against a ${pc(T.tgt)} target` : ''}.${best ? ` ${esc(best.cust)} earned the most (${rsM1(best.s.gp)})` : ''}${short ? `; ${esc(short.cust)} was furthest below target (${rsM1(-short.s.ag)} short).` : best ? (T.tgt == null ? '; nothing judged: no target set.' : '; no client below target.') : ''}`;
+  const qty = s => [s.kg ? n0(s.kg) + ' kg' : '', s.L ? n0(s.L) + ' L' : ''].filter(Boolean).join(' + ') || '0';
+  const row = (lbl, s, x) => ({ lbl, ...s, ...x });
+  let rows;
+  if (mbRows === 'br') rows = M.cl.flatMap(c => c.kids.map(y => row(`${c.cust} · ${nmPack(y.pid)}`, y.s, { _id0: 'b:' + c.cust + '|' + y.pid })));
+  else rows = M.cl.flatMap(c => { const open = mbOpen.has(c.cust); return [row(c.cust, c.s, { _id0: 'c:' + c.cust, cust: c.cust, open, _cls: 'mbcl' })].concat(open ? c.kids.map(y => row(nmPack(y.pid), y.s, { _id0: 'b:' + c.cust + '|' + y.pid, kid: 1, full: `${c.cust} · ${nmPack(y.pid)}`, _cls: 'child' })) : []); });
+  rtIds(rows, r => r._id0);
+  const cols = [{ k: 'name', l: mbRows === 'br' ? 'Client · brand' : 'Client · brand', x: r => r.full || r.lbl, h: r => r.cust != null ? `<button class="lnk" data-mbtog="${esc(r.cust)}" aria-expanded="${r.open}">${r.open ? '▾' : '▸'} <b>${esc(r.lbl)}</b></button>` : r.kid ? `<span style="padding-left:18px">${esc(r.lbl)}</span>` : esc(r.lbl) },
+    { k: 'qty', l: 'Kg or L', r: 1, tot: 1, x: r => r.L && !r.kg ? Math.round(r.L) : r.kg && !r.L ? Math.round(r.kg) : qty(r), f: qty },
+    { k: 'sales', l: 'Sales Rs', r: 1, tot: 1, x: r => Math.round(r.sales) }, { k: 'cost', l: 'Cost Rs', r: 1, tot: 1, x: r => Math.round(r.cost) }, { k: 'gp', l: 'GP Rs', r: 1, tot: 1, x: r => Math.round(r.gp) },
+    { k: 'pct', l: 'GP %', r: 1, tot: 1, dp: 1, x: r => r.pct, f: r => r.pct != null ? pc(r.pct) : '' }, { k: 'tgt', l: 'Target', r: 1, tot: 1, dp: 1, x: r => r.tgt != null ? r.tgt : 'not judged', f: r => r.tgt != null ? pc(r.tgt) : 'not judged' },
+    { k: 'ag', l: 'Against target Rs', r: 1, tot: 1, x: r => r.tgt != null ? Math.round(r.ag) : '', f: r => r.tgt == null ? '' : (r.ag > 0.5 ? '+' : r.ag < -0.5 ? '−' : '') + n0(Math.abs(r.ag)), h: r => r.tgt == null ? '' : `<span class="${r.ag < -0.5 ? 'over' : r.ag > 0.5 ? 'ok' : ''}">${(r.ag > 0.5 ? '+' : r.ag < -0.5 ? '−' : '') + n0(Math.abs(r.ag))}</span>` }];
+  const KN = { all: 'All', wl: 'White label', van: 'VAN brands' };
+  const extra = `<div class="grpc"><span>Kind</span>${nChips('mbkind', Object.entries(KN), mbKind)}</div><div class="grpc"><span>Rows</span>${nChips('mbrows', [['cl', 'Clients, open to brands'], ['br', 'Every brand']], mbRows)}</div>${mbRows === 'cl' && M.cl.length ? `<button class="lnk" data-mball>${mbOpen.size ? 'Close every client' : 'Open every client'}</button>` : ''}`;
+  const uc = new Map(); M.unc.forEach(r => uc.set(r.cust, (uc.get(r.cust) || 0) + 1));
+  const outTxt = uc.size ? `<p class="ans" data-mbout>Trucks with no approved cost on their date are left out: ${[...uc].sort((a, b) => a[0].localeCompare(b[0])).map(([c, n]) => `${esc(c)} (${pl(n, 'truck', 'trucks')})`).join(', ')}.</p>` : '';
+  const LN = { dist: 'Distributor', dealer: 'Dealer, Sindh', farmer_pb: 'Farmer, Punjab', farmer_sn: 'Farmer, Sindh cash', farmer_snc: 'Farmer, Sindh credit' };
+  const nj = M.costed.filter(r => saleTgt(r) == null); const njL = [...new Set(nj.filter(r => r.lkey).map(r => LN[r.lkey] || r.lkey))]; const njN = nj.filter(r => !r.lkey).length;
+  const njTxt = nj.length ? `<p class="ans" data-mbnj>${pl(nj.length, 'VAN brand sale is', 'VAN brand sales are')} not judged against a target (${rsM1(nj.reduce((a, r) => a + r.kg * r.price, 0))} of sales): ${[njL.length ? 'no target set yet on ' + esc(njL.join(', ')) : '', njN ? pl(njN, 'sale has', 'sales have') + ' no list' : ''].filter(Boolean).join('; ')}.</p>` : '';
+  return `${repCrumb('Margin by client and brand')}${meta([per, KN[mbKind], o2sAsOf()])}${head('Margin by client and brand', ans, `Cost: each truck at the cost approved before its gate pass date, as in Margin; VAN brand sales show by client line (farmers by the farmer price list each sale was picked on), after each sale's list freight. Target: each product's target GP for white label; for VAN brands the target of the price list each sale was sold on, as each channel has its own (a sale with no list, or on a list with no target set, is not judged). Target and against target count judged sales only. Against target Rs = GP Rs − target % × sales Rs. GP % on a total is total GP ÷ total sales, never an average of the rows. Labour and FOH (factory overhead) under or over charged is a company line on Month end and Margin; it is not spread to clients. Prices without FED; free (FOC) trucks are not sales.`)}
+  ${rtView({ k: 'margin', name: 'Margin by client and brand', sheet: 'Margin', cols, rows, extra, filt: [KN[mbKind], mbRows === 'br' ? 'Every brand' : 'Clients, open to brands'].join(' · '), foot: { _lbl: 'All clients', ...T }, empty: 'No costed truck in these dates.' })}
+  ${njTxt}${outTxt}`;
+}
+/* ---------- Your own report (push 5b, R52 to R54, D-158) ----------
+   As Custom report in O2S: 1 row per step (Data, Period, Columns in your order, Filters, Show each row or totals by group), then the
+   answer line and the table with its total row, through the same tool bar as every report (ticks, Columns, Excel, CSV, PDF).
+   7 data sets (R53), each from what C2M already keeps: Sales (Margin's own rows and sums, so the totals agree with Margin), Open POs,
+   Pack cost and Client prices (Cost history and Price history), VAN list prices, Rates and Kg made (2 read-only routes).
+   A total or group row adds Rs and kg; GP % on it is its GP ÷ its sales, never an average; a % or a rate is never added.
+   Save with a name (R54, migration 013): only the recipe is kept, for the person who made it; opening it builds it on today's data. */
+const OWQ = [['month', 'This month'], ['last', 'Last month'], ['m3', 'Last 3 months'], ['year', 'FY to date'], ['all', 'All']];
+const OWKIND = { material: 'Material', packing: 'Packing item', labour: 'Labour', foh: 'FOH', freight: 'Freight' };
+const OWHOW = { po: 'For a PO, at its product\'s rate', stock: 'Stock, at its base product\'s rate', low: 'Stock, at the Low rates (its products are on different rates)', unknown: 'Base not known: not charged' };
+const LSTN = { dist: 'Distributor', dealer: 'Dealer, Sindh', farmer_pb: 'Farmer, Punjab', farmer_sn: 'Farmer, Sindh cash', farmer_snc: 'Farmer, Sindh credit' };
+let OW = null; // the report being made: { set, q, from, till, cols, filt, show, by, savedId, savedName, saveOpen, nameDraft, saveErr, clash }
+let owRen = null;
+const owFocus = sel => { const el = document.querySelector(sel); if (el) el.focus(); }; // a saved report being renamed on Reports: { id, v, err }
+const owNum = v => v == null || !isFinite(v) ? null : v;
+const owPk = r => (r.packId ? packIdx().get(r.packId) : null);
+/** Sums of a group of sales or open PO rows: Rs and kg added; GP % = GP ÷ sales; target on the judged sales (nmSum); per kg = Rs ÷ kg. */
+function owSalesAgg(rows) {
+  const keep = nm.hist; nm.hist = 'approved'; let o; try { o = nmSum(rows.map(r => r.raw)); } finally { nm.hist = keep; } const q = o.kg + o.L; const wk = f => { let a = 0, k = 0; rows.forEach(r => { if (r[f] != null) { a += r[f] * r.kg; k += r.kg; } }); return k ? a / k : null; };
+  return { kg: q, sales: o.sales, cost: o.cost, gp: o.gp, pct: o.pct, tgt: o.tgt, ag: o.tgt != null ? o.ag : null, price: q ? o.sales / q : null, costKg: q ? o.cost / q : null, mat: wk('mat'), pk: wk('pk'), lf: wk('lf'), fr: wk('fr'), lfr: wk('lfr'),
+    short: rows.some(r => r.short != null) ? rows.reduce((s, r) => s + (r.short || 0), 0) : null };
+}
+const rsCol = (k, l) => ({ k, l, r: 1, tot: 1, x: r => owNum(r[k]) != null ? Math.round(r[k]) : '', f: r => owNum(r[k]) != null ? n0(r[k]) : '' });
+const kgCol = (k, l, dp) => ({ k, l, r: 1, tot: 1, dp: dp || 2, x: r => owNum(r[k]) != null ? r[k] : '', f: r => owNum(r[k]) != null ? n2(r[k]) : '' });
+const pctCol = (k, l, tot) => ({ k, l, r: 1, tot: tot ? 1 : 0, dp: 1, x: r => owNum(r[k]) != null ? r[k] : '', f: r => owNum(r[k]) != null ? pc(r[k]) : '' });
+const chgCol = (k, l) => ({ k, l, r: 1, x: r => r.chg != null ? +r.chg.toFixed(2) : (r[k + '0'] || 'first'), f: r => r.chg != null ? chgTxt(r.chg) : (r[k + '0'] || 'first') });
+const txt = (k, l, f) => ({ k, l, x: r => (f ? f(r) : r[k]) == null ? '' : String(f ? f(r) : r[k]) });
+const dayCol = (k, l) => ({ k, l, x: r => r[k] ? d10(r[k]) : '', f: r => r[k] ? fmtD(r[k]) : '' });
+const qtyCol = (l) => ({ k: 'kg', l, r: 1, tot: 1, x: r => owNum(r.kg) != null ? Math.round(r.kg * 1000) / 1000 : '', f: r => owNum(r.kg) != null ? n0(r.kg) : '' });
+/** The 7 data sets: label, the date a period reads, columns, the default columns, filters, group by choices, and the rows. */
+const OWSET = {
+  sales: { l: 'Sales: trucks, with cost and GP', one: ['truck', 'trucks'], date: 'date', agg: owSalesAgg,
+    cols: [dayCol('date', 'Gate pass'), txt('cust', 'Client'), txt('grp', 'Kind'), txt('brand', 'Brand'), txt('pack', 'Pack'), txt('region', 'Region'), txt('list', 'Price list'), txt('po', 'PO'), qtyCol('Kg or L'),
+      kgCol('price', 'Price Rs/kg'), kgCol('costKg', 'Cost Rs/kg'), kgCol('mat', 'Materials Rs/kg'), kgCol('pk', 'Packing Rs/kg'), kgCol('lf', 'Labour and FOH Rs/kg'), kgCol('fr', 'Freight Rs/kg'), kgCol('lfr', 'List freight Rs/kg'),
+      rsCol('sales', 'Sales Rs'), rsCol('cost', 'Cost Rs'), rsCol('gp', 'GP Rs'), pctCol('pct', 'GP %', 1), { ...pctCol('tgt', 'Target %', 1), x: r => owNum(r.tgt) != null ? r.tgt : 'not judged', f: r => owNum(r.tgt) != null ? pc(r.tgt) : 'not judged' },
+      { k: 'ag', l: 'Against target Rs', r: 1, tot: 1, x: r => owNum(r.ag) != null ? Math.round(r.ag) : '', f: r => owNum(r.ag) == null ? '' : (r.ag > 0.5 ? '+' : r.ag < -0.5 ? '−' : '') + n0(Math.abs(r.ag)) }],
+    def: ['cust', 'kg', 'sales', 'gp', 'pct'], show: 'group', by: 'cust',
+    filters: [['grp', 'Kind'], ['cust', 'Client'], ['brand', 'Brand'], ['region', 'Region'], ['list', 'Price list']],
+    groups: [['cust', 'Client', ['client', 'clients']], ['brand', 'Brand', ['brand', 'brands']], ['clpack', 'Client and pack', ['pack', 'packs']], ['month', 'Month', ['month', 'months']], ['region', 'Region', ['region', 'regions']], ['grp', 'Kind', ['kind', 'kinds']], ['list', 'Price list', ['list', 'lists']]] },
+  open: { l: 'Open POs: lines not yet fully out', one: ['line', 'lines'], date: 'received', agg: owSalesAgg,
+    cols: [dayCol('received', 'PO received'), txt('cust', 'Client'), txt('grp', 'Kind'), txt('brand', 'Brand'), txt('pack', 'Pack'), txt('list', 'Price list'), txt('po', 'PO'), qtyCol('Open kg or L'),
+      kgCol('price', 'Price Rs/kg'), kgCol('costKg', 'Cost today Rs/kg'), rsCol('sales', 'Sales Rs'), rsCol('cost', 'Cost Rs'), rsCol('gp', 'GP Rs'), pctCol('pct', 'GP %', 1),
+      { ...pctCol('tgt', 'Target %', 1), x: r => owNum(r.tgt) != null ? r.tgt : 'not judged', f: r => owNum(r.tgt) != null ? pc(r.tgt) : 'not judged' }, rsCol('short', 'Short of target Rs')],
+    def: ['cust', 'brand', 'pack', 'kg', 'price', 'costKg', 'gp', 'short'], show: 'rows', by: 'cust',
+    filters: [['grp', 'Kind'], ['cust', 'Client'], ['brand', 'Brand'], ['list', 'Price list']],
+    groups: [['cust', 'Client', ['client', 'clients']], ['brand', 'Brand', ['brand', 'brands']], ['clpack', 'Client and pack', ['pack', 'packs']], ['month', 'Month received', ['month', 'months']], ['grp', 'Kind', ['kind', 'kinds']], ['list', 'Price list', ['list', 'lists']]] },
+  costs: { l: 'Pack cost: every approved cost of a pack', one: ['approval', 'approvals'], date: 'from', need: 'costs',
+    cols: [dayCol('from', 'From'), txt('cust', 'Client'), txt('brand', 'Brand'), txt('pack', 'Pack'), kgCol('mat', 'Materials'), kgCol('pk', 'Packing'), kgCol('lf', 'Labour and FOH'), kgCol('fr', 'Freight'), kgCol('tot', 'Total Rs per kg or L'), kgCol('was', 'Was'), chgCol('chg', 'Change'), txt('why', 'Why'), txt('who', 'Approved by')].map(c => ({ ...c, tot: 0 })),
+    def: ['from', 'cust', 'brand', 'pack', 'tot', 'chg', 'why'], show: 'rows', by: 'cust',
+    filters: [['cust', 'Client'], ['brand', 'Brand']],
+    groups: [['cust', 'Client', ['client', 'clients']], ['brand', 'Brand', ['brand', 'brands']], ['clpack', 'Client and pack', ['pack', 'packs']], ['month', 'Month', ['month', 'months']]] },
+  wlp: { l: 'Client prices: approved white label prices', one: ['price', 'prices'], date: 'from', need: 'costs',
+    cols: [txt('cust', 'Client'), txt('brand', 'Brand'), txt('pack', 'Pack'), dayCol('from', 'From'), txt('till', 'Till'), kgCol('kg', 'Rs per kg or L'), { k: 'pk', l: 'Rs per pack', r: 1, x: r => r.pk != null ? Math.round(r.pk * 100) / 100 : '', f: r => r.pk != null ? n0(r.pk) : '' },
+      { k: 'was', l: 'Was', r: 1, dp: 2, x: r => r.was != null ? r.was : 'first', f: r => r.was != null ? n2(r.was) : 'first' }, chgCol('chg', 'Change'),
+      { k: 'gp', l: 'GP at its start', r: 1, dp: 1, x: r => r.gp != null ? +r.gp.toFixed(2) : 'no cost then', f: r => r.gp != null ? pc(r.gp) + (r.later ? ' (on its first cost, approved later)' : '') : 'no cost then' },
+      pctCol('tgt', 'Target'), txt('why', 'Reason'), txt('who', 'Approved by')].map(c => ({ ...c, tot: 0 })),
+    def: ['cust', 'brand', 'pack', 'from', 'till', 'kg', 'chg', 'gp'], show: 'rows', by: 'cust',
+    filters: [['cust', 'Client'], ['brand', 'Brand'], ['now', 'In force']],
+    groups: [['cust', 'Client', ['client', 'clients']], ['brand', 'Brand', ['brand', 'brands']], ['month', 'Month', ['month', 'months']]] },
+  vanp: { l: 'VAN list prices: the 5 lists', one: ['price', 'prices'], date: 'from', need: 'prices',
+    cols: [txt('list', 'List'), txt('pack', 'Product · pack'), dayCol('from', 'From'), txt('till', 'Till'), { k: 'price', l: 'Price per pack', r: 1, x: r => r.price, f: r => n0(r.price) }, { k: 'was', l: 'Was', r: 1, x: r => r.was != null ? r.was : '', f: r => r.was != null ? n0(r.was) : '—' }, chgCol('chg', 'Change'), txt('why', 'Reason · approved by')].map(c => ({ ...c, tot: 0 })),
+    def: ['list', 'pack', 'from', 'till', 'price', 'chg', 'why'], show: 'rows', by: 'list',
+    filters: [['list', 'List'], ['pack', 'Product · pack']],
+    groups: [['list', 'List', ['list', 'lists']], ['pack', 'Product · pack', ['pack', 'packs']], ['month', 'Month', ['month', 'months']]] },
+  rates: { l: 'Rates: every change to a rate', one: ['change', 'changes'], date: 'from', need: 'rates',
+    cols: [dayCol('from', 'In force from'), txt('kind', 'Kind'), txt('item', 'Item'), txt('unit', 'Per'), { k: 'was', l: 'Was', r: 1, dp: 2, x: r => r.was != null ? r.was : 'first', f: r => r.was != null ? n2(r.was) : 'first' }, kgCol('now', 'Now'), chgCol('chg', 'Change'), txt('source', 'Source'), txt('who', 'Who')].map(c => ({ ...c, tot: 0 })),
+    def: ['from', 'kind', 'item', 'was', 'now', 'chg', 'who'], show: 'rows', by: 'kind',
+    filters: [['kind', 'Kind of rate'], ['item', 'Item'], ['who', 'Who']],
+    groups: [['kind', 'Kind of rate', ['kind', 'kinds']], ['item', 'Item', ['item', 'items']], ['month', 'Month', ['month', 'months']], ['who', 'Who', ['person', 'people']]] },
+  made: { l: 'Kg made: production from O2S, with labour and FOH charged', one: ['entry', 'entries'], date: 'made', need: 'made',
+    agg: rows => ({ kg: rows.reduce((s, r) => s + r.kg, 0), labourRs: rows.reduce((s, r) => s + r.labourRs, 0), fohRs: rows.reduce((s, r) => s + r.fohRs, 0), rs: rows.reduce((s, r) => s + r.rs, 0) }),
+    cols: [dayCol('made', 'Made on'), txt('base', 'Base'), txt('brand', 'Brand'), txt('po', 'PO'), txt('product', 'C2M product'), txt('how', 'Charged as'), qtyCol('Kg'), txt('labour', 'Labour rate'), { ...kgCol('labourRate', 'Labour Rs/kg'), tot: 0 }, txt('foh', 'FOH rate'), { ...kgCol('fohRate', 'FOH Rs/kg'), tot: 0 },
+      rsCol('labourRs', 'Labour charged Rs'), rsCol('fohRs', 'FOH charged Rs'), rsCol('rs', 'Charged Rs')],
+    def: ['made', 'base', 'brand', 'po', 'kg', 'labour', 'foh', 'rs'], show: 'rows', by: 'month',
+    filters: [['base', 'Base'], ['brand', 'Brand'], ['how', 'Charged as']],
+    groups: [['month', 'Month', ['month', 'months']], ['made', 'Day', ['day', 'days']], ['base', 'Base', ['base', 'bases']], ['brand', 'Brand', ['brand', 'brands']], ['how', 'Charged as', ['way', 'ways']], ['labour', 'Labour rate', ['rate', 'rates']]] } };
+const OWKEYS = Object.keys(OWSET);
+/** A spec (what a saved report keeps, R54) from the builder: the data set, the dates, the columns in order, the filters, each row or totals by group. */
+const owSpec = () => ({ set: OW.set, period: OW.q ? { q: OW.q } : { from: OW.from, till: OW.till }, cols: OW.cols.slice(), filters: { ...OW.filt }, show: OW.show, groupBy: OW.by });
+/** The builder from a spec: unknown columns, filters and groupings are dropped, so a saved report still opens after a column is renamed. */
+function owOpen(spec, saved) {
+  const S = OWSET[spec && spec.set] ? spec.set : 'sales', D = OWSET[S]; const P = (spec && spec.period) || {}; const q = OWQ.some(x => x[0] === P.q) ? P.q : P.from || P.till ? '' : 'month';
+  const [from, till] = q ? rtRange(q) : [/^\d{4}-\d{2}-\d{2}$/.test(P.from || '') ? P.from : '', /^\d{4}-\d{2}-\d{2}$/.test(P.till || '') ? P.till : ''];
+  const ks = D.cols.map(c => c.k); let cols = (Array.isArray(spec && spec.cols) ? spec.cols : D.def).filter((k, i, a) => ks.includes(k) && a.indexOf(k) === i); if (!cols.length) cols = D.def.slice();
+  const filt = {}; Object.entries((spec && spec.filters) || {}).forEach(([k, v]) => { if (D.filters.some(f => f[0] === k) && v != null && v !== '') filt[k] = String(v); });
+  OW = { set: S, q, from, till, cols, filt, show: spec && (spec.show === 'group' || spec.show === 'rows') ? spec.show : D.show, by: D.groups.some(g => g[0] === (spec && spec.groupBy)) ? spec.groupBy : D.by,
+    savedId: saved ? saved.id : null, savedName: saved ? saved.name : null, saveOpen: false, nameDraft: saved ? saved.name : '', saveErr: null, clash: false };
+  owColsReset(); rep = 'own'; window.scrollTo(0, 0);
+}
+/** A change of set, columns or show clears the tool bar's own hidden columns, so a column picked here is never hidden there. */
+function owColsReset() { const s = rtS('own'); s.hide = null; s.colsOpen = false; try { localStorage.removeItem('c2m.rtcols.own'); } catch (_) {} }
+/* Adjust (push 5b): a ready report opens here on its data set, with its dates, its filters and the columns it shows. */
+const owPer = k => { const s = rtS(k); return s.q ? { q: s.q === 'year' ? 'year' : s.q } : { from: s.from, till: s.till }; };
+const owColsOf = (k, map) => { const def = RTDEF[k]; return def ? rtCols(k, def.cols).flatMap(c => map[c.k] || [c.k]) : []; };
+const OWADJ = {
+  costs: () => ({ set: 'costs', period: owPer('costs'), cols: owColsOf('costs', { pack: ['cust', 'brand', 'pack'], tot: ['tot'] }), filters: chCl ? { cust: chCl } : {}, show: 'rows' }),
+  prices: () => ({ set: 'wlp', period: phShow === 'now' ? { q: 'all' } : owPer('prices'), cols: owColsOf('prices', { pack: ['cust', 'brand', 'pack'], why: ['why', 'who'] }), filters: { ...(phCl ? { cust: phCl } : {}), ...(phShow === 'now' ? { now: 'In force today' } : {}) }, show: 'rows' }),
+  vanp: () => ({ set: 'vanp', period: owPer('vanp'), cols: owColsOf('vanp', {}), filters: phList !== 'all' ? { list: PHLIST[phList] } : {}, show: 'rows' }),
+  margin: () => ({ set: 'sales', period: owPer('margin'), cols: owColsOf('margin', { name: [], qty: ['kg'] }), filters: mbKind !== 'all' ? { grp: mbKind === 'wl' ? 'White label' : 'VAN brand' } : {}, show: 'group', groupBy: mbRows === 'br' ? 'clpack' : 'cust' }),
+  bridge: () => { const B = bridge(); if (!B.ok) return null; return { set: 'sales', period: { from: B.a + '-01', till: addDays(addDays(B.b + '-01', 32).slice(0, 7) + '-01', -1) }, cols: ['kg', 'sales', 'cost', 'gp', 'pct'], filters: brGrp === 'all' ? {} : { grp: GRPN[brGrp] }, show: 'group', groupBy: 'month' }; } };
+const OWNOADJ = { pocheck: 'This report\'s PO lines are not a data set of Your own report.', listcheck: 'This report\'s PO lines checked against their list are not a data set of Your own report.', vanmargin: 'This report\'s list margin after freight is not a data set of Your own report.' };
+/** The rows of the set in its dates (before the filters); busy, err or msg while a route is read. */
+function owBase() {
+  const S = OW.set, D = OWSET[S], P = packIdx(); const inD = d => { const x = d10(d); if (!x) return !OW.from && !OW.till; return (!OW.from || x >= OW.from) && (!OW.till || x <= OW.till); };
+  const pkTxt = r => { const k = owPk(r); return k ? szTxt(k) : r.pack != null ? r.pack + ' ' + (r.u || 'kg') : ''; }, brOf = r => { const k = owPk(r); return k ? k.product.brand : r.brand; };
+  if (S === 'sales' || S === 'open') {
+    const keep = nm.hist; nm.hist = 'approved'; /* the approved view, as Margin opens (mbData) */
+    try {
+      const src = S === 'sales' ? (ST.sales || []) : (ST.open || []); const all = src.filter(r => inD(S === 'sales' ? r.date : r.received));
+      const cOf = r => S === 'sales' ? nmCost(r) : r.cost == null ? null : r.cost + (r.grp === 'VAN brand' && r.lfr > 0 ? r.lfr : 0); /* an open VAN brand line after its list's freight (push 5a) */
+      const costed = all.filter(r => cOf(r) != null), out = all.length - costed.length;
+      const rows = costed.map(r => { const c = cOf(r), s = r.kg * r.price, cr = r.kg * c, t = saleTgt(r), pa = S === 'sales' && r.parts ? r.parts : null;
+        return { raw: r, date: r.date, received: r.received ? d10(r.received) : '', month: d10(S === 'sales' ? r.date : r.received).slice(0, 7), cust: r.cust, grp: r.grp, brand: brOf(r), pack: pkTxt(r), clpack: `${r.cust} · ${brOf(r)} · ${pkTxt(r)}`,
+          region: r.region || '', list: r.lkey ? LSTN[r.lkey] || r.lkey : '', po: r.po || '', kg: r.kg, price: r.price, costKg: c, mat: pa ? pa[0] : null, pk: pa ? pa[1] : null, lf: pa ? pa[2] : null, fr: pa ? pa[3] : null, lfr: r.grp === 'VAN brand' ? (r.lfr > 0 ? r.lfr : 0) : null,
+          sales: s, cost: cr, gp: s - cr, pct: s ? (s - cr) / s * 100 : null, tgt: t, ag: t != null ? (s - cr) - t / 100 * s : null, short: t != null ? Math.max(0, t / 100 * s - (s - cr)) : null, _k: `${r.date || r.received}|${r.po}|${r.packId}|${r.cust}` }; });
+      return { rows, out, outWord: S === 'sales' ? pl(out, 'truck with no approved cost on its date is', 'trucks with no approved cost on their date are') : pl(out, 'line with no cost today is', 'lines with no cost today are') };
+    } finally { nm.hist = keep; }
+  }
+  const R = repData(D.need === 'made' ? `made?from=${OW.from}&till=${OW.till}` : D.need);
+  if (R.busy) return { busy: true }; if (R.err) return { err: R.err, kind: D.need === 'made' ? `made?from=${OW.from}&till=${OW.till}` : D.need };
+  const J = R.data || {}; if (J.ready === false) return { rows: [], msg: J.message };
+  if (S === 'costs') return { rows: (J.rows || []).filter(r => inD(r.from)).map(r => ({ ...r, from: r.from, month: d10(r.from).slice(0, 7), pack: r.size != null ? packTxt(r.size, r.soldPer) : 'pack', clpack: chPack(r), mat: r.materials, pk: r.packing, lf: r.conversion, fr: r.freight, tot: r.total, was: r.prev, chg: r.prev != null ? chg(r.total, r.prev) : null, why: r.cause, who: personName(r.by), _k: 'v' + r.id })) };
+  if (S === 'wlp') { const now = ST.today; return { rows: phWlBase(J.rows || []).filter(r => inD(r.from)).map(r => ({ ...r, cust: r.cust, brand: r.k ? r.k.product.brand : 'A pack no longer active', pack: r.k ? szTxt(r.k) : '', month: r.from.slice(0, 7), till: r.to ? fmtD(r.to) : r.from > now ? 'not yet in force' : 'in force',
+    now: r.from <= now && (!r.to || r.to >= now) ? 'In force today' : 'Not in force today', kg: r.price, pk: r.size != null ? r.price * r.size : null, was: r.prev, why: r.reason || '', who: r.decidedBy ? `${personName(r.decidedBy)}${r.decidedAt ? ', ' + fmtShort(r.decidedAt) : ''}` : '', _k: 'p' + r.id })) }; }
+  if (S === 'vanp') return { rows: (J.rows || []).filter(r => inD(r.from)).map(r => { const k = r.packId != null ? P.get(r.packId) : null; return { ...r, list: LSTN[r.list] || r.list, pack: k ? packLabel(k) : `${r.product}${r.pack ? ' ' + r.pack : ''}`, month: r.from.slice(0, 7),
+    till: r.till ? fmtD(r.till) : r.from > ST.today ? 'not yet in force' : r.off ? 'taken off the list' : 'in force', chg: r.was ? chg(r.price, r.was) : null, why: r.first ? 'From the first data load' : [r.reason || '', r.by ? `${personName(r.by)}${r.at ? ', ' + fmtShort(r.at) : ''}` : ''].filter(Boolean).join(' · '), _k: `${r.list}|${r.product}|${r.pack}|${r.from}` }; }) };
+  if (S === 'rates') return { rows: (J.rows || []).filter(r => inD(r.from)).map(r => ({ ...r, kind: OWKIND[r.kind] || r.kind, month: r.from.slice(0, 7), who: r.by ? personName(r.by) : '', _k: `${r.kind}|${r.item}|${r.from}` })) };
+  if (S === 'made') return { rows: (J.rows || []).map(r => ({ ...r, brand: r.brand || 'Stock (no brand)', po: r.po || '', product: r.product || '', month: r.made.slice(0, 7), how: !(r.labourRs + r.fohRs > 0) && r.how !== 'unknown' ? 'No rate that day: not charged' : OWHOW[r.how] || r.how,
+    labour: r.labour || '', foh: r.foh || '', rs: r.labourRs + r.fohRs, _k: `${r.made}|${r.base}|${r.po}|${r.brand}` })), months: J.months || {}, noMap: J.noMap };
+  return { rows: [] };
+}
+/** The report: rows (filtered), the columns shown, the total row and, by group, 1 row per group. */
+function owData() {
+  const D = OWSET[OW.set], B = owBase(); if (!B.rows) return B;
+  const opts = {}; D.filters.forEach(([k]) => { opts[k] = [...new Set(B.rows.map(r => r[k]).filter(v => v != null && v !== ''))].map(String).sort((a, b) => a.localeCompare(b)); });
+  const rows = B.rows.filter(r => D.filters.every(([k]) => !OW.filt[k] || String(r[k]) === OW.filt[k]));
+  const agg = rs => ({ ...(D.agg ? D.agg(rs) : {}), _n: rs.length });
+  const cnt = { k: '_n', l: D.one[1].charAt(0).toUpperCase() + D.one[1].slice(1), r: 1, tot: 1, x: r => r._n };
+  const chosen = OW.cols.map(k => D.cols.find(c => c.k === k)).filter(Boolean);
+  let cols, view, foot;
+  if (OW.show === 'group') {
+    const G = D.groups.find(g => g[0] === OW.by) || D.groups[0]; const isM = G[0] === 'month' || G[0] === 'made';
+    const m = new Map(); rows.forEach(r => { const k = r[G[0]] == null || r[G[0]] === '' ? '(none)' : String(r[G[0]]); (m.get(k) || m.set(k, []).get(k)).push(r); });
+    view = [...m].map(([k, rs]) => ({ ...agg(rs), _g: G[0] === 'month' && k !== '(none)' ? mon(k) : G[0] === 'made' ? fmtD(k) : k, _gk: k, _id: 'g:' + k }));
+    const by = D.agg ? (view[0] && view[0].sales != null ? 'sales' : 'kg') : '_n';
+    view.sort((a, b) => isM ? a._gk.localeCompare(b._gk) : (b[by] || 0) - (a[by] || 0) || a._g.localeCompare(b._g));
+    cols = [{ k: '_g', l: G[1], x: r => r._g }, cnt].concat(chosen.filter(c => c.tot)); foot = { ...agg(rows), _lbl: 'Total' }; return { ...B, D, G, rows, view, cols, foot, opts };
+  }
+  const dk = D.date; view = rows.slice().sort((a, b) => String(b[dk] || '').localeCompare(String(a[dk] || '')) || String(a._k).localeCompare(String(b._k))); rtIds(view, r => r._k);
+  cols = chosen; foot = D.agg ? { ...agg(rows), _lbl: `Total, ${pl(rows.length, D.one[0], D.one[1])}` } : null; return { ...B, D, rows, view, cols, foot, opts };
+}
+const owPerTxt = () => { const q = OWQ.find(x => x[0] === OW.q); if (q) return q[0] === 'all' ? 'All dates' : q[1]; return OW.from && OW.till ? `${fmtD(OW.from)} to ${fmtD(OW.till)}` : OW.from ? `From ${fmtD(OW.from)}` : OW.till ? `Till ${fmtD(OW.till)}` : 'All dates'; };
+const owDatesTxt = () => OW.from || OW.till ? `From ${OW.from ? fmtD(OW.from) : 'the first date'} till ${OW.till ? fmtD(OW.till) : 'today'}` : 'All dates';
+/** The answer line: the period, how it is shown, how many, and the figures that matter for the set (the picture's line). */
+function owAnswer(X) {
+  const D = X.D, T = X.foot || {}; const per = owPerTxt(); const by = OW.show === 'group' ? `, by ${X.G[1].toLowerCase()}` : '';
+  const n = OW.show === 'group' ? pl(X.view.length, X.G[2][0], X.G[2][1]) : pl(X.rows.length, D.one[0], D.one[1]);
+  let fig = ''; if (OW.set === 'sales' || OW.set === 'open') fig = X.rows.length ? `, GP ${rsM1(T.gp)}, ${pc(T.pct)} on ${rsM1(T.sales)} sales${OW.set === 'open' && T.short ? `; ${rsM1(T.short)} short of target` : ''}` : '';
+  if (OW.set === 'made') fig = X.rows.length ? `, ${n0(T.kg)} kg made, ${rsM1(T.rs)} labour and FOH charged` : '';
+  return `${per}${by}: ${n}${fig}.`;
+}
+function vOwn() {
+  if (!OW) owOpen({ set: 'sales' });
+  const D = OWSET[OW.set]; const X = owData(); const crumb = `<p class="crumb"><button data-repback>Reports</button> › ${OW.savedName ? esc(OW.savedName) : 'Make a report'}</p>`;
+  const SR = ST.savedReports || { ready: false, rows: [] };
+  const setRow = `<div class="owrow"><span class="owl" id="owl-set">Data</span><select data-owset aria-labelledby="owl-set">${OWKEYS.map(k => `<option value="${k}"${k === OW.set ? ' selected' : ''}>${esc(OWSET[k].l)}</option>`).join('')}</select></div>`;
+  const perRow = `<div class="owrow"><span class="owl">Period</span><div class="chips" aria-label="Period">${OWQ.map(([q, l]) => `<button data-owq="${q}" aria-pressed="${OW.q === q}">${l}</button>`).join('')}</div><span class="owor">or</span><label class="rtsel" for="ow-from">From<input type="date" id="ow-from" data-owfrom value="${esc(OW.from)}"></label><label class="rtsel" for="ow-till">Till<input type="date" id="ow-till" data-owtill value="${esc(OW.till)}"></label></div>`;
+  const cl = OW.cols.map((k, i) => { const c = D.cols.find(x => x.k === k); if (!c) return ''; const L = esc(c.l);
+    return `<span class="owc"><span>${L}</span><button data-owcl="${i}" aria-label="Move ${L} left"${i === 0 ? ' disabled' : ''}>‹</button><button data-owcr="${i}" aria-label="Move ${L} right"${i === OW.cols.length - 1 ? ' disabled' : ''}>›</button><button data-owcx="${i}" aria-label="Remove ${L}"${OW.cols.length < 2 ? ' disabled' : ''}>✕</button></span>`; }).join('');
+  const add = D.cols.filter(c => !OW.cols.includes(c.k)).map(c => `<button class="owa" data-owca="${esc(c.k)}">+ ${esc(c.l)}</button>`).join('');
+  const colRow = `<div class="owrow"><span class="owl">Columns</span>${cl}${add ? `<span class="owor">Add</span>${add}` : ''}${OW.show === 'group' ? '<span class="owhint">By group, only the columns that add up are shown: Rs and kg, and GP % on the totals.</span>' : ''}</div>`;
+  const fRow = `<div class="owrow"><span class="owl">Filters</span>${D.filters.map(([k, l]) => { const o = (X.opts && X.opts[k]) || []; const cur = OW.filt[k] || ''; const L = o.includes(cur) || !cur ? o : [cur].concat(o);
+    return `<label class="rtsel" for="owf-${k}">${esc(l)}<select id="owf-${k}" data-owf="${k}"><option value="">All</option>${L.map(v => `<option value="${esc(v)}"${v === cur ? ' selected' : ''}>${esc(v)}</option>`).join('')}</select></label>`; }).join('')}</div>`;
+  const showRow = `<div class="owrow"><span class="owl">Show</span><div class="chips" aria-label="Show">${[['rows', 'Each row'], ['group', 'Totals by group']].map(([k, l]) => `<button data-owshow="${k}" aria-pressed="${OW.show === k}">${l}</button>`).join('')}</div>${OW.show === 'group' ? `<span class="owor">Group by</span><div class="chips" aria-label="Group by">${D.groups.map(([k, l]) => `<button data-owby="${k}" aria-pressed="${OW.by === k}">${esc(l)}</button>`).join('')}</div>` : ''}</div>`;
+  const builder = `<div class="owb">${setRow}${perRow}${colRow}${fRow}${showRow}</div>`;
+  const howTxt = `Pick the data, the dates, the columns in your order (‹ › to move, ✕ to take out), the filters, and each row or totals by group. A total adds Rs and kg; GP % on a total or a group is its GP ÷ its sales, never an average of the rows; a % or a rate is never added. Sales are Margin's own rows: each truck at the cost approved before its gate pass, VAN brand sales after each sale's list freight, prices without FED, free (FOC) trucks not sales; so the totals agree with Margin for the same dates. Open POs: each line at today's cost; Short of target Rs is what a line's GP is below its target, added over the lines. Kg made is charged as Month end charges it. Saving keeps the recipe, not the figures: opening a saved report builds it again on today's data.`;
+  if (X.busy) return `${crumb}${head('Your own report', 'Loading…', howTxt)}${builder}`;
+  if (X.err) return `${crumb}${head('Your own report', 'The data could not be read: ' + esc(X.err), howTxt)}${builder}<p><button class="btn ghost" data-owretry="${esc(X.kind)}">Try again</button></p>`;
+  const save = !SR.ready ? `<button class="btn ghost" disabled aria-describedby="ow-nosave">Save as…</button><span class="ans" id="ow-nosave" style="font-size:12.5px">${esc(SR.message || 'Saving a report is not switched on yet: IT has 1 step to run.')}</span>`
+    : OW.saveOpen ? `<label class="rtsel" for="owname">Name<input type="text" id="owname" maxlength="120" value="${esc(OW.nameDraft)}" placeholder="e.g. Syngenta GP by month"${OW.saveErr ? ' aria-invalid="true" aria-describedby="ow-saveerr"' : ''}></label><button class="btn" data-owsavego>Save</button>${OW.clash ? '<button class="btn ghost" data-owover>Save over it</button>' : ''}<button class="btn ghost" data-owsavex>Cancel</button>${OW.saveErr ? `<span class="ferr" id="ow-saveerr">${esc(OW.saveErr)}</span>` : ''}`
+    : `<button class="btn ghost" data-owsave>Save as…</button>`;
+  const note = [X.msg ? `<p class="ans" data-ownote>${esc(X.msg)}</p>` : '', X.out ? `<p class="ans" data-owout>${X.outWord} left out, as in Margin.</p>` : '',
+    OW.set === 'made' && X.months && Object.keys(X.months).length ? `<p class="ans" data-owme>Month end's own sums on these kg: ${Object.entries(X.months).map(([m, v]) => `${mon(m)} ${n0(v.kg)} kg, labour Rs ${n0(v.labour)} and FOH Rs ${n0(v.foh)}`).join('; ')}. Totals worked on the rows can differ from these by Rs 1 or so for each rate, as Month end rounds each rate\'s total. The rows are charged the same way, entry by entry.</p>` : '',
+    X.noMap ? '<p class="ans"><b>O2S\'s product list could not be read:</b> stock made for no brand shows as not charged here, as on Month end.</p>' : ''].join('');
+  const filt = [D.l.split(':')[0]].concat(D.filters.filter(([k]) => OW.filt[k]).map(([k, l]) => `${l}: ${OW.filt[k]}`), OW.show === 'group' ? ['Totals by ' + X.G[1].toLowerCase()] : []).join(' · ');
+  const name = OW.savedName || `Your own report, ${D.l.split(':')[0]}`;
+  return `${crumb}${meta([owPerTxt(), D.l.split(':')[0], OW.savedName ? 'Saved report' : ''])}${head('Your own report', esc(owAnswer(X)), howTxt)}${builder}
+  <div class="wtbar owsave">${save}</div>
+  ${rtView({ k: 'own', name, sheet: D.l.split(':')[0], dated: false, asOf: owDatesTxt(), cols: X.cols, rows: X.view, foot: X.foot, filt, empty: X.msg || 'No row in these dates and filters.' })}${note}`;
+}
+/** The "Your own report" group on Reports: Make a report, then this person's saved reports (R54). */
+function owLanding() {
+  const SR = ST.savedReports || { ready: false, rows: [] }; const SH = s => { const D = OWSET[s && s.set]; if (!D) return 'Data set no longer in C2M'; const G = D.groups.find(g => g[0] === s.groupBy); return `${D.l.split(':')[0]}, ${s.show === 'group' && G ? 'totals by ' + G[1].toLowerCase() : 'each row'}`; };
+  const cards = (SR.rows || []).map(r => owRen && owRen.id === r.id
+    ? `<div class="rcard mine owsv"><label class="rtsel" for="owrenv">New name<input type="text" id="owrenv" maxlength="120" value="${esc(owRen.v)}"${owRen.err ? ' aria-invalid="true" aria-describedby="owrenerr"' : ''}></label><span class="owsvb"><button class="btn" data-owrengo="${r.id}">Save name</button><button class="btn ghost" data-owrenx>Cancel</button></span>${owRen.err ? `<span class="ferr" id="owrenerr">${esc(owRen.err)}</span>` : ''}</div>`
+    : `<div class="rcard mine owsv"><button class="lnk" data-owopen="${r.id}"><b>${esc(r.name)}</b></button><span>Saved ${fmtD(r.updated || r.created)} · ${esc(SH(r.spec))}</span><span class="owsvb"><button class="btn ghost" data-owopen="${r.id}" aria-label="Open ${esc(r.name)}">Open</button><button class="btn ghost" data-owren="${r.id}" aria-label="Rename ${esc(r.name)}">Rename</button><button class="btn ghost danger" data-owdel="${r.id}" data-confirm="Delete ${esc(r.name)}" aria-label="Delete ${esc(r.name)}">Delete</button></span></div>`).join('');
+  return `<section class="owland"><h2 class="gh">Your own report</h2><div class="rown"><button class="rcard mine" data-owmake><b>Make a report<em>new</em></b><span>Any C2M data, your columns, filters and totals; Excel, CSV or PDF.</span></button>${cards}</div>${SR.ready ? '' : `<p class="ans" style="font-size:12.5px">${esc(SR.message || 'Saving a report is not switched on yet: IT has 1 step to run.')} You can still make a report and download it.</p>`}</section>`;
+}
+/** Save, rename and delete: only this person's own (the server checks it again). The list comes back with each answer; nothing else reloads. */
+async function owSave(over) {
+  const nmv = String(($('owname') || {}).value || OW.nameDraft || '').replace(/\s+/g, ' ').trim(); OW.nameDraft = nmv;
+  if (!nmv) { OW.saveErr = 'Name the report.'; OW.clash = false; render(); owFocus('#owname'); return; }
+  const j = await once(async () => { try { return await api('/api/c2m/reports/saved', { name: nmv, spec: owSpec(), overwrite: !!over }); } catch (e) { OW.saveErr = e.message; OW.clash = /already have a report/.test(e.message); return null; } });
+  if (j && j.ok) { NAVTYPED.clear(); ST.savedReports = { ready: j.ready, rows: j.rows }; Object.assign(OW, { savedId: j.id, savedName: nmv, saveOpen: false, saveErr: null, clash: false }); toast(`Saved as "${nmv}". It is listed under Your own report on Reports.`); }
+  render(); if (OW.saveOpen) owFocus('#owname');
+}
+async function owSavedAct(path, body, msg) { const j = await once(async () => { try { return await api(path, body); } catch (e) { return { err: e.message }; } }); if (!j) return null; if (j.err) { toast(j.err, true); return j; } NAVTYPED.clear(); ST.savedReports = { ready: j.ready, rows: j.rows }; toast(msg); return j; }
+/** The builder's clicks. true: handled. */
+async function owClick(t, d) {
+  if ('owmake' in d) { owOpen({ set: OW ? OW.set : 'sales' }); OW.savedId = null; OW.savedName = null; OW.nameDraft = ''; return true; }
+  if (d.owopen) { const r = ((ST.savedReports || {}).rows || []).find(x => x.id === +d.owopen); if (r) { owOpen(r.spec || {}, r); if (r.spec && !OWSET[r.spec.set]) toast('This saved report\'s data set is no longer in C2M: it opens on Sales.', true); } return true; }
+  if (d.owren) { const r = ((ST.savedReports || {}).rows || []).find(x => x.id === +d.owren); if (r) owRen = { id: r.id, v: r.name, err: null }; render(); owFocus('#owrenv'); return 'done'; }
+  if ('owrenx' in d) { owRen = null; return true; }
+  if (d.owrengo) { const v = String(($('owrenv') || {}).value || '').replace(/\s+/g, ' ').trim(); owRen.v = v; if (!v) { owRen.err = 'Name the report.'; render(); owFocus('#owrenv'); return 'done'; }
+    const j = await owSavedAct(`/api/c2m/reports/saved/${+d.owrengo}/rename`, { name: v }, `Renamed "${v}".`); if (j && j.err) { owRen.err = j.err; render(); owFocus('#owrenv'); return 'done'; } if (j) { owRen = null; if (OW && OW.savedId === +d.owrengo) OW.savedName = v; } return true; }
+  if (d.owdel) { const r = ((ST.savedReports || {}).rows || []).find(x => x.id === +d.owdel); const j = await owSavedAct(`/api/c2m/reports/saved/${+d.owdel}/delete`, {}, `Deleted "${r ? r.name : 'the report'}".`); if (j && !j.err && OW && OW.savedId === +d.owdel) { OW.savedId = null; OW.savedName = null; } return true; }
+  if (!OW) return false;
+  const D = OWSET[OW.set];
+  if (d.owq) { OW.q = d.owq; [OW.from, OW.till] = rtRange(d.owq); return true; }
+  if (d.owcl != null || d.owcr != null) { const i = +(d.owcl != null ? d.owcl : d.owcr), j = d.owcl != null ? i - 1 : i + 1; if (j < 0 || j >= OW.cols.length) return true; [OW.cols[i], OW.cols[j]] = [OW.cols[j], OW.cols[i]]; owColsReset(); render(); owFocus(`[data-${d.owcl != null ? 'owcl' : 'owcr'}="${j}"]`); return 'done'; }
+  if (d.owcx != null) { if (OW.cols.length < 2) { toast('Keep at least 1 column.', true); return true; } OW.cols.splice(+d.owcx, 1); owColsReset(); return true; }
+  if (d.owca) { if (D.cols.some(c => c.k === d.owca) && !OW.cols.includes(d.owca)) OW.cols.push(d.owca); owColsReset(); return true; }
+  if (d.owshow) { OW.show = d.owshow; owColsReset(); return true; }
+  if (d.owby) { OW.by = d.owby; return true; }
+  if ('owsave' in d) { OW.saveOpen = true; OW.saveErr = null; OW.clash = false; render(); owFocus('#owname'); return 'done'; }
+  if ('owsavex' in d) { OW.saveOpen = false; OW.saveErr = null; OW.clash = false; return true; }
+  if ('owsavego' in d) { await owSave(false); return 'done'; }
+  if ('owover' in d) { await owSave(true); return 'done'; }
+  if (d.owretry) { delete REPD[d.owretry]; return true; }
+  return false;
+}
+/** The builder's pickers: the data set, a filter, From and Till. */
+function owChange(t, d) {
+  if (!OW) return false;
+  if ('owset' in d) { const S = OWSET[t.value] ? t.value : 'sales'; const P = OW.q ? { q: OW.q } : { from: OW.from, till: OW.till }; const keep = { savedId: OW.savedId, savedName: OW.savedName, nameDraft: OW.nameDraft }; owOpen({ set: S, period: P }); Object.assign(OW, keep); return true; }
+  if (d.owf) { if (t.value) OW.filt[d.owf] = t.value; else delete OW.filt[d.owf]; return true; }
+  if ('owfrom' in d || 'owtill' in d) { if ('owfrom' in d) OW.from = t.value || ''; else OW.till = t.value || ''; const q = OWQ.find(([x]) => { const r = rtRange(x); return r[0] === OW.from && r[1] === OW.till; }); OW.q = q ? q[0] : ''; return true; }
+  return false;
+}
+/* ---------- Price lists ---------- */
+const AUD = { wl: 'White label client (monthly)', dist: 'Distributor and channel partner', dealer: 'Dealer, Sindh', farmer_pb: 'Farmer, Punjab', farmer_sn: 'Farmer, Sindh', farmer_snc: 'Farmer, Sindh credit', web: 'Website', mrp: 'MRP printing list (packing and printer)' };
+const FIELDS = {
+  wl: [['product', 'Product', 1], ['spec', 'Specification', 1], ['pack', 'Pack size', 1], ['cur', 'Current price, Rs per kg or L', 1], ['ppack', 'Price per pack, Rs ex FED', 1], ['prev', 'Previous price', 1], ['chg', '% change', 1], ['reason', 'Reason for change', 1], ['eff', 'From', 1]],
+  dist: [['product', 'Product', 1], ['spec', 'Specification', 1], ['pack', 'Pack size', 1], ['cur', 'Price ex FED, Rs per pack', 1], ['fed', 'Price with FED', 1], ['prev', 'Previous price', 0], ['chg', '% change', 0], ['reason', 'Reason for change', 0], ['mrp', 'Recommended MRP', 1], ['terms', 'Payment terms', 1]],
+  dealer: [['product', 'Product', 1], ['spec', 'Specification', 1], ['pack', 'Pack size', 1], ['cur', 'Net price ex FED', 1], ['disc', 'Additional discount', 1], ['netfed', 'Net price with FED', 1], ['frp', 'FRP', 1], ['mrp', 'Recommended MRP', 1]],
+  farmer: [['product', 'Product', 1], ['spec', 'Specification', 1], ['pack', 'Pack size', 1], ['cur', 'Sale price, Rs', 1]],
+  mrp: [['product', 'Product', 1], ['spec', 'Specification', 1], ['pack', 'Pack size', 1], ['mrp', 'MRP, Rs', 1], ['basis', 'Based on', 0]] };
+/** Printed MRP (D-122), as lib.printMrp: Sindh credit with FED rounded up to the next Rs 50; no credit price, the highest farmer price. */
+/** 'Product: Farmer, Punjab Rs 1,320 above its MRP Rs 1,300; ...' for the first n issues. */
+/** The list prices above their printed MRP once a list revision is in force (D-122, shown to Tahir before he approves). */
+/** What a list revision would newly put above the printed MRP: issues that are new or higher than today's (review r4, finding 5). */
+function revMrp(r) { const base = new Map(revMrp0({ list_name: r.list_name, items: [] }).map(x => [x.name + '|' + x.word, x])); return revMrp0(r).filter(x => { const b = base.get(x.name + '|' + x.word); return !b || x.price > b.price + 0.004 || x.mrp < b.mrp - 0.004; }); }
+function revMrp0(r) {
+  const fed = 1 + FEDP() / 100; const by = { dist: [], dealer: [], farmer: [] };
+  (ST.listItems || []).forEach(x => { if (!by[x.list]) return; const d = { ...x.data }; if (x.list === r.list_name) { const it = r.items.find(i => i.id === x.id); if (it) Object.assign(d, it.to || {}); } by[x.list].push(d); });
+  r.items.filter(i => i.added).forEach(i => by[r.list_name].push({ ...(i.to || {}), packId: i.packId, p: r.list_name === 'farmer' && i.pack ? `${i.product || ''} ${i.pack}` : i.product || '', pack: i.pack || '' })); // an added farmer pack is named with its size
+  by.dist.forEach(d => { if (d.now != null) d.fed = Math.round(Number(d.now) * fed * 100) / 100; }); by.dealer.forEach(d => { if (d.nsv != null) { const net = Math.round(Number(d.nsv) * (1 - Number(d.disc || 0)) * 100) / 100; d.netfed = Math.round(net * fed * 100) / 100; } }); // rounded twice, as the server
+  const out = [], mk = new Map(); by.farmer.forEach(f => { const m = printMrp(f); if (!m) return; if (f.packId != null) mk.set(Number(f.packId), m.mrp); [['pb', 'Farmer, Punjab (and the website)'], ['sn', 'Farmer, Sindh']].forEach(([k, w]) => { if (f[k] != null && f[k] !== '' && Number(f[k]) > m.mrp + 0.004) out.push({ name: f.p, word: w, price: Number(f[k]), mrp: m.mrp }); }); });
+  const chk = (d, f, w) => { const m = mk.get(Number(d.packId)); if (m != null && d[f] != null && d[f] !== '' && Number(d[f]) > m + 0.004) out.push({ name: `${d.p}${d.pack ? ' ' + d.pack : ''}`, word: w, price: Number(d[f]), mrp: m }); };
+  by.dealer.forEach(d => { if (d.packId == null) return; chk(d, 'frp', 'Dealer FRP'); chk(d, 'netfed', 'Dealer net with FED'); chk(d, 'mrp', 'Dealer Recommended MRP'); });
+  by.dist.forEach(d => { if (d.packId == null) return; chk(d, 'fed', 'Distributor price with FED'); chk(d, 'mrp', 'Distributor Recommended MRP'); });
+  return out;
+}
+function mrpTxt(L, n) { const r = v => Number(v).toLocaleString('en-US', { maximumFractionDigits: 2 }); return L.slice(0, n).map(x => `${x.name}: ${x.word} Rs ${r(x.price)} above its MRP Rs ${r(x.mrp)}`).join('; ') + (L.length > n ? `; and ${L.length - n} more.` : '.'); }
+function printMrp(f) { const n = v => (v == null || v === '' || !isFinite(Number(v)) ? 0 : Number(v)); const snc = n(f && f.snc), base = snc > 0 ? snc : Math.max(n(f && f.pb), n(f && f.sn)); if (!(base > 0)) return null; const b2 = Math.round(base * 100) / 100; return { mrp: Math.ceil(b2 / 50 - 1e-9) * 50, basis: snc > 0 ? 'Sindh credit' : (n(f && f.pb) >= n(f && f.sn) ? 'Farmer Punjab (no credit price)' : 'Farmer Sindh (no credit price)'), base: b2 }; }
+/* as c2m-pricelist.js: the farmer list writes the pack inside the name; a pack's size in kg or L */
+const splitPack = p => { const m = /^(.*?)[\s·,(-]*(\d[\d,]*(?:\.\d+)?|\.\d+)\s*-?\s*(kgs?|l|ml|gm|g|liters?|litres?|ltrs?|lit)\.?\)?\s*$/i.exec(String(p || '').trim()); if (!(m && m[1])) return { p: String(p || ''), pack: '' }; const u = m[3].toLowerCase(); return { p: m[1].trim(), pack: `${Number(m[2].replace(/,/g, ''))} ${u.startsWith('kg') ? 'kg' : u === 'ml' ? 'ml' : u === 'g' || u === 'gm' ? 'g' : 'L'}` }; }; // also Liter, Litre, Ltr, 05-kg and (01 Liter) (live check of D-122)
+const packSizeOf = r => { if (Number(r.size) > 0) return Number(r.size); const m = /^([\d.]+)\s*(kg|L|ml|g)\b/i.exec(String(r.pack || '').trim()); if (!m) return null; const v = parseFloat(m[1]); return /^(ml|g)$/i.test(m[2]) ? v / 1000 : v; };
+const fieldsFor = a => FIELDS[a.startsWith('farmer') || a === 'web' ? 'farmer' : a];
+const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'], MONL = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const fmtD = s => { if (!s) return ''; const p = String(s).slice(0, 10).split('-'); return `${+p[2]} ${MON[+p[1] - 1]} ${p[0]}`; };
+function plRows(a) {
+  if (a === 'wl') { const W = (ST.wlLists || {})[PLB.client]; if (!W) return []; return W.rows.map(r => { const ch = r.prev ? (r.cur - r.prev) / r.prev * 100 : null; const k = 'p' + r.packId; const sz = packSizeOf(r); return { product: r.brand, spec: r.spec || '', pack: r.pack, cur: r.cur.toFixed(2), ppack: sz != null ? (Math.round(r.cur * sz * 100) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '', prev: r.prev != null ? r.prev.toFixed(2) : '', chg: ch == null ? 'new' : (ch > 0 ? '+' : '') + ch.toFixed(1) + '%', reason: PLB.reasons[k] != null ? PLB.reasons[k] : (r.reason || (ch == null ? 'New price' : Math.abs(ch) > 0.01 ? 'Raw material cost change' : 'No change')), eff: fmtD(PLB.eff), _k: k, _ch: ch }; }); }
+  const L = ST.lists || { dist: [], dealer: [], farmer: [] };
+  if (a === 'dist') return L.dist.map((d, i) => { const noPrice = d.now == null; const ch = noPrice ? undefined : d.prev ? (d.now - d.prev) / d.prev * 100 : null; const k = 'd:' + d.p + '|' + (d.pack || ''); /* by product and pack, as the server (1.0.3: the list re-sorts A to Z) */ return { product: d.p, spec: d.d, pack: d.pack, cur: rs(d.now), fed: rs(d.fed), prev: d.prev ? rs(d.prev) : '', chg: noPrice ? '' : ch == null ? 'new' : (ch > 0 ? '+' : '') + ch.toFixed(1) + '%', reason: PLB.reasons[k] != null ? PLB.reasons[k] : (noPrice ? '' : ch == null ? 'New price' : Math.abs(ch) > 0.01 ? 'Price revised' : 'No change'), mrp: rs(d.mrp), terms: d.terms === 'TBD' ? 'As agreed' : d.terms, _k: k, _ch: ch }; });
+  if (a === 'dealer') return L.dealer.map(d => ({ product: d.p, spec: d.d, pack: d.pack, cur: rs(d.net), disc: d.disc ? (d.disc * 100).toFixed(1) + '%' : '', netfed: rs(d.netfed), frp: rs(d.frp), mrp: rs(d.mrp) }));
+  if (a === 'mrp') return L.farmer.map(f => { const m = printMrp(f); if (!m) return null; const z = splitPack(f.p); return { product: z.p, spec: f.d, pack: z.pack, _full: f.p, mrp: rs(m.mrp), basis: m.basis }; }).filter(Boolean);
+  const col = a === 'farmer_sn' ? 'sn' : a === 'farmer_snc' ? 'snc' : 'pb'; return L.farmer.map(f => { const z = splitPack(f.p); return { product: z.p, spec: f.d, pack: z.pack, _full: f.p, cur: f[col] != null ? rs(f[col]) : '' }; });
+}
+/* Push 10e (C-20): a document dated ahead is checked on the rows the server will print on its From date (POST /pricedocs/preview). */
+let PLPV = { key: null, rows: null, err: null };
+/* review 10e (M-2, M-3): the same From and Till as Create PDF sends; reasons typed here are laid over the rows, so typing does not read again */
+function plAhead(a) { const eff = PLB.effSet ? PLB.eff : undefined, till = PLB.tillSet ? PLB.till : undefined; const key = JSON.stringify([a, PLB.client, eff, till, PLB.eff]);
+  if (PLPV.key !== key) { PLPV = { key, rows: null, err: null }; queueMicrotask(() => api('/api/c2m/pricedocs/preview', { audience: a, client: PLB.client, eff, till }).then(j => { if (PLPV.key === key) { PLPV.rows = j.rows || []; render(); } }).catch(e => { if (PLPV.key === key) { PLPV.err = e.message; render(); } })); }
+  return (PLPV.rows || []).map(r => r._k != null && PLB.reasons[r._k] != null ? { ...r, reason: PLB.reasons[r._k] } : r); }
+function plDoc(a) {
+  const W = (ST.wlLists || {})[PLB.client] || {};
+  const t = a === 'wl' ? { t: 'Price List', to: W.name || PLB.client, sub: 'Monthly price list for ' + (ST.today ? MONL[+ST.today.slice(5, 7) - 1] + ' ' + ST.today.slice(0, 4) : '') } : a === 'dist' ? { t: 'Price List for Distribution Partners', to: 'Distribution partners', sub: 'Prices per pack' } : a === 'dealer' ? { t: 'Dealer Price List, Sindh', to: 'Sindh dealers', sub: 'Cash sales policy' } : a === 'web' ? { t: 'Product Prices', to: 'van.com.pk', sub: 'Retail prices, Punjab' } : a === 'mrp' ? { t: 'MRP Printing List', to: 'Packing and printer', sub: 'MRP printed on each pack' } : { t: 'Farmer Price List', to: { farmer_pb: 'Punjab', farmer_sn: 'Sindh', farmer_snc: 'Sindh, credit' }[a], sub: 'Retail prices' };
+  const F = fieldsFor(a).filter(f => PLB.pick[a] ? PLB.pick[a][f[0]] : f[2]); const ahead = PLB.eff && PLB.eff > ST.today && CAN('pricedoc.all'); const R = ahead ? plAhead(a) : plRows(a); // push 10e (C-20): dated ahead, the rows the PDF will print
+  const fp = FEDP() + '%'; // FED, the only tax on VAN; as fedTxt in c2m-pricelist.js
+  const notes = []; if (a === 'wl') { notes.push(`Prices are ex-factory and exclude FED (${fp}).`); if (W.rule === 'time') notes.push('POs received before the From date are supplied at the price on the PO.'); notes.push('Prices apply to the packing arrangement agreed for each product.'); if (!PLB.till) notes.push('Valid until replaced by a later list.'); }
+  if (a === 'dist') notes.push(`Price with FED includes FED at ${fp}. Recommended MRP is a suggested retail price, not the MRP printed on the pack.`); if (a === 'dealer') { notes.push('Payment by demand draft, pay order or bank deposit only. No returns.'); notes.push('FRP and Recommended MRP are suggested retail prices, not the MRP printed on the pack.'); }
+  if (a === 'mrp') { notes.push(`MRP includes FED (${fp}). It is the Farmer, Sindh credit price rounded up to the next Rs 50; a pack with no Sindh credit price uses its highest farmer price, rounded the same way.`); notes.push('Print this MRP on packs filled from the From date. It changes only with a new MRP printing list.'); } if (a.startsWith('farmer') || a === 'web') notes.push(`Prices include FED (${fp}) and may change; check the latest list.`); if (PLB.note) notes.push(PLB.note);
+  const BASIS = { wl: ['Rs per kg or L, ex factory', `FED (${fp}) extra`], dist: ['Rs per pack, ex FED', `FED at ${fp} in its own column`], dealer: ['Rs per pack', `Ex FED, and with FED at ${fp}`], farmer: ['Rs per pack', `FED (${fp}) included`] }; const basis = BASIS[a] || BASIS.farmer; // as c2m-pricelist.js BASIS
+  const famOf = r => { const W2 = a === 'wl' ? ((ST.wlLists || {})[PLB.client] || { rows: [] }).rows.find(x => 'p' + x.packId === r._k) : null; return W2 && W2.fam ? `<i class="fam" style="background:${W2.fam}"></i>` : ''; };
+  return `<div class="doc"><div class="doc-h2"><div class="doc-h" style="border:0;padding:0;flex:1 1 300px"><img src="/c2m/assets/van-logo.png" alt="VAN" class="doc-logo"><div class="doc-co"><b>Vital Agri Nutrients (Private) Limited</b><span>www.van.com.pk</span></div></div>
+  <div class="doc-meta"><h4>${esc(t.t.toUpperCase())}</h4><table><tr><td>Number</td><td>${esc(ST.nextDocRef || 'given when the PDF is created')}${ST.nextDocRef ? ' <span style="color:#4a5a70">(next free; fixed when the PDF is created)</span>' : ''}</td></tr><tr><td>Issued</td><td>${fmtD(ST.today)}</td></tr><tr><td>From</td><td>${fmtD(PLB.eff)}</td></tr>${PLB.till ? `<tr><td>Till</td><td>${fmtD(PLB.till)}</td></tr>` : ''}</table></div></div><div class="doc-rule"></div>
+  <div class="doc-blk"><div><small>FOR</small><b>${esc(t.to)}</b>${esc(t.sub)}</div><div><small>PRICES</small><b>${esc(basis[0])}</b>${esc(basis[1])}</div></div>
+  <div class="wrapx doc-tbw"><table class="doc-tb"><thead><tr><th>Sr</th>${F.map(f => `<th>${esc(f[1])}</th>`).join('')}</tr></thead><tbody>${R.map((r, i) => `<tr><td>${i + 1}</td>${F.map(f => `<td class="${['cur', 'ppack', 'prev', 'fed', 'mrp', 'netfed', 'frp', 'chg', 'disc'].includes(f[0]) ? 'r' : ''}">${f[0] === 'product' ? famOf(r) : ''}${esc(f[0] === 'product' && r._full && !F.some(g => g[0] === 'pack') ? r._full : (r[f[0]] ?? ''))}</td>`).join('')}</tr>`).join('') || `<tr><td colspan="${F.length + 1}">${ahead && !PLPV.rows ? (PLPV.err ? 'The rows for the From date could not be read.' : 'Reading the prices in force on the From date…') : 'No approved prices for this client yet.'}</td></tr>`}</tbody></table></div>
+  ${(() => { const km = new Map(); if (a === 'wl') ((ST.wlLists || {})[PLB.client] || { rows: [] }).rows.forEach(x => { if (x.fam && x.famName) km.set(x.fam, x.famName); }); return km.size && F.some(f => f[0] === 'product') ? `<p class="doc-key">${[...km].map(([c, n]) => `<span><i class="fam" style="background:${c}"></i>${esc(n)}</span>`).join(' ')}</p>` : ''; })()}<ul class="doc-n">${notes.map(x => `<li>${esc(x)}</li>`).join('')}</ul><div class="doc-sig" style="grid-template-columns:1fr"><div style="justify-self:end;min-width:50%"><small>Issued by</small><b>${esc((ST.issuer || {}).name || '')}</b>${esc((ST.issuer || {}).role || '')}</div></div>
+  <div class="doc-f2"><span>Head office: 605 Al-Hafeez Heights, Gulberg III, Lahore 54660 · Plant: 49-Km Multan Road, Phool Nagar Bypass, Lahore · +92 42 35762215</span><span></span></div></div>`;
+}
+let rev = null;
+const REVF = { dist: [['now', 'Price ex FED, Rs per pack'], ['mrp', 'Recommended MRP']], dealer: [['nsv', 'Price before discount'], ['disc', 'Discount, %'], ['frp', 'FRP'], ['mrp', 'Recommended MRP']], farmer: [['pb', 'Punjab'], ['sn', 'Sindh'], ['snc', 'Sindh credit']] };
+const revLabel = (list, f) => ((REVF[list] || []).find(x => x[0] === f) || [, f])[1];
+const revShow = (f, v) => v == null ? '–' : f === 'disc' ? (Number(v) * 100).toFixed(1) + '%' : Number(v).toLocaleString('en-US');
+const LISTNAME = { dist: 'Distributor list', dealer: 'Dealer list, Sindh', farmer: 'Farmer list' };
+/** Yawar revises a VAN brand list; Tahir approves or sends back; on approval the list and its dates change. */
+function revBox(inPanel, only, noForm) { // noForm: the 1.0.0 VAN brand grid is where prices are typed
+  const R = ST.me.role; const revs = ST.listRevisions || [];
+  const pick = r => only == null || r.id === only; const waiting = revs.filter(r => r.status === 'proposed' && pick(r)), back = revs.filter(r => r.status === 'sent_back' && pick(r)), later = revs.filter(r => r.status === 'approved' && !Number(r.applied) && pick(r));
+  let h = '';
+  if (later.length) h += `<div class="box jobs">${later.map(r => `<div class="job"><div><div class="t">${esc(LISTNAME[r.list_name])}: ${pl(r.items.length, 'price', 'prices')} approved, takes effect on ${fmtD(r.valid_from)}</div><div class="d">${esc(r.reason)}. Until then the list stays as it is; a new revision of this list waits until this one takes effect or is withdrawn.</div></div>${CAN('list.withdraw') ? `<button class="btn ghost" data-lwd="${r.id}">Withdraw</button>` : ''}</div>${ask && ask.kind === 'lwd' && ask.id === r.id ? askBox('Why withdraw this waiting revision?') : ''}`).join('')}</div>`;
+  h += `<div class="box jobs">${[...waiting, ...back].map(r => `<div class="job"><div><div class="t">${esc(LISTNAME[r.list_name])}: ${pl(r.items.length, 'price', 'prices')} ${r.urgent && r.status === 'proposed' ? 'urgent, in force when approved' : 'from ' + (r.status === 'proposed' ? 'Monday ' + fmtD(monFrom(d10(r.valid_from) > ST.today ? d10(r.valid_from) : ST.today)) : fmtD(r.valid_from))}${r.valid_till ? ' to ' + fmtD(r.valid_till) : ''}</div><div class="d">${r.status === 'proposed' ? 'Waiting for the COO' : 'Sent back by the COO: ' + esc(r.back_reason || '')}. ${esc(r.reason)}${r.urgent && r.status === 'proposed' ? `. Why urgent: ${esc(r.urgent)}` : ''}<br>${r.status === 'proposed' ? (() => { const mi = revMrp(r); return mi.length ? `<span class="warnbox" style="display:block;margin:4px 0">This revision would put above the printed MRP: ${esc(mrpTxt(mi, 4))}. Approval is still allowed</span>` : ''; })() : ''}${r.items.some(i => i.added) ? (() => { const mk = (ST.listItems || []).filter(x => x.list === r.list_name && x.data.noPack); return mk.length ? `<span class="warnbox" style="display:block;margin:4px 0">This list has ${pl(mk.length, 'row', 'rows')} marked "not a C2M pack": ${mk.map(x => esc(vmRowName(x)) + (x.data.noPackBy ? ` (${esc(personName(x.data.noPackBy))}${x.data.noPackAt ? ' ' + esc(fmtShort(x.data.noPackAt)) : ''})` : '')).join(', ')}. Check that none of them is a pack this revision adds; if one is, send it back.</span>` : ''; })() : ''}${r.items.slice(0, inPanel ? r.items.length : 12).map(i => `${esc(i.product)}${i.pack ? ' ' + esc(i.pack) : ''}: ${i.added ? '<b>new row on this list</b>, ' + Object.keys(i.to).map(f => `${esc(revLabel(r.list_name, f))} ${revShow(f, i.to[f])}${i.keep && (i.keep.back || []).includes(f) ? ' <i>(came back from when it left the list, not typed)</i>' : ''}`).join(', ') + (i.keep && i.keep.terms ? `, terms "${esc(i.keep.terms)}" <i>(came back)</i>` : '') + (i.keep && i.keep.prev != null ? `, previous price ${revShow('now', i.keep.prev)} <i>(the price distributors last saw, came back)</i>` : '') : Object.keys(i.to).map(f => `${esc(revLabel(r.list_name, f))} ${revShow(f, i.from[f])} to ${revShow(f, i.to[f])}`).join(', ')}`).join('<br>')}${!inPanel && r.items.length > 12 ? '<br>and ' + (r.items.length - 12) + ' more (open it to see all)' : ''}</div></div>
+  ${r.status === 'proposed' && CAN('list.approve') && (ADM() || r.byAdmin) ? (inPanel ? `<div><button class="btn" data-lrok="${r.id}" data-confirm="Confirm: approve ${r.items.length} prices">Approve</button> <button class="btn ghost" data-lrback="${r.id}">Send back</button></div>` : `<div><button class="btn ghost" data-panlrev="${r.id}">Open to approve</button></div>`) : r.status === 'sent_back' && CAN('list.revise') ? (noForm ? `<div><button class="btn" data-panlrev="${r.id}">Open to revise</button></div>` : `<div><button class="btn" data-lrredo="${r.id}">Revise and resend</button></div>`) : ''}</div>`).join('') || '<div class="job"><div><div class="t">No revision waiting.</div></div></div>'}</div>`;
+  if (CAN('list.revise') && !rev && !noForm) h += `<div class="next">${Object.entries(LISTNAME).map(([k, l]) => `<button class="btn ghost" data-revstart="${k}">Revise: ${l}</button>`).join(' ')}</div>`;
+  if (CAN('list.revise') && rev && rev.list && !behind && !noForm) { // a Send back box (rev = {back}) carries no list: it is drawn below (D-137)
+    const RF = rev.only ? REVF[rev.list].filter(f => rev.only.includes(f[0])) : REVF[rev.list]; // only FRP and Recommended MRP, opened from the VAN grid (D-122)
+    const items = (ST.listItems || []).filter(x => x.list === rev.list && (!rev.marked || x.data.noPack)); // 1.0.1: from the grid, only the rows marked not a C2M pack
+    const sb = rev.marked ? (ST.listRevisions || []).filter(r => r.list_name === rev.list && r.status === 'sent_back').sort((a, b) => b.id - a.id)[0] : null; // sending replaces it: say so before sending
+    h += `<div class="box form" id="revf"><b>Revise: ${esc(LISTNAME[rev.list])}</b>${rev.was ? `<div class="warnbox">The COO sent this back: ${esc(rev.was)}</div>` : ''}${sb ? `<div class="warnbox">Sending replaces the revision of this list the COO sent back (${pl(sb.items.length, 'price', 'prices')} from ${fmtD(sb.valid_from)}); its prices are dropped. To keep them, open it under List revisions and revise it instead.</div>` : ''}<p class="ans" style="margin:0">Type only the prices that change. ${rev.list === 'dist' ? `Price with FED is worked out (FED ${FEDP()}%).` : rev.list === 'dealer' ? `Net price and net with FED (${FEDP()}%) are worked out.` : ''}</p>${rev.notes && rev.notes.length ? `<div class="warnbox" style="display:block"><b>Changed since you typed (${rev.notes.length})</b><ul style="margin:4px 0 0;padding-left:18px">${rev.notes.map(n => `<li>${esc(n)}</li>`).join('')}</ul></div>` : ''}
+    <div class="wrapx" style="max-height:360px;overflow-y:auto"><table><tr><th>Product</th>${RF.map(f => `<th>${esc(f[1])}</th>`).join('')}</tr>${(rev.added || []).map(a => `<tr><td>${esc(a.product)} <span class="ans">${esc(a.pack || '')}</span><br><b>new row on this list</b></td>${RF.map(([f]) => `<td>${a.back && a.back[f] != null ? `<span class="ans">came back last time: ${revShow(f, a.back[f])}; worked out again on sending, unless typed</span><br>` : ''}<input type="number" step="0.01" style="width:96px" data-rv="p${a.packId}:${f}" value="${rev.vals['p' + a.packId + ':' + f] ?? ''}" aria-label="${esc(a.product)} ${esc(revLabel(rev.list, f))}"></td>`).join('')}</tr>`).join('')}${items.map(x => `<tr><td>${esc(x.data.p)}${x.data.pack ? ' <span class="ans">' + esc(x.data.pack) + '</span>' : ''}${rev.flag && rev.flag[x.id] ? '<br><b>see the note above</b>' : ''}</td>${RF.map(([f]) => { const now = x.data[f], nv = rev.vals[x.id + ':' + f]; const ch = nv != null && nv !== '' && now ? ((f === 'disc' ? nv / 100 : nv) - now) / now * 100 : null; return `<td><span class="ans">now ${revShow(f, now)}</span><br><input type="number" step="0.01" style="width:96px" data-rv="${x.id}:${f}" value="${nv ?? ''}" aria-label="${esc(x.data.p)} ${esc(revLabel(rev.list, f))}">${ch != null ? ` <span class="${Math.abs(ch) > 10 ? 'late' : 'ans'}">${ch > 0 ? '+' : ''}${ch.toFixed(1)}%</span>` : ''}</td>`; }).join('')}</tr>`).join('')}</table></div>
+    <div class="row"><label for="rvr" style="flex:1 1 260px">Reason (required)<input id="rvr" value="${esc(rev.reason || '')}"></label>${cycFields('rv', rev.from, rev.urg, rev.urgWhy)}<label for="rvt">Till<input id="rvt" type="date" value="${rev.till || ''}"></label></div>
+    <div><button class="btn" data-revsend>Send to the COO</button> <button class="btn ghost" data-revcancel>Cancel</button></div></div>`;
+  }
+  if (rev && rev.back && !behind) h += `<div class="box form"><label for="lrbr">Reason for sending back (required)<textarea id="lrbr"></textarea></label><div><button class="btn warn" data-lrbsend="${rev.back}">Send back to the CFO</button> <button class="btn ghost" data-revcancel>Cancel</button></div></div>`;
+  return h;
+}
+/** "Revise and resend" of a revision Tahir sent back: its prices filled in again, except where a row or pack changed since. Every
+ *  such case is named in 1 list of notes above the form (one message per case, nothing lost to a pop-up that is replaced), and nothing
+ *  is filled in for it: Yawar decides (review 1.0.3, fourth to sixth checks). */
+function revRedo(r) {
+  const L = r.list_name, items = (ST.listItems || []).filter(x => x.list === L), onL = new Set(items.map(x => x.id)); const nowPack = new Map(items.map(x => [x.id, x.data.packId != null ? Number(x.data.packId) : null]));
+  const nm = i => i.product + (i.pack ? ' ' + i.pack : ''), pr = to => Object.entries(to || {}).map(([f, v]) => `${revLabel(L, f).replace(/, %$/, '')} ${revShow(f, v)}`).join(', ');
+  const kLabel = pid => { const k = packIdx().get(Number(pid)); return k ? packLabel(k) : 'another pack'; };
+  const vals = {}, packAt = {}, notes = [], flag = {}, skip = new Set();
+  items.forEach(x => { packAt[x.id] = nowPack.get(x.id); }); r.items.forEach(i => { if (i.id != null && i.packAt !== undefined) packAt[i.id] = i.packAt; }); // the pack each price was typed for, and for every other row the pack it is on now: a move meanwhile is refused (seventh check, finding 2)
+  for (const i of r.items) {
+    if (i.id != null && !onL.has(i.id)) { skip.add(i); notes.push(`${nm(i)}: no longer on this list (taken off). Left out of this revision. You had typed ${pr(i.to)}.`); continue; }
+    if (i.id != null && i.packAt !== undefined && nowPack.get(i.id) !== (i.packAt == null ? null : Number(i.packAt))) { skip.add(i); packAt[i.id] = nowPack.get(i.id); flag[i.id] = 1; const x = items.find(y => y.id === i.id);
+      notes.push(`${x ? x.data.p + (x.data.pack ? ' ' + x.data.pack : '') : nm(i)}: moved to this pack after you typed. ${pr(i.to)} was typed for ${kLabel(i.packAt)}. Not filled in: type its price again for the pack it is on now, or leave it empty.`); continue; }
+    if (i.id == null && i.added) { const hit = items.find(x => Number(x.data.packId) === Number(i.packId)); if (hit) { skip.add(i); flag[hit.id] = 1; const typed = Object.fromEntries(Object.entries(i.to).filter(([f]) => !(i.keep && (i.keep.back || []).includes(f))));
+      notes.push(`${nm(i)}: a row was moved onto this pack after you typed, so it is not a new row any more. That row keeps its own prices${L === 'dist' ? ', terms and previous price' : ''}; what this pack had when it left does not come back. You had typed ${pr(typed)}. Not filled in: type it on that row if still wanted.`); continue; } }
+  }
+  r.items.filter(i => !skip.has(i)).forEach(i => Object.entries(i.to).forEach(([f, v]) => { if (i.id == null && i.keep && (i.keep.back || []).includes(f)) return; /* a price that came back is not filled in as typed: it comes back again on sending */ vals[(i.id == null ? 'p' + i.packId : i.id) + ':' + f] = f === 'disc' ? +(Number(v) * 100).toFixed(4) : v; })); // an added row is keyed p<packId>; stored 0.05 shows as 5 (%), as typed
+  const added = r.items.filter(i => i.id == null && i.added && !skip.has(i)).map(i => ({ packId: i.packId, product: i.product, pack: i.pack, back: Object.fromEntries(((i.keep && i.keep.back) || []).map(f => [f, i.to[f]])) }));
+  if (notes.length) toast(`${pl(notes.length, 'row', 'rows')} of this revision changed since you typed: see the notes above the form.`, true);
+  return { list: L, vals, reason: r.reason, from: (() => { const f = d10(r.valid_from); return isMon(f) && f >= ST.today ? f : monFrom(ST.today); })(), urg: !!r.urgent, urgWhy: r.urgent || '', till: r.valid_till ? String(r.valid_till).slice(0, 10) : '', was: r.back_reason, replaceId: r.id, added, packAt, notes, flag };
+}
+/** Default dates of the document being built: a client list from its own approved prices; a VAN list from its own
+ *  list dates. Yawar's own dates are kept only once he types them (handover review: wrong dates on client lists). */
+function plDates() {
+  const a = PLB.aud, L = ST.lists || {};
+  if (!PLB.effSet) {
+    if (a === 'wl') { const W = (ST.wlLists || {})[PLB.client]; const f = W ? W.rows.map(r => r.from).filter(Boolean).sort().pop() : null; PLB.eff = f || ST.today; }
+    else { const k = a === 'dist' ? 'dist' : a === 'dealer' ? 'dealer' : 'farmer'; PLB.eff = String(((L.dates || {})[k] || {}).issued || L.issued || ST.today).slice(0, 10); }
+  }
+  if (!PLB.tillSet) { if (a === 'wl' || a === 'mrp') PLB.till = null; /* an MRP list changes only with a new MRP list (D-122) */ else { const k = a === 'dist' ? 'dist' : a === 'dealer' ? 'dealer' : 'farmer'; const t = ((L.dates || {})[k] || {}).till; PLB.till = t ? String(t).slice(0, 10) : null; } }
+}
+function vLists() {
+  const R = ST.me.role; const L = ST.lists || {};
+  if (VIEWER()) {
+    const mine = (ST.grants || []).map(g => g.grant_kind === 'client' ? 'wl:' + g.grant_value : g.grant_value);
+    const sel = listSel && mine.includes(listSel) ? listSel : mine[0];
+    if (!sel) return head('Price lists', 'No price list is granted to you yet.', 'Ask the COO or the CFO to grant the lists you need.');
+    const a = sel.startsWith('wl:') ? 'wl' : sel; const cl = a === 'wl' ? sel.slice(3) : PLB.client;
+    if (PLB.aud !== a || PLB.client !== cl) { PLB.effSet = PLB.tillSet = false; } PLB.aud = a; PLB.client = cl; plDates(); // the KAM never sets dates
+    const label = s => s.startsWith('wl:') ? s.slice(3) + ' monthly list' : AUD[s];
+    /* push 10a (C-07; Tahir 11 Nov 2026): Download gives the latest issued document of the list, so no new VAN/PL number is made each time;
+       only a list never issued is made once, here. */
+    if (VPLX === null) { VPLX = 'loading'; api('/api/c2m/pricedocs/latest-mine').then(j => { VPLX = j.docs || []; render(); }).catch(e => { VPLX = 'error'; toast(e.message, true); render(); }); }
+    const docs = Array.isArray(VPLX) ? VPLX : []; const d = docs.find(x => x.audience === a && (a !== 'wl' || x.client === cl));
+    const dl = VPLX === 'loading' ? '<span class="ans">Looking for the latest issued list…</span>' : VPLX === 'error' ? '<span class="ans">The issued lists could not be read. Press Refresh.</span>' : d && d.till && d.till < ST.today ? `<span>The latest issued list, <span class="mono">${esc(d.ref)}</span>, ended on ${esc(fmtD(d.till))}. Ask the CFO for the current list; it can be downloaded here once it is issued.</span>` /* Tahir, 20 Nov 2026: an ended list is not given out */ : d ? `<span>Latest issued: <span class="mono">${esc(d.ref)}</span>, from ${esc(fmtD(d.effective))}${d.till ? ' till ' + esc(fmtD(d.till)) : ''}. The page below shows today's approved prices.</span><button class="btn" data-plget="${d.id}">Download ${esc(label(sel))}</button>` : `<span>This list has not been issued yet. Downloading makes its first document.</span><button class="btn" data-mkpdf>Download ${esc(label(sel))} as PDF</button>`;
+    return `${head('Price lists', `${mine.length} you can see.`, 'Approved prices only, in the same document every manager receives.')}<div class="subnav" role="tablist" aria-label="Your price lists">${mine.map(s => `<button role="tab" data-list="${esc(s)}" aria-selected="${s === sel}">${esc(label(s))}</button>`).join('')}</div><div class="next">${dl}</div>${plDoc(a)}`;
+  }
+  return vListsBuilder();
+}
+/* ---------- Price lists tab for the CFO and the COO (Tahir, 11 Nov 2026) ----------
+   Every list as a card: download the latest issued document (no new number), or make a new one in the builder, 1 click behind.
+   Under the cards: who can see the lists (KAMs and team members), with a flag for anyone who has the role and no list. */
+let PLX = null; // latest issued document per list; null = not read yet
+let plTab = 'lists'; // push 10d: Price lists tab, Lists or Who can see them (acc)
+let VPLX = null; // push 10a: a Price list viewer's latest issued documents; null = not read yet
+function vPriceLists() {
+  /* Push 10d (Tahir, 20 Nov 2026; picture "C2M Price lists redesign"): 2 tabs, Lists and Who can see them. Issued lists first, each
+     with Download PDF (the latest document, no new number) and Issue a new PDF; the lists never issued in 1 compact table; the public
+     page in 1 line. The access part is 1 full-width table of people against lists (replaces the left list and right panel). */
+  if (PLX === null) { PLX = 'loading'; queueMicrotask(() => api('/api/c2m/pricedocs/latest').then(j => { PLX = j.docs || []; render(); }).catch(e => { PLX = 'error'; toast(e.message, true); render(); })); } // push 10e (C-38): read after the draw; a failure is said once, on the page, with Try again
+  const docs = Array.isArray(PLX) ? PLX : []; const mk = CAN('pricedoc.all');
+  const find = (a, c) => docs.find(d => d.audience === a && (a !== 'wl' || d.client === c));
+  const ids = ['dist', 'dealer', 'farmer_pb', 'farmer_sn', 'farmer_snc', 'web', 'mrp'];
+  const wl = Object.keys(ST.wlLists || {}).filter(c => !custOut(c));
+  const all = ids.map(k => ({ a: k, label: AUD[k], client: null, kind: 'VAN brand' })).concat(wl.map(c => ({ a: 'wl', label: c, client: c, kind: 'White label, monthly' }))).map(x => ({ ...x, d: find(x.a, x.client) }));
+  const iss = all.filter(x => x.d), never = all.filter(x => !x.d);
+  const ended = x => x.d.till && x.d.till < ST.today, later = x => x.d.effective && x.d.effective > ST.today;
+  const viewers = (ST.people || []).filter(p => p.grantee);
+  const ans = PLX === 'loading' ? 'Looking for the issued lists…' : PLX === 'error' ? 'The issued lists could not be read. <button class="lnk" data-plretry>Try again</button>' : !iss.length ? `${pl(all.length, 'list', 'lists')}. None has been issued yet.`
+    : iss.length === 1 ? `${pl(all.length, 'list', 'lists')}. Only 1 has ever been issued, and it ${ended(iss[0]) ? 'ended on ' + esc(fmtD(iss[0].d.till)) : later(iss[0]) ? 'starts on ' + esc(fmtD(iss[0].d.effective)) : 'is in force'}.`
+    : `${pl(all.length, 'list', 'lists')}. ${iss.length} issued${iss.some(ended) ? ` (${iss.filter(ended).length} ended and not replaced)` : ''}, ${never.length} never issued.`;
+  const tabs = `<div class="subnav" role="tablist" aria-label="Price lists"><button role="tab" data-pltab="lists" aria-selected="${plTab !== 'acc'}">Lists</button><button role="tab" data-pltab="acc" aria-selected="${plTab === 'acc'}">Who can see them<small class="tcm">${pl(viewers.length, 'person', 'people')}</small></button></div>`;
+  const top = head('Price lists', ans, 'Download PDF gives the latest document already issued, with its own number, and makes no new number. A new VAN/PL number is made only when you issue a new PDF in the builder. Who can see them: the platform administrator gives a login and the Price list viewer role in People and access; here you tick which lists and white label clients each person sees.', '', mk ? '<button class="btn" data-plmake>Make a list</button>' : '');
+  if (plTab === 'acc') return top + tabs + boAccess();
+  const card = x => { const d = x.d, e = ended(x), l = later(x);
+    return `<div class="pli ${e ? 's-end' : l ? 's-later' : 's-on'}"><div class="plm"><b>${esc(x.label)}</b><span class="mute"><span class="mono">${esc(d.ref)}</span> · ${esc(fmtD(d.effective))}${d.till ? ' to ' + esc(fmtD(d.till)) : ''}</span></div><span class="pill ${e ? 'p-amber' : l ? 'p-blue' : 'p-green'}">${e ? `Ended ${esc(fmtShort(d.till))}, not replaced` : l ? `Starts ${esc(fmtShort(d.effective))}` : d.till ? `In force till ${esc(fmtShort(d.till))}` : 'In force'}</span><button class="btn ghost" data-plget="${d.id}" aria-label="Download PDF of ${esc(x.label)}">Download PDF</button>${mk ? `<button class="btn ghost" data-plnew="${esc(x.a)}"${x.client ? ` data-plclient="${esc(x.client)}"` : ''} aria-label="Issue a new PDF of ${esc(x.label)}">Issue a new PDF</button>` : ''}</div>`; };
+  return `${top}${tabs}
+  ${PLX === 'loading' || PLX === 'error' ? `<p class="ans">${PLX === 'error' ? 'Nothing to show until the issued lists are read.' : 'Looking for the latest documents…'}</p>` : `<h2 class="plh">Issued <span class="mute">${iss.length}</span></h2>${iss.length ? iss.map(card).join('') : '<p class="ans">No list has been issued yet.</p>'}
+  <h2 class="plh">Never issued <span class="mute">${never.length}</span></h2>${never.length ? `<div class="box wrapx"><table class="wt plni" data-nosort><tbody>${never.map(x => `<tr><td>${esc(x.label)}</td><td class="mute">${esc(x.kind)}</td><td class="r">${mk ? `<button class="lnk" data-plnew="${esc(x.a)}"${x.client ? ` data-plclient="${esc(x.client)}"` : ''} aria-label="Make the first PDF of ${esc(x.label)}">Make the first one</button>` : ''}</td></tr>`).join('')}</tbody></table></div>` : '<p class="ans">Every list has been issued at least once.</p>'}`}
+  <div class="plpub"><b>Public price page</b><span class="mute">No login: Farmer, Punjab; Dealer, Sindh; Distributor. Prices only.</span><a class="mono" href="/c2m/prices" target="_blank" rel="noopener">/c2m/prices</a></div>`;
+}
+function vListsBuilder() {
+  const a = PLB.aud; if (!PLB.client || !(ST.wlLists || {})[PLB.client]) PLB.client = Object.keys(ST.wlLists || {}).filter(c => !custOut(c))[0]; // a renamed client drops its old key
+  plDates();
+  if (!PLB.pick[a]) PLB.pick[a] = Object.fromEntries(fieldsFor(a).map(f => [f[0], !!f[2]]));
+  const changed = (PLB.eff && PLB.eff > ST.today && CAN('pricedoc.all') ? plAhead(a) : plRows(a)).filter(r => r._ch === null || (r._ch && Math.abs(r._ch) > 0.01)); // new prices need a reason too
+  return `<p class="ans">${a === 'wl' ? 'Pick the client, check each reason for change and set the From date.' : 'Pick the fields and set the dates.'} Then check the document and create the PDF at the bottom.</p>
+  <div class="two"><div class="box form"><b>1. Who is it for?</b><div class="chips" style="margin:0">${Object.entries(AUD).map(([k, l]) => `<button data-aud="${k}" aria-pressed="${k === a}">${l}</button>`).join('')}</div>
+  ${a === 'wl' ? `<label for="plc">Client<select id="plc">${Object.keys(ST.wlLists || {}).filter(c => !custOut(c) || c === PLB.client).map(c => `<option ${c === PLB.client ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select></label>` : ''}</div>
+  <div class="box form"><b>2. Which fields to print</b><div class="cols" style="margin:0">${fieldsFor(a).map(f => `<label><input type="checkbox" data-plf="${f[0]}" ${PLB.pick[a][f[0]] ? 'checked' : ''}> ${esc(f[1])}</label>`).join('')}</div>
+  ${(a === 'wl' || a === 'dist') && PLB.pick[a].reason ? `<b>Reasons for change (edit before sending)</b><div class="wrapx" style="max-height:220px;overflow-y:auto"><table>${changed.map(r => `<tr><td>${esc(r.product)} ${esc(r.pack)} <span class="mono">${r.chg}</span></td><td><input data-plr="${r._k}" value="${esc(r.reason)}" style="width:100%" aria-label="Reason"></td></tr>`).join('') || `<tr><td>${PLB.eff && PLB.eff > ST.today && CAN('pricedoc.all') && !PLPV.rows ? 'Reading the prices in force on the From date…' : 'No price changed.'}</td></tr>`}</table></div>` : ''}</div></div>
+  <div class="box form" style="margin-top:12px"><b>3. Dates and note</b><div class="row"><label for="ple">From<input id="ple" type="date" value="${PLB.eff || ''}"></label><label for="plt">Till<input id="plt" type="date" value="${PLB.till || ''}"></label><label for="pln" style="flex:1 1 260px">Extra note on the document (optional)<input id="pln" value="${esc(PLB.note)}"></label></div></div>
+  <h2>4. Check the document</h2>${(() => { if (a === 'wl') return ''; const lk = a === 'dist' ? 'dist' : a === 'dealer' ? 'dealer' : 'farmer'; if (lmDone()) return ''; const n1 = (ST.listItems || []).filter(x => x.list === lk).length; // 1.0.3: until the carry-over the list prints as it is today
+    return n1 ? `<div class="warnbox">This list is not carried into the master yet: its ${pl(n1, 'row prints', 'rows print')} as written today, in today's order, so 1 product can show under 2 names. ${CAN('lists.carry') ? 'Carry the lists into the master first, or create the PDF knowing this. <button class="btn ghost" data-lm-open>Carry into the master</button>' : 'the COO or the CFO carries the lists into the master.'}</div>` : ''; })()}${PLB.eff && PLB.eff > ST.today ? `<p class="ans">Dated ahead (${fmtD(PLB.eff)}): ${PLPV.err ? `the rows for that date could not be read (${esc(PLPV.err)}). <button class="lnk" data-plpvretry>Try again</button>` : PLPV.rows ? 'the document below shows the prices in force on that date, including approved changes waiting for it, as the PDF prints them.' : 'reading the prices in force on that date…'}</p>` : ''}<div class="preview">${plDoc(a)}</div>
+  <div class="next" style="margin-top:12px"><span>C2M numbers the document (VAN/PL/year/number) when the PDF is created and keeps its rows exactly as issued.</span><button class="btn" data-mkpdf>Create PDF</button></div>`;
+}
+
+/* ---------- Setup sections (0.8.0; the old back office sections) ---------- */
+const yaw = () => CAN('import.decide');
+/** ro: the Setup record (work is on Today); otherwise the Today panel where Yawar accepts or corrects. */
+function boImport(ro) {
+  const items = ST.imports || []; const open = items.filter(i => i.status === 'open');
+  return `<p class="ans">Nothing from the CFO's sheets enters C2M until he accepts it. Each item is pre-filled; accept it, or type the correct value. ${pl(open.length, 'item', 'items')} left.${ro && open.length ? ` Open items are worked on ${ST.me.more && ST.me.more.length ? 'Approvals' : 'Today'}, each in its panel.` : ''}</p>
+  <div class="box jobs">${items.map(i => `<div class="job"><div><div class="t"><span class="pill p-none">${esc(i.area)}</span> ${esc(i.item)}</div><div class="d">Found: ${esc(i.found_text)}<br>Pre-filled: <b>${esc(i.prefill_text)}</b>${i.effect_text ? '<br>Effect: ' + esc(i.effect_text) : ''}${i.decision_note ? '<br>' + esc(i.decision_note) : ''}</div></div>
+  ${i.status !== 'open' ? `<span class="pill p-green">${esc(i.status)} by ${esc(personName(i.decided_by))}</span>` : ro ? '<span class="pill p-amber">open</span>' : yaw() ? (corr === i.id && !behind ? `<div style="display:grid;gap:6px;flex:1 1 260px"><label for="cv">Correct value${i.kind === 'rate' ? ', Rs (saved as the rate, with its checks)' : ''}<input id="cv"></label><label for="cw">Why<input id="cw"></label>${i.kind === 'rate' ? '<label><input type="checkbox" id="cconf"> Yes, I meant this rate, even if it moves more than the warning level</label>' : ''}<div><button class="btn" data-impsave="${i.id}">Save</button> <button class="btn ghost" data-impcancel>Cancel</button></div></div>` : `<div><button class="btn" data-imp="${i.id}">Accept</button> <button class="btn ghost" data-impc="${i.id}">Correct</button></div>`) : '<span class="pill p-amber">with the CFO</span>'}</div>`).join('')}</div>`;
+}
+/** Yawar's 13 Oct sheet against C2M today, split by cause, so every difference has a reason (adoption review). */
+function boSheet() {
+  const rows = []; (ST.products || []).filter(costProd).forEach(p => p.packs.forEach(k => { if (k.sheet && k.cost) rows.push({ p, k, d: k.cost.total - k.sheet.total }); }));
+  rows.sort((a, b) => Math.abs(b.d) - Math.abs(a.d)); const net = rows.reduce((s, r) => s + r.d, 0) / (rows.length || 1);
+  return `<details class="how"><summary>How this works</summary><div>The CFO's cost sheet of 13 Oct against C2M's cost today, per pack, with the gap split by cause. The main cause is the Labour and FOH method the COO set on 16 Oct (C2M's Labour and FOH rates in place of the sheet's own). Rate and packing changes show in their own columns.</div></details>
+  <div class="box wrapx"><table><tr><th>Pack</th><th class="r">Sheet</th><th class="r">C2M</th><th class="r">Gap</th><th class="r">Materials</th><th class="r">Packing</th><th class="r">Labour and FOH</th></tr>${rows.map(r => `<tr><td>${esc(r.p.brand)} ${r.k.size} ${r.p.soldPer} for ${esc(r.p.customer)}</td><td class="r num">${rs2(r.k.sheet.total)}</td><td class="r num">${rs2(r.k.cost.total)}</td><td class="r num ${Math.abs(r.d / r.k.sheet.total) > 0.03 ? 'over' : ''}">${r.d >= 0 ? '+' : ''}${r.d.toFixed(2)} (${(r.d / r.k.sheet.total * 100).toFixed(1)}%)</td><td class="r num">${(r.k.cost.materials - r.k.sheet.materials).toFixed(2)}</td><td class="r num">${(r.k.cost.packing - r.k.sheet.packing).toFixed(2)}</td><td class="r num">${(r.k.cost.conversion - r.k.sheet.conversion).toFixed(2)}</td></tr>`).join('') || '<tr><td colspan="7">No sheet figures loaded.</td></tr>'}</table></div>
+  ${rows.length ? `<p class="ans">${rows.length} packs; average gap ${net >= 0 ? '+' : ''}${net.toFixed(2)} Rs per kg or L. Over 3% is red and goes to the CFO for re-approval.</p>` : ''}`;
+}
+function boLinks() {
+  const ls = ST.lastSync; const iss = ls && ls.issues_json ? JSON.parse(ls.issues_json) : [];
+  return `<details class="how"><summary>How this works</summary><div>What C2M takes from which system. C2M reads only; it writes to no other system.</div></details>
+  <div class="box wrapx"><table><tr><th>System</th><th>What C2M takes</th><th>When</th><th>Status</th><th>Last pull</th></tr>${(ST.sources || []).map(s => `<tr><td>${esc(s.system_name)}</td><td>${esc(s.what)}</td><td>${esc(s.schedule)}</td><td><span class="pill ${/read|ready/i.test(s.status) ? 'p-green' : 'p-none'}">${esc(s.status)}</span></td><td>${esc(s.last_pull_note || '')} ${s.last_pull_at ? '<span class="mono nw">' + esc(when(String(s.last_pull_at))) + '</span>' : ''}</td></tr>`).join('') || '<tr><td colspan="5">Nothing recorded yet.</td></tr>'}</table></div>
+  <div style="margin:10px 0"><button class="btn" data-sync>Pull O2S now</button> <span class="ans">${ls && ls.finished_at ? `Last pulled ${esc(when(String(ls.finished_at)))}, ${ageTxt(ls.finished_at) === 'today' ? 'today' : ageTxt(ls.finished_at) + ' ago'}.` : 'Not pulled yet.'}</span></div>
+  <h2>Field mapping: O2S to C2M</h2><div class="box wrapx"><table><tr><th>O2S field</th><th>C2M field</th><th>How it is read</th></tr>${(ST.fieldMap || []).map(f => `<tr><td class="mono">${esc(f.source_field)}</td><td>${esc(f.c2m_field)}</td><td>${esc(f.rule_text)}</td></tr>`).join('') || '<tr><td colspan="3">Nothing recorded yet.</td></tr>'}</table></div>
+  <h2>Sales C2M could not place: ${(ST.unmatched || []).length}</h2><p class="ans">Truck lines whose client, brand or pack has no C2M pack. They count in sales but carry no cost. Fix the name in Setup, Clients, or add the product.</p>
+  <div class="box wrapx"><table><tr><th>Client</th><th>Brand and pack</th><th>Group</th><th class="r">Kg</th><th class="r">Sales</th></tr>${(ST.unmatched || []).slice(0, 40).map(u => `<tr><td>${esc(u.cust)}</td><td>${esc(u.brand)} ${u.pack}</td><td>${esc(u.grp)}</td><td class="r num">${Math.round(u.kg).toLocaleString()}</td><td class="r num">${rs(u.rs)}</td></tr>`).join('') || '<tr><td colspan="5">Every truck line is placed.</td></tr>'}</table></div>
+  <h2>Found in the last pull</h2><div class="box jobs">${iss.length ? iss.map(x => `<div class="job"><div><div class="t">${esc(x)}</div><div class="d">Fixed in O2S, not in C2M.</div></div></div>`).join('') : '<div class="job"><div><div class="t">Nothing found.</div></div></div>'}</div>`;
+}
+let custEdit = null, custEditCat = null;
+/** The edit box of 1 client: name, printed name, price rule, cycle, region and O2S names (Setup, Clients). */
+function custEditBox(c) { return `<div class="box form"><p class="ans" style="margin:0 0 8px">Editing <b>${esc(c.name)}</b>.</p><label for="cnm">Client name in C2M (screens, KAM lists and the client picker)<input id="cnm" value="${esc(c.name)}" maxlength="100"></label><p class="ans" style="margin:2px 0 10px">Renaming moves the client's KAM access to the new name. Price lists already issued keep the name they were printed with. To change only what price lists print, use the next box.</p><label for="cep">Name on price lists and documents${ST.printNameReady ? '' : ' (not switched on yet: IT has 1 step to run)'}<input id="cep" value="${esc(c.printName || '')}" placeholder="${esc(c.name)}" maxlength="160" ${ST.printNameReady ? '' : 'disabled'}></label><p class="ans" style="margin:2px 0 10px">Printed as typed. Leave it empty to print the C2M name. Documents already issued keep the name they were printed with.</p><div class="row"><label for="cer">Price setting<select id="cer">${[['time', 'Time-based'], ['po', 'Fixed per PO'], ['list', 'Price list']].map(([k, l]) => `<option value="${k}" ${c.priceRule === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label><label for="cec">Cycle<input id="cec" value="${esc(c.cycle || '')}" placeholder="Monthly"></label><label for="ceg">Region<input id="ceg" value="${esc(c.region || '')}"></label></div><label for="cen">Names O2S uses for this client, separated by | (matching only, never printed)<input id="cen" value="${esc(c.o2sNames)}"></label><div><button class="btn" data-custsave="${c.id}">Save</button> <button class="btn ghost" data-custcancel>Cancel</button></div></div>`; }
+const custTodo = () => { const own = c => (ST.products || []).some(p => p.customerId === c.id && p.channel === 'VAN brand'); const L = (ST.customers || []).filter(c => !own(c) && !['time', 'po', 'list'].includes(c.priceRule)); // VAN itself needs no price rule (review r4, finding 25)
+  return L.length ? `<div class="assume"><b>To do</b>${pl(L.length, 'client shows', 'clients show')} "to set": no price setting or revision cycle yet (${esc(L.map(c => c.name).join(', '))}). The CFO sets each with Edit.</div>` : ''; };
+const costProd = p => p.grp === 'White label' || p.channel === 'VAN brand'; // white label and VAN brand products (1 per pack, D-44)
+/** Re-draw the bill editor keeping what was typed: name, Urgent and its reason, Find (review 2d, findings 9 and 11). */
+function blRender() { if (!billEdit) return render(); billEdit.name = val('ben'); const u = $('bl-urg'), w = $('bl-why'); const keepU = u ? u.checked : false, keepW = w ? w.value : ''; render(); const u2 = $('bl-urg'), w2 = $('bl-why'); if (u2) u2.checked = keepU; if (w2) w2.value = keepW; }
+const billFirst = () => { if (!billEdit) return true; const moved = (billEdit.packIds || []).some(id => { const k = billPacks().find(x => x.id === id); return k && k.billId != null && Number(k.billId) !== Number(billEdit.id || 0); }); if (moved) return false; // a pack moved from another bill waits for Monday (push 2d)
+  if (!billEdit.id || !(ST.products || []).some(p => (p.packs || []).some(k => Number(k.billId) === Number(billEdit.id)))) return true; // a new bill, or one no pack uses
+  const key = L => (L || []).map(l => [Number(l.itemId), l.level === 'secondary' ? 's' : 'p', Number(l.pieces), l.level === 'secondary' ? Number(l.packsPerOuter) : 0].join(':')).sort().join('|');
+  const b0 = (ST.packingBills || []).find(x => Number(x.id) === Number(billEdit.id)); return !!b0 && key(b0.lines) === key(billEdit.lines); }; // items unchanged: nothing moves, it goes in at once (as the server)
+let blPkQ = '';
+/** Screen 6b: the packs on this bill, ticked; a pack on another bill can be ticked to move here (it waits for Monday). */
+function billPackList() {
+  const P = billPacks(), on = new Set(billEdit.packIds || []), bills = new Map((ST.packingBills || []).map(b => [Number(b.id), b.name]));
+  const shown = P.filter(k => on.has(k.id) || !blPkQ || k.label.toLowerCase().includes(blPkQ.toLowerCase()));
+  const mine = k => billEdit.id && Number(k.billId) === Number(billEdit.id);
+  return `<details class="box" open><summary><b>Packs on this bill</b> · ${on.size} ticked</summary><p class="ans" style="margin:4px 0">Tick the packs this bill is for. A pack with no bill gets it at once. A pack on another bill moves here: that waits for Monday. A pack already on this bill is moved by ticking it on another bill.</p>
+  <label for="blpk-q">Find a pack<input id="blpk-q" value="${esc(blPkQ)}" placeholder="Product or client"></label>
+  <div class="pklist">${shown.slice(0, 120).map(k => `<label class="chk"><input type="checkbox" data-bl-pk="${k.id}" ${on.has(k.id) ? 'checked' : ''} ${mine(k) ? 'disabled' : ''}> ${esc(k.label)}${k.billId != null && !mine(k) ? ` <span class="ans">now on ${esc(bills.get(Number(k.billId)) || 'another bill')}</span>` : k.billId == null ? ' <span class="ans">no bill yet</span>' : ''}</label>`).join('') || '<p class="ans">No pack matches.</p>'}</div></details>`;
+}
+/** Regions for freight: those on clients and on freight rows, 1 spelling each (R13: picked from a list, push 2d). */
+const frRegions = () => { const m = new Map(), fromFr = new Set(); (ST.freight || []).forEach(f => { const t = String(f.region || '').trim(), k = t.toLowerCase(); if (t && !m.has(k)) { m.set(k, t); fromFr.add(k); } }); (ST.customers || []).forEach(c => { const t = String(c.region || '').trim(), k = t.toLowerCase(); if (t && (!m.has(k) || (!fromFr.has(k) && !/^[A-Z]/.test(m.get(k)) && /^[A-Z]/.test(t)))) m.set(k, t); }); return [...m.values()].sort((a, b) => a.localeCompare(b)); }; // the spelling the server keeps: a freight row's, else a client's with a capital
+/** Packs that can take a packing bill: white label and VAN brand products, not bulk or client packed (D-98). */
+const billPacks = () => (ST.products || []).filter(p => costProd(p) && p.active !== false && p.packingMode !== 'bulk' && p.packingMode !== 'client').flatMap(p => (p.packs || []).map(k => ({ id: k.id, billId: k.billId, label: `${p.brand} ${k.size} ${p.soldPer || 'kg'}${p.channel === 'VAN brand' ? '' : ' · ' + (p.customer || '')}` }))).sort((a, b) => a.label.localeCompare(b.label));
+function billEditor() {
+  const items = (ST.packingItems || []).filter(it => inUseOr('pitem', it.id) || billEdit.lines.some(l => l.itemId === it.id));
+  return `<div class="box form" id="bef"><b>${billEdit.id ? 'Edit' : 'New'} packing bill</b><label for="ben">Name<input id="ben" value="${esc(billEdit.name || '')}"></label>
+  <div class="wrapx"><table><tr><th>Item</th><th>Level</th><th>Pieces</th><th>Packs per outer (secondary)</th><th></th></tr>${billEdit.lines.map((l, i) => `<tr><td><select data-bl-i="${i}" aria-label="Item">${items.map(it => `<option value="${it.id}" ${it.id === l.itemId ? 'selected' : ''}>${esc(it.name)} (${rs2(it.price)})</option>`).join('')}</select></td><td><select data-bl-l="${i}" aria-label="Level"><option value="primary" ${l.level !== 'secondary' ? 'selected' : ''}>Per pack</option><option value="secondary" ${l.level === 'secondary' ? 'selected' : ''}>Secondary (outer)</option></select></td><td><input type="number" step="0.01" data-bl-p="${i}" value="${l.pieces}" aria-label="Pieces"></td><td><input type="number" step="1" data-bl-n="${i}" value="${l.packsPerOuter || ''}" aria-label="Packs per outer" ${l.level === 'secondary' ? '' : 'disabled'}></td><td><button class="btn ghost danger" data-bl-del="${i}">Remove</button></td></tr>`).join('')}</table></div>
+  ${billPackList()}
+  ${weekNote('bl', billFirst())}<div id="eff-bl"></div><div><button class="btn ghost" data-bl-add>Add an item</button> <button class="btn" data-bl-save>${saveWord('Save and approve', billFirst())}</button> <button class="btn ghost" data-bl-cancel>Cancel</button></div></div>`;
+}
+/** Add a material class (D-144, CFO): name, nutrients or not, and the % fields. Field names already in use are shown,
+ *  because the same name in 2 classes adds up in a recipe's nutrient analysis. */
+let mcf = { role: 'nutrient' };
+function classForm() {
+  const used = [...new Set((ST.materialTypes || []).flatMap(t => String(t.nutrient_fields || '').split('|').filter(Boolean)))].sort((a, b) => a.localeCompare(b));
+  return `<div class="box form" style="margin-top:10px" id="mcf"><b>Add a material class</b>
+  <p class="ans" style="margin:0">A class decides which nutrient % the QC Head enters for a material. Add one when no class fits, for example an amino acid source. Then pick it in the material's Class.</p>
+  <div class="row"><label for="mcn" style="flex:1 1 240px">Class name<input id="mcn" value="${esc(mcf.name || '')}" placeholder="e.g. Amino acid source" autocomplete="off"></label>
+  <label for="mcr">Carries nutrients?<select id="mcr" data-mcr="1"><option value="nutrient"${mcf.role === 'nutrient' ? ' selected' : ''}>Yes: it asks nutrient %</option><option value="none"${mcf.role === 'none' ? ' selected' : ''}>No: binder, filler and the like</option></select></label></div>
+  ${mcf.role === 'nutrient' ? `<div class="row"><label for="mcfl" style="flex:1 1 360px">The % it asks, separated by commas<input id="mcfl" value="${esc(mcf.fields || '')}" placeholder="e.g. N%, Amino acid%, OM%" autocomplete="off"><span class="ans">Use the same name as other classes for the same nutrient, so it adds up in the analysis. In use now: ${esc(used.join(', '))}.</span></label></div>` : '<p class="ans" style="margin:0">It counts in weight and cost and adds 0 to every nutrient.</p>'}
+  <div><button class="btn" data-mcsave>Add class</button></div></div>`;
+}
+let nutEdit = null, matFilter = 'todo', matPend = {};
+/** Class list grouped: to classify first, then nutrient sources, then classes that add no nutrients (A to Z). */
+function classSelect(m, pend) {
+  const T = (ST.materialTypes || []).slice().sort((a, b) => a.name.localeCompare(b.name)); const cur = pend || m.typeId;
+  const opt = t => `<option value="${t.id}" ${t.id === cur ? 'selected' : ''}>${esc(t.name.replace('Non-nutrient: ', ''))}</option>`;
+  return `<select style="max-width:190px" data-mclass="${m.materialId}" aria-label="Class of ${esc(m.name)}">${T.filter(t => t.nutrient_role === 'unclassified').map(opt).join('')}<optgroup label="Nutrient source">${T.filter(t => t.nutrient_role === 'nutrient').map(opt).join('')}</optgroup><optgroup label="Adds no nutrients">${T.filter(t => t.nutrient_role === 'none').map(opt).join('')}</optgroup></select>`;
+}
+const ROLE_TXT = { nutrient: 'Nutrient source', none: 'No nutrients', unclassified: 'To classify' };
+/** Material status for Himayat: a nutrient source needs every field; a non-nutrient input needs nothing; unclassified needs a class. */
+/** Push 7c (review 7c, M2): a material with a value on the other basis from how it is dosed, and no density yet. */
+const needDen = m => !!(ST.m015 && m && m.role === 'nutrient' && !m.density && (m.nutRows || []).some(r => (m.unit === 'L') === (r.measure !== 'w/v')));
+function matState(m) {
+  if (m.role === 'none') return ['p-none', 'adds no nutrients'];
+  if (m.role !== 'nutrient') return ['p-amber', 'to classify'];
+  const miss = m.fields.filter(f => (m.nutrients || {})[f] == null);
+  if (ST.m014 && m.checked === false) return ['p-amber', miss.length ? 'to enter: ' + miss.join(', ') : 'to enter']; // push 7a: complete once the QC Head saves it
+  return miss.length ? ['p-amber', 'to enter: ' + miss.join(', ')] : needDen(m) ? ['p-amber', 'density needed'] : ['p-green', 'complete'];
+}
+let rf = { scope: 'general', picks: {} };
+function ruleScope(r) {
+  const P = new Map((ST.products || []).map(p => [p.id, p])); const T = new Map((ST.productTypes || []).map(t => [t.id, t.name]));
+  const extra = [r.scopeForm ? r.scopeForm + 's' : '', r.scopeReprocessed == null ? '' : Number(r.scopeReprocessed) ? 'reprocessed' : 'not reprocessed', r.scopePackMin != null ? 'packs from ' + Number(r.scopePackMin) : '', r.scopePackMax != null ? 'packs below ' + Number(r.scopePackMax) : ''].filter(Boolean).join(', ');
+  if ((r.products || []).length) return pl(r.products.length, 'product', 'products') + ': ' + r.products.map(id => P.get(id) ? `${P.get(id).brand} (${P.get(id).customer})` : id).join(', ') + (extra ? '; ' + extra : '');
+  if (r.scopePvariantId != null) return 'Variant: ' + (p3VName(r.scopePvariantId) || '?') + (extra ? '; ' + extra : '');
+  if (r.scopeBaseProductId != null) return 'Product type: ' + (T.get(r.scopeBaseProductId) || '?') + (extra ? '; ' + extra : '');
+  return (Number(r.isBase) ? 'Base rate, all products' : 'All products (beats the base rates)') + (extra ? ': ' + extra : '');
+}
+function rateForm(prods) {
+  const types = ST.productTypes || [];
+  return `<div class="box form" style="margin-top:10px"><b>Add a labour or FOH rate</b>
+  <div class="row"><label for="crn">Name<input id="crn" placeholder="e.g. Liquid filling labour" value="${esc(rf.name || '')}"></label><label for="crk">Kind<select id="crk"><option value="labour">Labour</option><option value="foh" ${rf.kind === 'foh' ? 'selected' : ''}>FOH</option></select></label><label for="crr">Rs per kg or L<input id="crr" type="number" step="0.01" value="${esc(rf.rs || '')}"></label><label for="crv">From (today or earlier)<input id="crv" type="date" max="${ST.today}" value="${rf.from || ST.today}"></label></div>
+  <b>Applies to</b><div class="chips" style="margin:0">${[['list', "1 · A client's pack, or a list of products"], ['variant', '2 · A variant'], ['type', '3 · A product type'], ['general', '4 · Every product']].filter(x => x[0] !== 'variant' || p3Ready()).map(([k, l]) => `<button data-rfs="${k}" aria-pressed="${rf.scope === k}">${l}</button>`).join('')}</div>
+  ${rf.scope === 'variant' ? `<label for="crvar">Variant<select id="crvar"><option value="">Pick</option>${p3Fams().flatMap(f => f.variants.map(v => `<option value="${v.id}">${esc(f.name)} · ${esc(v.name)}</option>`)).join('')}</select><span class="ans">e.g. Humi Grow, Powder. A client's pack rate beats it; it beats the product type.</span></label>` : ''}
+  ${rf.scope === 'type' ? `<label for="crt">Product type<select id="crt">${types.map(t => `<option value="${t.id}">${esc(t.name)}</option>`).join('')}</select></label>` : ''}
+  ${rf.scope === 'list' ? `<div class="row"><label for="crq" style="flex:1 1 200px">Find<input id="crq" value="${esc(rf.q || '')}" placeholder="brand, client or liquid"></label><button class="btn ghost" data-rfall>Tick all shown</button><button class="btn ghost" data-rfnone>Clear</button></div><div class="cols" style="margin:0;max-height:220px;overflow-y:auto">${(ST.products || []).filter(p => !rf.q || `${p.brand} ${p.customer} ${p.form}`.toLowerCase().includes(rf.q.toLowerCase())).map(p => `<label><input type="checkbox" data-rfp="${p.id}" ${rf.picks[p.id] ? 'checked' : ''}> ${esc(p.brand)} for ${esc(p.customer)} <span class="ans">${p.form}</span></label>`).join('')}</div><p class="ans" style="margin:0">${Object.values(rf.picks).filter(Boolean).length} ticked</p>` : ''}
+  <div class="row"><label for="crf">Only form<select id="crf"><option value="">Any</option><option value="solid">Solids</option><option value="liquid">Liquids</option></select></label><label for="crp2">Reprocessed<select id="crp2"><option value="">Any</option><option value="1">Yes</option><option value="0">No</option></select></label><label for="crmin">Pack size from, kg or L<input id="crmin" type="number"></label><label for="crmax">Pack size below, kg or L<input id="crmax" type="number"></label><button class="btn" data-crsave>Save rate</button></div><div id="eff-cr"></div><div></div></div>`;
+}
+function boRules(part, kind) {
+  if (part === 'freight') return boFreight();
+  const kOk = r => !kind || (r.kind || 'foh') === kind; // Costs › Labour or FOH shows its own rates (push 2a)
+  const prods = (ST.products || []).filter(costProd);
+  return `<details class="how"><summary>How this works</summary><div>Labour and FOH rates, Rs per kg or L: each product takes 1 of each. Targets are changed on Clients, White Label, in the Target column of each row.</div></details>
+  <h2>${kind === 'labour' ? 'Labour rates' : kind === 'foh' ? 'FOH rates' : 'Labour and FOH rates'}, Rs per kg or L</h2><p class="ans">Each product takes 1 labour rate and 1 FOH rate, and adds them. Order, first match wins: a client's pack (products listed on a rate), then the variant, then the product type, then rates you add for all products, then the base rates. Any rate you add beats the base rates for the products it covers; among your own rates the more specific wins. Small solid packs (a 1 kg pouch takes more labour per kg than a 50 kg bag) can have their own labour rate: add a rate for solids with "pack size below", e.g. 10 kg.</p>
+  ${findBox('rules', 'Find a rate, kind or product')}<div class="box wrapx"><table data-lft="rules"><tr><th>Rate</th><th>Kind</th><th class="r">Rs per kg or L</th><th>Applies to</th><th>From</th>${CAN('labour.manage') ? '<th></th>' : ''}</tr>${(ST.rules || []).filter(kOk).slice().sort((a, b) => (a.kind || '').localeCompare(b.kind || '') || String(a.name).localeCompare(String(b.name))).map(r => `<tr><td>${esc(r.name)}<br><span class="ans">${esc(r.source || '')}</span></td><td>${r.kind === 'labour' ? 'Labour' : 'FOH'}</td><td class="r num">${Number(r.rsPerKg).toFixed(2)}</td><td>${esc(ruleScope(r))}</td><td class="mono nw">${esc(fmtD(String(r.validFrom).slice(0, 10)))}</td>${CAN('labour.manage') ? `<td><div class="acts">${rowBtns('rule', r.id)}<button class="btn ghost" data-retire="${r.id}">Take out of use</button></div></td>` : ''}</tr>${ask && ask.kind === 'retire' && ask.id === r.id ? `<tr><td colspan="6">${askBox('Why take this rate out of use? (a rate cannot be taken out of use if it leaves a product with no labour or FOH rate)')}</td></tr>` : ''}${rowExtra('rule', r.id, CAN('labour.manage') ? 6 : 5)}`).join('') || '<tr><td colspan="6">Nothing recorded yet: the base rates come with the first load.</td></tr>'}</table></div>
+  ${CAN('labour.manage') ? rateForm(prods) : ''}`;
+}
+function boFreight() {
+  const used = (ST.products || []).filter(p => ['Dealer', 'Farmer'].includes(p.channel)).length;
+  return `<h2>Freight per kg, delivered prices (dealer and farmer)</h2><p class="ans"><b>Used by ${pl(used, 'product', 'products')} today.</b> ${used ? '' : 'A freight rate saved here changes no cost until a Dealer or Farmer channel product exists.'}</p><p class="ans">Not yet applied to VAN brand packs: a VAN brand pack is 1 product for every channel, and freight by the sale's channel and region is not built yet.</p>${findBox('freight', 'Find a segment or region')}<div class="box wrapx"><table data-lft="freight"><tr><th>Segment</th><th>Region</th><th class="r">Rs per kg</th><th>From</th>${CAN('freight.edit') ? '<th></th>' : ''}</tr>${(ST.freight || []).map(f => `<tr><td>${esc(f.segment)}</td><td>${esc(f.region)}</td><td class="r num">${Number(f.rs_per_kg).toFixed(2)}${(ST.freight || []).filter(x => x.segment === f.segment && String(x.region || '').trim().toLowerCase() === String(f.region || '').trim().toLowerCase() && String(x.valid_from).slice(0, 10) <= ST.today).sort((x, y) => String(y.valid_from).localeCompare(String(x.valid_from)))[0] === f ? wkNext('freight', `${f.segment}|${String(f.region || '').trim()}`.toLowerCase().replace(/\s+/g, ' ')) : ''}</td><td class="mono nw">${esc(fmtD(String(f.valid_from).slice(0, 10)))}</td>${CAN('freight.edit') ? `<td><div class="acts">${rowBtns('freight', Number(f.id))}</div></td>` : ''}</tr>${rowExtra('freight', Number(f.id), CAN('freight.edit') ? 5 : 4)}`).join('') || `<tr><td colspan="${CAN('freight.edit') ? 5 : 4}">None yet: delivered prices carry 0 freight.</td></tr>`}</table></div>
+  ${CAN('freight.edit') ? `<div class="box form" style="margin-top:10px"><b>Set freight</b><div class="row"><label for="frs">Segment<select id="frs"><option>Dealer</option><option>Farmer</option></select></label><label for="frr">Region<select id="frr"><option value="">${frRegions().length ? 'Pick a region' : 'No region yet'}</option>${frRegions().map(x => `<option>${esc(x)}</option>`).join('')}</select></label><label for="frk">Rs per kg<input id="frk" type="number" step="0.01"></label><label for="frf">From<input id="frf" type="date" value="${ST.today}"></label></div>${weekNote('fr', false, true)}<div><button class="btn" data-frsave>Save</button></div><div id="eff-fr"></div></div>` : ''}`;
+}
+const SLABEL = { budget_gp: 'Company GP target, % (budget; the target for any product with none of its own)', ambition_gp: 'Company ambition GP, %' };
+function boSettings(only2) {
+  const ed = CAN('settings.edit');
+  return `${(() => { const rq = (ST.settingRequests || []).filter(r => r.status === 'open'); return rq.length ? `<details class="how"><summary>${pl(rq.length, 'setting change is', 'setting changes are')} waiting for the COO</summary>${rq.map(r => `<p class="ans" style="margin:4px 0">${esc(r.summary)} ${CAN('settings.approve') && (ADM() || r.byAdmin) ? `<button class="btn ghost" data-pansetreq="${r.id}">Open to approve</button>` : '(he decides on his Approvals)'}</p>`).join('')}</details>` : ''; })()}
+  <div class="box wrapx tnar"><table><tr><th>Setting</th><th>Value</th><th>Needs the COO</th></tr>${(ST.settings || []).filter(s => s.k !== 'wl_budget_gp' && s.k !== 'red_share_pct' && !/^l[tf]_/.test(s.k)) /* no longer used; a VAN list's target and freight are changed on its list (D-153) */.map(s => `<tr><td>${esc(SLABEL[s.k] || s.label)}</td><td>${ed ? `<input id="set-${s.k}" type="number" step="0.1" inputmode="decimal" value="${esc(s.v)}" aria-label="${esc(s.label)}">` : `<span class="num">${isFinite(Number(s.v)) && s.v !== '' ? Number(s.v).toLocaleString('en-US') : esc(s.v)}</span>`}</td><td>${s.needs_approval ? '<span class="pill p-amber">needs the COO</span>' : '<span class="pill p-none">notice to the COO</span>'}</td></tr>`).join('') || '<tr><td colspan="3">Nothing recorded yet.</td></tr>'}</table></div>
+  <p class="ans" style="margin:6px 0 0">Needs the COO: the change waits for his approval on Approvals. Notice to the COO: it saves at once and he is told.</p>
+  ${ed ? '<div style="margin-top:8px"><button class="btn" data-setsave>Save</button></div>' : ''}${holidayBox()}`;
+}
+/** Push 10e (C-35; Tahir, 20 Nov 2026): the public holidays the COO keeps; "stuck" and "waiting" ages on Approvals skip them. */
+function holidayBox() {
+  const H = ST.holidays || [], ed = ADM() && ST.holidaysReady, up = H.filter(h => h.day >= ST.today), past = H.filter(h => h.day < ST.today);
+  const row = h => `<tr><td class="nw">${esc(fmtD(h.day))}</td><td>${esc(h.name)}</td>${ed ? `<td><button class="btn ghost" data-holdel="${esc(h.day)}" aria-label="Remove ${esc(h.name)}, ${esc(fmtD(h.day))}">Remove</button></td>` : ''}</tr>`;
+  return `<h2>Public holidays</h2><p class="ans">Working days on Approvals (how long a job has been stuck) count Monday to Saturday, less these days. ${ADM() ? 'You keep this list.' : 'The COO keeps this list.'}</p>
+  ${!ST.holidaysReady ? '<p class="ans">Not switched on yet: IT has 1 step to run (migration 017).</p>' : `<div class="box wrapx tnar"><table class="wt" data-nosort><tr><th>Date</th><th>Holiday</th>${ed ? '<th></th>' : ''}</tr>${up.map(row).join('') || `<tr><td colspan="${ed ? 3 : 2}">No holiday ahead in the list.</td></tr>`}</table></div>
+  ${past.length ? `<details class="how"><summary>Past holidays (${past.length})</summary><div class="box wrapx tnar"><table class="wt" data-nosort>${past.slice().reverse().map(row).join('')}</table></div></details>` : ''}
+  ${ed ? `<div class="holadd"><label for="hol-d">Date<input id="hol-d" type="date"></label><label for="hol-n">Holiday<input id="hol-n" maxlength="80" placeholder="e.g. Eid ul Fitr"></label><button class="btn" data-holadd>Add</button></div>` : ''}`}`;
+}
+function boAccess() {
+  /* Push 10d (Tahir, 20 Nov 2026; picture "C2M Price lists redesign", his no split-pane rule): 1 full-width table, people against lists.
+     A list tick saves at once (data-grant); white label clients open under the person's row with Change; "missing" marks a list the
+     ruling of 11 Nov 2026 gives a person who does not have it yet. */
+  const viewers = (ST.people || []).filter(p => p.grantee); const lists = ['dist', 'dealer', 'farmer_pb', 'farmer_sn', 'farmer_snc', 'web']; const clients = Object.keys(ST.wlLists || {}).filter(c => !custOut(c) || (ST.grants || []).some(g => g.grant_kind === 'client' && g.grant_value === c)); // a client out of use leaves the picker unless someone holds it (D-139)
+  const SH = { dist: 'Distributor', dealer: 'Dealer, Sindh', farmer_pb: 'Farmer, Punjab', farmer_sn: 'Farmer, Sindh', farmer_snc: 'Farmer, Sindh credit', web: 'Website' };
+  const G = u => (ST.grants || []).filter(g => g.username === u);
+  const has = (u, k, v) => G(u).some(g => g.grant_kind === k && g.grant_value === v);
+  const edit = CAN('grants.give'); const nm = x => String(x || '').trim().toLowerCase().replace(/\s+/g, ' ');
+  const ruled = n => PL_RULED[nm(n)] || null; // Tahir's ruling of 11 Nov 2026: who sees which lists
+  if (KM.open && !viewers.some(p => p.username === KM.sel)) KM.open = false;
+  const gaps = viewers.map(p => ({ p, miss: (ruled(p.name) || []).filter(l => !has(p.username, 'list', l)) })).filter(x => x.miss.length);
+  const absent = Object.keys(PL_RULED).filter(n => !(ST.people || []).some(p => nm(p.name) === n)).map(n => PL_RULED_NAME[n] || n); // not in C2M at all (review 10d, m3)
+  const other = (ST.people || []).filter(p => !p.grantee && PL_RULED[nm(p.name)]); // named in the ruling but holding another C2M role
+  const cell = (p, l) => { const on = has(p.username, 'list', l), gap = !on && (ruled(p.name) || []).includes(l), via = !on && l === 'web' && has(p.username, 'list', 'farmer_pb'); // the server shows Website to anyone given Farmer, Punjab
+    const lab = `${p.name}: ${AUD[l]}${gap ? ', missing: the 11 Nov 2026 ruling gives it' : ''}${via ? ', seen through Farmer, Punjab' : ''}`;
+    return `<td data-l="${esc(SH[l])}" class="c${gap ? ' gap' : ''}">${edit ? `<input type="checkbox" id="g-${esc(p.username)}-${l}" aria-label="${esc(lab)}" data-grant="${esc(p.username)}|list|${l}" ${on ? 'checked' : ''}>` : on ? '<span role="img" aria-label="Yes">&#10003;</span>' : ''}${gap ? '<small>missing</small>' : ''}${via ? '<small class="mute">with Farmer, Punjab</small>' : ''}</td>`; };
+  const row = p => { const u = esc(p.username), cl = G(p.username).filter(g => g.grant_kind === 'client').map(g => g.grant_value), open = KM.open && KM.sel === p.username, others = viewers.filter(x => x.username !== p.username), tot = G(p.username).length;
+    return `<tr><td data-l="Person"><b>${esc(p.name)}</b><small class="mute">${esc(p.roleLabel || p.role)}</small>${tot ? '' : ' <span class="pill p-amber">sees nothing</span>'}</td>${lists.map(l => cell(p, l)).join('')}
+    <td data-l="White label clients" class="plcl">${cl.length ? esc(cl.join(', ')) : '<span class="mute">none</span>'}${edit ? ` <button class="lnk" data-kam-open="${u}" aria-expanded="${open}" aria-label="${open ? 'Close' : 'Change'} the white label clients of ${esc(p.name)}">${open ? 'Close' : 'Change'}</button>` : ''}</td>
+    <td data-l="">${edit ? `<button class="lnk" data-kam-preview="${u}" aria-label="See what ${esc(p.name)} sees">See what they see</button>` : ''}</td></tr>${open ? `<tr><td colspan="${lists.length + 3}"><div class="box plclx"><b>White label clients ${esc(p.name)} may see</b> <span class="mute">${cl.length} of ${clients.length}</span>
+    ${clients.length ? `<div class="chips">${clients.map(x => { const on = cl.includes(x); return `<button data-kam-client="${esc(x)}" aria-pressed="${on}">${on ? '&#10003; ' : ''}${esc(x)}</button>`; }).join('')}</div>` : '<div class="ans">No white label client yet.</div>'}
+    <div class="kam-b"><button class="btn ghost" data-kam-all="1"${clients.length ? '' : ' disabled'}>Tick all clients</button><button class="btn ghost" data-kam-all="0"${cl.length ? '' : ' disabled'}>Clear clients</button><button class="btn ghost" data-kam-copy${others.length ? '' : ' disabled'}>Copy from another manager</button></div>
+    ${KM.copy && others.length ? `<div class="kam-b"><label for="kam-from">Copy from<select id="kam-from">${others.map(x => `<option value="${esc(x.username)}">${esc(x.name)}</option>`).join('')}</select></label><button class="btn" data-kam-copygo${tot ? ` data-confirm="Confirm: replace what ${esc(p.name)} has now"` : ''}>Copy</button><button class="btn ghost" data-kam-copyno>Cancel</button></div>` : ''}</div></td></tr>` : ''}`; };
+  const main = viewers.length ? `<div class="box wrapx"><table class="wt cards placc" data-nosort><thead><tr><th data-key="1">Person</th>${lists.map((l, i) => `<th class="c" data-key="${i + 2}">${esc(SH[l])}</th>`).join('')}<th data-key="8">White label clients</th><th data-key="9"></th></tr></thead><tbody>${viewers.map(row).join('')}</tbody></table></div>`
+    : `<div class="box" style="padding:12px 14px">No one holds the Price list viewer role yet. Give the role to a person in People and access on the platform, then tick their lists here.</div>`;
+  const note = [...gaps.map(x => `The ruling of 11 Nov 2026 gives ${esc(x.p.name)} ${x.miss.length === 1 ? 'this list' : 'these lists'}, not ticked yet: ${esc(x.miss.map(l => SH[l]).join('; '))}.`),
+    other.length ? `Named in that ruling but holding another C2M role: ${esc(other.map(p => `${p.name} (${p.roleLabel || p.role})`).join('; '))}. A person has 1 C2M role; that role decides what the person sees.` : '',
+    absent.length ? `${pl(absent.length, 'more person', 'more people')} named that day (${esc(absent.join(', '))}) ${absent.length === 1 ? 'is' : 'are'} not in C2M yet: the platform administrator gives the Price list viewer role in People and access.` : ''].filter(Boolean);
+  return `${main}${note.length ? `<div class="plnote">${note.map(x => `<div>${x}</div>`).join('')}</div>` : ''}
+  <p class="ans">Each tick saves at once and goes into the change record: who, when, what.${edit ? '' : ' You can look but not change.'} People who already see every list are not shown here.</p>
+  <details class="how"><summary>Everyone with C2M access (${(ST.people || []).length})</summary><div class="box wrapx"><table><tr><th>Person</th><th>Role</th></tr>${(ST.people || []).map(p => `<tr><td>${esc(p.name)}</td><td>${esc(p.roleLabel || ROLE_LABEL[p.role] || p.role)}</td></tr>`).join('') || '<tr><td colspan="2">Nothing recorded yet.</td></tr>'}</table></div></details>`;
+}
+/* Tahir's ruling of 11 Nov 2026 (doc 06 D-175): Muhammad Irfan sees the 4 Sindh lists; 7 others see Farmer, Punjab and Distributor.
+   A list the ruling gives and the person lacks shows "missing" on Who can see them. Names match People and access, case ignored. */
+const PL_RULED = { 'muhammad irfan': ['dealer', 'dist', 'farmer_sn', 'farmer_snc'], ...Object.fromEntries(['shahid saleem', 'muhammad mamoon', 'umer shehzad', 'abkar ali', 'bilal khan', 'fahim asghar', 'muhammad ismail'].map(n => [n, ['farmer_pb', 'dist']])) };
+const PL_RULED_NAME = { 'shahid saleem': 'Shahid Saleem', 'muhammad mamoon': 'Muhammad Mamoon', 'umer shehzad': 'Umer Shehzad', 'abkar ali': 'Abkar Ali', 'bilal khan': 'Bilal Khan', 'fahim asghar': 'Fahim Asghar', 'muhammad ismail': 'Muhammad Ismail', 'muhammad irfan': 'Muhammad Irfan' };
+/** The bar over a manager's screen while Tahir or Yawar looks at it (KAM lists). Nothing pressed there is saved. */
+function vPvBar() { return `<div class="pvbar" role="status"><b>You are looking at ${esc(ST.preview.name)}'s screen.</b><span class="ans">Read only: nothing pressed here is saved.</span><span class="sp"></span><button class="btn" data-kam-exit>${PVBACK && PVBACK.scr === 'pricelists' ? 'Back to Who can see them' : 'Back to KAM lists'}</button></div>`; }
+/** forms: the Today panel (enter and mark done); without: the Setup record. */
+/* ---------- Costs › Month end (push 4, R8 to R10, R15, R23, R43 to R45, D-154): actuals, charged on kg made, tie, COO check, lock ---------- */
+let meM = null; const meSeen = {};
+function vMonthEnd() {
+  const ME = ST.monthEnd || { months: {} }; const ms = Object.keys(ME.months || {}).sort().reverse(); const lastM = addDays(ST.today.slice(0, 7) + '-01', -1).slice(0, 7);
+  if (!meM || !(ME.months || {})[meM]) meM = (ME.months || {})[lastM] ? lastM : (ms[0] || lastM); const m = meM, X = (ME.months || {})[m] || {};
+  const ck = k => (ST.checks || []).find(x => x.month === m && x.kind === k); const act = (ST.actuals || []).find(a => a.month === m); const lock = ck('lock'); const ended = m < ST.today.slice(0, 7);
+  const A = X.absorbed; const adm = ADM(), ratec = adm; /* the COO check is the COO's (R8; review 4, finding 3) */
+  const done = [!!act, !!(A && A.kg > 0), !!ck('tie_books'), !!ck('coo_check'), !!lock];
+  const cur = done.indexOf(false); const step = (i, t, s) => `<div class="mstep${done[i] ? ' done' : i === cur ? ' now' : ''}"><b><i>${done[i] ? '&#10003;' : i + 1}</i>${t}</b><span>${s}</span></div>`;
+  const by = c => c ? `${esc(personName(c.done_by))}, ${esc(fmtShort(String(c.done_at).slice(0, 10)))}` : '';
+  const diff = (a, c) => a == null || c == null ? null : Number(a) - Number(c);
+  const LS = lock && lock.data && lock.data.labourCharged != null ? lock.data : null; /* a locked month shows its figures as locked (R45; review 4, finding 7) */
+  const lab = LS ? LS.labourCharged : A ? A.labour.total : null, foh = LS ? LS.fohCharged : A ? A.foh.total : null, aL = LS ? LS.actualLabour : act ? act.actual_labour : null, aF = LS ? LS.actualFoh : act ? act.actual_foh : null;
+  const dL = aL != null ? diff(aL, lab) : null, dF = aF != null ? diff(aF, foh) : null; const drift = LS && A ? Math.round(A.labour.total - LS.labourCharged) !== 0 || Math.round(A.foh.total - LS.fohCharged) !== 0 : false;
+  const uo = d => d == null ? '–' : d > 0.5 ? `<b class="t-bad">−${n0(d)}</b><small>under charged</small>` : d < -0.5 ? `<b class="t-good">+${n0(-d)}</b><small>over charged</small>` : '<b>0</b>';
+  const tile = (l, v, cls, sub) => `<div class="wlk${cls ? ' ' + cls : ''}"><span class="l">${l}</span><span class="v">${v}</span>${sub ? `<span class="s">${sub}</span>` : ''}</div>`;
+  const cert = ck('lf_cert');
+  /* step 1 */
+  const s1 = act ? `<p class="wlhint">Actual labour Rs ${n0(act.actual_labour)}, actual FOH Rs ${n0(act.actual_foh)}, entered by ${esc(personName(act.entered_by))}.${!lock && CAN('actuals.enter') ? ' Type again below to correct it.' : ''}</p>` : '<p class="wlhint">Not entered yet.</p>';
+  const s1f = !lock && CAN('actuals.enter') && ended ? `<div class="box form"><div class="row"><input id="am" type="month" value="${m}" hidden><label for="al">Actual labour, Rs<input id="al" type="number" inputmode="decimal"></label><label for="af">Actual FOH, Rs<input id="af" type="number" inputmode="decimal"></label><button class="btn" data-actsave>Save</button></div></div>` : '';
+  /* step 2 */
+  const rowsOf = (k, T, actual, d) => `${T.rows.map(r => `<tr><td>${esc(r.name)}</td><td class="r">${n0(r.kg)}</td><td class="r">${r.rsPerKg != null ? n2(r.rsPerKg) : 'more than 1'}</td><td class="r">${n0(r.rs)}</td><td></td><td></td></tr>`).join('')}<tr class="tot"><td>${k}</td><td class="r">${n0(T.rows.reduce((s, r) => s + r.kg, 0))}</td><td></td><td class="r">${n0(T.total)}</td><td class="r">${actual != null ? n0(actual) : '<span class="mute">not entered</span>'}</td><td class="r">${uo(d)}</td></tr>`;
+  const s2 = !ST.monthEnd ? '<div class="next warn"><span>Month end could not be read just now. Press Refresh, or open C2M again.</span></div>' : !ME.ready ? '<div class="next warn"><span>Kg made is not switched on yet: IT has 1 step to run. Until then, kg made cannot be read from O2S.</span></div>' : !A || !(A.kg > 0) ? '<p class="wlhint">No production in O2S for this month.</p>'
+    : `<div class="box wrapx wltab"><table><thead><tr><th>Rate</th><th class="r">Kg made</th><th class="r">Rs per kg</th><th class="r">Charged</th><th class="r">Actual</th><th class="r">Under or over</th></tr></thead><tbody>${rowsOf('Labour', LS ? { rows: A.labour.rows, total: LS.labourCharged } : A.labour, aL, dL)}${rowsOf('FOH', LS ? { rows: A.foh.rows, total: LS.fohCharged } : A.foh, aF, dF)}</tbody></table></div>
+    <p class="wlhint">${n0(A.kg)} kg made in O2S. ${A.earlyKg > 0.5 ? `${n0(A.earlyKg)} kg was made before the first labour and FOH rates (${esc(fmtD(A.firstRateDay))}): charged at that day's rates. ` : ''}${A.stockKg > 0.5 ? `${n0(A.stockKg)} kg made for stock with no brand: charged at its base product's rate${A.splitKg > 0.5 ? `; ${n0(A.splitKg)} kg of it at the Low rates, its products being on different rates` : ''}. ` : ''}${A.unmatchedKg > 0.5 ? `${n0(A.unmatchedKg)} kg was made for a PO and brand C2M could not place on a product; counted as stock. ` : ''}${A.noMap ? `<b class="t-bad">O2S's product list could not be read just now, so ${n0(A.unknownKg)} kg of stock is not charged in this view and the month cannot be locked. Open Month end again in a few minutes.</b> ` : A.unknownKg > 0.5 ? `<b class="t-bad">${n0(A.unknownKg)} kg is of a base product C2M does not know: not charged.</b> ` : ''}${A.noRateKg > 0.5 ? `<b class="t-bad">${n0(A.noRateKg)} kg could not be charged in all: no rate filled for its product that day, or its base not known.</b> ` : ''}${drift ? `<b class="t-warn">Since the lock O2S changed: charged today would be labour Rs ${n0(A.labour.total)}, FOH Rs ${n0(A.foh.total)}; the figures above are as locked.</b> ` : ''}Charged = kg × the rate in force on the day made${A.earlyKg > 0.5 ? ', or on the first rate day for the kg above' : ''}.</p>
+    ${A.products.length ? `<details class="how"><summary>Kg made by product (${A.products.length})</summary><div class="wrapx"><table><tr><th>Product</th><th class="r">Kg made</th><th>Labour</th><th>FOH</th></tr>${A.products.map(p => `<tr><td>${esc(p.name)}</td><td class="r">${n0(p.kg)}</td><td>${esc(p.labour || '')}</td><td>${esc(p.foh || '')}</td></tr>`).join('')}</table></div></details>` : ''}`;
+  /* step 4: changes seen */
+  const C = X.changes || []; const coo = ck('coo_check'); const seenSet = new Set(coo && coo.data && coo.data.seen ? coo.data.seen : []); meSeen[m] = meSeen[m] || {};
+  const LNM = { dist: 'Distributor', dealer: 'Dealer, Sindh', farmer_pb: 'Farmer, Punjab', farmer_sn: 'Farmer, Sindh cash', farmer_snc: 'Farmer, Sindh credit' };
+  const chWhat = c => c.entity === 'setting' && /^l[tf]_/.test(String(c.entityId)) ? `${LNM[String(c.entityId).slice(3)] || String(c.entityId).slice(3)} list ${/^lf_/.test(c.entityId) ? 'freight' : 'target'} ${AUD_DID[c.action] || c.action}` : `${AUD_THING[c.entity] || c.entity.replace(/_/g, ' ')} ${AUD_DID[c.action] || c.action}`;
+  const val = v => { if (v == null || v === '') return '–'; let s = String(v); try { const o = JSON.parse(s); s = typeof o === 'object' ? Object.entries(o).filter(([, x]) => x != null && typeof x !== 'object').slice(0, 3).map(([k2, x]) => `${k2} ${x}`).join(', ') : String(o); } catch (_) {} return esc(s.slice(0, 60)); };
+  const s4 = `${monthChecks(m, !lock && ended, 'rate')}<h3 class="tl" style="margin-top:14px">Labour, FOH, packing and freight changes in ${mon(m)} (${C.length})</h3>
+    ${C.length ? `<div class="box wrapx wltab"><table class="cards"><thead><tr><th>Seen</th><th>Change</th><th>From</th><th>To</th><th>By, when</th></tr></thead><tbody>${C.map(c => { const on = seenSet.has(c.id) || !!meSeen[m][c.id]; return `<tr><td data-l="Seen"><input type="checkbox" data-mesn="${c.id}" aria-label="Seen: ${esc(chWhat(c))}"${on ? ' checked' : ''}${coo || lock || !ratec ? ' disabled' : ''}></td><td data-l="Change">${esc(chWhat(c))}${c.why ? `<small>${esc(String(c.why).slice(0, 80))}</small>` : ''}</td><td data-l="From">${val(c.old)}</td><td data-l="To">${val(c.new)}</td><td data-l="By, when">${esc(personName(c.by))}, ${esc(fmtShort(c.at.slice(0, 10)))}</td></tr>`; }).join('')}</tbody></table></div>` : '<p class="wlhint">No labour, FOH, packing or freight change was made in this month.</p>'}
+    <p class="wlhint">Labour and FOH certificate for ${mon(m)}: ${cert ? `${cert.data && cert.data.result === 'changed' ? 'Changed' : 'No change'}, by ${by(cert)}` : '<b class="t-warn">not given yet</b>'}.</p>
+    ${coo ? `<p class="wlhint"><b class="t-good">COO check done</b> by ${by(coo)}.</p>` : ratec && !lock && ended ? `<div class="btns"><button class="btn" data-mecoo="${m}">COO check done</button></div>` : ''}`;
+  /* step 5 */
+  const L = lock && lock.data ? lock.data : null; const need = [!act ? 'actuals' : '', !ck('tie_books') ? 'tie to the books' : '', !coo ? 'COO check' : ''].filter(Boolean);
+  const s5 = lock ? `<div class="banner"><b>${mon(m)} is locked</b> by ${by(lock)}. ${L ? `Sales Rs ${n0(L.sales)}, cost Rs ${n0(L.cogs)}, GP ${L.sales ? pc((L.sales - L.cogs) / L.sales * 100) : '–'}${L.labourCharged != null ? `; labour charged Rs ${n0(L.labourCharged)} against actual Rs ${n0(L.actualLabour)}, FOH charged Rs ${n0(L.fohCharged)} against actual Rs ${n0(L.actualFoh)}` : ''}.` : ''}</div>
+      ${adm ? `<div class="box form"><div class="row"><label for="mer" style="flex:1 1 300px">Why reopen<input id="mer" placeholder="e.g. an ERP figure was corrected"></label><button class="btn ghost" data-mereopen="${m}">Reopen</button></div></div>` : '<p class="wlhint">Only the COO reopens it, with a reason.</p>'}`
+    : !ended ? '<p class="wlhint">A month is locked after it ends.</p>' : need.length ? `<p class="wlhint">Before the lock: ${need.join(', ')}.</p>` : adm ? `<div class="btns"><button class="btn" data-melock="${m}" data-confirm="Confirm: lock ${mon(m)}">Lock ${mon(m)}</button></div><p class="wlhint">Its figures are kept as they are now; its actuals and checks cannot change until the COO reopens it.</p>` : '<p class="wlhint">Ready for the COO to lock.</p>';
+  const sec = (i, t, body) => `<section class="msec${done[i] ? ' done' : ''}"><h2 class="wlh2">${i + 1} · ${t}</h2>${body}</section>`;
+  return `<div class="wl2"><div class="wlh"><h1 class="topic">Month end: ${mon(m)}</h1><span class="sp"></span><label for="mem" class="ans" style="margin:0">Month</label><select id="mem" data-mem>${ms.map(x => `<option value="${x}"${x === m ? ' selected' : ''}>${mon(x)}${(ST.checks || []).some(c => c.month === x && c.kind === 'lock') ? ', locked' : ''}</option>`).join('')}</select></div>
+  <p class="answer">${lock ? `Locked by ${by(lock)}.` : !ended ? 'This month has not ended yet; its steps open on the 1st.' : cur >= 0 ? `${!act ? 'Actuals not entered; ' : ''}${pl(done.filter(x => !x).length, 'step', 'steps')} left, next is step ${cur + 1}.` : ''}${dL != null ? ` Labour ${dL > 0.5 ? 'under charged Rs ' + n0(dL) : dL < -0.5 ? 'over charged Rs ' + n0(-dL) : 'as charged'}.` : ''}${dF != null ? ` FOH ${dF > 0.5 ? 'under charged Rs ' + n0(dF) : dF < -0.5 ? 'over charged Rs ' + n0(-dF) : 'as charged'}.` : ''}</p>
+  <div class="msteps">${step(0, 'Actuals', act ? 'entered by ' + esc(personName(act.entered_by)) : 'the CFO')}${step(1, 'Charged on kg made', A && A.kg > 0 ? n0(A.kg) + ' kg from O2S' : ME.ready ? 'from O2S production' : 'not switched on yet: IT has 1 step to run')}${step(2, 'Tie to the books', ck('tie_books') ? 'by ' + by(ck('tie_books')) : 'the CFO')}${step(3, 'COO check', coo ? 'by ' + by(coo) : 'the COO')}${step(4, 'Lock', lock ? 'by ' + by(lock) : 'the COO')}</div>
+  <div class="wlks">${tile('Labour', dL == null ? '–' : (dL > 0.5 ? '−' : dL < -0.5 ? '+' : '') + 'Rs ' + n0(Math.abs(dL)), dL > 0.5 ? 't-bad' : '', dL == null ? 'needs actual and kg made' : dL > 0.5 ? 'under charged' : dL < -0.5 ? 'over charged' : 'as charged')}${tile('FOH', dF == null ? '–' : (dF > 0.5 ? '−' : dF < -0.5 ? '+' : '') + 'Rs ' + n0(Math.abs(dF)), dF > 0.5 ? 't-bad' : '', dF == null ? 'needs actual and kg made' : dF > 0.5 ? 'under charged' : dF < -0.5 ? 'over charged' : 'as charged')}${tile('Kg made', A ? n0(A.kg) : '–', '', 'from O2S production')}${tile('Certificate', cert ? (cert.data && cert.data.result === 'changed' ? 'Changed' : 'No change') : 'not given', cert ? '' : 't-warn', 'labour and FOH rates')}${tile('State', lock ? 'Locked' : 'Open', lock ? '' : 't-warn', lock ? 'by ' + by(lock) : 'locks after the COO check')}</div>
+  ${sec(0, 'Actuals', s1 + s1f)}${sec(1, 'Labour and FOH charged on kg made', s2)}${sec(2, 'Tie to the books', monthChecks(m, !lock && ended, 'tie'))}${sec(3, 'COO check', s4)}${sec(4, 'Lock', s5)}</div>`;
+}
+function boActuals(forms) {
+  const lastM = addDays(ST.today.slice(0, 7) + '-01', -1).slice(0, 7); const R = ST.me.role;
+  return `<details class="how"><summary>How this works</summary><div>Each month the CFO enters actual labour and FOH; C2M compares them with what was charged to products and keeps the difference. A second person checks the rates, and the CFO ties C2M to the books.</div></details>
+  ${CAN('actuals.enter') && forms ? `<div class="box form"><b>Actual labour and FOH</b><div class="row"><label for="am">Month<input id="am" type="month" value="${lastM}"></label><label for="al">Actual labour, Rs<input id="al" type="number"></label><label for="af">Actual FOH, Rs<input id="af" type="number"></label><button class="btn" data-actsave>Save</button></div></div>` : ''}
+  <div class="box wrapx" style="margin-top:10px"><table><tr><th>Month</th><th class="r">Actual labour</th><th class="r">Actual FOH</th><th class="r">Charged to products</th><th class="r">Difference</th><th class="r">Budget, for reference</th></tr>${(ST.actuals || []).map(a => `<tr><td>${esc(a.month)}</td><td class="r num">${rs(a.actual_labour)}</td><td class="r num">${rs(a.actual_foh)}</td><td class="r num late">${a.absorbed != null ? rs(a.absorbed) : 'on Costs, Month end'}</td><td class="r num">${a.absorbed != null ? rs(Number(a.actual_labour) + Number(a.actual_foh) - Number(a.absorbed)) : '–'}</td><td class="r num">${SET('conv_budget_month') ? rs(SET('conv_budget_month')) : 'set in Setup, Settings'}</td></tr>`).join('') || '<tr><td colspan="6">No month entered yet.</td></tr>'}</table></div>
+  ${monthChecks(lastM, forms)}`;
+}
+/** The C2M side of the month, for the tie to the books: sales and cost of trucks out, from O2S and the approved cost on each truck's date. */
+function c2mMonth(m) { const rows = (ST.sales || []).filter(r => r.date.slice(0, 7) === m); const sales = rows.reduce((a, r) => a + r.kg * r.price, 0); const cr = rows.filter(r => r.cost != null);
+  return { sales, cogs: cr.reduce((a, r) => a + r.kg * r.cost, 0), costedSales: cr.reduce((a, r) => a + r.kg * r.price, 0), trucks: rows.length }; }
+/** The 15 materials with the most Rs in the month's trucks (approved recipe qty x kg shipped x rate), for the second-person rate check. */
+function topRates(m) { const U = new Map(); const rate = new Map((ST.rates || []).map(r => [r.gradeId, r]));
+  (ST.sales || []).filter(r => r.date.slice(0, 7) === m && r.packId).forEach(r => { const k = packIdx().get(r.packId); if (!k) return; const v = (ST.recipes || []).find(x => x.id === k.product.approvedVersionId) || (ST.recipes || []).find(x => x.clientProductId === k.product.id && x.state === 'approved'); if (!v) return; // the Default (D-140)
+    v.lines.forEach(l => { const g = rate.get(l.gradeId); if (!g || g.rate == null) return; const u = U.get(l.gradeId) || { gradeId: l.gradeId, name: `${g.name} ${g.grade || ''}`.trim(), c2m: Number(g.rate), date: g.date, source: g.source, rs: 0 }; u.rs += l.qty * r.kg * Number(g.rate); U.set(l.gradeId, u); }); });
+  return [...U.values()].sort((a, b) => b.rs - a.rs).slice(0, 15); }
+function monthChecks(m, forms, part) { /* part: 'tie' or 'rate' on Month end (push 4); none: both, as Setup shows */
+  const R = ST.me.role; const ck = k => (ST.checks || []).find(x => x.month === m && x.kind === k); const rc = ck('rate_check'), tb = ck('tie_books');
+  const C = c2mMonth(m); const saved = tb && tb.data ? tb.data : null; const gap = (a, b) => a != null && b ? `${rs(a - b)} (${((a - b) / b * 100).toFixed(1)}%)` : '–';
+  const T = rc && rc.data && Array.isArray(rc.data.rates) ? rc.data.rates : topRates(m);
+  const tie = () => `<div class="box form"><b>Tie to the books, in total</b><p class="ans" style="margin:0">C2M: ${pl(C.trucks, 'truck line', 'truck lines')}, sales ${rs(C.sales)}, cost of costed trucks ${rs(C.cogs)}${C.costedSales < C.sales - 1 ? ` (${rs(C.sales - C.costedSales)} of sales carry no cost yet)` : ''}. ${ckDone(m, 'tie_books')}</p>
+  ${saved ? `<div class="wrapx"><table><tr><th></th><th class="r">ERP</th><th class="r">C2M</th><th class="r">Gap, C2M less ERP</th></tr><tr><td>Sales</td><td class="r num">${rs(saved.erpSales)}</td><td class="r num">${rs(saved.c2mSales != null ? saved.c2mSales : C.sales)}</td><td class="r num">${gap(saved.c2mSales != null ? saved.c2mSales : C.sales, saved.erpSales)}</td></tr><tr><td>COGS</td><td class="r num">${rs(saved.erpCogs)}</td><td class="r num">${rs(saved.c2mCogs != null ? saved.c2mCogs : C.cogs)}</td><td class="r num">${gap(saved.c2mCogs != null ? saved.c2mCogs : C.cogs, saved.erpCogs)}</td></tr></table></div><p class="ans" style="margin:0">C2M costs at the latest purchase rate; the ERP at weighted average, so some COGS gap is expected. C2M's figures are worked out by the server and kept as they were on the day of the check. FOC is not in C2M's COGS${saved.focCost ? ` (FOC cost this month ${rs(saved.focCost)})` : ''}; if the ERP books it in COGS, that part of the gap is FOC.</p>` : ''}
+  ${CAN('actuals.tiebooks') && forms ? `<div class="row"><label for="tbs">ERP sales, Rs<input id="tbs" type="number" inputmode="decimal"></label><label for="tbc">ERP COGS, Rs<input id="tbc" type="number" inputmode="decimal"></label><button class="btn ghost" data-chk="tie_books" data-chkm="${m}">Save</button></div>` : ''}</div>`;
+  const rate = () => `<div class="box form" style="margin-top:10px"><b>Rate check by a second person</b><p class="ans" style="margin:0">The ${T.length || 15} materials with the most Rs in ${mon(m)}'s trucks. Type each rate from the purchase register; the check is done only when every one is filled. ${ckDone(m, 'rate_check')}</p>
+  <div class="wrapx"><table class="cards"><tr><th>Material</th><th class="r">Rs in the month</th><th class="r">C2M rate</th><th>Date and source</th><th class="r">Register rate</th><th class="r">Gap</th></tr>${T.map((r, i) => `<tr><td data-l="Material">${esc(r.name)}</td><td data-l="Rs in the month" class="r num">${r.rs != null ? Math.round(r.rs).toLocaleString('en-US') : ''}</td><td data-l="C2M rate" class="r num">${rs2(r.c2m)}</td><td data-l="Date and source"><span class="mono nw">${esc(fmtD(r.date || ''))}</span> ${esc(r.source || '')}</td><td data-l="Register rate" class="r">${rc ? `<span class="num">${rs2(r.register)}</span>` : CAN('actuals.ratecheck') && forms ? `<input type="number" step="0.01" inputmode="decimal" style="width:100px" data-rgr="${i}" aria-label="Register rate for ${esc(r.name)}">` : ''}</td><td data-l="Gap" class="r num ${rc && r.c2m && Math.abs((r.c2m - r.register) / r.register) > 0.02 ? 'late' : ''}">${rc && r.register ? ((r.c2m - r.register) / r.register * 100).toFixed(1) + '%' : ''}</td></tr>`).join('') || '<tr><td colspan="6">No costed truck in this month, so there is no rate to check.</td></tr>'}</table></div>
+  ${CAN('actuals.ratecheck') && forms && !rc && T.length ? `<div><button class="btn" data-chk="rate_check" data-chkm="${m}">Save the check</button></div>` : ''}</div>`;
+  return part === 'tie' ? tie() : part === 'rate' ? rate() : `<h2>Monthly checks, ${mon(m)}</h2>${tie()}${rate()}`;
+}
+function ckDone(m, k) { const c = (ST.checks || []).find(x => x.month === m && x.kind === k); return c ? `Done by ${esc(personName(c.done_by))}, ${esc(fmtD(String(c.done_at).slice(0, 10)))}.` : 'Not done yet.'; }
+/* Change record in plain words, with filters (D-125): names in place of numbers, actions in words, no rule codes. */
+let aud = { who: '', kind: '', from: '', to: '', q: '', data: null, busy: false, err: null };
+const AUD_KIND = [['', 'Every kind'], ['recipes', 'Recipes and materials'], ['costs', 'Costs, rates and packing'], ['prices', 'Prices, lists and targets'], ['products', 'Clients, products and packs'], ['settings', 'Settings, access and O2S']];
+const AUD_THING = { lf_rate: 'Labour or FOH rate', lf_pick: 'Product moved to a labour or FOH rate', cost_pending: 'Cost change for Monday', product_name: 'Product name', client_product: 'Product', client_pack: 'Pack', customer: 'Client', price: 'Price', recipe: 'Recipe', reapproval: 'Re-approval', rate: 'Material rate', packing_bill: 'Packing bill', packing_item: 'Packing item', packing_rate: 'Packing rate', product_family: 'Product', product_variant: 'Variant', setting: 'Setting', setting_request: 'Setting change', sync: 'O2S data', target: 'Target GP', target_request: 'Target GP change', first_cost_sweep: 'Packs with no approved cost', list_revision: 'List revision', list_price: 'List row', list_master: 'Price lists', price_doc: 'Price list PDF', material: 'Material', grade_nutrients: 'Nutrients', conversion_rule: 'Labour and FOH rate', freight: 'Freight', monthly_actual: 'Monthly actuals', monthly_check: 'Monthly check', grant: 'List access', role: 'Role', import_item: 'Sheet item' };
+const AUD_DID = { lock: 'locked', reopen: 'reopened', add: 'added', create: 'created', save: 'saved', edit: 'changed', update: 'changed', change: 'changed', remove: 'removed', delete: 'deleted', propose: 'proposed', approve: 'approved', sent_back: 'sent back', withdrawn: 'withdrawn', 'taken back': 'taken back', cancelled: 'cancelled', ended: 'ended', replaced: 'replaced', 'end restored': 'end date restored', request: 'requested', refuse: 'refused', dismiss: 'dismissed', pull: 'pulled', run: 'put on Approvals', cost_approved: 'cost approved', endorsed: 'endorsed', reviewed: 'reviewed', sent: 'sent on', new: 'new version started', lines: 'lines changed', packing_bill: 'packing bill changed', add_variant: 'variant added', follow: 'set to follow a product', type: 'product type changed', variant: 'variant tagged', group: 'group changed', name: 'name changed', print_name: 'printed name changed', class: 'class set', retire: 'taken out of use', copy: 'copied', grant: 'given', link: 'linked', rename: 'renamed', left_list: 'left the list', applied: 'in force', carried: 'carried into the master', done: 'done', reprocessed: 'reprocessed flag changed', 'in use': 'back in use', 'out of use': 'out of use', 'all clients': 'all clients given', 'no clients': 'no clients', 'FED changed': 'FED changed', 'cost moved since shown': 'cost moved since shown', 'left: not costed': 'left: not costed', 'left: within threshold': 'left: within the threshold', in_use: 'back in use', out_of_use: 'out of use', spelling: 'O2S spelling kept', spec: 'description changed' };
+const audWhy = t => isoWords(String(t || '').replace(/\s*\((?:D-\d+[^)]*|ruling[^)]*|review[^)]*|R\d+[^)]*)\)/gi, '').replace(/\s*\bD-\d+\b,?/g, '').replace(/\s{2,}/g, ' ').trim());
+const audWhat = a => `${AUD_THING[a.entity] || String(a.entity).replace(/_/g, ' ')} ${AUD_DID[a.action] || String(a.action).replace(/_/g, ' ')}`;
+async function audLoad() { aud.busy = true; aud.err = null; const P = new URLSearchParams(); ['who', 'kind', 'from', 'to', 'q'].forEach(k => { if (aud[k]) P.set(k, aud[k]); });
+  try { aud.data = await api('/api/c2m/audit?' + P.toString()); } catch (e) { aud.err = e.message; } aud.busy = false; render(); }
+function boAudit() {
+  if (!aud.data && !aud.busy && !aud.err) setTimeout(audLoad, 0);
+  const D = aud.data, ppl = D ? D.people : [];
+  const f = `<div class="box"><div class="filters audf" role="group" aria-label="Filter the change record">
+    <label>Who<select data-audf="who"><option value="">Everyone</option>${ppl.map(x => `<option value="${esc(x.u)}"${aud.who === x.u ? ' selected' : ''}>${esc(x.u === 'c2m' || /^migration/.test(x.u) ? x.n : personName(x.u) || x.n)}</option>`).join('')}</select></label>
+    <label>Kind<select data-audf="kind">${AUD_KIND.map(([v, l]) => `<option value="${v}"${aud.kind === v ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select></label>
+    <label>From<input type="date" data-audf="from" value="${esc(aud.from)}"></label><label>To<input type="date" data-audf="to" value="${esc(aud.to)}"></label>
+    <label>Search<input id="audq" type="search" data-audq placeholder="product, client, material, reason" value="${esc(aud.q)}"></label>
+    <button class="btn" data-audgo>Show</button>${aud.who || aud.kind || aud.from || aud.to || aud.q ? '<button class="btn ghost" data-audclear>Clear filters</button>' : ''}</div></div>`;
+  const capTxt = D && D.capped ? ` Searched the newest ${n0(D.cap)} changes for this person, kind and dates: pick a From and To date to search older ones.` : '';
+  const say = aud.err ? `<p class="ans err">${esc(aud.err)}</p>` : !D ? '<p class="ans">Loading the change record…</p>' : `<p class="ans">${D.total ? `${pl(D.total, 'change', 'changes')}${D.total > D.rows.length ? `; the newest ${D.rows.length} are shown.` : '.'}` : 'No change matches these filters.'}${capTxt}</p>`;
+  const T = D && D.rows.length ? `<div class="box wrapx"><table class="wt cards"><thead><tr><th data-key="1">When</th><th>Who</th><th data-key="2">What</th><th data-key="3">Which</th><th>Why</th></tr></thead><tbody>${D.rows.map(a => `<tr><td class="nw" data-v="${esc(String(a.at))}">${esc(when(a.at))}</td><td>${esc(a.by === 'c2m' || /^migration/.test(a.by) ? a.byName : personName(a.by) || a.byName)}</td><td>${esc(a.what || audWhat(a))}</td><td>${esc(a.item || '–')}</td><td>${esc(a.why == null ? '' : a.why)}</td></tr>`).join('')}</tbody></table></div>` : '';
+  return `<details class="how"><summary>How this works</summary><div>Every change in C2M: who, when, what, which item and why. Nothing is deleted. Filter by person, kind of change, dates, or search a name or reason, then press Show.</div></details>${f}${say}${T}`;
+}
+function boDocs() {
+  return `<details class="how"><summary>How this works</summary><div>The system documentation, kept with every change: process and data flows, logic, database, API, decisions, guide, release notes, formulas, data dictionary, access and tests.</div></details>
+  <div class="subnav" role="tablist" aria-label="Documents">${(ST.docs || []).map(d => `<button role="tab" data-doc="${esc(d)}" aria-selected="${!!(boDoc && boDoc.f === d)}">${esc(d.replace(/^\d+-/, '').replace(/-/g, ' ').replace('.md', ''))}</button>`).join('')}</div>
+  ${boDoc ? `<div class="md"><pre>${esc(boDoc.text)}</pre></div>` : (ST.docs || []).length ? '<p class="ans">Pick a document.</p>' : '<p class="ans">No document was found on the server.</p>'}`;
+}
+
+/* ---------- Guide (push 6b, D-160; R25, R57): 1 row per job, for every role. Each row: the job in the person's words, who does it,
+   3 to 6 numbered steps naming the places and buttons as they are on screen (**bold**), what happens next, and a Start button that opens
+   the job's first screen through the same map Find anything uses (GOTO). A person sees only the rows of their role whose job they have the right to do (need) and whose Start they can open.
+   Same rows, in the same order, as docs/07-guide.md. ---------- */
+/* Who does what: shown to every role, so each person reads their own part and the next person's. Same text as doc 07, Who does what. */
+const WHO = [
+  { r: 'production', who: 'Production Manager', does: 'Writes each recipe and every new version. Adds a variant from the product\'s page.', next: 'The QC Head checks it next (another recipe of a product: then the CFO).' },
+  { r: 'qc', who: 'QC Head', does: 'Keeps the nutrient list, each material\'s nutrients and each product\'s declared grade. Checks every recipe: what changed, its nutrients against the label.', next: 'The Plant Manager endorses it next (another recipe of a product: the CFO approves its cost).' },
+  { r: 'plant', who: 'Plant Manager', does: 'Checks the recipe, nutrients and cost. Endorses it, or sends it back with a reason.', next: 'The CFO approves the cost next.' },
+  { r: 'cfo', who: 'CFO', does: 'Approves the cost of every recipe. Keeps rates, packing and labour current. Adds clients and products, and a rate for 1 variant. Proposes prices and VAN brand list revisions. Gives KAMs their lists.', next: 'The COO approves his prices, list revisions and setting changes.' },
+  { r: 'coo', who: 'COO', does: 'Approves prices, list revisions, targets and thresholds. Adds clients, products and variants. Decides who sees which price lists. Does the monthly rate check.', next: 'As the administrator he may approve what he proposed himself; everyone else may not.' },
+  { r: 'viewer', who: 'KAMs and managers', does: 'See only the price lists and clients they are given, and download the PDF. They never see cost or margin.', next: 'If no list shows, ask the CFO or the COO.' },
+];
+const GUIDE_CUSTOM = ['This role was set up by the System Administrator on the launcher (People and access, Roles by app). What you may do is what is ticked on it: the places you see are the places you may use.', 'Every change you make is dated and logged in the change record.'];
+const GJWHO = { cfo: 'CFO', coo: 'COO', production: 'Production Manager', qc: 'QC Head', plant: 'Plant Manager', viewer: 'KAM' };
+/** The Guide role of the person signed in: the CFO and COO by Margin; the others by their role, or for a role made on the launcher by what it may do. */
+function gRole() {
+  if (!ST || !ST.me) return null; if (CAN('see.margin')) return ST.me.role === 'coo' || ADM() ? 'coo' : 'cfo';
+  const r = ST.me.role; if (['production', 'qc', 'plant', 'viewer'].includes(r)) return r;
+  return VIEWER() ? 'viewer' : CAN('recipe.step.draft') ? 'production' : CAN('recipe.step.review') ? 'qc' : CAN('recipe.step.endorse') ? 'plant' : null;
+}
+/* The rows. who: the roles that do it (B = the CFO and the COO). go: where Start opens (a GOTO key), or 1 per role. Job names linked from
+   the change log (CHANGELOG guide:) stay as they are. */
+const GUIDE_JOBS = () => [
+  { j: 'Start the day', who: 'B', go: 'appr:', s: ['Open **Approvals**.', 'Do **Your next move** first: press the button on it.', 'Then the rest of your list, from the top. Each line opens in a panel and says how long it has waited.', '"End of your list" means you are done.'], n: '"Stuck" means more than 2 working days (Monday to Saturday, less public holidays). What waits for others is folded under your list, under **With others**.' },
+  { j: 'See what waits for you', who: 'production qc plant', go: 'scr:today', s: ['Open **Today**.', 'Do **Your next move** first: press the button on it.', 'Then the rest of your list. Each line opens in a panel and says how long it has waited.', '"End of your list" means you are done.'], n: 'A line waiting more than 2 working days (Monday to Saturday) is marked stuck, and the COO sees it.' },
+  { j: 'Approve the cost of a recipe', who: 'cfo', need: 'recipe.step.cost', go: 'appr:Approve cost', s: ['Open **Approvals**.', 'On the line "Approve cost: …", press its button to open it.', 'Check the recipe, its materials and the cost by pack.', 'Press **Approve cost**, or **Send back to the Production Manager** with a reason and advice, or **Close this version**.'], n: 'It comes to you after the Plant Manager endorses (another recipe of a product: after the QC Head checks it). A recipe you sent back comes straight back to you if no line changed; changed lines go to the QC Head first. The cost applies to trucks from the next day; the Production Manager is told it is approved.' },
+  { j: 'Approve the cost of a product that follows another\'s recipe', who: 'cfo', need: 'recipe.step.cost', go: 'appr:Approve cost', s: ['Open **Approvals**.', 'On the line "Approve cost: the product for the client", press **Open to approve** (or **Open product**).', 'On the product page, **Cost by pack**, check the cost of each pack.', 'Press **Approve cost**.'], n: 'A client product that follows one of our products\' recipe has no recipe steps of its own: only its cost is approved. Until then it cannot be priced and its trucks are not counted in Margin. It comes back when the recipe it follows moves more than the re-approval %.' },
+  { j: 'Re-approve costs after a rate change', who: 'cfo', need: 'reapproval.decide', go: 'appr:Re-approve', s: ['Open **Approvals**.', 'On a line "Re-approve cost: …", press **Open re-approval**.', 'Check each pack\'s cost before and after, and the cause.', 'Press **Approve all**, or tick the packs you checked and press **Approve ticked only**.'], n: `Shown when a pack's approved cost would move more than ${SET('reapprove_pct')}%. The packs not ticked wait in a new line, so none is lost. Packs with no approved cost were put there once, as 1 "first cost" line.` },
+  { j: 'See re-approvals of cost', who: 'coo', go: 'appr:', s: ['Open **Approvals**.', 'Open **With others**, under your list.', 'Read each re-approval: its cause and the packs it moves.'], n: 'Re-approvals of cost are the CFO\'s to approve; you see each one.' },
+  { j: 'Approve a price, list revision, target or setting', who: 'coo', need: ['price.approve', 'list.approve', 'targets.approve', 'settings.approve'], go: 'appr:', s: ['Open **Approvals**.', 'Press the button on the line ("Approve price: …", "Approve list revision: …", "Approve target: …", "Approve setting change").', 'Read the reason, and the GP it gives.', 'Press **Approve**, or **Send back** with a reason.'], n: 'Nothing the CFO proposes is in force until you approve. A price or list revision then takes effect on its Monday; an urgent one (at the top, with the CFO\'s reason) the day you approve it. A price also opens from its row on **Clients**, **White Label**: **Open to approve**. You may approve what you proposed yourself, as the administrator.' },
+  { j: 'Approve an urgent cost change', who: 'coo', need: 'price.approve', go: 'appr:Urgent cost', s: ['Open **Approvals**.', 'Open the line "Urgent cost change: …".', 'Read why it is urgent and which packs it moves.', 'Press **Approve now**, or **Not urgent: Monday**.'], n: 'Approve now puts it in at once (packs that move go to re-approval). Not urgent sends it to Monday; the CFO is told. It also shows on **Costs**, **Open next week\'s costs**.' },
+  { j: 'See a recipe that is stuck', who: 'coo', go: 'appr:Recipe stuck', s: ['Open **Approvals**.', 'Find the line "Recipe stuck … working days": it names the step and who has it.', 'Press **Open recipe** to read it.', 'Ask that person to act on it.'], n: 'A recipe is stuck after more than 2 working days at 1 step. Its line goes once that step is done.' },
+  { j: 'Check items from your sheets', who: 'cfo', need: 'import.decide', go: 'appr:from your sheets', s: ['Open **Approvals**.', 'On the line "Check … items from your sheets", press **Open the items**.', 'Each item is filled in from the sheet: press **Accept**, or correct it.', 'Every item stays listed in **More**, **Setup**, **Record and checks**, **Sheet items**.'], n: 'The line goes when every item is accepted or corrected.' },
+  { j: 'Fix packs that are not costed', who: 'cfo', need: ['rate.save', 'packing.manage', 'labour.manage', 'recipe.step.cost'], go: 'appr:Not costed', s: ['Open **Approvals**.', 'On the line "Not costed: …", press **See the packs**.', 'Each pack names what is missing: an approved recipe, a packing bill, or a rate.', 'Fill it in **Costs** (the box of that cost), or on the product page.'], n: 'No price can be proposed or checked for a pack until its cost is complete. The line goes when every pack is costed.' },
+  { j: 'Price packs that are costed with no price', who: 'cfo', need: 'price.propose', go: 'appr:costed with no price', s: ['Open **Approvals**.', 'On the line "… costed with no price", press **Set a price** (1 pack) or **Set prices**.', 'Type the price and the reason the client reads.', 'Send it to the COO.'], n: 'Until a price is approved, the pack cannot be sold at a checked price.' },
+  { j: 'Revise a price the COO sent back', who: 'cfo', need: 'price.propose', go: 'appr:Price sent back', s: ['Open **Approvals**.', 'On the line "Price sent back: …", press **Revise and resend**.', 'Read the COO\'s reason; change the price or your reason.', 'Send it again.'], n: 'It goes back on the COO\'s Approvals.' },
+  { j: 'Revise a list revision the COO sent back', who: 'cfo', need: 'list.revise', go: 'appr:List revision sent back', s: ['Open **Approvals**.', 'On the line "List revision sent back: …", press **Revise and resend**.', 'Read the COO\'s reason; change the prices that need it.', 'Press **Send to the COO**.'], n: 'It goes back on the COO\'s Approvals as 1 list revision.' },
+  { j: 'Give a VAN brand pack a printed MRP', who: 'cfo', need: 'list.revise', go: 'vtab:van', s: ['Open **Clients**, **VAN Brands**, **Price lists**, **All 5 side by side**. The line "… no printed MRP" on **Approvals** names the packs; its button opens the same place.', 'Type the pack\'s farmer price, Sindh credit, in its row.', 'Give a reason and send the list revision to the COO.'], n: 'MRP = Sindh credit price with FED, rounded up to the next Rs 50. With no farmer price, no MRP can be worked out.' },
+  { j: 'Add a client', who: 'B', need: 'client.add', go: 'newjob:newclient', s: ['Open **More**, **Products**.', 'Press **+ New**, **Add a client**.', 'Type its name, what it buys and its O2S names; save.', 'Add its first product in the form that follows.'], n: 'It shows in Margin once its trucks have an approved cost.' },
+  { j: 'Add a variant of a product', who: 'B', need: 'variant.add', go: 'newjob:variant', s: ['Open **More**, **Products**.', 'Press **+ New**, **Add a variant**.', 'Pick the product, name the variant (e.g. Powder, Pellets) and its packs.', 'Save.'], n: 'Its recipe starts as a copy of the main one, as a draft; the Production Manager changes it, the QC Head checks, the Plant Manager endorses, the CFO approves its cost.' },
+  { j: 'Add a variant', who: 'production', need: 'variant.add', go: 'newjob:variant', s: ['Open **Products**.', 'Press **+ New**, **Add a variant** (or **Add a variant** on the product\'s page).', 'Pick the product, name the variant (e.g. Powder, Pellets) and its packs.', 'Save. Its recipe starts as a draft copy of the product\'s: change what differs and send it on like any recipe.'], n: 'Labour and FOH (factory overhead) for a variant are set by the CFO.' },
+  { j: 'Put a variant on a client', who: 'B', need: 'client.add', go: 'newjob:client', s: ['Open **More**, **Products**.', 'Press **+ New**, **Put a variant on a client**.', 'Pick the client.', 'Answer "Is it one of our products, in the client\'s bag?" and save.'], n: 'Yes: it follows that recipe and the CFO gets "Approve cost". No: the Production Manager gets "Write the first recipe". Then it is priced on **Clients**.' },
+  { j: 'Add a pack to a client product', who: 'B', need: 'client.add', go: 'scr:products', s: ['Open **More**, **Products**.', 'Open the client, then the product.', 'Open **Cost by pack**, then **Add a pack**.', 'Type the size and pick its packing bill; save.'], n: 'If its recipe is approved, the CFO gets "first cost" for the pack on Approvals at once. If it follows another product\'s recipe, its cost is approved on its own page.' },
+  { j: 'Open a white label brand', who: 'B', go: 'client:', s: ['Open **Clients**, **White Label**.', 'Pick the client in **Client**, at the top.', 'Press the brand in its row.'], n: '1 page in the order the work is done: recipe, cost by pack, 3 prices with GP (Existing, the client\'s last PO; Current, approved today; Projected, the price for the target at today\'s cost), then margin FY to date and open POs. **New price** opens the price panel for that pack. Find anything opens a brand too.' },
+  { j: 'Change a client price or a target GP', who: 'cfo', need: ['price.propose', 'targets.propose'], go: 'client:', s: ['Open **Clients**, **White Label**, and pick the client in **Client**.', 'Type the new price in the **New price** box of its row: its GP shows at once. For a target, press the pencil beside the target.', 'Write the reason the client reads (and why, for a target).', 'Press **Send** … **to the COO**.'], n: 'Nothing changes until the COO approves. An approved price takes effect on a Monday, the cost day (the next Monday unless you pick a later one); one whose Monday passes while it waits takes the next Monday. Urgent: tick it and write why; it goes in the day the COO approves it. POs already received keep their PO price. A new target re-judges every month in Margin. "company" puts a product back on the company target.' },
+  { j: 'Set a VAN list\'s target or freight', who: 'cfo', need: 'settings.edit', go: 'vlist:', s: ['Open **Clients**, **VAN Brands**, **Price lists**.', 'Open the list\'s card.', 'Press **Change target or freight**.', 'Type the target GP %, the freight Rs per kg, or both, and why; press **Send to Tahir**.'], n: 'The packs that would be below target show before you send. Nothing changes until the COO approves; a list with none yet says not set and shows GP before freight.' },
+  { j: 'Change VAN brand list prices', who: 'cfo', need: 'list.revise', go: 'vlist:', s: ['Open **Clients**, **VAN Brands**, **Price lists**, and open the list\'s card.', 'Type the new prices in the **New price** boxes of their rows.', 'Give a reason.', 'Press **Send to Tahir**. For all 5 lists at once: **See all 5 side by side**.'], n: '1 list revision per list. It takes effect on a Monday, like a client price; urgent goes in the day the COO approves it. Before sending, the bar names any pack whose price would go above its printed MRP; you may still send it.' },
+  { j: 'Carry the price list rows into the master, once', who: 'B', need: 'lists.carry', go: 'vtab:van', s: ['Open **Clients**, **VAN Brands**, **Price lists**, **All 5 side by side**.', 'Press **Carry into the master**.', 'Check the rows C2M matched by name and size; settle the rest, then **Carry over**.'], n: 'Done once, by either of you. After that every list prints from the master.' },
+  { j: 'Take a pack off a price list', who: 'B', need: 'lists.remove', go: 'vtab:van', s: ['Open **Clients**, **VAN Brands**, **Price lists**, **All 5 side by side**.', 'Press **Take off a list** in the pack\'s row.', 'Tick the lists, write why, and confirm.'], n: 'No approval; logged, and the other is told. The row stays visible under "Off the lists" with its prices.' },
+  { j: 'Make a price list PDF', who: 'B', need: 'pricedoc.all', go: 'vtab:lists', s: ['Open **Clients**, **VAN Brands**, **Price lists**, **Make a price list PDF** (Make the PDF on a list\'s card opens the same).', 'Pick who it is for and the fields.', 'Check the page, then create the PDF.'], n: 'Cost and margin can never be printed. A white label client\'s list: **Make price list** on its page.' },
+  { j: 'Make the MRP printing list', who: 'B', need: 'pricedoc.all', go: 'vtab:lists', s: ['Open **Clients**, **VAN Brands**, **Price lists**, **Make a price list PDF**.', 'Pick **MRP printing list (packing and printer)**.', 'Check the page, then create the PDF.'], n: 'MRP = Sindh credit price with FED, rounded up to the next Rs 50. The Recommended MRP on the Dealer and Distributor lists is a suggested price, not this one. Approvals names any list price above the printed MRP.' },
+  ...((typeof ST === 'undefined' || !ST || ST.m014 !== false) ? [
+  { j: 'Add a material class', who: 'cfo', need: 'material.save', go: 'cost:materials', s: ['Open **Costs**, **Material cost**, then the **Classes** tab.', 'Press **Add a class**.', 'Name it (e.g. Amino acid source); say whether it carries nutrients; tick the nutrients it suggests.', 'Press **Add class**, then pick it in the material\'s **Class**.'], n: 'A class only suggests nutrients: the QC Head may add any nutrient from the list on the material\'s card.' },
+  ] : [ // before migration 014: the old row (review 7a, minor 1)
+  { j: 'Add a material class', who: 'cfo', need: 'material.save', go: 'cost:materials', s: ['Open **Costs**, **Material cost**.', 'Press **Add a material class**.', 'Name it and type the % it asks, e.g. N%, Amino acid%, OM%; use the same name as other classes for the same nutrient.', 'Pick it in the material\'s **Class**.'], n: 'The QC Head then enters its %.' },
+  ]),
+  { j: 'Add the rate of a new material', who: 'cfo', need: 'rate.save', go: 'cost:materials', s: ['Open **Approvals**: the line "… materials wait for your rate" names them.', 'Press **Open materials**: the list shows only those.', 'Press **Change cost** on its row, type the rate and its source.', 'Press **Save**.'], n: 'A material the QC Head or Production Manager added has no rate until you add it. Until then a recipe using it cannot pass the cost step.' },
+  { j: 'Update a material, packing, labour or FOH cost', who: 'cfo', need: ['rate.save', 'packing.manage', 'labour.manage', 'freight.edit'], go: 'scr:costs', s: ['Open **Costs**.', 'Press the box of that cost (**Material cost**, **Packing cost**, **Labour**, **FOH (factory overhead)**): the whole box opens.', 'Press **Change cost** (a material), or **Edit** or **Add** in its list.', 'Press **Save**: it shows which packs would move more than the re-approval %. Nothing is saved yet.', 'Press **Save** again to keep it.'], n: 'Logged. Material, packing and freight: Monday is cost day. Saved on a Monday it goes in at once; saved Tuesday to Sunday it waits in Next week\'s costs for Monday 00:00. A first cost goes in at once. A packing item bought by the kg (e.g. plastic inners): **Packing cost**, **Add a packing item**, **Bought per**: Kg, with the pieces in 1 kg.' },
+  { j: 'Fill or change a labour or FOH rate (Low, High)', who: 'cfo', need: 'labour.manage', go: 'scr:costs', s: ['Open **Costs**, then press the **Labour** or **FOH (factory overhead)** box.', 'Press **Fill** or **Change** in the rate\'s row (Labour rate Low, Labour rate High, FOH rate Low, FOH rate High).', 'Type Rs per kg or L, never per pack, and the source.', 'Save.'], n: `In force from the day saved. ${lfFreeTxt()} the first figure of a rate needs no re-approval, and when all the rates are filled each pack\'s cost that day becomes its approved cost. After that, packs that move more than the re-approval % go to re-approval and Tahir is told. Add a named rate (e.g. Average) at the bottom.` },
+  { j: 'Move a product to Labour rate High or FOH rate High', who: 'cfo', need: 'labour.manage', go: 'scr:costs', s: ['Open **Costs**, then press the **Labour** or **FOH (factory overhead)** box.', 'Open **Which products are on which rate**.', 'Press **High** in the product\'s row: the effect shows first.', 'Press it again to save.'], n: `Every product starts on Low. In force from the day saved. ${lfFreeTxt()} a product's first move needs no re-approval; later moves, and every move after the window, send its packs to re-approval.` },
+  { j: 'Certify labour and FOH for the month', who: 'cfo', need: 'labour.manage', go: 'cost:labour', s: ['Open **Costs**, **Labour** (Approvals reminds you from the 1st).', 'Read the certificate at the top for the month before.', 'Review the rates.', 'Press **No change**, or **Changed** and then change the rates.'], n: 'Due by the 5th for the month before (the first is for the month of the switch).' },
+  { j: 'Give packs a packing bill', who: 'cfo', need: 'packing.manage', go: 'cost:packing', s: ['Open **Costs**, **Packing cost**.', 'Press **Edit** on the bill (or **New packing bill**).', 'Open **Packs on this bill** and tick the packs the bill is for.', 'Save.'], n: 'A pack with no bill gets it at once. A pack on another bill moves here: that waits for Monday, with the bill\'s other changes. A pack already on the bill is moved by ticking it on another bill.' },
+  { j: 'Set freight for a region', who: 'cfo', need: 'freight.edit', go: 'cost:freight', s: ['Open **Costs**, **Freight cost**.', 'Press **Set freight**.', 'Pick the region from the list and type Rs per kg.', 'Save.'], n: 'The regions come from clients and freight rows. A new region comes from a client: give the client its region in **More**, **Setup**, **Clients** first.' },
+  { j: 'Change or drop a cost waiting for Monday', who: 'cfo', need: ['rate.save', 'packing.manage', 'labour.manage', 'freight.edit'], go: 'cost:next', s: ['Open **Costs**, **Next week\'s costs**.', 'To change it: open its box and save it again with the new figure.', 'To drop it: press **Drop**; it will not go in.'], n: 'Until Monday the lists show the waiting figure under today\'s.' },
+  { j: 'Make a cost change urgent', who: 'cfo', need: ['rate.save', 'packing.manage', 'labour.manage', 'freight.edit'], go: 'scr:costs', s: ['Open **Costs** and the box of that cost.', 'In the cost\'s form, tick **Urgent**.', 'Write why.', 'Save.'], n: 'It goes in when Tahir approves it on Approvals. If he does not, it goes in on Monday.' },
+  { j: 'Correct a cost that went in', who: 'cfo', need: ['rate.save', 'packing.manage', 'labour.manage', 'freight.edit'], go: 'cost:next', s: ['Open **Costs**, **Next week\'s costs** (or use the Saved box at the top, after a save).', 'Press **Correct** (it shows the minutes left).', 'Type the right figure: the effect shows first.', 'Save.'], n: 'Within 1 hour of a change going in, its saver can correct the figure; it is replaced and logged. After the hour, save a change for Monday, or urgent.' },
+  { j: 'See margin and why it moved', who: 'B', go: 'scr:margin', s: ['Open **Margin**: it opens on the whole company for this month.', 'Pick the group and the month at the top.', 'Open a line for its packs, then a pack for its trucks.', 'A truck shows its PO price, its cost and what the cost is made of; it opens the product.'], n: 'For a client product each truck carries the price approved when its PO came in. The restated switch shows past trucks at today\'s cost, for comparison only. Farmers are not clients: their sales show under the farmer price list each was picked on (Farmer list, Punjab; Sindh cash; Sindh credit), each judged on its list\'s target; a farmer with no region in O2S is taken as on the Farmer list, Punjab, and Margin says how many.' },
+  { j: 'Rename a product or settle an O2S name', who: 'B', need: 'lists.link', go: 'setup:van.variants', s: ['Open **More**, **Setup**, **Products and variants**.', 'Find the product (the Find box above the list).', 'Press **Edit** in its row; type the new name, or place the O2S name.', 'Save.'], n: 'A rename keeps the old name as a spelling. Before a change that takes cost off O2S trucks, C2M shows how many trucks and Rs. **Take out of use** hides a product without deleting it.' },
+  { j: 'Change a client\'s name or what its lists print', who: 'B', need: 'customer.edit', go: 'setup:clients.lines', s: ['Open **More**, **Setup**, **Clients**.', 'Find the client (the Find box above the list).', 'Press **Edit** in its row.', 'Type the name, or the name its lists print; save.'], n: 'A rename moves the client\'s KAM access with it; lists already issued keep the name they were printed with.' },
+  { j: 'Download a price list', who: 'B', need: 'pricedoc.all', go: 'scr:pricelists', s: ['Open **Price lists** in the top bar.', 'Find the list under **Issued**.', 'Press **Download PDF**.'], n: 'It is the latest issued document with its own number; no new number is made. **Issue a new PDF** opens the builder; a list under **Never issued** has **Make the first one**; **Make a list** at the top opens the builder too.' },
+  { j: 'Add or remove a public holiday', who: 'coo', go: 'setup:set.settings', s: ['Open **More**, **Setup**, **Settings**, **Company settings**.', 'Under **Public holidays**, pick the date and type its name, e.g. Eid ul Fitr.', 'Press **Add**. To take one off, press **Remove** on its row.'], n: 'Working days on Approvals (how long a job has been stuck) skip these days, for everyone. Saved at once and in the change record.' }, // push 10e (C-35)
+  { j: 'Give a KAM his lists', who: 'B', need: 'grants.give', go: 'placc:', s: ['Open **Price lists**, **Who can see them** (or More, Setup, Settings, KAM lists).', 'Tick the lists in the person\'s row: each tick saves at once. A cell marked **missing** is a list the 11 Nov ruling gives him.', 'For white label clients press **Change** in his row and tick the clients; **Copy from another manager** starts from another person.', 'To check: **See what they see**, read only.'], n: 'He sees only what is ticked, never cost or margin.' },
+  { j: 'Change a setting', who: 'B', need: 'settings.edit', go: 'setup:set.settings', s: ['Open **More**, **Setup**, **Settings**, **Company settings**.', 'Type the new figure.', 'Write why.', 'Save.'], n: 'A threshold or the company GP target from the CFO waits for the COO on Approvals. A change to the ambition GP saves at once and the COO is told.' },
+  { j: 'Close the month', who: 'B', need: ['actuals.enter', 'actuals.tiebooks', 'actuals.ratecheck', 'labour.manage'], go: 'cost:month', s: ['Open **Costs**, **Month end** and pick the month; its 5 steps are in order.', 'The CFO enters **Actuals**: **Actual labour, Rs** and **Actual FOH, Rs** (FOH is factory overhead), then presses **Save**.', 'Read labour and FOH charged on the kg made in O2S, and the under or over.', 'The CFO types ERP sales and COGS: **Tie to the books, in total**.', 'The COO types the register rate of the top materials (**Rate check by a second person**), ticks every labour, FOH, packing and freight change as seen, and presses **COO check done**.', 'The COO presses **Lock** for the month.'], n: 'A locked month cannot change; only the COO reopens it (**Reopen**), with a reason.' },
+  { j: 'Find who changed something', who: 'B', go: 'setup:record.audit', s: ['Open **More**, **Setup**, **Record and checks**, **Change record**.', 'Pick the person, the kind and the dates, or type a product, client or reason.', 'Press **Show**.'], n: 'It searches the newest 5,000 changes for the person, kind and dates picked; pick dates for older ones.' },
+  { j: 'Read a report', who: 'B', go: 'scr:reports', s: ['Open **More**, **Reports**.', 'Press a report: Cost history; Price history, PO price against approved price, VAN brand PO against its price list, VAN brand list margin; Margin by client and brand, GP bridge.', 'It opens on the current month with its answer line; pick From and Till on its bar.', 'To build one of your own: **Your own report**, first on Reports.'], n: '7 reports, and Your own report. Reports not built yet are listed as coming later.' },
+  { j: 'See cost history', who: 'B', go: 'rep:costs', s: ['Open **More**, **Reports**, **Cost history**.', 'Pick From and Till.', 'Pick a **Client** or type a brand.', '"Last per pack" shows each pack\'s newest cost in the dates, with its change from before them.'], n: 'Every approved cost of every pack: from, materials, packing, labour and FOH, freight, total per kg or L, the change against the pack\'s cost before, why and who approved it. A rate\'s own history stays on its History in Costs.' },
+  { j: 'See price history', who: 'B', go: 'rep:prices', s: ['Open **More**, **Reports**, **Price history**.', 'Pick **Client prices** or **VAN lists**.', 'Pick From and Till ("In force today" ignores the dates).', 'For VAN lists, pick the list.'], n: 'Client prices: every approved white label price, from and till, Rs per kg and per pack, the change, and the GP it gave at the cost in force on its first day. VAN lists: every approved price on the 5 lists from the first data load.' },
+  { j: 'Margin by client and brand', who: 'B', go: 'rep:margin', s: ['Open **More**, **Reports**, **Margin by client and brand**.', 'Pick From and Till.', 'Pick the kind: All, White label or VAN brands.', 'Pick the rows: each client, opened to its brands, or every brand.'], n: 'The totals agree with Margin for the same dates; VAN brands by client line (farmers by their price list), after list freight, each sale against its own price list\'s target (not judged where the list has no target). Against target Rs = GP Rs − target % × sales. Trucks with no approved cost are named under the table.' },
+  { j: 'Download a report', who: 'B', go: 'scr:reports', s: ['Open **More**, **Reports** and the report.', 'On the bar above its table, pick From and Till or a quick choice (This month, Last month, Last 3 months, This year from 1 July, All).', 'Pick the **Columns**, and tick rows if you want only some.', 'Press **Excel**, **CSV** or **PDF**.'], n: 'Excel and CSV hold the ticked rows, or every row shown when none is ticked, and only the columns shown, with the report name, dates and who downloaded it on top. PDF opens the print box: pick "Save as PDF". The columns are kept in this browser.' },
+  { j: 'Make your own report', who: 'B', go: 'rep:own', s: ['Open **More**, **Reports**, **Your own report**.', 'Pick the data: Sales, Open POs, Pack cost, Client prices, VAN list prices, Rates or Kg made.', 'Pick the period and the columns (Add; ‹ › to move; ✕ to take out).', 'Pick the filters, and Each row or Totals by group (with Group by).', 'Download through the bar: Excel, CSV or PDF.'], n: 'The line above the table gives the answer. GP % on a total or a group is its GP ÷ its sales; a % or a rate is never added. Sales is as Margin; Kg made is as Month end.' },
+  { j: 'Save, open, rename or delete a report', who: 'B', go: 'rep:own', s: ['Open **More**, **Reports**, **Your own report**; build the report, press **Save as…** and type a name.', 'Open **More**, **Reports**: it is listed under **Your own report** with when it was saved.', 'Press **Open** to build it again on today\'s data, or **Rename**, or **Delete** (it asks twice).'], n: 'A saved report is kept for you only: its recipe, not its figures. Saving the same name again asks first; **Save over it** replaces it. Saving is not switched on until IT has run 1 step: until then Save is off and says so, and a report can still be made and downloaded.' },
+  { j: 'Adjust a report', who: 'B', go: 'scr:reports', s: ['Open **More**, **Reports** and a ready report.', 'Press **Adjust** on its bar.', 'It opens in Your own report on its data, with its dates, filters and columns: change what you need.'], n: 'Cost history opens in Pack cost, Price history in Client prices or VAN list prices, Margin by client and brand and GP bridge in Sales. PO price against approved price, VAN brand PO against its price list and VAN brand list margin have no data set here yet: their Adjust is off and says why.' },
+  { j: 'Check VAN brand POs against their price list', who: 'B', go: 'rep:listcheck', s: ['Open **More**, **Reports**, **VAN brand PO against its price list**.', '"Off their list" opens first.', 'Read each PO line against the list in force on its date.', 'Pick another state, or From and Till, to see the rest.'], n: 'Distributors and Punjab dealers the distributor list; Sindh dealers the dealer list; COBO farmer Sindh cash; VGreen farmer Punjab; farmer POs the farmer list of their region (Sindh cash or credit by payment terms). Within 1% is at list price. Approvals shows a line when any are off. It only marks: no PO is blocked and Margin keeps the O2S price.' },
+  { j: 'Find anything', who: 'B production qc plant viewer', go: 'find:', s: ['Press **Find anything** at the top (or Ctrl K).', 'Type a word: a client, a brand, a material, a packing item, a price list, a report, or a job such as labour, freight or month end.', 'Pick a result: it opens that place.'], n: 'A client opens its page on Clients, with its Margin as the next result. A job opens its row in this Guide, with its Start.' },
+  { j: 'Find a row in a list', who: 'B production qc plant', go: { cfo: 'setup:clients.lines', coo: 'setup:clients.lines', _: 'scr:recipes' }, s: ['Open the list.', 'Type any part of a name, client, kind or date in the **Find** box above it.', 'The list shows only the rows that match and says how many ("2 of 59").', 'Clear the box to see every row.'], n: 'What you typed stays while you move around C2M.' },
+  { j: 'Edit a row', who: 'B', need: ['customer.edit', 'client.add', 'material.save', 'packing.manage', 'labour.manage', 'freight.edit'], go: 'setup:clients.lines', s: ['Open the list (on **More**, **Setup**, or **Costs**) and find the row.', 'Press **Edit** in its row (a client product: its page, **Edit this product**).', 'Change what is needed in the form, filled in.', 'Save.'], n: 'Names and words save at once and are logged. A new rate, packing price, labour or FOH Rs or freight Rs is saved as a new dated entry: past trucks keep their cost, and a cost that moves more than the re-approval % waits on Approvals. A size, kg or L, and where a product\'s recipe comes from cannot change.' },
+  { j: 'Delete a row', who: 'B', need: ['client.add', 'material.save', 'packing.manage', 'labour.manage', 'freight.edit'], go: 'setup:clients.lines', s: ['Open the list and find the row.', 'Press **Delete** in its row: C2M first checks what uses it.', 'Nothing uses it: write why and press **Delete** twice.', 'Something uses it: C2M names it and offers **Take out of use**.'], n: 'A deleted row leaves the list; its values stay in the change record. Out of use hides it from forms and pickers and keeps it for past costs; **Put back in use** in its row. Approved prices and approved recipes are never deleted.' },
+  { j: 'Keep another recipe for a product', who: 'B', need: 'recipe.start', go: 'newrec:other', s: ['Open **More**, **Products**.', 'Press **+ New**, **Write a new recipe version**.', 'Pick the client product and choose **Another recipe for this product**; name it (e.g. DAP in place of TSP).', 'Press **Start from the current recipe**.'], n: 'The Production Manager writes it, the QC Head checks it and the CFO approves its cost; it never moves cost. Its cost shows beside the Default on the product page, **Recipe**.' },
+  { j: 'Change the Default recipe', who: 'cfo', need: 'recipe.step.cost', go: 'scr:products', s: ['Open **More**, **Products**, and the product.', 'Open **Recipe**.', 'Under **Approved recipes**, press **Make default** on the recipe.', 'Confirm.'], n: 'Only the Default sets cost, price for target and margin. Make default gives every pack a new approved cost from that moment; trucks from tomorrow carry it. The COO is told. Switching back needs no new steps.' },
+  { j: 'Correct a mistake', who: 'B', need: ['price.propose', 'targets.propose', 'price.withdraw', 'list.withdraw', 'client.add'], go: 'client:', s: ['A price or target waiting for the COO: **Take back**, in its row on **Clients**, **White Label**.', 'A price approved for a later date: **Withdraw** (the COO).', 'A client product: its page, **Edit this product** or **Delete**. A row in a list: **Edit** or **Delete** in its row.', 'An item from the CFO\'s sheets: **More**, **Setup**, **Record and checks**, **Sheet items**.', 'A material, packing or freight cost: **Correct** within 1 hour of it going in, or change or drop it in **Open next week\'s costs** before Monday.'], n: 'Every correction is logged.' },
+  { j: 'Write the first recipe of a client product', who: 'production', need: 'recipe.start', go: 'scr:today', s: ['Open **Today**: the line "Write the first recipe: …".', 'Press **Start the recipe**.', 'Press **Edit lines**; find each material (name, grade or nutrient), type its kg per kg (per L for a product sold per L) and press **Add the line**. The total, the % of the mix and the analysis against the label show as you type. Press **Save lines**.', 'Press **Send to the QC Head**.'], n: 'The QC Head checks it next, then the Plant Manager, then the CFO approves its cost; each is told. Until then the product has no cost.' },
+  { j: 'Write a new recipe version', who: 'production', need: 'recipe.start', go: 'newrec:', s: ['Open **Recipes**.', 'Press **Write a new recipe version**.', 'Pick the client product, choose **A new version of the Default recipe**, and say what changes and why.', 'Press **Start from the current recipe**; change the lines (**Edit lines**, **Save lines**).', 'Press **Send to the QC Head**.'], n: 'Once the CFO approves its cost it sets the cost of every pack. You are told on Today when it is approved, sent back or closed.' },
+  { j: 'Write another recipe for a product', who: 'production', need: 'recipe.start', go: 'newrec:other', s: ['Open **Recipes**.', 'Press **Write a new recipe version**.', 'Pick the client product, choose **Another recipe for this product**, and name it (e.g. DAP in place of TSP).', 'Press **Start from the current recipe**; change the lines and press **Send to the QC Head**.'], n: 'The QC Head checks it, then the CFO approves its cost (no Plant Manager step). It never moves cost unless the CFO makes it the Default.' },
+  { j: 'Revise a recipe sent back', who: 'production', need: 'recipe.edit', go: 'appr:Sent back', s: ['Open **Today**: the line "Revise recipe: …" says who sent it back, the reason and the advice.', 'Press its button to open the recipe.', 'Change the lines: **Edit lines**, then **Save lines**.', 'Press **Resend**: the button names who it goes to.'], n: 'Changed lines go to the QC Head first, then on as usual; no line changed: straight back to whoever sent it back. Only the person who sent it back can close it.' },
+  { j: 'Delete a draft started by mistake', who: 'production', need: 'recipe.start', go: 'scr:recipes', s: ['Open **Recipes** and press the draft.', 'Press **Delete this draft**.', 'Write why and press **Delete** twice.'], n: 'Only a draft can be deleted. Approved recipes are never deleted.' },
+  { j: 'Read a product\'s recipe, packs and cost', who: 'production', go: 'scr:products', s: ['Open **Products**.', 'Open the client, then the product.', 'Read **Recipe** and **Cost by pack**.'], n: 'To read only: nothing on it changes a price or a cost.' },
+  { j: 'Check a recipe', who: 'qc', need: 'recipe.step.review', go: 'scr:today', s: ['Open **Today**: the line "Check recipe: …".', 'Press **Open to check** (or its button).', 'Read **What changed** against the approved version, the nutrient analysis, **Against the label**, and any material data missing (**Open material** to fix it yourself).', 'Press **Pass to the Plant Manager** (another recipe of a product: **Pass to the CFO**); write a comment when something is red. Or **Send back to the Production Manager** with a reason and advice, or **Close this version**.'], n: 'Every recipe the plant may run comes to you, another recipe of a product too. The next person is told. A recipe resent with changed lines comes back to you.' },
+  ...((typeof ST === 'undefined' || !ST || ST.m014 !== false) ? ((F15) => [ // F15: after 015 (push 7c), the basis and density steps
+  { j: 'Enter a material\'s nutrients', who: 'qc', need: 'nutrient.edit', go: 'scr:inputs', s: ['Open **Inputs**, **Materials** (Today also lists the materials that need you) and find the material.', 'If its class is wrong, pick its **Class** and press **Save class**.', 'Press **Open**: its card shows each nutrient with its % and certificate.', 'Pick **Add a nutrient** for each one it carries (amino acids, zinc, anything in the list); type the %' + (F15 ? ', pick **w/w** or **w/v** as the certificate states it,' : ',') + ' the certificate and its date.', 'Press **Save**.'], n: 'A nutrient not on the card counts as 0 in every recipe. Binders, fillers and agents need only their class. Not in the list: pick **Not in the list** to add it there and then.' + (F15 ? ' Type each % as received, not on a dry basis. A certificate in g per L: divide by 10 (40 g per L is 4% w/v).' : '') },
+  ...(F15 ? [{ j: 'Enter the density of a material', who: 'qc', need: 'nutrient.edit', go: 'scr:inputs', s: ['Open **Inputs**, **Materials** and find the material.', 'Press **Open** on its row.', 'Under **Density**, type its kg per L at 20 °C, as supplied.', 'Write where it comes from (lab report, supplier certificate) and its date.', 'Press **Save density**.'], n: 'Needed only when a value on its card is w/v (for a material bought in L: w/w); the card says so. Until it is in, the figures that need it show not complete, naming the material; C2M never takes 1.0. Clear the box and save to remove it.' }] : []),
+  { j: 'Add a nutrient to the list', who: 'qc', need: 'nutrient.list', go: 'scr:inputs', s: ['Open **Inputs**, then the **Nutrients** tab.', 'Press **Add a nutrient**.', 'Type how it is shown (e.g. Amino acids), its full name and its basis (e.g. free amino acids; as K2O)' + (F15 ? '.' : ', and whether it is % w/w or w/v.'), 'Press **Add to the list**.'], n: 'The CFO is told. 1 nutrient, 1 basis: K2O and K are 2 nutrients. C2M stops a second one shown the same way. A nutrient is hidden, never deleted.' },
+  { j: 'Enter a product\'s declared grade', who: 'qc', need: 'grade.declare', go: 'scr:inputs', s: ['Open **Inputs**, then the **Declared grades** tab.', 'Find the product and press **Enter** (or **Edit**).', 'Add each nutrient on its label with the % it promises' + (F15 ? ', **w/w** or **w/v** as the label states it,' : '') + ' and the tolerance you allow below it.', 'Press **Save**.'], n: 'The Check column then compares the label with what the Default recipe gives: meets, or below by how much. It is a warning: it stops nothing.' + (F15 ? ' A label on the other basis (w/w for a product sold per L) is checked once the Production Manager enters the product density.' : '') },
+  ...(F15 ? [{ j: 'Enter the density of a product', who: 'production', need: 'recipe.edit', go: 'scr:inputs', s: ['Open **Inputs**, then the **Declared grades** tab, and find the product.', 'Press **Enter density** (or **Change density**).', 'Type its kg per L at 20 °C, where it comes from and its date.', 'Press **Save density**.'], n: 'Needed when a label is on the other basis: w/w for a product sold per L, w/v for one sold per kg. For a liquid, the Default recipe\'s lines added up show beside it as a hint only, never used in its place.' }] : []),
+  { j: 'Add a material that is not in the list', who: 'qc production', need: 'material.add', go: 'scr:inputs', s: ['Open **Inputs**, **Materials** and check it is not there (the Find box).', 'Press **Add a material**.', 'Type its name and grade, pick its class (To classify, if not sure) and unit, and write the supplier or why it is needed.', 'Press **Add**.'], n: 'The CFO is told and adds its rate; until then a recipe using it cannot pass the cost step. The QC Head enters its nutrients on its card.' },
+  ])(typeof ST === 'undefined' || !ST || ST.m015 !== false) : [ // before migration 014: the old row (review 7a, minor 1)
+  { j: 'Class a material and enter its nutrient %', who: 'qc', need: 'nutrient.edit', go: 'scr:inputs', s: ['Open **Inputs**, **Materials** (Today also lists the materials that need you).', 'Find the material (the Find box above the list).', 'Pick its **Class** (a nutrient source, or no nutrients such as binder, filler, anti-caking agent, wetting agent) and press **Save class**.', 'For a nutrient source, press **Enter %**, type the % of each field and press **Save**.'], n: 'Binders, fillers and agents need only their class. Every recipe that uses the material then shows its nutrient analysis.' },
+  ]),
+  { j: 'Endorse a recipe', who: 'plant', need: 'recipe.step.endorse', go: 'scr:today', s: ['Open **Today**: the line "Endorse recipe: …".', 'Press **Open to endorse** (or its button).', 'Check the recipe, what changed, its nutrients against the label, and its cost.', 'Press **Endorse** (write a comment when something is red), or **Send back to the Production Manager** with a reason and advice, or **Close this version**.'], n: 'The CFO approves its cost next and is told. A recipe sent back goes to the Production Manager.' },
+  { j: 'Close a recipe version', who: 'qc plant cfo', need: ['recipe.step.review', 'recipe.step.endorse', 'recipe.step.cost'], go: { cfo: 'appr:Approve cost', _: 'scr:today' }, s: ['Open the recipe at your step (its line on Today or Approvals).', 'Press **Close this version**.', 'Write why it is closed.', 'Press **Close it**.'], n: 'It stops there and is kept with its lines and steps. The Production Manager is told and reads your reason; the next version starts from the approved one. A draft you sent back can be closed the same way.' },
+  { j: 'Read materials and nutrients', who: 'plant', need: 'see.materials', go: 'scr:inputs', s: ['Open **Inputs**.', 'Find the material (the Find box above the list) and press **Open**.', 'Read each nutrient with its %, whether it is w/w or w/v, its certificate and date, and the density when there is one.'], n: 'To read only: the QC Head enters them. **Declared grades** shows what each label promises against the Default recipe.' },
+  { j: 'Read a recipe', who: 'qc plant', go: 'scr:recipes', s: ['Open **Recipes**.', 'Find it (the Find box above the list) and press its row.', 'Read its lines, its steps and who did each, and its nutrients.'], n: 'Every version is kept; **All recipes** goes back to the list.' },
+  { j: 'See your price lists', who: 'viewer', go: 'scr:lists', s: ['Open **Price lists**.', 'Press the list\'s name at the top.', 'Read the approved prices.'], n: 'Approved prices only, in the same document every manager receives.' },
+  { j: 'Download a price list as PDF', who: 'viewer', need: ['pricedoc.granted', 'pricedoc.all'], go: 'scr:lists', s: ['Open **Price lists**.', 'Press the list\'s name at the top.', 'Press **Download** … **as PDF** and share it.'], n: 'Prices are approved prices only. Cost and margin are never printed.' },
+  { j: 'Ask for a list you cannot see', who: 'viewer', go: 'scr:lists', s: ['Open **Price lists**.', 'If it says no price list is granted to you yet, or a list you need is missing,', 'ask the COO or the CFO: they give lists on their Price lists, Who can see them.'], n: 'Each list they tick shows on your Price lists at once.' },
+];
+/** A row's roles (B = the CFO and the COO), its Start for this person, and its "who" words. */
+const gjRoles = r => r.who.split(' ').flatMap(x => x === 'B' ? ['cfo', 'coo'] : [x]);
+const gjGo = (r, role) => typeof r.go === 'string' ? r.go : r.go[role || gRole()] || r.go._;
+const gjWho = r => { const R = gjRoles(r); return R.includes('cfo') && R.includes('coo') && R.length === 2 ? 'CFO and COO' : R.length > 3 ? 'Everyone' : R.map(x => GJWHO[x]).join(', ').replace(/, ([^,]+)$/, ' and $1'); };
+/** This person's rows: their role's, only those whose job they have the right to do, and only those whose Start opens a place they have. */
+/** need: the action right the job needs (1 of them, when a list), as in c2m-access.js; a job that only reads needs only its place (review 6b, M3). */
+const gjCan = r => !r.need || [].concat(r.need).some(CAN);
+const gjMine = () => { const me = gRole(); return me ? GUIDE_JOBS().filter(r => gjRoles(r).includes(me) && gjCan(r) && canGo(gjGo(r, me))) : []; };
+const gjOpen = new Set();
+const gjBold = s => esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+/** Push 7g (finding 14): the jobs grouped under the place each one starts in, in the order the places first appear. */
+function gjPlace(r) { const p = String(goTxt(gjGo(r)) || '').split(/,|›/).map(x => x.trim()).filter(Boolean); const k = p[0] === 'More' ? p[1] : p[0]; return !k || /^Find/.test(k) ? 'Other jobs' : k; }
+function gjGroups(L) { const G = new Map(); L.forEach(r => { const k = gjPlace(r); (G.get(k) || G.set(k, []).get(k)).push(r); });
+  const E = [...G].sort((a, b) => (a[0] === 'Other jobs') - (b[0] === 'Other jobs')); // the jobs with no single place come last
+  return G.size < 2 ? L.map(gjRow).join('') : E.map(([k, rs]) => `<h3 class="gjg">${esc(k)}</h3>${rs.map(gjRow).join('')}`).join(''); }
+/** Push 10a (A-24): while the go-live window is open the recipe button reads "Send to the CFO", so the Guide and the role page say so too;
+ *  the role page's version is not changed, so nobody signs again. */
+function glGuide(x) {
+  if (!GLON() || x == null) return x; const f = fmtShort(ST.golive.until);
+  return String(x).replace(/Send to the QC Head/g, `Send to the CFO (go-live window, until ${f}; after it, Send to the QC Head)`)
+    .replace('The QC Head checks it next, then the Plant Manager, then the CFO approves its cost; each is told.', `In the go-live window it goes straight to the CFO, who approves it and its cost; after ${f} the QC Head checks it first, then the Plant Manager, then the CFO.`)
+    .replace('The QC Head checks it, then the CFO approves its cost (no Plant Manager step).', `In the go-live window it goes straight to the CFO; after ${f} the QC Head checks it first.`);
+}
+function gjRow(r) {
+  const o = gjOpen.has(r.j) || r.j === wnGuide, go = gjGo(r), id = 'gjb-' + r.j.replace(/[^a-z0-9]+/gi, '-').toLowerCase();
+  return `<div class="gj${r.j === wnGuide ? ' gjhl' : ''}" data-gj="${esc(r.j)}"><div class="gjh"><button class="gjt" data-gjtog="${esc(r.j)}" aria-expanded="${o}" aria-controls="${id}"><span class="gjn">${esc(r.j)}</span><span class="gjw">${esc(gjWho(r))}</span><span class="chev" aria-hidden="true">${o ? '▾' : '▸'}</span></button><button class="btn ghost gjs" data-gstart="${esc(go)}" aria-label="Start: ${esc(r.j)}. Opens ${esc(goTxt(go))}">Start</button></div>${o ? `<div class="gjb" id="${id}"><ol>${r.s.map(x => `<li>${gjBold(glGuide(x))}</li>`).join('')}</ol>${r.n ? `<p class="gjnx">${gjBold(glGuide(r.n))}</p>` : ''}<p class="ans gjto">Start opens ${esc(goTxt(go))}.</p></div>` : ''}</div>`;
+}
+function vGuide() {
+  const big = CAN('see.margin'), me = gRole(), mine = gjMine();
+  const skinRow = `<h2>Your look</h2><div class="skinrow" role="group" aria-label="Your look">${SKINS.map(([k, l]) => `<button data-skin="${k}" aria-pressed="${skin === k}"><i style="background:${{ silver: '#EDF0F5', slate: '#C9D3DC', stone: '#E3DCCF', dusk: '#151A22' }[k]}"></i>${l}</button>`).join('')}</div><p class="ans" style="margin-top:6px">Kept in this browser, so each device remembers its own.</p>`;
+  const whoBox = `<div class="two">${WHO.map(w => `<div class="box form"${w.r === ST.me.role ? ' style="border-color:var(--blue)"' : ''}><b>${esc(w.who)}${w.r === ST.me.role ? ' (this is you)' : ''}</b><p style="margin:6px 0 0">${esc(w.does)}</p><p style="margin:6px 0 0;color:var(--muted,#667)">${esc(w.next)}</p></div>`).join('')}</div>`;
+  const ans = (mine.length ? `Your jobs: ${mine.length}. Tap a job for its steps, then Start.` : `Your job in C2M, ${esc(ST.me.label)}.`) + (rolePageKey() ? ' <button class="btn ghost sm" data-rpread="">Read your role page</button>' : ''); // push 7e
+  const list = mine.length ? `<h2>Your jobs</h2>${mine.length > 6 ? findBox('gjobs', 'Find a job') : ''}<div class="gjl" id="gjobs" data-lft="gjobs">${gjGroups(mine)}</div>` : `<div class="box form"><b>Your job</b><ol style="margin:0;padding-left:20px">${GUIDE_CUSTOM.map(x => `<li>${esc(x)}</li>`).join('')}</ol></div>`;
+  if (big) return `${head('Guide', ans, `Each row is 1 job: tap it for its numbered steps and what happens next; Start opens its first screen. Rows for the ${me === 'coo' ? 'COO' : 'CFO'}, and for both of you. The full system documentation is in More, Setup, Record and checks.`)}
+  <h2>Your first day in 5 steps</h2><ol class="box form" style="margin:0 0 14px;padding:12px 12px 12px 32px">${(me === 'coo' ? ['Open <b>Approvals</b>. Do "Your next move", then the prices, list revisions, targets and settings waiting for you.', 'Open <b>Clients</b>, White Label. A price from the CFO shows "Open to approve" in its row; a brand in a row opens its page.', 'Open <b>Margin</b>. It opens on the whole company for this month; open a line, then a pack, down to each truck.', 'Open <b>More, Products</b> to add a client, a variant or a pack.', 'Open <b>More, Setup, Settings, KAM lists</b> to give a KAM his lists.'] : ['Open <b>Approvals</b>. Do "Your next move", then the rest of your list.', 'Open <b>Clients</b>, White Label. Pick a client, then a brand: its recipe, cost, prices and margin are on 1 page.', 'On the client, type a new price or target in the row, see the GP at once, then send it to the COO. It takes effect on Monday.', 'Open <b>Margin</b>. It opens on the whole company for this month; open a line, then a pack, down to each truck.', 'Open <b>Costs</b> when a material, packing, labour or FOH (factory overhead) cost changes; each cost has its own box. Every change is dated and logged.']).map(x => `<li>${x}</li>`).join('')}</ol>
+  ${wnGuideBox()}${list}
+  <details class="how" style="margin-top:12px"><summary>Who does what in the recipe chain</summary>${whoBox}</details>
+  ${skinRow}`;
+  return `${head('Guide', ans, mine.length ? 'Each row is 1 job: tap it for its numbered steps and what happens next; Start opens its first screen.' : '')}${wnGuideBox()}${list}
+  <div class="box form" style="margin-top:14px"><b>How C2M works</b><ol style="margin:0;padding-left:20px"><li>Each client product has its own recipe: the Production Manager writes, the QC Head checks, the Plant Manager endorses, the CFO approves cost. A product can keep another recipe beside it (the Production Manager writes, the QC Head checks, the CFO approves); only the Default sets cost. Each person is told when a recipe comes to them.</li><li>A variant is the form of a product (Powder, Pellets); a size such as 1 L or 25 kg is a pack.</li><li>The CFO keeps rates current; C2M recosts every recipe.</li><li>The CFO proposes prices; the COO approves; managers see the approved lists.</li><li>A product can have variants (Humi Grow: Powder, Pellets); a variant's recipe starts as a copy.</li><li>KAMs see only the lists and clients the CFO or the COO give them. Cost and margin never reach them.</li><li>Every change is dated and logged.</li></ol></div>
+  ${skinRow}
+  <h2>Who does what</h2>${whoBox}
+  ${ST.docs && ST.docs.length && !CAN('guide.all') ? `<h2>Read more</h2><div class="subnav" role="tablist" aria-label="Documents">${ST.docs.map(d => `<button role="tab" data-gdoc="${esc(d)}" aria-selected="${!!(boDoc && boDoc.f === d)}">${esc(d.replace(/^\d+-/, '').replace(/-/g, ' ').replace('.md', ''))}</button>`).join('')}</div>${boDoc ? `<div class="md"><pre>${esc(boDoc.text)}</pre></div>` : ''}` : ''}`;
+}
+
+/** Open the propose panel for a pack, pre-filled with the price for target (or today's price). */
+function startPropose(id, t) { const k = packIdx().get(id); const tp = k && k.cost && k.product.target != null ? Math.ceil(k.cost.total / (1 - k.product.target / 100)) : Math.ceil((k && k.price) || 0); const keep = pan ? panReturn : undefined; openPanel({ k: 'propose', id }, t); if (keep !== undefined) panReturn = keep; propose = { packId: id, v: tp, v0: tp, from: monFrom(ST.today) }; }
+/* ---------- Events ---------- */
+const val = id => ($(id) || {}).value;
+document.addEventListener('click', async e => {
+  const t = e.target.closest('button,tr.go,a[data-signout],input[type=checkbox],[data-panclose],[data-moreclose],.finder'); if (!t) return; const d = t.dataset;
+  if (t.classList.contains('finder') && e.target !== t) return; // a click inside the find box is not a close
+  if (d.skin) { skin = d.skin; try { localStorage.setItem('c2m.skin', skin); } catch (_) {} applySkin(); render(); { const z = document.querySelector(`${scr === 'guide' ? '.skinrow' : '.hdr'} [data-skin="${skin}"]`); if (z) z.focus(); } return; }
+  if ('pco' in d) { prodOpen.has(d.pco) ? prodOpen.delete(d.pco) : prodOpen.add(d.pco); render(); { const z = document.querySelector(`[data-pco="${CSS.escape(d.pco)}"]`); if (z) z.focus(); } return; }
+  if ('pc' in d) { prodC = d.pc; render(); { const z = document.querySelector(`.cl [data-pc="${CSS.escape(prodC)}"]`); if (z) z.focus(); } return; }
+  // 2-step approvals: the first tap asks, the second acts (UX review)
+  // The armed step is green with "Tap again to confirm", not red: approving is not a danger (UX review S16)
+  if (d.confirm && !d.armed) { const was = t.textContent; d.armed = '1'; t.textContent = 'Tap again to confirm: ' + d.confirm.replace(/^Confirm: /, ''); t.classList.add('armed'); t.setAttribute('aria-live', 'assertive'); setTimeout(() => { if (t.isConnected) { delete t.dataset.armed; t.textContent = was; t.classList.remove('armed'); } }, 6000); return; }
+  if ('signout' in d) { e.preventDefault(); try { localStorage.removeItem('van_token'); } catch (_) {} location.href = '/'; return; }
+  if ('panclose' in d) { if (t.classList.contains('scrim') && pan && pan.k === 'propose' && propose && $('ppv') && (String(val('ppn') || '').trim() || Number(val('ppv')) !== propose.v0)) { toast('Send it or press Cancel: a click beside the panel does not drop a typed price.'); return; } closePanel(); }
+  else if ('finder' in d) { finder = { q: '', i: 0 }; moreOpen = false; }
+  else if ('findclose' in d) { finder = null; render(); refocus('[data-finder]'); return; }
+  else if (d.fgo) { if (d.fgoall && d.fgo.startsWith('rep:')) { const k = d.fgo.slice(4), x = rtS(k); x.from = ''; x.till = ''; x.q = 'all'; if (k === 'listcheck') lcF = 'flag'; } finderGo(d.fgo); } // push 10a (C-06): the report opens on the same period the mark counts
+  else if (d.gstart) { finderGo(d.gstart); }
+  else if (d.lfall != null) { LFQ[d.lfall] = ''; LFSET.delete(d.lfall); render(); const f = document.querySelector(`[data-lf="${CSS.escape(d.lfall)}"]`); if (f) f.focus(); return; } // Show all (review 6b, M1) // the Guide's Start (push 6b, D-160): the same map as Find anything
+  else if (d.gjtog != null) { gjOpen.has(d.gjtog) ? gjOpen.delete(d.gjtog) : gjOpen.add(d.gjtog); render(); const z = document.querySelector(`[data-gjtog="${CSS.escape(d.gjtog)}"]`); if (z) z.focus(); return; }
+  else if ('more' in d) moreOpen = !moreOpen;
+  else if ('moreclose' in d) { moreOpen = false; render(); refocus('[data-more]'); return; }
+  else if (d.xls) { exportXls(d.xls); return; }
+  else if (d.rtk) { if (rtClick(t, d)) return; } // the report tools (push 5a, D-157)
+  else if (d.repRetry) { delete REPD[d.repRetry]; if (d.repRetry === 'prices') delete REPD.costs; }
+  else if (d.chm) chM = d.chm; else if (d.phtab) phTab = d.phtab; else if (d.phshow) phShow = d.phshow; else if (d.phlist) phList = d.phlist;
+  else if (d.mbkind) mbKind = d.mbkind; else if (d.mbrows) mbRows = d.mbrows; else if (d.mbtog != null) { if (mbOpen.has(d.mbtog)) mbOpen.delete(d.mbtog); else mbOpen.add(d.mbtog); }
+  else if ('mball' in d) { if (mbOpen.size) mbOpen.clear(); else mbData().cl.forEach(c => mbOpen.add(c.cust)); }
+  else if (d.wfpack) wfPack = +d.wfpack;
+  else if (d.pkopen) pkOpen[d.pkopen] = !pkOpen[d.pkopen];
+  else if ('ptypeedit' in d) ptypeEdit = true;
+  else if (Object.keys(d).some(x => /^ow[a-z]/.test(x))) { const r = await owClick(t, d); if (r !== true) return; } // Your own report (push 5b, D-158)
+  else if (d.rep) { rep = d.rep; window.scrollTo(0, 0); }
+  else if ('repback' in d) rep = null;
+  else if (d.brgrp) brGrp = d.brgrp; else if (d.brmon) brMonth = d.brmon;
+  else if (d.pof) poF = d.pof; else if (d.lcf) lcF = d.lcf;
+  else if (d.vmfarm) vmFarm = d.vmfarm; else if ('vmopen' in d) vmOpen = !vmOpen;
+  else if ('vmsave' in d) { const L = vmChanges().map(c => ({ id: c.id, packId: c.packId, wasPack: c.was })); if (!L.length) return toast('No link changed.'); const j = await act('/api/c2m/lists/links', { links: L }, j => `${pl(j.changed, 'link', 'links')} saved; a linked row takes the product name on the next list, an unlinked row its own name back.`); if (j === false) return; Object.keys(vmPick).forEach(k => delete vmPick[k]); Object.keys(vmWas).forEach(k => delete vmWas[k]); render(); return; } // saved or refused (not sent while another save runs), the picks go: a refused save shows the links as they are now
+  else if (d.scr) { closePanel(); panReturn = null; moreOpen = false; finder = null; rep = null; lfClear(); if (d.scr !== scr && typeof p3 === 'object' && p3) p3 = { client: null, prod: null, vform: null, tag: null }; /* a form belongs to its place (review F10) */ scr = d.scr; if (d.scr === 'costs') cpart = null; if (d.scr === 'clients') cl = { kind: null, brand: null, last: cl.last }; lst.open = null; saved = null; dryKey = null; drill = { cust: null, prod: null }; openRec = null; openProd = null; sub = null; trial = null; ptrial = null; boDoc = null; newRec = null; billEdit = null; costPend = null; window.scrollTo(0, 0); }
+  else if (d.job != null) { const J0 = jobs(), jk = t.dataset.jk; const j = jk != null ? J0.find(x => x.key === jk) : J0[+d.job]; if (jk != null && !j) { toast('This job has changed since the page was drawn: the list is up to date now.'); render(); return; } if (j && j.propose) startPropose(j.propose, t); else if (j && j.pan) { openPanel(j.pan, t); if (j.pan.k === 'mats') matFilter = 'todo'; } else if (j && j.go) j.go(); }
+  else if (d.reapview) openPanel({ k: 'reapp', id: +d.reapview }, t);
+  else if (d.panopen === 'glrev') openPanel({ k: 'glrev' }, t); // push 10a
+  else if (d.panprop) openPanel({ k: 'prop', id: +d.panprop }, t);
+  else if (d.panlrev) openPanel({ k: 'lrev', id: +d.panlrev }, t);
+  else if (d.panrec) openPanel({ k: 'rec', id: +d.panrec }, t);
+  else if ('pansetreq' in d) openPanel({ k: 'setreq', id: d.pansetreq ? +d.pansetreq : null }, t);
+  else if ('pantreq' in d) openPanel({ k: 'treq', id: d.pantreq ? +d.pantreq : null }, t);
+  else if ('panact' in d) openPanel({ k: 'actuals' }, t);
+  else if (d.lcopen != null) { lst = { open: d.lcopen || null, t: '', f: '', why: '', form: false }; ncp.tab = 'vlists'; scr = 'clients'; cl.kind = 'van'; cl.brand = null; window.scrollTo(0, 0); }
+  else if ('lstform' in d) { lst.form = true; lst.t = ''; lst.f = ''; lst.why = ''; render(); const e = $('lst-t'); if (e) e.focus(); return; }
+  else if ('lstx' in d) { lst.form = false; }
+  else if ('lstsend' in d) { const k = lst.open; const ch = {}; const t = String(lst.t).trim(), f = String(lst.f).trim();
+    if (t !== '') { if (!(Number(t) > 0 && Number(t) < 100) || !/^\d{1,2}(\.\d{1,2})?$/.test(t)) return toast('Type the target as a % above 0 and below 100, digits only.', true); ch['lt_' + k] = t; }
+    if (f !== '') { if (!/^\d+(\.\d{1,2})?$/.test(f)) return toast('Type the freight in Rs per kg, digits only (e.g. 4 or 4.50).', true); ch['lf_' + k] = f; }
+    if (!Object.keys(ch).length) return toast('Type a new target, a new freight, or both.', true);
+    if (!String(lst.why || '').trim()) return needOne('lst-w', 'Write why first: Tahir reads it before he approves.');
+    const j = await act('/api/c2m/settings', { changes: ch, why: lst.why }, j => j.pending ? 'Sent to Tahir. It is on his Approvals list.' : 'Nothing sent: the figures are the same as now.'); if (j) { lst.form = false; render(); } return; }
+  else if (d.clkind) { cl = { kind: d.clkind, brand: null, last: d.clkind }; scr = 'clients'; if (d.clkind === 'wl') ncp.tab = 'wl'; else if (ncp.tab === 'wl') ncp.tab = 'vprod'; window.scrollTo(0, 0); }
+  else if (d.clbrand) { cl = { kind: 'wl', brand: +d.clbrand, last: 'wl' }; scr = 'clients'; window.scrollTo(0, 0); }
+  else if (d.clcust != null) { cl = { kind: 'wl', brand: null, last: 'wl' }; ncp.cl = d.clcust; ncp.tab = 'wl'; scr = 'clients'; window.scrollTo(0, 0); }
+  else if (d.openprod) { closePanel(); panReturn = null; goPlace('products'); openProd = +d.openprod; ptab = d.ptab || 'recipe'; recSel = null; newRec = null; costPend = null; window.scrollTo(0, 0); }
+  else if ('prodback' in d) { openProd = null; propose = null; ask = null; newRec = null; costPend = null; }
+  else if ('guideseen' in d) { try { localStorage.setItem('c2m.guideSeen', '1'); } catch (_) {} }
+  else if (d.pretract) { await act(`/api/c2m/prices/${d.pretract}/retract`, {}, 'Taken back. You can propose the right price now.'); return; }
+  else if (d.tretract) { await act(`/api/c2m/targets/${d.tretract}/retract`, {}, 'Taken back.'); return; }
+  else if (d.ptab) { ptab = d.ptab; propose = null; ask = null; }
+  else if (d.pedit) { const j = await act(`/api/c2m/products/${d.pedit}/edit`, { brand: val('ed-b-' + d.pedit), o2sNames: val('ed-o-' + d.pedit) }, 'Names saved.'); return; }
+  else if (d.puse) { const on = d.on === '1'; const j = await act(`/api/c2m/products/${d.puse}/inuse`, { on }, on ? 'Back in use.' : 'Taken out of use. It is hidden from Products, prices and Margin.'); if (j && !on) { openProd = null; render(); } return; }
+  else if (d.prm) { await act(`/api/c2m/packs/${d.prm}/remove`, {}, 'Pack removed.'); return; }
+  else if (d.recver) { recSel = +d.recver; sendBack = null; editLines = null; }
+  else if (d.pf) prodF = d.pf;
+  else if (d.inp) { inp = d.inp; trial = null; ptrial = null; billEdit = null; }
+  else if (d.fb) fbasis = d.fb;
+  else if (d.hist) hist = d.hist;
+  else if (d.per) period = d.per; else if (d.mon) { period = 'any'; month = d.mon; }
+  else if ('home' in d) drill = { cust: null, prod: null };
+  else if (d.cust != null && !d.propose) { scr = 'margin'; nm.drill = null; nm.grp = 'all'; nm.by = 'client'; nm.q = d.cust; window.scrollTo(0, 0); }
+  else if (d.rec) { goRec(+d.rec); window.scrollTo(0, 0); }
+  else if ('recback' in d) openRec = null;
+  else if (d.adv) { const rc = $('rcm'); const note = rc && rc.dataset.ver === String(d.adv) ? rc.value : ''; /* review 17b: a comment typed for another version is never sent with this one */ const ok = await act(`/api/c2m/recipes/${d.adv}/advance`, { note }, j => j.state === 'approved' ? 'Cost approved. Clients and price lists use it now; in Margin it applies to trucks from tomorrow (a first cost also covers earlier trucks).' : `Sent on to the ${ROLE_NAME[STEP_ROLE[j.state]] || 'next person'}${j.changed && j.state === 'review' ? ': the lines changed, so it starts again with the QC Head' : ''}. They are told.`); if (ok) { delete recComment[d.adv]; render(); } return; }
+  else if (d.rclose) { closeRec = +d.rclose; sendBack = null; }
+  else if ('rclosecancel' in d) closeRec = null;
+  else if (d.rclosego) { const ok = await act(`/api/c2m/recipes/${d.rclosego}/close`, { reason: val('rcl') }, 'Version closed. The Production Manager is told.'); if (ok) { closeRec = null; render(); } return; }
+  else if ('elAddgo' in d) { const g = +val('el-addm'), q = Number(String(val('el-addq') || '').replace(',', '.')); if (!g) { toast('Pick a material to add.'); return; } if (!(q > 0)) { toast(`Type its kg per ${editLines.cp && isPerL(editLines.cp) ? 'L' : 'kg'}, more than 0.`); const f = $('el-addq'); if (f) f.focus(); return; } editLines.lines.push({ gradeId: g, qty: q }); editLines.addG = editLines.addQ = ''; }
+  else if (d.sb) { sendBack = +d.sb; closeRec = null; } else if ('sbcancel' in d) sendBack = null;
+  else if (d.sbsend) { const r = await act(`/api/c2m/recipes/${d.sbsend}/sendback`, { reason: val('sbr'), advice: val('sba') }, 'Sent back to the Production Manager'); if (r) { sendBack = null; render(); } return; }
+  else if ('newrec' in d) { newRec = { cp: d.newrec ? +d.newrec : null }; }
+  else if ('nrcancel' in d) newRec = null;
+  else if ('nrsave' in d && (newRec.kind || 'default') === 'other' && $('nrnm') && !need([['nrnm', 'Name this recipe, e.g. DAP in place of TSP.']])) return;
+  else if ('nrsave' in d) { const cpId = +val('nrp'); const p = (ST.products || []).find(x => x.id === cpId); const other = (newRec.kind || 'default') === 'other' && !!$('nrnm'); const r = await act('/api/c2m/recipes/new', { clientProductId: cpId, fromVersionId: p ? (p.approvedVersionId || p.latestVersionId) : null, note: val('nrn'), recipeKind: other ? 'other' : 'default', recipeName: other ? val('nrnm') : undefined }, other ? 'Draft started. Send it when ready: it goes straight to the CFO for its cost.' : 'Draft started'); if (r) { newRec = null; goRec(r.id); render(); } return; }
+  else if (d.editlines) { const v = ST.recipes.find(x => x.id === +d.editlines); editLines = { id: v.id, cp: v.clientProductId, lines: v.lines.map(l => ({ gradeId: l.gradeId, qty: l.qty })) }; }
+  else if (d.elDel != null) editLines.lines.splice(+d.elDel, 1);
+  else if ('elCancel' in d) editLines = null;
+  else if (d.elSave) { const r = await act(`/api/c2m/recipes/${d.elSave}/lines`, { lines: editLines.lines }, 'Lines saved'); if (r) { editLines = null; render(); } return; }
+  else if (d.elSend) { const r = await act(`/api/c2m/recipes/${d.elSend}/lines`, { lines: editLines.lines }, 'Lines saved'); if (!r) return; editLines = null; render(); await act(`/api/c2m/recipes/${d.elSend}/advance`, {}, j => j.state === 'cost' ? 'Lines saved and sent to the CFO. He is told.' : `Lines saved and sent on to the ${ROLE_NAME[STEP_ROLE[j.state]] || 'next person'}: the go-live window has ended. They are told.`); render(); return; } // review 17b: the editor is closed even when the send fails // D-170: 1 press in the go-live window
+  else if (d.reapp) { await act(`/api/c2m/reapprovals/${d.reapp}/approve`, {}, j => `${j.approved ? `Re-approved ${pl(j.approved, 'pack', 'packs')}. Prices on Clients use the new cost now; in Margin it applies to trucks from tomorrow (a first cost also covers earlier trucks).` : 'No pack re-approved.'}${j.left && j.left.length ? ' Left on approved cost: ' + j.left.join('; ') : ''}`); return; }
+  else if (d.reappsome) { const ids = [...document.querySelectorAll(`[data-rpi^="${d.reappsome}:"]`)].filter(x => x.checked).map(x => +x.dataset.rpi.split(':')[1]); await act(`/api/c2m/reapprovals/${d.reappsome}/approve`, { packIds: ids }, j => `${j.approved ? `Re-approved ${pl(j.approved, 'pack', 'packs')}.` : 'No pack re-approved.'}${j.reopened ? ` ${pl(j.reopened, 'pack', 'packs')} not ticked wait in a new item on Approvals.` : ''}${j.left && j.left.length ? ' Left on approved cost: ' + j.left.join('; ') : ''}`); return; }
+  else if (d.reappno) ask = { kind: 'reappno', id: +d.reappno };
+  else if ('askcancel' in d) ask = null;
+  else if ('askok' in d) { const why = val('askw'); if (!String(why || '').trim()) { toast('Write the reason first.', true); return; } const A = ask;
+    const j = A.kind === 'reappno' ? await act(`/api/c2m/reapprovals/${A.id}/dismiss`, { why }, r => 'Closed. Approved costs unchanged. If today\'s cost is still more than ' + SET('reapprove_pct') + '% from the approved cost, a new item comes back.' + (r.reapproval ? ` ${pl(r.reapproval, 'pack', 'packs')} still moved for another reason: new item added.` : ''))
+      : A.kind === 'pwd' ? await act(`/api/c2m/prices/${A.id}/withdraw`, { why }, r => 'Withdrawn. Today\'s price stays as it was.' + (r.issuedDocs && r.issuedDocs.length ? ' Already issued with that price: ' + r.issuedDocs.join(', ') + '. Tell the client.' : ''))
+      : A.kind === 'lwd' ? await act(`/api/c2m/lists/revisions/${A.id}/withdraw`, { why }, 'Withdrawn. The list stays as it is.')
+      : A.kind === 'retire' ? await act(`/api/c2m/rules/conversion/${A.id}/retire`, { why }, r => r.reapproval ? `Out of use. ${pl(r.reapproval, 'pack', 'packs')} to re-approve.` : 'Out of use.')
+      : await act(`/api/c2m/products/${A.id}/type`, { newType: why }, 'Product type added and set');
+    if (j) { ask = null; render(); } return; }
+  else if (d.rpi) return;
+  else if (d.reproc) { const P0 = (ST.products || []).find(x => x.id === +d.reproc); costPend = P0 && !!P0.reprocessed === t.checked ? null : { kind: 'reproc', id: +d.reproc, value: t.checked }; }
+  else if ('cpcancel' in d) costPend = null;
+  else if ('cpsave' in d) { const c = costPend; if (!c) return; const j = c.kind === 'reproc' ? await act(`/api/c2m/products/${c.id}/reprocessed`, { on: c.value }, r => r.reapproval ? 'Saved. Cost moved: re-approval added.' : 'Saved')
+      : c.kind === 'ptype' ? await act(`/api/c2m/products/${c.id}/type`, { typeId: c.value || null }, r => r.reapproval ? 'Type set. Cost moved: re-approval added.' : 'Product type set')
+      : await act('/api/c2m/packing/assign', { packId: c.id, billId: c.value || null }, r => r.reapproval ? 'Packing bill set. Cost moved: re-approval added.' : 'Packing bill set');
+    if (j) { costPend = null; render(); } return; }
+  else if (d.try) { trial = { gradeId: +d.try, rate: (ST.rates.find(r => r.gradeId === +d.try) || {}).rate, source: '', conf: false, res: null }; render(); $('trf') && $('trf').scrollIntoView({ block: 'center' }); return; }
+  else if ('trcalc' in d) { trial.rate = Number(val('trv')); trial.source = val('trs'); trial.conf = false; try { trial.res = await api('/api/c2m/rates/try', { gradeId: trial.gradeId, rate: trial.rate }); trial.resRate = trial.rate; } catch (err) { toast(err.message, true); } }
+  else if ('trdrop' in d) { trial = null; toast('Dropped: nothing was changed.'); }
+  else if ('trsave' in d && !need([['trv', 'Type the new rate.'], ['trs', 'Add the source: PO number or quote.']])) return;
+  else if ('trsave' in d) { const r = await act('/api/c2m/rates', { gradeId: trial.gradeId, rate: Number(val('trv')), source: val('trs'), confirmed: trial.conf, ...wkBody('tr') }, j => j.reapproval ? `Saved. ${pl(j.reapproval, 'pack', 'packs')} moved over ${SET('reapprove_pct')}%: they wait on Approvals for re-approval.` : 'Saved.'); if (r) { trial = null; render(); } return; }
+  else if (d.ptry) { const it0 = ST.packingItems.find(i => i.id === +d.ptry) || {}; ptrial = { itemId: +d.ptry, buy: it0.buy ? 'kg' : 'piece', source: '', conf: false, warn: null }; }
+  else if ('ptdrop' in d) ptrial = null;
+  else if ('ptsave' in d && !need([['pts', 'Add the source: PO number or quote.'], ['pt-pp', 'Type the new price per piece.'], ['pt-kg', 'Type the price per kg.'], ['pt-n', 'Type how many pieces make 1 kg.']])) return;
+  else if ('ptsave' in d) { const it = ST.packingItems.find(i => i.id === ptrial.itemId) || {}; const body = buyBody('pt'); ptrial.source = val('pts');
+    const pc = body.buy === 'kg' ? Number(body.perKg) / Number(body.piecesPerKg) : body.price; const wp = it.price > 0 && pc > 0 ? (pc - it.price) / it.price * 100 : 0;
+    if (Math.abs(wp) > SET('rate_warn_pct') && !ptrial.conf) { const keep = { kg: val('pt-kg'), n: val('pt-n'), pp: val('pt-pp') }; ptrial.warn = { price: pc, pct: Math.abs(wp) }; render(); Object.entries(keep).forEach(([k, v]) => { const el = document.getElementById('pt-' + k); if (el && v) el.value = v; }); trialSync(); toast('Check the price, then tick "Yes, I meant this price".', true); return; }
+    const pb = { itemId: ptrial.itemId, ...body, source: ptrial.source, confirmed: ptrial.conf, ...wkBody('pt') }; if (!(await effectFirst('/api/c2m/packing/rate', pb, 'eff-pt'))) return; // effect before saving (R14)
+    const r = await act('/api/c2m/packing/rate', pb, j => j.reapproval ? `Saved. ${pl(j.reapproval, 'pack', 'packs')} moved more than ${SET('reapprove_pct')}%: they wait on Approvals for re-approval.` : GLON() ? 'Saved and in force. Go-live window: no re-approval now; packs whose cost moved are on Approvals, Costs that become approved.' : 'Saved. No approved pack moved more than ' + SET('reapprove_pct') + '%.'); if (r) { ptrial = null; render(); } return; }
+  else if (d.sub) { sub = d.sub; propose = null; }
+  else if (d.pgrp) pgrp = d.pgrp;
+  else if (d.propose) startPropose(+d.propose, t);
+  else if ('pcancel' in d) { if (pan && pan.k === 'propose') closePanel(); else propose = null; }
+  else if ('psend' in d) { propRefresh(); if (!String(val('ppn') || '').trim()) { propose.err = 'ppn'; const h = $('ppnh'); if (h) h.innerHTML = '<b class="over">Write the reason the client will read before sending.</b>'; const f = $('ppn'); if (f) { f.setAttribute('aria-invalid', 'true'); f.focus(); } return; } if (!cycGate('pp')) return; const r = await act('/api/c2m/prices/propose', { packId: propose.packId, price: Number(val('ppv')), ...cycBody('pp'), validTo: val('ppt') || undefined, reason: val('ppn'), belowReason: val('ppr'), replaceId: propose.replaceId }, 'Sent to the COO. It is on his Approvals list.'); if (r) { if (pan && pan.k === 'propose') closePanel(); else propose = null; render(); } return; }
+  else if (d.presend) { const p = ST.proposals.find(x => x.id === +d.presend); propose = { packId: p.packId, v: p.price, was: p.backReason, reason: p.reason, r: p.belowReason, replaceId: p.id, from: (() => { const f = d10(p.from); return isMon(f) && f >= ST.today ? f : monFrom(ST.today); })(), urg: !!p.urgent, urgWhy: p.urgent || '' }; render(); $('pf') && $('pf').scrollIntoView({ block: 'center' }); return; }
+  else if (d.pok) { await act(`/api/c2m/prices/${d.pok}/approve`, {}, j => (j.waitsUntil ? `Approved. It takes over on ${fmtD(j.waitsUntil)}; today's price stays until then.` : `Approved. In force from today: Clients and the next price list use it. Margin moves only as new POs at this price ship; POs already received keep their PO price.`) + (j.cancelled ? ' The price that was waiting for a later date is cancelled.' : '')); return; }
+  else if (d.pwd) ask = { kind: 'pwd', id: +d.pwd };
+  else if (d.lwd) ask = { kind: 'lwd', id: +d.lwd };
+  else if (d.pback) propose = { back: +d.pback }; else if ('pbcancel' in d) propose = null;
+  else if (d.pbsend) { const r = await act(`/api/c2m/prices/${d.pbsend}/sendback`, { reason: val('pbr') }, 'Sent back to the CFO'); if (r) { propose = null; render(); } return; }
+  else if (d.revstart) { rev = { list: d.revstart, vals: {}, marked: !!d.revmarked, only: d.revonly ? d.revonly.split(',') : null, packAt: Object.fromEntries((ST.listItems || []).filter(x => x.list === d.revstart).map(x => [x.id, x.data.packId != null ? Number(x.data.packId) : null])) }; /* the pack each row is on when the form opens: a move meanwhile is refused, never priced (review 1.0.3, seventh check, finding 2) */ render(); $('revf') && $('revf').scrollIntoView({ block: 'start' }); return; }
+  else if ('revcancel' in d) rev = null;
+  else if ('revsend' in d) { document.querySelectorAll('[data-rv]').forEach(i => { rev.vals[i.dataset.rv] = i.value; }); const items = {}; Object.entries(rev.vals).forEach(([k, v]) => { if (v === '' || v == null) return; const [id, f] = k.split(':'); (items[id] = items[id] || (id[0] === 'p' ? { id: null, packId: +id.slice(1), values: {} } : { id: +id, ...(rev.packAt && rev.packAt[+id] !== undefined ? { wasPack: rev.packAt[+id] } : {}), values: {} })).values[f] = f === 'disc' ? String(Number(v) / 100) : v; });
+    if (!need([['rvr', 'Write the reason for the revision.']])) return; if (!cycGate('rv')) return; const j = await act('/api/c2m/lists/revise', { list: rev.list, items: Object.values(items), reason: val('rvr'), ...cycBody('rv'), validTill: val('rvt') || null, replaceId: rev.replaceId }, j => `Sent to the COO: ${pl(j.rows, 'price', 'prices')}.`); if (j) { rev = null; render(); } return; }
+  else if (d.lrok) { await act(`/api/c2m/lists/revisions/${d.lrok}/approve`, {}, j => j.waitsUntil ? `Approved. It takes effect on ${fmtD(j.waitsUntil)}; the list stays as it is until then.` : 'Approved. The list and its dates are updated.'); return; }
+  else if (d.lrback) rev = { back: +d.lrback };
+  else if (d.lrbsend) { if (!need([['lrbr', 'Write why it goes back, for the CFO.']])) return; const j = await act(`/api/c2m/lists/revisions/${d.lrbsend}/sendback`, { reason: val('lrbr') }, 'Sent back to the CFO'); if (j) { rev = null; render(); } return; }
+  else if (d.lrredo) { rev = revRedo(ST.listRevisions.find(x => x.id === +d.lrredo)); }
+  else if (d.goPrices) { scr = 'prices'; sub = d.goPrices; pan = d.goPrices === 'proposals' ? pan : null; }
+  else if (d.col) { cols[d.col] = t.checked; }
+  else if (d.aud) { PLB.aud = d.aud; PLB.effSet = PLB.tillSet = false; }
+  else if (d.plf) { PLB.pick[PLB.aud][d.plf] = t.checked; }
+  else if (d.list) { listSel = d.list; }
+  else if (d.plget) { await once(async () => { try { await savePdf(+d.plget); } catch (err) { toast(err.message, true); } }); return; } // the latest issued document again: no new number (11 Nov 2026)
+  else if ('plnew' in d) { PLB.aud = d.plnew; if (d.plclient) PLB.client = d.plclient; PLB.effSet = PLB.tillSet = false; goPlace('lists'); }
+  else if ('mkpdf' in d) { const a = PLB.aud; const pick = PLB.pick[a] || Object.fromEntries(fieldsFor(a).map(f => [f[0], !!f[2]])); await once(async () => { try { const j = await api('/api/c2m/pricedocs', { audience: a, client: PLB.client, fields: fieldsFor(a).map(f => f[0]).filter(k => pick[k]), eff: PLB.effSet ? PLB.eff : undefined, till: PLB.tillSet ? PLB.till : undefined, note: PLB.note, reasons: PLB.reasons }); NAVTYPED.clear(); PLX = null; await savePdf(j.id); toast('PDF created: ' + (j.ref || 'see your downloads')); } catch (err) { toast(err.message, true); } try { await load(); } catch (_) {} }); return; } // a double click makes 1 document (D-145)
+  else if (d.imp) { await act(`/api/c2m/import/${d.imp}/accept`, {}, 'Accepted under your name'); return; }
+  else if (d.impc) corr = +d.impc; else if ('impcancel' in d) corr = null;
+  else if (d.impsave) { const r = await act(`/api/c2m/import/${d.impsave}/correct`, { value: val('cv'), why: val('cw'), confirmed: !!($('cconf') && $('cconf').checked) }, j => j.reapproval ? `Saved. ${pl(j.reapproval, 'pack', 'packs')} to re-approve.` : j.kind === 'note' ? 'Recorded. Nothing in C2M changes from a note; make the change on its screen.' : 'Saved into C2M'); if (r) { corr = null; render(); } return; }
+  else if ('sync' in d) { await act('/api/c2m/sync', {}, j => `Pulled O2S: ${j.poLines} PO lines, ${j.trucks} trucks, ${pl(j.issues.length, 'issue', 'issues')}.`); return; }
+  else if (d.grant) { const [u, k, v] = d.grant.split('|'); const r = await act('/api/c2m/grants', { username: u, kind: k, value: v, on: t.checked }, t.checked ? 'Granted' : 'Removed'); if (!r) t.checked = !t.checked; return; } // push 10a (C-05): a tick that was not saved (another save running, or refused) goes back
+  else if ('setsave' in d) { const ch = {}; const empty = []; (ST.settings || []).forEach(s => { const v = val('set-' + s.k); if (v == null) return; if (String(v).trim() === '') { if (String(s.v) !== '') empty.push(s.label || s.k); return; } ch[s.k] = String(v).trim(); }); if (empty.length) { toast(`Type a number for: ${empty.join(', ')}. An empty box is not saved (it would count as 0).`, true); return; } await act('/api/c2m/settings', { changes: ch }, j => j.pending ? 'Sent to the COO for approval.' + (j.applied ? ' Other changes saved; the COO notified.' : '') : j.applied ? 'Saved. The COO is notified.' : 'Nothing to save: nothing was changed.'); return; }
+  else if (d.setok) { await act(`/api/c2m/settings/requests/${d.setok}/approve`, {}, 'Approved. New thresholds apply.'); return; }
+  else if (d.setno) { await act(`/api/c2m/settings/requests/${d.setno}/refuse`, {}, 'Refused.'); return; }
+  else if (d.treq) { const tv = String(val('tg-' + d.treq) || '').trim(), tn = Number(tv); if (tv === '' || !isFinite(tn) || tn <= 0 || tn >= 100) { toast('Type the new target GP: a number above 0 and below 100.', true); return; } await act('/api/c2m/targets/request', { clientProductId: +d.treq, toGp: tn, reason: val('tr-' + d.treq) }, 'Sent to the COO. He approves it on Approvals; Margin then judges this product against it.'); return; }
+  else if (d.tok) { await act(`/api/c2m/targets/${d.tok}/approve`, {}, 'Target approved'); return; }
+  else if (d.tno) { await act(`/api/c2m/targets/${d.tno}/refuse`, {}, 'Refused'); return; }
+  else if (d.rfs) { Object.assign(rf, { scope: d.rfs, name: val('crn'), kind: val('crk'), rs: val('crr'), from: val('crv') }); }
+  else if (d.rfp) { Object.assign(rf, { name: val('crn'), kind: val('crk'), rs: val('crr'), from: val('crv') }); rf.picks[d.rfp] = t.checked; render(); return; }
+  else if ('rfall' in d) { document.querySelectorAll('[data-rfp]').forEach(x => { rf.picks[x.dataset.rfp] = true; }); }
+  else if ('rfnone' in d) rf.picks = {};
+  else if ('crsave' in d) { const cb = { name: val('crn'), kind: val('crk'), rsPerKg: val('crr'), validFrom: val('crv'), scope: rf.scope, pvariantId: val('crvar') || null, baseProductId: val('crt') || null, productIds: Object.keys(rf.picks).filter(k => rf.picks[k]).map(Number), form: val('crf') || null, reprocessed: val('crp2'), packMin: val('crmin') || null, packMax: val('crmax') || null };
+    if (!(await effectFirst('/api/c2m/rules/conversion', cb, 'eff-cr'))) return; // effect before saving (R14)
+    const j0 = await act('/api/c2m/rules/conversion', cb, j => j.reapproval ? `Rate saved and applied. ${pl(j.reapproval, 'pack', 'packs')} moved over ${SET('reapprove_pct')}%: re-approval added.` : 'Rate saved and applied'); if (j0) { rf = { scope: 'general', picks: {}, kind: rf.kind }; render(); } return; }
+  else if (d.mecoo) { const m = d.mecoo; const ids = [...document.querySelectorAll('[data-mesn]')].filter(x => x.checked).map(x => +x.dataset.mesn); await act('/api/c2m/monthend/coo-check', { month: m, seen: ids }, j => `COO check done for ${mon(m)}${j && j.changes != null ? `: ${pl(j.changes, 'change', 'changes')} seen` : ''}.`); return; }
+  else if (d.melock) { const m = d.melock; await act('/api/c2m/monthend/lock', { month: m }, `${mon(m)} is locked.`); return; }
+  else if (d.mereopen) { const m = d.mereopen; if (!need([['mer', 'Write why the month is reopened.']])) return; await act('/api/c2m/monthend/reopen', { month: m, why: val('mer') }, `${mon(m)} is open again.`); return; }
+  else if ('actsave' in d) { if (!need([['al', 'Type actual labour in Rs (0 only if there was none).'], ['af', 'Type actual FOH in Rs (0 only if there was none).']])) return; await act('/api/c2m/actuals', { month: val('am'), labour: String(val('al')).trim(), foh: String(val('af')).trim() }, 'Saved'); return; } // an empty box is never sent as Rs 0 (fault A4)
+  else if (d.chk) { const m = d.chkm || addDays(ST.today.slice(0, 7) + '-01', -1).slice(0, 7); const C = c2mMonth(m);
+    const data = d.chk === 'tie_books' ? { erpSales: val('tbs'), erpCogs: val('tbc') } : { rates: topRates(m).map((r, i) => ({ gradeId: r.gradeId, name: r.name, c2m: r.c2m, date: r.date, source: r.source, rs: Math.round(r.rs), register: val('rgr-' + i) != null ? val('rgr-' + i) : (document.querySelector(`[data-rgr="${i}"]`) || {}).value })) };
+    await act('/api/c2m/checks', { month: m, kind: d.chk, data }, 'Recorded'); return; }
+  else if (d.doc || d.gdoc) { const f = d.doc || d.gdoc; try { const r = await fetch('/api/c2m/docs/' + encodeURIComponent(f), { headers: authH() }); boDoc = { f, text: await r.text() }; } catch (err) { toast(err.message, true); } }
+  else if ('billnew' in d) { billEdit = { name: '', lines: [{ itemId: (ST.packingItems || [])[0].id, level: 'primary', pieces: 1 }], packIds: [] }; blPkQ = ''; }
+  else if (d.billedit) { const b = ST.packingBills.find(x => x.id === +d.billedit); billEdit = { id: b.id, name: b.name, lines: b.lines.map(l => ({ itemId: l.itemId, level: l.level, pieces: l.pieces, packsPerOuter: l.packsPerOuter })), packIds: billPacks().filter(k => Number(k.billId) === Number(b.id)).map(k => k.id) }; blPkQ = ''; }
+  else if ('blAdd' in d) billEdit.lines.push({ itemId: (ST.packingItems || [])[0].id, level: 'primary', pieces: 1 });
+  else if (d.blDel != null) billEdit.lines.splice(+d.blDel, 1);
+  else if ('blCancel' in d) billEdit = null;
+  else if ('blSave' in d) { billEdit.name = val('ben'); const blBody = { ...billEdit, ...wkBody('bl') }; if ((billEdit.id || (billEdit.packIds || []).length) && !(await effectFirst('/api/c2m/packing/bill', blBody, 'eff-bl'))) return; /* a new bill with packs shows its effect too (review 2d, finding 8) */ /* a changed bill shows its effect first (review 5 Nov, finding 10) */ const r = await act('/api/c2m/packing/bill', blBody, j => j.reapproval ? `Saved and approved. ${pl(j.reapproval, 'pack', 'packs')} to re-approve.` : 'Packing bill saved and approved'); if (r) { billEdit = null; render(); } return; }
+  else if ('mcsave' in d) { mcf.name = val('mcn'); mcf.fields = mcf.role === 'nutrient' ? val('mcfl') : ''; const j = await act('/api/c2m/material-types', { name: mcf.name, role: mcf.role, fields: mcf.fields }, x => `Class added: ${x.name}${x.fields && x.fields.length ? ' (' + x.fields.join(', ') + ')' : ''}. Pick it in a material's Class.`); if (j) mcf = { role: 'nutrient' }; render(); return; }
+  else if ('mtsave' in d) { await act('/api/c2m/materials', { name: val('mtn'), typeId: +val('mtt'), unit: val('mtu'), grade: val('mtg'), rate: val('mtr'), source: val('mts') }, 'Material added with its rate'); return; }
+  else if (d.nut) nutEdit = +d.nut;
+  else if (d.matf) matFilter = d.matf;
+  else if (d.mclassno) delete matPend[d.mclassno];
+  else if (d.mclassok) { const id = d.mclassok, tp = (ST.materialTypes || []).find(x => x.id === matPend[id]); const j = await act(`/api/c2m/materials/${id}/type`, { typeId: matPend[id] }, `Class saved: now ${tp ? tp.name : ''}`); if (j) { delete matPend[id]; render(); } return; }
+  else if ('nutcancel' in d) nutEdit = null;
+  else if (d.nutsave) { const r = (ST.materials || ST.rates || []).find(x => x.gradeId === +d.nutsave); const values = {}; const zero = $('nut0') && $('nut0').checked; r.fields.forEach(f => { const v = val('nut-' + f); values[f] = (v === '' || v == null) && zero ? '0' : v; }); const j = await act(`/api/c2m/grades/${d.nutsave}/nutrients`, { values }, 'Nutrient values saved'); if (j) { nutEdit = null; render(); } return; }
+  else if (d.custedit) { custEdit = +d.custedit; custEditCat = d.custrow || null; } else if ('custcancel' in d) custEdit = null;
+  else if (d.custsave) { const j = await act(`/api/c2m/customers/${d.custsave}`, { name: val('cnm'), priceRule: val('cer'), cycle: val('cec'), region: val('ceg'), o2sNames: val('cen'), ...(ST.printNameReady ? { printName: val('cep') } : {}) }, 'Client saved'); if (j) { custEdit = null; render(); } return; }
+  else if (d.retire) ask = { kind: 'retire', id: +d.retire };
+  else if ('frsave' in d) { const fb = { segment: val('frs'), region: val('frr'), rsPerKg: val('frk'), validFrom: val('frf'), ...wkBody('fr') }; if (!(await effectFirst('/api/c2m/freight', fb, 'eff-fr'))) return; await act('/api/c2m/freight', fb, j => `Freight ${fb.segment}, ${fb.region} saved at Rs ${n2(fb.rsPerKg)} per kg from ${fmtD(fb.validFrom || ST.today)}.`); return; }
+  else if ('pinew' in d && !need([['pin', 'Write the item name.'], ['pis', 'Add the source: PO number or quote.'], ['pi-pp', 'Type the price per piece.'], ['pi-kg', 'Type the price per kg.'], ['pi-n', 'Type how many pieces make 1 kg.']])) return;
+  else if ('pinew' in d) { const ok = await act('/api/c2m/packing/item', { name: val('pin'), kind: val('pik'), ...buyBody('pi'), source: val('pis') }, 'Packing item added. Put it on a packing bill to cost a pack.'); if (ok) pinBuy = 'piece'; return; }
+  else return;
+  render();
+});
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) { e.preventDefault(); if (!ST || pan || $('rpbox')) return; finder = finder ? null : { q: '', i: 0 }; moreOpen = false; render(); if (!finder) refocus('[data-finder]'); return; }
+  if (finder) { if (e.key === 'Escape') { finder = null; render(); refocus('[data-finder]'); return; } if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); finder.i = Math.max(0, Math.min((finder.n || 1) - 1, finder.i + (e.key === 'ArrowDown' ? 1 : -1))); $('fres').innerHTML = finderList(); $('fq').setAttribute('aria-activedescendant', 'fopt-' + finder.i); return; }
+    if (e.key === 'Enter') { const b = document.querySelector('#fres [aria-selected="true"]'); if (b) { e.preventDefault(); finderGo(b.dataset.fgo); render(); } return; } return; }
+  if (e.key === 'Escape' && moreOpen) { moreOpen = false; render(); refocus('[data-more]'); return; }
+  if (e.key === 'Enter' && e.target.matches && e.target.matches('tr.go')) e.target.click(); if (e.key === 'Escape' && pan) { if (pan.k === 'propose' && propose && $('ppv') && (String(val('ppn') || '').trim() || Number(val('ppv')) !== propose.v0)) { toast('Send it or press Cancel: Escape does not drop a typed price.'); return; } closePanel(); render(); }
+  // Keep the keyboard inside an open panel (review 18 Oct, finding 7)
+  if (e.key === 'Tab' && pan) { const pn = document.querySelector('aside.panel'); if (!pn) return; const f = panItems(pn); if (!f.length) return;
+    const first = f[0], last = f[f.length - 1]; if (!f.includes(document.activeElement)) { e.preventDefault(); (e.shiftKey ? last : first).focus(); } else if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); } else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); } } });
+/* Searches filter as you type (UX review M2); render() keeps the cursor in the box */
+const SEARCH = { pq: v => { prodQ = v; }, cq: v => { custQ = v; }, rq: v => { repQ = v; }, mq: v => { matQ = v; LFSET.delete('#mat'); }, crq: v => { Object.assign(rf, { q: v, name: val('crn'), kind: val('crk'), rs: val('crr'), from: val('crv') }); } };
+let searchT = null;
+document.addEventListener('input', e => {
+  const t = e.target; if (t.id === 'fq' && finder) { finder.q = t.value; finder.i = 0; $('fres').innerHTML = finderList(); return; }
+  if (['ppv', 'ppf', 'ppt'].includes(t.id)) { propRefresh(); }
+  if (t.id === 'ppn' && propose && propose.err && t.value.trim()) { propose.err = null; t.removeAttribute('aria-invalid'); const h = $('ppnh'); if (h) h.textContent = 'Write it for the client to read.'; }
+  if (t.type === 'date') dateWords(t);
+  if (SEARCH[t.id]) { SEARCH[t.id](t.value); clearTimeout(searchT); searchT = setTimeout(render, 150); }
+  if (t.dataset && t.dataset.lf != null) { LFQ[t.dataset.lf] = t.value; LFSET.delete(t.dataset.lf); lfApply(t.dataset.lf); } // list search: no redraw, the cursor stays (D-138)
+});
+document.addEventListener('change', e => { const t = e.target; if (t && t.dataset && 'nmPersel' in t.dataset) { nm.per = t.value; render(); } });
+/* Report tools (push 5a): From and Till; a date typed that matches a quick choice lights it. The client pickers of the history reports. */
+document.addEventListener('change', e => { const t = e.target, d = t && t.dataset; if (!d) return;
+  if (d.rtfrom != null || d.rtto != null) { const k = d.rtfrom != null ? d.rtfrom : d.rtto; const s = rtS(k); if (d.rtfrom != null) s.from = t.value || ''; else s.till = t.value || ''; const q = RTQ.find(([x]) => { const r = rtRange(x); return r[0] === s.from && r[1] === s.till; }); s.q = q ? q[0] : ''; render(); return; }
+  if ('chcl' in d) { chCl = t.value; render(); } else if ('phcl' in d) { phCl = t.value; render(); } });
+document.addEventListener('input', e => { const t = e.target; if (t && t.id === 'chq') { chQ = t.value; render(); } });
+/* Your own report (push 5b): the data set, a filter, From and Till redraw; a name typed is kept without a redraw. */
+document.addEventListener('change', e => { const t = e.target, d = t && t.dataset; if (!d || !Object.keys(d).some(x => /^ow[a-z]/.test(x))) return; if (owChange(t, d)) render(); });
+document.addEventListener('input', e => { const t = e.target; if (!t) return; if (t.id === 'owname' && OW) OW.nameDraft = t.value; else if (t.id === 'owrenv' && owRen) owRen.v = t.value; });
+document.addEventListener('change', e => { const t = e.target; if (!t || !t.dataset || !newRec) return; if (t.dataset.nrk != null || 'nrp' in t.dataset) { newRec.cp = +val('nrp') || null; newRec.note = val('nrn') || ''; newRec.name = val('nrnm') || newRec.name || ''; if (t.dataset.nrk) newRec.kind = t.dataset.nrk; render(); } }); // D-140: which recipe
+document.addEventListener('change', e => { const t = e.target; if (t && t.dataset && 'pcsel' in t.dataset) { prodC = t.value; render(); } });
+document.addEventListener('change', e => { const t = e.target; if (!t || !t.dataset) return; if ('mem' in t.dataset) { meM = t.value; render(); } else if (t.dataset.mesn) { const m = meM; meSeen[m] = meSeen[m] || {}; meSeen[m][t.dataset.mesn] = t.checked; } });
+document.addEventListener('change', e => { const t = e.target; if (t && t.dataset && 'ncpClsel' in t.dataset) { ncpRead(); ncp.cl = t.value; ncp.cx = false; ncp.ntOpen = {}; render(); } });
+document.addEventListener('change', async e => {
+  const t = e.target, d = t.dataset, id = t.id;
+  if (id === 'trc') { trial.conf = t.checked; render(); }
+  else if (id === 'ptc') { ptrial.conf = t.checked; } // no redraw: it would empty the price boxes (review r12)
+  else if (id === 'trv') { trial.rate = Number(t.value); trialSync(); }
+  else if (id === 'trs') { trial.source = t.value; trialSync(); }
+  else if (id === 'pts') { ptrial.source = t.value; }
+  else if (d.buymode) { if (d.buymode === 'pt') { ptrial.buy = t.value; ptrial.warn = null; ptrial.source = val('pts'); } else pinBuy = t.value; const keep = { pin: val('pin'), pik: val('pik'), pis: val('pis') }; render(); Object.entries(keep).forEach(([k, v]) => { const el = document.getElementById(k); if (el && v) el.value = v; }); }
+  else if (d.buyin) trialSync();
+  else if (id === 'ppv' || id === 'ppf' || id === 'ppt') propRefresh();
+  else if (id === 'pcu') { priceCust = t.value; render(); }
+  else if (d.vmlink) { if (!(d.vmlink in vmWas)) { const x0 = (ST.listItems || []).find(x => x.id === +d.vmlink); vmWas[d.vmlink] = x0 && x0.data.packId != null ? Number(x0.data.packId) : null; } vmPick[d.vmlink] = t.value; render(); } // the link this screen showed when the pick was made (review 1.0.2 re-check, finding 1)
+  else if (d.pnpick) { pn.pick[d.pnpick] = t.value; }
+  else if (d.lmPick != null) { if (t.value) lm.picks[d.lmPick] = t.value; else delete lm.picks[d.lmPick]; const g = lm.plan && lm.plan.groups.find(x => x.key === d.lmPick); if (g) g.rows.forEach(r => delete lm.rowPick[r.id]); await lmLoad(); }
+  else if (d.lmRow) { if (t.value) lm.rowPick[d.lmRow] = t.value; else delete lm.rowPick[d.lmRow]; await lmLoad(); }
+  else if (d.lmKeep) { lm.keep[d.lmKeep] = t.value; await lmLoad(); }
+  else if (d.pno2spick != null) { pn.o2s[d.pno2spick] = t.value; }
+  else if (SEARCH[id]) { const now = { pq: prodQ, cq: custQ, rq: repQ, mq: matQ, crq: rf.q }[id]; if (now !== t.value) { SEARCH[id](t.value); render(); } } // the input handler has already filtered: no redraw on leaving the box (re-review)
+  else if (id === 'plc') { PLB.client = t.value; PLB.effSet = PLB.tillSet = false; render(); } else if (id === 'ple') { PLB.eff = t.value; PLB.effSet = !!t.value; render(); } else if (id === 'plt') { PLB.till = t.value; PLB.tillSet = true; render(); } else if (id === 'pln') { PLB.note = t.value; render(); }
+  else if (d.plr) { PLB.reasons[d.plr] = t.value; render(); }
+  else if (d.rv) { rev.vals[d.rv] = t.value; rev.reason = val('rvr'); rev.from = val('rvf'); rev.till = val('rvt'); rev.urgWhy = val('rvw'); rev.urg = !!($('rvu') || {}).checked; } // no redraw: a redraw here swallowed the first click on Send (review 19 Oct)
+  else if (d.mcr) { mcf.name = val('mcn'); const f = val('mcfl'); if (f != null) mcf.fields = f; mcf.role = t.value; render(); } // typed fields survive Yes, No, Yes (review)
+  else if (d.mclass) { matPend[d.mclass] = +t.value; render(); }
+  else if (d.ptype) { const v = t.value; if (v === '__new') { costPend = null; ask = { kind: 'ptype', id: +d.ptype }; render(); return; } const P0 = (ST.products || []).find(x => x.id === +d.ptype); costPend = P0 && (P0.typeId || null) === (v ? +v : null) ? null : { kind: 'ptype', id: +d.ptype, value: v ? +v : null }; render(); }
+  else if (d.assign) { const k0 = packIdx().get(+d.assign); const v = t.value ? +t.value : null; costPend = k0 && (k0.billId || null) === v ? null : { kind: 'assign', id: +d.assign, value: v }; render(); }
+  else if (d.elM != null) { editLines.lines[+d.elM].gradeId = +t.value; elLive(); } else if (d.elQ != null) { const x = String(t.value).replace(',', '.').trim(); editLines.lines[+d.elQ].qty = x === '' || isNaN(Number(x)) ? x : Number(x); elLive(); }
+  else if (t.id === 'el-addm' && editLines) editLines.addG = t.value;
+  else if (d.blPk != null && billEdit) { const id = +d.blPk; billEdit.packIds = t.checked ? [...new Set([...(billEdit.packIds || []), id])] : (billEdit.packIds || []).filter(x => x !== id); blRender(); }
+  else if (d.blI != null) { billEdit.lines[+d.blI].itemId = +t.value; blRender(); } else if (d.blL != null) { billEdit.lines[+d.blL].level = t.value; blRender(); } else if (d.blP != null) { billEdit.lines[+d.blP].pieces = Number(t.value); blRender(); } else if (d.blN != null) { billEdit.lines[+d.blN].packsPerOuter = Number(t.value); blRender(); } /* the "for Monday" label follows the items */
+});
+/* First load (audit 3 Nov 2026, D-145): after 20 s a line says it is still loading; a failure shows the reason, Retry and the way back. */
+function firstLoad() {
+  const slow = setTimeout(() => { const el = document.querySelector('#app .loading'); if (el && !ST) el.innerHTML = 'Loading C2M…<br><span class="ans">C2M is taking longer than usual. It is still loading; you can wait here.</span>'; }, 20000);
+  load().then(() => clearTimeout(slow), e => { clearTimeout(slow); $('app').innerHTML = `<main><h1>C2M could not load.</h1><p class="ans">${esc(e.message)}</p><p><button class="btn" id="c2m-retry" type="button">Retry</button> <a class="btn ghost" href="/">Back to launcher</a></p></main>`; const b = $('c2m-retry'); if (b) b.onclick = () => { $('app').innerHTML = '<div class="loading">Loading C2M…</div>'; firstLoad(); }; });
+}
+firstLoad();

@@ -1054,3 +1054,12 @@ Live, 20 Nov 2026 22:05: push 10f is pushed (commit 862b18a) and deployed; check
 - Not pushed. Ready to push. After the push: live check (speed figures from Server-Timing, Updated line, refresh after 2 minutes).
 - Next: C-24 file split with C-23, C-27 tests into the repo, C-03 item 2 (answer with only what changed after a save).
 - Live, 20 Nov 2026 23:10: push 10g deployed (change list 2026-11-20g, refresh code and "Updated 23:03" on Approvals seen as Tahir; the What is new box held the refresh, as designed). State build, read only, after the 30 second kept answer ran out: 5,640 ms (first open after the deploy), then 4,177 and 4,377 ms (before 10g: 4,649 to 7,245 ms). load_all is now the long step (3,171 to 3,585 ms): loadAll itself, next to look at. Time outside the build (sending 653 KB) varied from 1.3 s to 7 s, and 1 request took 24 s with no timing header; not from C2M's code.
+
+## 21 Nov 2026, push 10h: the page in 3 files, and which reads make loadAll slow (audit C-24, C-03; D-179)
+- Module: C2M. Files: apps/c2m/c2m.html (now a small shell), NEW apps/c2m/c2m.css and apps/c2m/c2m.js (the styles and the script, unchanged apart from the change list entry 2026-11-20h), apps/c2m/c2m-routes.js, docs 02, 03 (3.59), 05 (5.28), 06 (D-179), 07, 08, 10, 12, 13. No migration. server.js and package.json not touched.
+- C-24: the server hashes c2m.css and c2m.js at start and serves them as /c2m/c2m.<hash>.css|js, kept by the browser for 1 year; the shell is checked on every open. If the script does not arrive, the shell shows "C2M could not load" with Reload.
+- C-03 diagnosis: Server-Timing on GET /api/c2m/state names the 5 largest loadAll reads (la_<table>, rows), for the COO and cost roles only. Answers unchanged.
+- Independent review: ready to push; its Minors fixed (could-not-load line, bytes sent as read at start, la_ only for COO and cost roles, docs).
+- Tests (scratch harness): shell10h 20, chrome10h, chrome10h-fail, page10a to page10g, render, idle10g, routes10a 21, routes10e 22, snap10g same as 10g.
+- PUSH CHECK: GitHub Desktop must list the 2 new files c2m.css and c2m.js; without them C2M shows "C2M could not load" for everyone.
+- Not pushed. Ready to push. After the push: live check (hashed names in the page, second open from cache, the la_ entries, then cut the large reads).

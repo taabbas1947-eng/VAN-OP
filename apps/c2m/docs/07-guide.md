@@ -7,7 +7,7 @@ This document holds the same words as the app's Guide screen, and nothing else. 
 ## Your jobs (every role)
 Built 7 Nov 2026 (push 6b, D-160; R25, R57), not pushed. The Guide shows 1 row per job. A row shows the job and who does it, with a **Start** button (40 px tall) that opens the job's first screen. Tapping the row opens its numbered steps and what happens next; rows are closed until tapped. Names in **bold** are places and buttons as they are on screen. Each person sees only the rows of their role for the jobs they have the right to do (each job names the right it needs, from the roles list in c2m-access.js; a job that only reads needs only its place), and whose Start opens a place they have (independent review 6b, M3) (CFO = Yawar, COO = Tahir, Production Manager = Majid, QC Head = Himayat, Plant Manager = Fahim, KAM = role viewer; a role made on the launcher gets the rows of the role it works like, by what it may do, or the 2 general lines below when none fits). The answer line says how many jobs the person has. Start and Find anything use 1 map of where each job opens.
 
-The order below is the app's order (GUIDE_JOBS in c2m.html, row for row; the test p15 checks it).
+The order below is the app's order (GUIDE_JOBS in c2m.js, in c2m.html until push 10h of 20 Nov 2026, row for row; the test p15 checks it).
 
 | Job | Who | Steps | Start opens | What happens next |
 |---|---|---|---|---|

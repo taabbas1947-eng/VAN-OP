@@ -12,7 +12,7 @@ const ok = (n, c, x) => c ? pass++ : (fail++, fails.push(n + (x ? '  [' + x + ']
 const srv = fs.readFileSync(path.join(ROOT, 'server.js'), 'utf8').replace(/\r\n/g, '\n');
 
 /* the pool */
-ok('C2M has its own small pool, separate from the one O2S saves use', /let dbPool = null;/.test(srv) && /dbPool = mysql\.createPool\(\{ \.\.\.parseMysqlUrl\(DATABASE_URL\), dateStrings: true, connectionLimit: 3 \}\);/.test(srv));
+ok('C2M has its own small pool, separate from the one O2S saves use', /let dbPool = null;/.test(srv) && /dbPool = mysql\.createPool\(\{ \.\.\.parseMysqlUrl\(DATABASE_URL\), dateStrings: true, connectionLimit: 8, maxIdle: 2, idleTimeout: 300000 \}\);/.test(srv));
 ok('the main pool is still the one O2S and PD use', /const q = \(sql, params\) => pool\.execute\(sql, params \|\| \[\]\);\n\s+pdq = q;/.test(srv));
 // 28 Oct 2026 (roles trial): every role, C2M CFO and COO included, is given only through the System Administrator's gate.
 ok('only a System Administrator gives C2M roles, CFO and COO included', /app\.post\('\/api\/platform\/access', auth, accessAdmin,/.test(srv));

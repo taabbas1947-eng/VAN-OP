@@ -109,9 +109,13 @@ if (DATABASE_URL) {
   const q = (sql, params) => pool.execute(sql, params || []);
   pdq = q;
   /* C2M's own pool (17 Oct 2026, review): its O2S pull and approvals hold a connection for a whole transaction.
-     On the shared 5-connection pool that could keep O2S saves waiting; with its own 3 connections it never can.
-     Same settings as above (dateStrings: true, which C2M checks). No connection opens until C2M uses one. */
-  dbPool = mysql.createPool({ ...parseMysqlUrl(DATABASE_URL), dateStrings: true, connectionLimit: 3 });
+     On the shared 5-connection pool that could keep O2S saves waiting; with its own connections it never can.
+     Same settings as above (dateStrings: true, which C2M checks). No connection opens until C2M uses one.
+     21 Nov 2026 (Tahir): 3 to 8. C2M sends about 60 short reads when it opens; over 3 connections they waited about 3 s.
+     maxIdle 2, idleTimeout 5 minutes: without them mysql2 keeps every opened connection for ever, so 8 would stay open all
+     day. HostGator shared hosting allows 25 MySQL connections per cPanel account, all users together. Normal use is now
+     O2S's 5 + C2M's 2 kept = 7; 13 only while C2M opens are running. */
+  dbPool = mysql.createPool({ ...parseMysqlUrl(DATABASE_URL), dateStrings: true, connectionLimit: 8, maxIdle: 2, idleTimeout: 300000 });
 
   store = {
     async init() {

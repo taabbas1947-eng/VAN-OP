@@ -54,10 +54,15 @@ Readings 1 and 2 are before push 795a59c. Readings 3 and 4 are after it. All val
 ## Done in push 10g (20 Nov 2026, D-178)
 - Item 1 (share loadAll): done, 30 seconds, also while it is being read, dropped by any save, a copy per build.
 - Item 4 (reads one after another): applyDueRevisions first and beside loadAll; listMaster, wlListData, monthEndState, masterOn, savedOf and pendReady started early, applyDue after pendReady; 2 more reads prefetched for the margin roles.
-- New: reads outside a transaction also use C2M's own pool while its reads and open transactions hold fewer than 2 of its 3 connections, so up to 7 reads run at once instead of 5 and 1 connection always stays for a save.
+- New: reads outside a transaction also use C2M's own pool while its reads and open transactions hold fewer than 2 of its 3 connections, so up to 7 reads run at once instead of 5 and 1 connection always stays for a save. (Corrected 21 Nov 2026: not true live; C2M had 3 connections in all and none kept for saves. See push 10i below.)
 - Measured with a simulated 150 ms round trip: 4,266 ms to about 2,740 ms after a save; about 1,980 ms for the next person. Measure live as above after the push; the apply_due and load_all marks changed meaning (doc 03, 3.58), so compare build and the total.
 - Still open: item 2 (raise the shared pool, platform), item 3 (keep warm), item 5 (sales read), and a reply with only what changed after a save.
 
 ## Push 10h (20 Nov 2026, D-179)
 - Live after push 10g: build 4,177 to 5,640 ms, of which load_all 3,171 to 3,585 ms, so loadAll is now the long step. On the test database, with a simulated 150 ms round trip, loadAll takes about 1,000 ms with the same number of reads, so the live time is likely the size of some tables, not the number of reads.
 - Push 10h names the 5 largest loadAll reads in Server-Timing (la_<table>, rows in desc; the COO and the cost roles only). A joined read is named by its first table and counts its joined rows; an la_ dur runs from the read's own start, load_all's from the end of apply_due (doc 03, 3.59). Next: read them live, then cut what is read (for example only the columns used, or only the rows needed) for the tables that are large.
+
+## Push 10i (21 Nov 2026, D-180)
+- Live after push 10h: load_all 3,220 and 3,288 ms; the largest tables 411, 275, 175, 111 and 94 rows. Reads waited for a connection: C2M had 3 in all (push 10g's 7 was a wrong reading of server.js; doc 03, 3.58 and 3.60).
+- Done: item 2 (raise the pool), as C2M's own pool 3 to 8 with maxIdle 2 and idleTimeout 5 minutes (PLATFORM line, Tahir's choice); C2M's plain reads leave 1 connection free for saves. The la_ figures now include C2M's own read queue. Simulated: 4,563 to 2,595 ms after a save, 2,886 to 1,681 ms for the next person.
+- Still open: item 3 (keep warm), item 5 (sales read), a reply with only what changed after a save.

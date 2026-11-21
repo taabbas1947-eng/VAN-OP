@@ -1210,3 +1210,6 @@ To correct a mistake: a price not yet in force is withdrawn or sent back; a rate
 
 ## 2026-11-20h, push 10h: C2M opens faster on your computer after the first time (D-179)
 - C2M's screens and styles are kept by your browser until they change, so after the first open C2M starts sooner. The first open after each new version reads them once.
+
+## 2026-11-21a, push 10i: C2M opens faster (D-180)
+- C2M opens faster, and comes back faster after a save. A save does not wait behind someone else opening C2M. (C2M now reads over up to 8 database connections instead of 3.)

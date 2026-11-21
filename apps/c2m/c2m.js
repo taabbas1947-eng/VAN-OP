@@ -1779,7 +1779,9 @@ const CHANGELOG = [
  { t: 'C2M opens and comes back after a save faster: it reads its data over more connections at once, and the second person in the same half minute uses the data already read.', for: ['all'], guide: null },
  { t: 'C2M keeps itself up to date: it reads its data again when you come back to the tab and the data is more than a minute old, every 2 minutes while the tab is open, and when the day changes. It waits while you are typing, have typed something not yet saved, are saving or have a panel open. Approvals says when it was last updated.', for: ['all'], guide: null }] },
   { ver: '2026-11-20h', date: '2026-11-20', title: 'C2M opens faster on your computer after the first time', items: [
- { t: 'C2M\'s screens and styles are now kept by your browser until they change, so after the first open C2M starts sooner. The first open after each new version reads them once.', for: ['all'], guide: null }] }
+ { t: 'C2M\'s screens and styles are now kept by your browser until they change, so after the first open C2M starts sooner. The first open after each new version reads them once.', for: ['all'], guide: null }] },
+  { ver: '2026-11-21a', date: '2026-11-21', title: 'C2M opens faster', items: [
+ { t: 'C2M opens faster, and comes back faster after a save. A save does not wait behind someone else opening C2M.', for: ['all'], guide: null }] }
 ];
 let _wnShown = false, wnGuide = null;
 /* ---------- Push 7e (Tahir, 10 Nov 2026, D-166): the role page, read and signed once per version before C2M opens ----------

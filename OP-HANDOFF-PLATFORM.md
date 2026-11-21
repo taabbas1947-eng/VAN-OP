@@ -1546,3 +1546,14 @@ Renumbered on 2 Nov 2026, before merging into main (main took D-350 to D-355, R-
 The roles trial (System Administrator designs every app's roles on the launcher; O2S sign-off ticks; C2M COO unlocked, C2M
 D-142) is merged into main locally, after main's 30a..30f were merged into the trial (O2S handoff, same date). No migration
 is needed. Tahir pushes main from GitHub Desktop when ready; Render deploys main.
+
+## 21 Nov 2026 — C2M's own pool from 3 to 8 connections (MODULE: PLATFORM, 1 piece, then back to C2M) — NOT PUSHED
+
+- Why: the live check of C2M push 10h showed C2M's open spends about 3.3 s reading small tables (411 rows at most): a single read answers in about 150 ms, but reads wait for a connection. server.js gives C2M 1 pool (dbPool) for everything, its pdq included, with 3 connections; C2M sends about 60 reads per open.
+- Tahir's choice (panel, 21 Nov 2026): raise C2M's pool to 8; O2S keeps its 5. Other options shown: C2M reads on O2S's 5 (O2S could wait up to about 2 s), or no platform change (cut reads inside C2M).
+- Files: server.js (the dbPool line, connectionLimit 3 to 8, and its comment), tests/c2m-mount.test.js (the pin on that line). Nothing else in server.js changed.
+- Database connections: at most 5 + 8 = 13 per running server, 26 while a Render deploy overlaps 2 servers. Before the push Tahir checks in phpMyAdmin: SHOW VARIABLES LIKE 'max_user_connections'; it must be 0 or above 13 (26 for deploys without errors).
+- Test: tests/c2m-mount.test.js 25 of 25.
+- Next: the C2M piece (apps/c2m only): correct the push 10g documents (they said 7 connections; it was 3), keep plain reads to 7 of the 8 so 1 stays for saves, measure again live.
+- Correction after the independent review (21 Nov 2026), same entry: mysql2 keeps every opened connection for ever unless maxIdle is below connectionLimit, so 8 would have stayed open all day. The line is now `connectionLimit: 8, maxIdle: 2, idleTimeout: 300000` (idle C2M connections close after 5 minutes; 2 kept); the pin in tests/c2m-mount.test.js matches (25 of 25). HostGator shared hosting allows 25 MySQL connections per cPanel account, all database users together (https://www.hostgator.com/help/article/mysql-connection-limits-processor-limits). Normal use: O2S 5 + C2M 2 = 7 (was 8); up to 13 only while C2M opens run. The pre-push check above (max_user_connections) may not show that account cap: check in cPanel how many MySQL connections the account uses at a busy hour instead.
+- Push order: server.js, tests/c2m-mount.test.js and the apps/c2m files of push 10i go in 1 push. The C2M part alone, on 3 connections, would be slower than today (about 6.2 s simulated).

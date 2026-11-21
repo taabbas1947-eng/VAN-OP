@@ -61,20 +61,28 @@ module.exports = function mountC2mRoutes(app, deps) {
       let it = []; try { it = JSON.parse((p || [])[1] || '[]'); } catch (_) {} const first = it.filter(i => i && i.first);
       if (!first.length) return Promise.resolve([{ insertId: 0, affectedRows: 0 }]); p = [p[0], JSON.stringify(first), ...p.slice(2)]; }
     const c = txStore.getStore(); return c ? c.execute(sql, clean(p)) : readQ(sql, clean(p)); };
-  /* Push 10g (audit C-03): a read outside a transaction also uses C2M's own pool while at least 2 of its 3 connections are free, so 1
-     always stays for a save (reads and open transactions together hold at most 2), a cold state build sends its reads over up to 7
-     connections, not 5, and O2S waits less on the shared pool. Writes outside a transaction stay on the shared pool, as before. */
-  let ownBusy = 0, sharedBusy = 0, txHeld = 0; const OWN_READS = 2, SHARED = 5;
-  const readQ = (sql, p) => { if (ownBusy < OWN_READS && ownBusy + txHeld < OWN_READS && ownBusy / OWN_READS <= sharedBusy / SHARED && deps.pool && typeof deps.pool.execute === 'function' && /^\s*(SELECT|SHOW)\b/i.test(sql) && !/\bFOR\s+UPDATE\b|\bLOCK\s+IN\s+SHARE\s+MODE\b/i.test(sql)) { ownBusy++; return deps.pool.execute(sql, p).finally(() => { ownBusy--; }); }
-    sharedBusy++; return deps.pdq(sql, p).finally(() => { sharedBusy--; }); }; // each read goes where fewer of C2M's reads wait
+  /* Push 10g/10i (audit C-03): C2M has 1 pool (deps.pdq and deps.pool are the same pool in server.js; 8 connections from 21 Nov 2026,
+     3 before). A plain read (SELECT or SHOW outside a transaction) waits its turn here, so plain reads never take more than the pool's
+     size less 1 less what transactions and other statements already hold: they always leave at least 1 connection free for a save.
+     Writes outside a transaction go straight on but are counted (review 10i m-1).
+     Push 10g wrongly took deps.pdq for O2S's separate 5 connections; corrected in push 10i (doc 03, 3.60). */
+  const POOL_N = Math.max(1, Number(deps.pool && deps.pool.pool && deps.pool.pool.config && deps.pool.pool.config.connectionLimit) || 3);
+  let readsIn = 0, txHeld = 0, otherIn = 0; const readWait = [];
+  if (deps.pool) console.log(`[c2m] database pool: ${POOL_N} connections, plain reads leave 1 free`); // review 10i m-4: the first live log shows the size read
+  const readSlots = () => Math.max(1, POOL_N - 1 - txHeld - otherIn);
+  const nextRead = () => { while (readWait.length && readsIn < readSlots()) { readsIn++; readWait.shift()(); } };
+  const pdqOther = (sql, p) => { otherIn++; return Promise.resolve().then(() => deps.pdq(sql, p)).finally(() => { otherIn--; nextRead(); }); };
+  const readQ = (sql, p) => {
+    if (!/^\s*(SELECT|SHOW)\b/i.test(sql) || /\bFOR\s+UPDATE\b|\bLOCK\s+IN\s+SHARE\s+MODE\b/i.test(sql)) return pdqOther(sql, p);
+    return new Promise(go => { readWait.push(go); nextRead(); }).then(() => deps.pdq(sql, p)).finally(() => { readsIn--; nextRead(); }); };
   /** Placeholders for a list, e.g. IN (?,?,?): prepared statements (the platform's pool.execute) cannot take an array for 1 ?. */
   const qs = a => a.map(() => '?').join(',');
   async function tx(fn) {
     if (!deps.pool || txStore.getStore()) return fn();
-    txHeld++; let c; try { c = await deps.pool.getConnection(); } catch (e) { txHeld--; throw e; } // push 10g (review m-1): reads leave 1 connection for saves
+    txHeld++; let c; try { c = await deps.pool.getConnection(); } catch (e) { txHeld--; nextRead(); throw e; } // push 10g (review m-1): reads leave 1 connection for saves
     try { await c.beginTransaction(); const r = await txStore.run(c, fn); await c.commit(); return r; }
     catch (e) { await c.rollback().catch(() => {}); throw e; }
-    finally { c.release(); txHeld--; }
+    finally { c.release(); txHeld--; nextRead(); }
   }
   const moved = () => Object.assign(new Error('Someone else changed this a moment ago. Check before retrying.'), { status: 409 });
   /* Effect before saving (Tahir and Yawar, 5 Nov 2026, R14; push 2a). A cost save called with ?dry=1 runs exactly as a real
@@ -101,7 +109,7 @@ module.exports = function mountC2mRoutes(app, deps) {
   /** The last day of the go-live window, or null (D-170). Read at most every 30 seconds, and fresh when asked. A failed read keeps the last answer. */
   async function glUntil(fresh) {
     if (!fresh && GL.at && Date.now() - GL.at < 30000) return GL.until;
-    try { const [rows] = await deps.pdq("SELECT v FROM c2m_setting WHERE k='golive_until'"); const v = rows && rows[0] ? String(rows[0].v).slice(0, 10) : null; GL.until = v && isDate(v) ? v : null; GL.at = Date.now(); } catch (_) {}
+    try { const [rows] = await pdqOther("SELECT v FROM c2m_setting WHERE k='golive_until'"); const v = rows && rows[0] ? String(rows[0].v).slice(0, 10) : null; GL.until = v && isDate(v) ? v : null; GL.at = Date.now(); } catch (_) {}
     return GL.until;
   }
   /** A count of packs sent for re-approval, as the person is told: 0 while the go-live window is open (no item is written, D-170). */
@@ -958,7 +966,7 @@ module.exports = function mountC2mRoutes(app, deps) {
   async function glClose0() {
     const until = await glUntil(); const T = today();
     if (!until || T <= until || glBusy) return null;
-    { const [rows] = await deps.pdq("SELECT v FROM c2m_setting WHERE k='golive_reset'"); if (rows && rows[0] && String(rows[0].v).slice(0, 10) === until) { GL.doneFor = until; return null; } }
+    { const [rows] = await pdqOther("SELECT v FROM c2m_setting WHERE k='golive_reset'"); if (rows && rows[0] && String(rows[0].v).slice(0, 10) === until) { GL.doneFor = until; return null; } }
     glBusy = true; let n = 0; const left = []; let ran = false;
     try {
       await tx(async () => {

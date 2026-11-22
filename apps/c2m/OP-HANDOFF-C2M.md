@@ -1099,3 +1099,131 @@ Live, 20 Nov 2026 22:05: push 10f is pushed (commit 862b18a) and deployed; check
 - Tests: apps/c2m/tests/run.js 336 pass, 0 fail (session, test database).
 - Not pushed. Ready to push. After the push: live check (a refresh with nothing new gets 304; a fold opened on Costs stays open after a refresh).
 - Next: after a save, send only what changed (the last open item of the speed work); C-23's longer term (screens as modules) is not planned yet.
+- Live, 21 Nov 2026 22:55: push 10l deployed (commit ef0db19; change list 2026-11-21c). Read only, as Tahir: a rebuilt state answer with nothing new came back as 304 from the browser cache (0 KB transferred, X-C2M-Built new); a fold opened on Costs ("What the window does") stayed open through a refresh (main kept) and through a redraw that wrote main. Correction to earlier notes (10j live line and the 10j/10l messages): the state answer is about 653 KB unpacked but about 63 KB as sent (gzip), so the download was a smaller part of the wait than said; a 304 saves about 63 KB per refresh.
+
+## RESUME HERE (21 Nov 2026, 23:05): what is left for the next chat (MODULE: C2M)
+- Pushed and live: 10e to 10l (10i with the PLATFORM pool line). Only this handoff entry is not pushed.
+- Audit items left: C-25, C-28, C-29, C-34 (rebuild Minors, with the Majors per Tahir's 20 Nov ruling); C-23 longer term (screens as modules) not planned; after a save, a reply with only what changed (low gain now: the answer is about 63 KB as sent).
+- Waiting on Tahir: migration 017 on production (phpMyAdmin, the .PRODUCTION file); remove the PL_RULED check once all 8 people are set up; live-data points (47 stale re-approvals, budget 23.2 vs 23, freight 0 rates, FY sales mismatch, Irfan's Distributor tick, Fahim Asghar's role); a .gitattributes (platform) to keep LF line endings.
+- Tests: apps/c2m/tests (336 checks, README.md); every push adds its checks there.
+
+## 21 Nov 2026 (2), 23:25: handoff for the next chat: every open task, with the design, colour and layout changes still to do (MODULE: C2M)
+Read with the RESUME HERE entry above. Sources read in full for this entry: the 3 audits of 20 Nov 2026 (code C-, UI/UX U-, acceptance A-), the 5 approved pictures and their change notes (links in the 20 Nov audit entry), the 20 Nov to 21 Nov entries of docs 12, and c2m.css and c2m.js as pushed (commit ef0db19, change list 2026-11-21c). Every "today" figure below was counted in those 2 files on 21 Nov 2026.
+
+### 1. Correction to RESUME HERE
+- Migration 017 is already run on production (Tahir, 21 Nov 2026 23:04). It is no longer waiting on Tahir. Not yet seen live: on the next live check, Company settings, Public holidays should show the box (holidaysReady true), not "not switched on".
+
+### 2. Design work already done (do not redo)
+- 10a: the true moved-pack count on every cost notice (U-02, A-09, C-01); the Guide says Send to the CFO in the window (A-24).
+- 10b: the badge counts only Tahir's decisions (U-03, A-01); Approvals in 3 groups (To approve, Stuck with others, To do) with topic chips that add up (A-04); stuck recipes in 1 folded line; working days on the list (U-09, A-03); next move words Raise, Lower, Set (A-05); the margin card title is the finding, with the period, the gap in points, a legend and * on a month not finished (U-05, U-06, A-06); notices folded into a digest with the PO price check first (U-01, U-14 to U-16, A-08); go-live in 1 line on Approvals, its controls on Costs only (U-04; A-10 in part); 1 page head with ? Help on the main places; the top bar is never printed.
+- 10c: VAN Brands Products with 4 boxes that add up, the whole row opens, name bold and pack muted, packs small to large, 1 state word, sort marks visible, no Standard margin % (U-18, U-19, U-23 to U-25, A-12 to A-14); Costs boxes with a coloured edge, a word and an icon, problems first, the whole box opens (replaces D-148), the answer line names the boxes, freight Not set up, packing last change reads the bills, rates per kg or L, month end shows its 5 steps and the step after (U-21, U-28, U-41 to U-44, A-17; A-18 in part).
+- 10d: Price lists in 2 tabs, issued lists first, Issue a new PDF, never-issued lists in 1 table, Who can see them as 1 full-width table (U-45 to U-47, U-49).
+- 10e: Not judged chip, error alert above every box, esc of ' (part of C-26). 10f and 10l: focus, folds and scroll kept; only changed parts redrawn (C-09; C-23 medium term).
+
+### 3. Colour, type and layout changes still to do (app-wide design system; U-26, U-27, U-31 to U-36, U-39, U-40, A-29, C-25, C-28)
+Do these as their own push, screen by screen, behind the page tests (no behaviour change). Picture first, as Tahir rules: 1 page showing each component before and after, and his OK, before any code.
+
+3.0 Colour base to keep (Silver cool, the default look, ruled 14 Oct 2026; the pictures' common.css uses the same values). No new colours.
+- Ground #EDF0F5, surface #FFFFFF, ink #172033, muted #566074, line #E1E6EE, blue #2F6DB5, kraft #8C6532, top bar #1F2A3C with text #D3DBE8.
+- States: green #1F7A45 on #E3F1E8, amber #8F5F00 on #F7ECD3, red #B3261E on #F8E3E1.
+- The other 3 looks (Slate light, Stone warm, Slate dusk) keep their own values; every change is checked in all 4, Dusk especially.
+
+3.1 Colour meaning, 1 rule everywhere (U-27, U-36, D-100, D-168)
+- Red: act now, stuck (more than 2 working days), below cost, or margin more than 2 points short.
+- Amber: waiting on someone, within its time. Example to fix: "Not costed" is amber and turns red only when its recipe is stuck.
+- Green: OK, up to date. Grey: to do, not used, not set up.
+- Blue: only what can be pressed, and information tags. Never on titles.
+- Approvals keeps 3 levels: Act (red), Decide (approvals), Know (the digest). System notes (go-live, What's changed) 1 grey line each.
+
+3.2 A single tag (U-26, U-25)
+- Today 7 styles: .pill (mono 11 px, 3 px corners, border in its colour), .stuckp (mono 10.5 px, bordered), .wltag (sans, round, tinted), .verdict .st, .gh .c (mono count), .subnav .tc, .hdr .n.
+- To: 1 tag: sans 12 px, weight 600, sentence case, tinted background, no border; tones red, amber, green, grey, blue (values in 3.0). 1 count bubble style, for counts only. Mono only for numbers and references (VAN/PL/2026/001), never for words.
+
+3.3 Type and headings (U-32, U-33)
+- Today 22 font sizes: 9, 9.5, 10, 10.5, 11, 11.5, 12, 12.5, 13, 13.5, 14, 14.5, 15, 16, 17, 18, 19, 20, 21, 22, 25, 34 px. To 7: 11, 12, 13, 14, 16, 20, 28 px. Faces stay IBM Plex Sans and IBM Plex Mono.
+- Capitals with letter spacing today on: the global h2 (13 px, muted), h1.topic (20 px), .kick, .nextmove .k, .gh, .verdict .vk, .wlh2, group rows in tables, .rcard em, .assume b, the side nav group labels. To: sentence case, ink colour, no letter spacing.
+- Card titles: Costs .cbox .ct is set 2 times, 1 of them blue. To: 15 px, weight 600, ink.
+- Page title 20 px/600, answer line 16 px/500, meta 12 px muted.
+
+3.4 Corners and spacing (U-32)
+- Today 11 corner sizes: 1, 2, 3, 4, 5, 6, 8, 9, 10, 14, 999 px. The audit says 4 px for boxes, controls and tags, 999 px only for count bubbles. The approved pictures (10b to 10d) draw boxes at 8 px, buttons at 6 px and tags round. Ask Tahir: follow the approved pictures (8 / 6 / round) or the audit (4 everywhere). Recommendation: the pictures, since he approved them and 10b to 10d already use them.
+- Spacing steps 4, 8, 12, 16, 24, 32 px. Content width stays 1160 px.
+
+3.5 Buttons (U-35, U-17)
+- Today 9 looks: .btn, .btn.ghost, .btn.danger, .lnk (underlined), .mrow>button.mn (underlined), .newm>summary, .rowmenu>summary, .wlb, .kam-i.
+- To 4: Primary (filled blue, at most 1 per region), Secondary (blue outline), Quiet (text), Danger (red outline, never on Approvals). Picture values: 13.5 px, 34 px tall, 44 px on a phone.
+- 1 word per kind: Approve for approvals, Open for the rest; the row title names the thing; whole rows are the target where a row opens 1 thing.
+
+3.6 Page head on every screen (U-34; 10b open m6)
+- Done on the main places. Still with their own heading: the product page, the VAN list page, the client page, the Costs parts (Material, Packing, Labour and FOH, Freight), Month end.
+- Each gets head(): title, meta, ? Help top right, answer line, 1 grey system line when needed, underline tabs with counts, filter bar (chips with counts, Find, "n shown").
+- Find on Approvals shows from 3 jobs (J.length > 2); U-11 says only above 12 rows. Ask Tahir.
+
+3.7 Top bar (U-39, U-40, A-29)
+- Today the 4 look dots sit in the top bar on every screen (.skins group in the header) and read like status lights; Launcher and Sign out are underlined links side by side (1 slip signs out).
+- To (U-39): a person menu "Tahir ▾" with Look (4 named swatches), Guide and Sign out; Launcher stays on the bar (D-143). A-29 says Look in the Guide only (the Guide already has the named Look row). Ask Tahir which.
+- Badge: red #E5262A; since 10b it counts only decisions, so red is kept unless Tahir asks (U-37 is met in effect).
+
+3.8 Charts (U-31)
+- Target line: grey dashes on Approvals (.vt .tl, muted), kraft dashes on Margin (.otl). To: kraft everywhere. Every chart labels its points and says how to read it.
+
+3.9 Widths and phone (C-25, U-20; 10d open)
+- Today 15 different width rules (560, 600, 640, 700, 760 and 761, 900, 980, 1100, 1300, 1400 px and ranges). At 1101 to 1300 px the nav scrolls sideways with its scrollbar hidden, so places off the edge give no sign; at 761 to 1100 px it may run over Find (check live at 800 px as Tahir). To: 3 widths (600, 760, 1100 px); places that do not fit go into More, measured after the draw.
+- Long tables still scroll inside a box capped at 72 vh (.wrapx.tall): a scroll inside a scroll. To: the page scrolls, the table header sticks under the 52 px bar.
+- A general 40 px button rule beats the older 44 px phone rules (.kam-b .btn, table.cards td .btn, .jobs .job .btn). To: 1 phone rule, 44 px.
+
+3.10 Clean-up under it (C-28)
+- 314 inline style="" in c2m.js to classes (vPriceLists and vToday first); 11 !important; .hdr defined 4 times, h1.topic 3 times, .hdr .n 3 times, .cbox .ct 2 times: fold each into its final value; delete the left-rail desktop rules no longer reached from 761 px; order c2m.css as base, shell, components, screens instead of by push.
+
+### 4. Screen content still to do (words and flows, not colour)
+Approvals
+- U-07, A-07: the stat tiles carry their period ("Sales, FY to date"); "Act now" on a red job not yet stuck names the action.
+- U-08: under the next move, "Also stuck: 3 recipes, oldest n working days ›".
+- U-12: Names to settle (nothing waits on it) to a Later fold or to Setup. Ask.
+- U-13: 2 target requests of the same client shown together, each with its FY Rs effect (tgtEffect).
+- U-22, A-33: on a phone, next move first and the margin card as 1 line, or D-99 as now. Not ruled.
+- A-36: "5 white label clients red" is a job every day; make it a job only when a client newly turns red. Ask.
+- A-35: the rate check reads "Stuck 17 working days" from 1 Nov with no due date: give a due date and say overdue, or merge it with the COO check. Ask.
+- A-02: a stuck recipe line says what is missing; a remind button only after the escalation ruling (I-01).
+- A-34: a word list in the Guide, or 1 line of meaning on first use (GP, FOH, re-approval % with its figure, w/w, basis, segments, ex FED, NSV, FRP, absorbed).
+Products and prices
+- U-29, A-16: every count names its unit and basis ("19 packs below target at today's price").
+- U-38, A-32: 2 places called Price lists (top bar documents; Clients, VAN Brands tab). Ask: "Price list PDFs" on the top bar, or "List prices" on the tab, or keep both.
+- U-48: 1 list with 2 names (AUD "Farmer, Sindh" and "Distributor and channel partner"; LCARD "Farmer, Sindh cash" and "Distributor"): 1 name everywhere (the LCARD names).
+- A-15: 2 product lists (Clients, VAN Brands, Products and More, Products): 1 Products place with a switch. Ask.
+- A-31: on an issued list, "n prices changed since this PDF: issue a new PDF".
+- A-30: viewers see when a list changed and its Valid from, and get a notice when a list they hold changes.
+People's flows
+- A-20, A-21 (Yawar): a "Make it sellable" checklist per product (recipe, bill, labour and FOH rate, price, list, KAM), each with its fix in place; 1 route per job; Not costed rows go to the missing piece.
+- A-22: the bill editor shows the cost per pack and per kg or L before Save.
+- A-25, A-26 (Majid): type the material name straight into a new row; 1 unit line at the top; his job line says what it waits for.
+- A-27 (Himayat): 1 visible "Add a nutrient type", a nutrient allowed on an unclassed material, 1 Save per card.
+- A-11, A-28: recipes approved in the window marked "QC Head and Plant Manager did not check"; Himayat and Fahim told their role until 30 Nov and given the list after. Needs Tahir's ruling.
+- A-23: freeze screen changes in the window except fixes, weekly release after. Tahir's call.
+- A-18 (rest): the count of products on High under labour and FOH is not shown yet.
+
+### 5. Code audit items still open
+- C-25 and C-28: in 3.9 and 3.10.
+- C-29: names in the interface ("Tahir", "Yawar", "the COO") from ST.people by role; role keys in 1 place; the date literals '2026-12-01' and '2026-10-11' (also in c2m-pricecheck.js) into settings; out-of-date comments; the duplicated checks in ncpSend0.
+- C-34: sending several prices is 1 request per pack; a dropped connection leaves some sent and some not. 1 batch endpoint in 1 tx(), or keep "not sent" rows marked until resent.
+- C-23 longer term (screens as modules): not planned. After a save, a reply with only what changed: low gain (the state is about 63 KB as sent).
+- Older opens in docs 12: 10a m10 (end-to-end moved-pack test), 10c m9 (a pack moved onto a bill from the product page does not change the packing last change), 10d m9 (a renamed white label client shows as never issued), 10e P-1 and P-3.
+
+### 6. Outside MODULE: C2M (needs a declared switch to PLATFORM, never in the same change)
+- docs/SECURITY-REGISTER.md: the 6 security items of the 20 Nov code audit, as S-18 onward: ssl false on the MySQL link; sign-in token in localStorage with no Content-Security-Policy; esc of ' (fixed in 10e, record as fixed); notices/seen marks a whole role; viewer document making (limited in 10a; no rate limit left); kept state answers and, since 10j, up to 800 kept reads for 5 minutes in memory. Mention once, briefly, at the end of that session.
+- CLAUDE.md §3.0 to list apps/c2m/tests; a .gitattributes keeping LF endings; jsdom in package.json (optional).
+
+### 7. Waiting on Tahir
+- Remove the PL_RULED check once all 8 people are set up (6 not in C2M yet; Fahim Asghar is in C2M as Plant Manager).
+- Live data: 47 re-approvals made on the old Rs 20 / Rs 30 bands; company target 23.2% in C2M against his 19 Oct ruling of 23%; freight 0 rates (expected, or to enter before 30 Nov); white label FY sales Rs 267.20M at 06:04 against Rs 265.97M at 11:00 on 20 Nov; Irfan's Distributor tick.
+- The "Ask" points in 3 and 4: put them to him as 1 panel round at the start of the design push, each with where it is, what it says now and the options in full.
+
+### 8. Suggested order for the next chat
+1. Live check, read only: migration 017 (the holiday box is on).
+2. 1 panel round with the "Ask" points.
+3. 1 picture page of the design system before and after (tag, buttons, headings, colours, corners), his OK.
+4. Push 10m: tokens, 1 tag, headings, buttons, chart target colour (CSS and classes only; page tests stay green; Chrome screenshots of every place at 1366 and 390 px, before and after, in all 4 looks).
+5. Push 10n: page head on the remaining screens, the top bar person menu, the 3 widths and the phone rule.
+6. Then the content items of 4, then C-29 and C-34.
+
+Files changed: this entry only. Not pushed.

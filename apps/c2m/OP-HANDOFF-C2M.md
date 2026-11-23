@@ -1267,3 +1267,60 @@ Files changed: c2m-routes.js, tests/routes-184.test.js, docs 06, 09, 12, this en
 - Next: push 10m as in the 21 Nov (2) entry (1 panel round with the Ask points first).
 
 Files changed: this entry only. Not pushed.
+
+## RESUME HERE (23 Nov 2026, 16:10): state, every pending development and every open question (MODULE: C2M)
+Start the next chat by reading this entry, then the 21 Nov 2026 (2) entry above (it holds the full detail of sections 3 to 6 below, with the audit IDs, today's counts and the colour values). The next chat opens with "MODULE: C2M" (CLAUDE.md §0).
+
+### A. Where things stand (23 Nov 2026, 16:10)
+- Live and pushed: everything up to D-184 (commit 729f966, 23 Nov 16:01). Working tree clean.
+- D-184, Remove a recipe: pushed 15:24 and checked live. "Basic - Standard Recipe - MAP, TSP & AS" version 2 (id 67, Basic, Rudolf Life Sciences) deleted as Tahir with the reason "Wrong name: meant a new version of Main"; Basic shows only Main version 1 (Default), cost Rs 393.33 per kg on the 10 kg pack, unchanged.
+- Picture page for D-184 (all points ruled, kept for the record): "C2M Recipe Delete", claude.ai artifact e7e143ad-7f78-4bd7-8aa8-f9da2357032c.
+- Tests: apps/c2m/tests, 407 checks (README.md). They ran in Claude's workspace (MariaDB 10.11, jsdom 31.0.1); Tahir has not run them on his PC.
+- Migration 017 is run on production (21 Nov 23:04); the holiday box on Company settings, Public holidays has not yet been seen live.
+- Go-live window ends 30 Nov 2026: on 1 Dec each pack's cost that day becomes its approved cost (D-170, push 10a list). Decisions that touch the window (B3, B4 below) are needed before then.
+
+### B. Open questions for Tahir (ask as 1 panel round, each with where it is, what it says now and the options in full)
+Before 30 Nov (the go-live window):
+- B1. A-11, A-28: mark recipes approved in the window "QC Head and Plant Manager did not check"; tell Himayat and Fahim their role until 30 Nov and give them the list after? Options: mark and list / list only / neither.
+- B2. A-23: freeze screen changes in the window except fixes, weekly releases after? Options: freeze until 30 Nov / no freeze.
+- B3. Live data (from the 21 Nov live check): 47 re-approvals made on the old Rs 20 / Rs 30 bands (clear them or keep); company target 23.2% in C2M against his 19 Oct ruling of 23% (correct to 23%?); freight rates all 0 (expected, or to enter before 30 Nov); white label FY sales Rs 267.20M at 06:04 against Rs 265.97M at 11:00 on 20 Nov (find the cause?); Irfan's Distributor tick (give it or not).
+- B4. Remove the PL_RULED check (price list access) once all 8 people are set up: 6 are not in C2M yet. Who sets them up, and when?
+Design system (needed before push 10m):
+- B5. Corners: follow the approved pictures (boxes 8 px, buttons 6 px, tags round) or the audit (4 px everywhere). Recommended: the pictures.
+- B6. Top bar: a person menu "Tahir ▾" (Look, Guide, Sign out; Launcher stays on the bar), or Look only in the Guide (A-29).
+- B7. Find on Approvals: shown from 3 jobs (as today) or only above 12 rows (U-11).
+Screens:
+- B8. U-12: Names to settle (nothing waits on it) moved to a Later fold, or to Setup, or kept.
+- B9. U-22, A-33: on a phone, next move first and the margin card as 1 line, or keep D-99 as now.
+- B10. A-36: "5 white label clients red" every day; make it a job only when a client newly turns red?
+- B11. A-35: the rate check reads "Stuck 17 working days" with no due date: give it a due date and say overdue, or merge it with the COO check.
+- B12. U-38, A-32: 2 places called Price lists: rename the top bar one "Price list PDFs", or the tab "List prices", or keep both.
+- B13. A-15: 2 product lists (Clients, VAN Brands, Products; and More, Products): 1 Products place with a switch?
+- B14. A-02 and I-01: the escalation ruling for stuck recipes (a Remind button only after it).
+New from today:
+- B15. The Production Manager's role page text changed with D-184 (an approved recipe that was never used is deleted by the CFO or the COO). Its version was not raised, so Majid was not asked to sign again. Raise it so he signs again, or leave it?
+
+### C. Pending development, in the suggested order
+1. Live check, read only: the holiday box (migration 017).
+2. The B panel round.
+3. 1 picture page of the design system, before and after (tag, buttons, headings, colours, corners), for his OK.
+4. Push 10m: tokens, 1 tag, 7 font sizes, sentence-case headings, 4 button kinds, kraft target line on every chart (21 Nov (2) sections 3.0 to 3.5 and 3.8). CSS and classes only; page tests stay green; Chrome screenshots of every place at 1366 and 390 px in all 4 looks, before and after.
+5. Push 10n: page head on the remaining screens (product page, VAN list page, client page, Costs parts, Month end), the top bar per B6, 3 widths (600, 760, 1100 px) with places that do not fit going into More, the page scrolling instead of the 72 vh table box, 1 phone rule of 44 px (sections 3.6, 3.7, 3.9).
+6. Clean-up (C-28, section 3.10): 314 inline styles to classes, 11 !important, repeated rules folded, c2m.css ordered as base, shell, components, screens.
+7. Screen content (section 4):
+   - Approvals: tiles carry their period, "Act now" names the action (U-07, A-07); "Also stuck: n recipes" under the next move (U-08); 2 target requests of 1 client together with their FY Rs effect (U-13); a stuck recipe line says what is missing (A-02); a word list or 1 line of meaning on first use (A-34).
+   - Products and prices: every count names its unit and basis (U-29, A-16); 1 name per list everywhere, the LCARD names (U-48); "n prices changed since this PDF" on an issued list (A-31); viewers see when a list changed and get a notice (A-30).
+   - People's flows: Yawar's "Make it sellable" checklist per product (A-20, A-21); the bill editor shows cost per pack and per kg or L before Save (A-22); Majid types the material name straight into a new row, 1 unit line, his job line says what it waits for (A-25, A-26); Himayat's visible "Add a nutrient type", a nutrient on an unclassed material, 1 Save per card (A-27); the count of products on High under labour and FOH (A-18).
+8. Code items (section 5): C-29 (names from ST.people by role, role keys in 1 place, the date literals '2026-12-01' and '2026-10-11' into settings, old comments, the duplicated checks in ncpSend0); C-34 (sending several prices: 1 batch request in 1 transaction, or "not sent" rows kept marked). Older opens in docs 12: 10a m10, 10c m9, 10d m9, 10e P-1 and P-3.
+9. Earlier asks still open from memory of the costing work (not started): the 12 further C2M reports drawn for Tahir's approval (0.9.1, 18 Oct); search on Costs, Labour and FOH, "Which products are on which rate" (Yawar, 18 Nov; check whether 10c covered it); review Himayat's and Majid's workflow end to end (7 Nov; partly in A-25 to A-27).
+
+### D. Outside MODULE: C2M (a declared switch, never in the same change)
+- PLATFORM: docs/SECURITY-REGISTER.md rows S-18 onward for the 6 security items of the 20 Nov code audit (ssl false on the MySQL link; sign-in token in localStorage with no Content-Security-Policy; esc of ' fixed in 10e; notices/seen marks a whole role; viewer document making; kept answers in memory). Mention once, briefly, at the end of that session (CLAUDE.md §2A).
+- PLATFORM: CLAUDE.md §3.0 to list apps/c2m/tests; a .gitattributes keeping LF line endings; jsdom in package.json (optional).
+
+### E. Notes for whoever picks this up
+- Working rules: picture first, his OK, then code (van-systems-rules); independent review before "ready to push"; Tahir pushes; Claude checks live after "pushed".
+- Running the tests outside Tahir's PC: copy apps/c2m and package.json, npm install express mysql2 pdfkit @fontsource/arimo @fontsource/tinos compression jsdom@31.0.1, a local MariaDB database named c2m_test, then C2M_TEST_DB=throwaway C2M_TEST_DATABASE_URL=mysql://user:pass@127.0.0.1:3306/c2m_test node apps/c2m/tests/run.js. The docs folder must be present (the routes read it).
+- On the live site a save plus the reload of the state takes about 4 seconds; a check made sooner reads the old state.
+
+Files changed: this entry only. Not pushed.

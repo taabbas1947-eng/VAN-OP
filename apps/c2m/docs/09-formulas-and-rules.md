@@ -111,7 +111,7 @@ A pack takes 1 labour rate and 1 FOH rate, each the first match of these levels:
 ## Yawar's feedback (owner: Tahir; D-139, D-140, 30 Oct 2026; code c2m-routes "Yawar's feedback", c2m-engine approvedVersion)
 | Rule | Says | Decision | Test |
 |---|---|---|---|
-| B-30 | An entry is deleted only when nothing uses it, with a reason; its values go to the change record first. Approved prices, approved or old recipe versions, approved costs and trucks are never deleted | D-139 | yw1 Y-03 to Y-08, Y-12; yw2 YU-04 |
+| B-30 | An entry is deleted only when nothing uses it, with a reason; its values go to the change record first. Approved prices, old recipe versions, approved costs and trucks are never deleted; an approved recipe is deleted only under B-80 (D-184, 23 Nov 2026) | D-139, D-184 | yw1 Y-03 to Y-08, Y-12; yw2 YU-04 |
 | B-31 | An entry in use is taken out of use instead: hidden from forms and pickers, kept in every approved cost, put back from its row | D-139 | yw1 Y-03, Y-07; yw2 YU-05 |
 | B-32 | Edit never rewrites a cost: a new rate, packing price, labour or FOH Rs or freight Rs is a new dated entry; the re-approval % applies as before | D-139 | yw1 Y-06b; yw2 YU-06 |
 | B-33 | Only the Default recipe sets cost, price for target and margin. Another approved recipe writes no cost | D-140 | yw1 Y-09 |
@@ -267,3 +267,8 @@ A pack takes 1 labour rate and 1 FOH rate, each the first match of these levels:
 | B-77 | Working days | Monday to Saturday from the day after the start to today, less the public holidays the COO keeps (c2m_holiday). Stuck = more than 2. "Waiting N days" stays in calendar days. |
 | B-78 | Price list number | VAN/PL/<year>/<nnn>: 1 more than the larger of the year's counter (setting pl_seq_<year>) and the highest number already issued that year; never a count. 2 documents can never share a number (UNIQUE, migration 017), and an issued number is never given again; a document that fails before it is saved leaves no gap. |
 | B-79 | Rounding and FED | Money rounds half away from 0 and never shows -0; a % between -0.05 and 0.05 shows 0.0%. FED: a real 0% is 0 in the code; Company settings still takes FED above 0 only; a blank or invalid FED setting is 5%. A blank setting is not set, never 0. |
+
+## 23 Nov 2026 (D-184)
+| ID | Rule | Detail |
+|---|---|---|
+| B-80 | Remove a recipe | 1 Remove button on every recipe (its head; its row in the product's list of approved recipes). By state: draft: deleted by whoever has recipe.start (the person who sent it back and has no recipe.start closes it instead); review, endorse, cost: closed by the person with that step's right, never deleted; approved: deleted by the CFO (recipe.step.cost) or the administrator only when all 4 hold: not the Default (engine approvedVersion), no c2m_cost_version row with its id, no audit row action default on it, and, when it is the Default, no product follows it; an approved recipe of a product that itself follows another product is never deleted (Tahir, 23 Nov 2026); old: never; closed: deleted by the CFO or the administrator. A deleted version's number is given again to the next version (MAX + 1, Tahir 23 Nov 2026). Every delete needs a reason (1 of 4 reasons, Other needs a note); 1 press, no second Confirm. Lines, steps, name and state go to the change record first. When the deleter is not the writer (step written or imported), a notice goes to the production role with the reason. |

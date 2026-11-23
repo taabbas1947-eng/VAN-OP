@@ -1223,3 +1223,10 @@ To correct a mistake: a price not yet in force is withdrawn or sent back; a rate
 
 ## 2026-11-21c, push 10l: presses redraw only what changed (D-183)
 - A press in C2M now redraws only the part of the screen that changed, so text you selected and the place you scrolled to stay. When C2M reads its data again and nothing is new, nothing is downloaded; only the Updated time on Approvals is redrawn there.
+
+## 2026-11-23a, D-184: Remove a recipe, 1 button
+- Every recipe has 1 red Remove button, under its name and in its row in the product's list of approved recipes. It says what it will do before anything is done: delete, close, or why the recipe stays.
+- An approved recipe that is not the Default and was never used, and a closed version, can now be deleted by the CFO or the COO: pick why, then press Delete recipe once.
+- At your step, Close this version is now called Remove; it still closes the version with a reason.
+- A draft is deleted with Remove (it was Delete this draft). When the CFO or the COO deletes a recipe someone else wrote, the Production Manager gets a notice with the reason.
+- Production Manager's role page: its "What you do not do" line now says an approved recipe that was never used is deleted by the CFO or the COO; the page version is unchanged, so nobody signs again (Tahir to say if he wants a new sign).

@@ -394,3 +394,7 @@ h1.topic,h1.topic{font-size:20px;letter-spacing:0;text-transform:none}
   #el-box .wrapx tr:first-child{display:none}#el-box .wrapx td{border:0;padding:0}#el-box .wrapx td:first-child{grid-column:1/-1}#el-box select[data-el-m]{width:100%;max-width:100%}
   #el-box .wrapx tr.tot{grid-template-columns:1fr auto auto}#el-box .wrapx tr.tot td:first-child{grid-column:auto}
 }
+
+/* D-184 (23 Nov 2026): the 1 Remove button and its box */
+.remrow{display:flex;justify-content:flex-end;margin:6px 0}.rembox{border-left:3px solid var(--over)}.rembox.stay{border-left-color:var(--late)}.rembox .chips{margin:6px 0}.remck{list-style:none;margin:6px 0;padding:0;font-size:13px}.remck li{padding:2px 0}.remck li.ok::before{content:"\2713  ";color:var(--ok);font-weight:700}.remck li.no::before{content:"\2717  ";color:var(--over);font-weight:700}
+@media (max-width:760px){.remrow .btn,.rembox .btn,.rembox .chips button{min-height:44px}}

@@ -608,7 +608,7 @@ flowchart TB
   O -- labour or FOH --> RT[Retire, as before]
   O -- product --> PO[Take out of use, as before]
 ```
-- Never deleted: approved prices, approved or old recipe versions, approved costs, trucks.
+- Never deleted: approved prices, old recipe versions, approved costs, trucks. An approved recipe is deleted only as in 1.45 (D-184, 23 Nov 2026).
 - A client product's Edit (its page, Edit this product) saves names, product type, variant, who packs, packs added or removed, packing bills and client-only packs in 1 save.
 
 ## 1.24 Another recipe and the Default (owner: Tahir rules; Majid writes; Yawar approves and switches; D-140, 30 Oct 2026)
@@ -893,3 +893,19 @@ flowchart TD
 - Widens 1.43: in the window the path no longer depends on whether the product came from Yawar's sheet.
 - A version already with the QC Head or the Plant Manager when this went live keeps its path; the one who holds it passes it or sends it back, and a resend in the window goes straight to the CFO.
 - A version sent to the CFO in the window stays with the CFO after the window ends.
+
+## 1.45 Remove a recipe (owner: Tahir rules; Claude built; D-184, 23 Nov 2026)
+```mermaid
+flowchart TD
+  A["Remove on a recipe"] --> B{"State?"}
+  B -->|"Draft"| D1["Delete: Production Manager, CFO, COO"]
+  B -->|"With QC Head, Plant Manager or CFO"| D2["Close: the person at that step"]
+  B -->|"Approved"| C{"Default?"}
+  C -->|"Yes"| K1["Stays: make another recipe the Default first"]
+  C -->|"No"| E{"Ever used? approved cost, ever Default, follower"}
+  E -->|"Never"| D3["Delete: CFO, COO"]
+  E -->|"Used"| K2["Stays: kept for past costs"]
+  B -->|"Old version"| K2
+  B -->|"Closed"| D4["Delete: CFO, COO"]
+```
+- Every delete and close needs a reason picked from the box; 1 press. Lines and steps stay in the change record; the Production Manager is told when someone else deletes his recipe.

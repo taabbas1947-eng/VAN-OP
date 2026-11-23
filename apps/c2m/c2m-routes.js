@@ -1064,7 +1064,8 @@ module.exports = function mountC2mRoutes(app, deps) {
       if (open) throw bad('This product already has a version in progress. Finish or send it back first.');
       const [[mx]] = await q('SELECT COALESCE(MAX(version_no),0) n FROM c2m_recipe_version WHERE client_product_id=?', [cp.id]);
       const [ins] = await q("INSERT INTO c2m_recipe_version (client_product_id, version_no, state, note, created_by, created_at) VALUES (?,?,'draft',?,?,?)", [cp.id, mx.n + 1, String(note || 'New version').slice(0, 400), req.c2m.user, now()]);
-      if (fromVersionId) { const [lines] = await q('SELECT grade_id, qty FROM c2m_recipe_line WHERE recipe_version_id=?', [fromVersionId]); for (const l of lines) await q('INSERT INTO c2m_recipe_line (recipe_version_id, grade_id, qty) VALUES (?,?,?)', [ins.insertId, l.grade_id, l.qty]); }
+      if (fromVersionId) { const [[fv2]] = await q('SELECT id FROM c2m_recipe_version WHERE id=? AND client_product_id=? LOCK IN SHARE MODE', [fromVersionId, cp.id]); if (!fv2) throw bad('The version to copy from is no longer in C2M (it was deleted a moment ago). Press Refresh and start again.'); // D-184 review m5
+        const [lines] = await q('SELECT grade_id, qty FROM c2m_recipe_line WHERE recipe_version_id=?', [fromVersionId]); for (const l of lines) await q('INSERT INTO c2m_recipe_line (recipe_version_id, grade_id, qty) VALUES (?,?,?)', [ins.insertId, l.grade_id, l.qty]); }
       if (rname !== engine.MAIN) await q('INSERT INTO c2m_recipe_name (recipe_version_id, recipe_name) VALUES (?,?)', [ins.insertId, rname]);
       await step(ins.insertId, 'written', req.c2m.user, note); await audit(req.c2m.user, 'recipe', ins.insertId, 'new', null, { clientProductId, version: mx.n + 1, recipe: rname }, note);
       return ins.insertId;
@@ -3674,7 +3675,7 @@ module.exports = function mountC2mRoutes(app, deps) {
    * Yawar's feedback, Tahir's rulings of 30 Oct 2026 (D-139, D-140)
    * Edit and Delete on every list. Delete removes an entry only when nothing uses it (no recipe, packing bill, pack, truck, price
    * or grant); its values stay in the change record. Anything in use is taken out of use instead: hidden from forms and pickers,
-   * kept for past costs, and it can be put back. Approved prices and approved recipes are never deleted.
+   * kept for past costs, and it can be put back. Approved prices are never deleted; an approved recipe only under D-184 (recipeRemove).
    * The Default recipe: a product may hold more than 1 approved recipe; only the Default sets cost, price for target and margin.
    * Yawar switches the Default alone; Tahir gets a notice.
    * ========================================================================== */
@@ -3685,10 +3686,58 @@ module.exports = function mountC2mRoutes(app, deps) {
     let a = { grade: 'material.save', pitem: 'packing.manage', bill: 'packing.manage', rule: 'labour.manage', freight: 'freight.edit', customer: 'client.add', product: 'client.add', recipe: 'recipe.start' }[kind];
     if (!a) throw bad('Unknown list.');
     if (kind === 'product') { const [[cp]] = await q('SELECT channel FROM c2m_client_product WHERE id=?', [id]); if (cp && cp.channel === 'VAN brand') a = 'lists.link'; }
+    if (kind === 'recipe') { if (req.c2m.admin || REC_RIGHTS.some(k => req.c2m.can.has(k))) return; throw Object.assign(new Error('Your role cannot do this in C2M.'), { status: 403 }); } // D-184: who may do what is worked out per recipe in recipeRemove
     if (!req.c2m.can.has(a)) throw Object.assign(new Error('Your role cannot do this in C2M.'), { status: 403 });
   }
+  /* D-184 (Tahir, 23 Nov 2026), replacing D-139 for recipes. 1 Remove button on every recipe; C2M works out what it may do:
+   *  - a draft: deleted by whoever starts recipes (the Production Manager, the CFO, the administrator); the person who sent it back
+   *    and does not start recipes closes it instead (as before);
+   *  - with the QC Head, the Plant Manager or the CFO: closed by the person at that step, with a reason (R69, unchanged);
+   *  - approved: deleted by the CFO or the administrator only when all 4 hold: it is not the Default; C2M never wrote an approved
+   *    cost on it; it was never made the Default; no product follows it. Otherwise it stays, and the box says why;
+   *  - an earlier version (old): never deleted, kept for past costs;
+   *  - closed: deleted by the CFO or the administrator.
+   *  A reason is always required; the deleted lines and steps stay in the change record. When the CFO or the administrator deletes
+   *  a recipe someone else wrote, the Production Manager is told with the reason. */
+  const REC_RIGHTS = ['recipe.start', 'recipe.step.review', 'recipe.step.endorse', 'recipe.step.cost'];
+  const ROLE_OF_STEP = { review: 'the QC Head', endorse: 'the Plant Manager', cost: 'the CFO' };
+  async function recipeRemove(D, id, who, pn) {
+    const [[v]] = await q('SELECT * FROM c2m_recipe_version WHERE id=?', [id]); if (!v) throw bad('This recipe version is no longer in C2M. Press Refresh; if it is still missing, it was deleted.');
+    const cpId = Number(v.client_product_id), vo = D.recipes.byVer.get(Number(v.id)) || {}, rname = vo.rname || engine.MAIN;
+    const brand = (D.cpById.get(cpId) || {}).brand || pn(cpId);
+    const label = `${pn(cpId)}, ${rname === engine.MAIN ? 'recipe' : `recipe "${rname}"`} version ${v.version_no}`;
+    const can = k => !!who && (who.admin || who.can.has(k)); const cfo = !!who && (who.admin || who.can.has('recipe.step.cost'));
+    const canStep = k => !!who && who.can.has(k); // the close route checks the step right only (review m1)
+    const checks = [], blocks = []; let action = 'none', fix = null;
+    const def = engine.approvedVersion(D, cpId);
+    if (v.state === 'draft') {
+      if (can('recipe.start')) action = 'delete';
+      else if (who && v.sent_back_by && (v.sent_back_by === who.user || who.admin) && canStep('recipe.step.' + v.sent_back_state)) action = 'close';
+      else blocks.push('A draft is deleted by the Production Manager, the CFO or the COO.');
+    } else if (['review', 'endorse', 'cost'].includes(v.state)) {
+      if (canStep('recipe.step.' + v.state)) action = 'close';
+      else blocks.push(who && who.admin ? `It is with ${ROLE_OF_STEP[v.state]}. To close it yourself, tick that step for your role on the Roles screen.` : `It is with ${ROLE_OF_STEP[v.state]}: only ${ROLE_OF_STEP[v.state]} can close it, or send it back.`);
+    } else if (v.state === 'approved') {
+      const isDef = !!def && Number(def.id) === Number(v.id);
+      const [[c]] = await q('SELECT COUNT(*) n FROM c2m_cost_version WHERE recipe_version_id=?', [v.id]); const costN = Number(c.n);
+      const [[a]] = await q("SELECT COUNT(*) n FROM c2m_audit WHERE entity='recipe' AND entity_id=? AND action='default'", [String(v.id)]); const wasDef = Number(a.n) > 0;
+      const fol = [...D.ext].filter(([, e]) => Number(e.followsId) === cpId).map(([fid]) => (D.cpById.get(Number(fid)) || {}).brand || pn(fid));
+      const folBlock = isDef && fol.length > 0;
+      const owner = Number((D.ext.get(cpId) || {}).followsId || 0); // m6, Tahir 23 Nov 2026: a product that follows another keeps its own old approved recipes
+      if (owner) checks.push({ ok: false, t: `${brand} follows ${(D.cpById.get(owner) || {}).brand || pn(owner)}: its own recipes are kept` });
+      else checks.push({ ok: !isDef, t: isDef ? `It is the Default: it sets ${brand}'s cost, price and margin` : `Not the Default (${def ? `${def.rname || engine.MAIN} version ${def.version_no}` : 'none approved'} is)` });
+      checks.push({ ok: !costN, t: costN ? `C2M wrote ${costN} approved pack cost${costN === 1 ? '' : 's'} on it: kept for past costs` : 'No approved cost was ever written on it' });
+      checks.push({ ok: !wasDef, t: wasDef ? 'It was made the Default with Make default before: kept for past costs' : 'Never made the Default with Make default' });
+      checks.push({ ok: !folBlock, t: folBlock ? `${fol.join(', ')} follow${fol.length === 1 ? 's' : ''} it` : 'No product follows it' });
+      checks.filter(x => !x.ok).forEach(x => blocks.push(x.t));
+      if (isDef) fix = 'default';
+      if (!blocks.length) { if (cfo) action = 'delete'; else blocks.push('An approved recipe is deleted by the CFO or the COO.'); }
+    } else if (v.state === 'old') blocks.push('An earlier version: it is kept for past costs.');
+    else if (v.state === 'closed') { if (cfo) action = 'delete'; else blocks.push('A closed version is deleted by the CFO or the COO.'); }
+    return { label, recipe: { id: Number(v.id), state: v.state, productId: cpId, brand, rname, version: Number(v.version_no), defaultName: engine.defaultName(D, cpId) }, action, checks, blocks, fix };
+  }
   /** What uses an entry: a list of plain lines. Empty = it can be deleted. */
-  async function usesOf(kind, id0) {
+  async function usesOf(kind, id0, who) {
     const id = Number(id0); if (!(id > 0)) throw bad('Pick a row.');
     const D = await engine.loadAll(q); const L = []; let label = '', out = 'none', isOut = false, extra = {};
     const [allCp] = await q('SELECT c.id, c.brand, c.sold_per, c.channel, c.active, c.customer_id, cu.name customer FROM c2m_client_product c JOIN c2m_customer cu ON cu.id=c.customer_id');
@@ -3746,13 +3795,11 @@ module.exports = function mountC2mRoutes(app, deps) {
       const [po] = await q('SELECT customer_name, brand, channel, pack FROM c2m_o2s_po_line'); const n = po.filter(l => bn.has(nmK(l.brand)) && [...sizes].some(z => Math.abs(z - Number(l.pack)) < 1e-6) && (cp.channel === 'VAN brand' ? l.channel !== 'White Label' : l.channel === 'White Label' && cn.has(nmK(l.customer_name)))).length;
       if (n) L.push(`${n} O2S PO line(s) or truck(s)`);
     } else if (kind === 'recipe') {
-      const [[v]] = await q('SELECT * FROM c2m_recipe_version WHERE id=?', [id]); if (!v) throw bad('This recipe version is no longer in C2M. Press Refresh; if it is still missing, it was deleted.');
-      label = `${pn(v.client_product_id)}, recipe version ${v.version_no}`;
-      if (v.state !== 'draft') L.push(`It is ${STATE_W[v.state] || v.state}: only a draft can be deleted. ${['approved', 'old', 'closed'].includes(v.state) ? 'Write a new version instead.' : 'Send it back first, or let it finish.'}`);
+      const R = await recipeRemove(D, id, who, pn); label = R.label; R.blocks.forEach(b => L.push(b)); extra = R; // D-184 (Tahir, 23 Nov 2026)
     } else throw bad('Unknown list.');
     return { kind, id, label, uses: L, out, isOut, ...extra };
   }
-  app.get('/api/c2m/uses/:kind/:id', wrap(async (req, res) => { await rightFor(req, req.params.kind, Number(req.params.id)); res.json(await usesOf(req.params.kind, req.params.id)); }));
+  app.get('/api/c2m/uses/:kind/:id', wrap(async (req, res) => { await rightFor(req, req.params.kind, Number(req.params.id)); res.json(await usesOf(req.params.kind, req.params.id, req.c2m)); }));
 
   app.post('/api/c2m/delete', wrap(async (req, res) => {
     const { kind } = req.body || {}; const id = Number((req.body || {}).id); const why = String((req.body || {}).why || '').trim();
@@ -3761,7 +3808,8 @@ module.exports = function mountC2mRoutes(app, deps) {
     const out = await tx(async () => {
       const LOCK = { grade: 'c2m_material_grade', pitem: 'c2m_packing_item', bill: 'c2m_packing_bill', rule: 'c2m_conversion_rule', freight: 'c2m_freight_rate', customer: 'c2m_customer', product: 'c2m_client_product', recipe: 'c2m_recipe_version' };
       await q(`SELECT id FROM ${LOCK[kind]} WHERE id=? FOR UPDATE`, [id]); // locked first: a save that adds a use waits, or this delete waits for it (review 30 Oct)
-      const U = await usesOf(kind, id); // read again inside the transaction: something may have started using it a moment ago
+      const U = await usesOf(kind, id, req.c2m); // read again inside the transaction: something may have started using it a moment ago
+      if (kind === 'recipe' && U.action !== 'delete') throw Object.assign(new Error(`${U.label} cannot be deleted: ${U.uses.join(' ') || (U.action === 'close' ? 'it is in the workflow, so it is closed instead.' : 'not allowed.')}`), { status: 409 }); // D-184
       if (U.uses.length) throw Object.assign(new Error(`${U.label} cannot be deleted: it is used by ${U.uses.slice(0, 3).join('; ')}${U.uses.length > 3 ? ` and ${U.uses.length - 3} more` : ''}. ${U.out === 'out' ? 'Take it out of use instead.' : U.out === 'retire' ? 'Take it out of use instead.' : ''}`), { status: 409 });
       let old = null;
       if (kind === 'grade') {
@@ -3797,8 +3845,11 @@ module.exports = function mountC2mRoutes(app, deps) {
         await softQ('DELETE FROM c2m_product_ext WHERE client_product_id=?', [id]); await q('DELETE FROM c2m_client_product WHERE id=?', [id]);
         if (cp.channel === 'White label') await recomputeGroup(cp.customer_id, req.c2m.user);
       } else if (kind === 'recipe') {
-        const [[v]] = await q("SELECT * FROM c2m_recipe_version WHERE id=? AND state='draft' FOR UPDATE", [id]); if (!v) throw moved();
-        const [lines] = await q('SELECT grade_id, qty FROM c2m_recipe_line WHERE recipe_version_id=?', [id]); old = { productId: v.client_product_id, version: v.version_no, note: v.note, lines };
+        const [[v]] = await q('SELECT * FROM c2m_recipe_version WHERE id=? FOR UPDATE', [id]); if (!v || v.state !== U.recipe.state) throw moved();
+        const [lines] = await q('SELECT grade_id, qty FROM c2m_recipe_line WHERE recipe_version_id=?', [id]); const [steps] = await q('SELECT action, by_user, at, note FROM c2m_recipe_step WHERE recipe_version_id=? ORDER BY id', [id]);
+        old = { productId: v.client_product_id, version: v.version_no, state: v.state, name: U.recipe.rname, note: v.note, lines, steps }; // D-184: state, name and steps kept in the change record too
+        const writer = (steps.find(x => x.action === 'written' || x.action === 'imported') || {}).by_user || v.created_by;
+        if (writer && writer !== req.c2m.user && (req.c2m.admin || req.c2m.can.has('recipe.step.cost'))) await notice('production', `Deleted: ${U.label}, by ${personNm(req)}. Reason: ${why.slice(0, 200)}.`, req.c2m.user); // D-184: the Production Manager is told
         await q('DELETE FROM c2m_recipe_line WHERE recipe_version_id=?', [id]); await q('DELETE FROM c2m_recipe_step WHERE recipe_version_id=?', [id]); await softQ('DELETE FROM c2m_recipe_name WHERE recipe_version_id=?', [id]); await q('DELETE FROM c2m_recipe_version WHERE id=?', [id]);
       }
       await audit(req.c2m.user, { grade: 'material', pitem: 'packing_item', bill: 'packing_bill', rule: 'conversion_rule', freight: 'freight', customer: 'customer', product: 'client_product', recipe: 'recipe' }[kind], id, 'delete', old, null, `${U.label}: ${why.slice(0, 300)}`);

@@ -1227,3 +1227,35 @@ People's flows
 6. Then the content items of 4, then C-29 and C-34.
 
 Files changed: this entry only. Not pushed.
+
+## 23 Nov 2026, 14:40: deleting an approved recipe, Tahir's rulings (D-184); the delete redesign comes before push 10m (MODULE: C2M)
+
+Tahir asked how a recipe is deleted (case: Basic version 2) and called the delete screens poor.
+- Today's code: a draft is deleted by the Production Manager or the administrator (Delete this draft, a reason, Delete, Confirm); a version in the workflow can only be closed by the person at its step; approved, old and closed versions can never be deleted (D-139). An approved recipe that is not the Default has no button at all.
+- Live read, 23 Nov 14:30 (read only): recipe version id 67, Basic for Rudolf Life Sciences, "Basic - Standard Recipe - MAP, TSP & AS", version 2, note "Increased MAP"; written by majid 13:35, sent 13:37 (go-live, straight to the CFO), cost approved by yawar 13:38; approved, not the Default (Main version 1 is). No approved cost written on it. Looks like Majid meant a new version of Main but typed a new name (not confirmed).
+- Rulings (D-184): an approved recipe may be deleted when unused (not the Default; no approved cost ever written on it; never the Default before; no follower). Reason required, lines kept in the change record. The CFO and the administrator delete it. Basic version 2 is deleted once this is live.
+- Next: a picture page of the new delete and close flow for his review, then code (apps/c2m only), then push 10m as in the 21 Nov (2) entry.
+
+Files changed: this entry and docs/06-decisions.md (D-184). Not pushed.
+
+## 23 Nov 2026, 15:20: D-184 built, Remove a recipe (MODULE: C2M)
+
+Built from the picture page "C2M Recipe Delete" and Tahir's comments on it (all points ruled; D-184 in docs 06).
+- Every recipe has 1 red Remove button, under its name and in each row of the product's list of approved recipes. C2M checks first (GET /api/c2m/uses/recipe/:id) and offers Delete, Close or why it stays. 4 reasons, Other needs a note, 1 press.
+- Delete: a draft (recipe.start); an approved recipe that is not the Default, has no approved cost, was never made the Default with Make default, and (if the Default) no follower (CFO or administrator); a closed version (CFO or administrator). Close: at a step, by that step's right (Close this version is now Remove). Old versions never.
+- The Production Manager is told when the CFO or the administrator deletes a recipe someone else wrote. Lines, steps, name and state go to the change record.
+- Code: c2m-routes.js (recipeRemove, rightFor, usesOf with the person, delete route, /recipes/new locked copy), c2m.js (Remove button, box, handler; Guide job "Remove a recipe"; What's changed 2026-11-23a; Production Manager role page text, version unchanged), c2m.css (end).
+- Tests: routes-184 (42), page-184 (27); whole suite 405 pass on MariaDB 10.11 and jsdom 31.0.1 in Claude's workspace. Looked at in Chrome (local copy): the CFO deletes Basic version 2, Main stays the Default; the QC Head's panel; a phone at 390 px.
+- Independent review: not ready at first (M1: an open box held the refresh after leaving the page), fixed with 5 minors and the nits; re-check: ready. Details in docs 12.
+- Docs: 01 (1.45), 03 (3.63), 05 (5.31), 06 (D-184), 07, 08, 09 (B-80), 11 (11.32), 12, tests/README.md.
+- No migration. No change outside apps/c2m.
+- After the push: live check, then Yawar or Tahir deletes Basic version 2 (id 67, Rudolf) with "Wrong name: meant a new version of Main".
+- Open for Tahir: version numbers of a deleted version are given again (m3); a follower product's own old approved recipe (m6).
+- Then: push 10m as in the 21 Nov (2) entry.
+
+Files changed: apps/c2m/c2m-routes.js, c2m.js, c2m.css, docs 01, 03, 05, 06, 07, 08, 09, 11, 12, tests/README.md, tests/routes-184.test.js (new), tests/page-184.test.js (new), this entry. Not pushed.
+
+## 23 Nov 2026, 15:35: Tahir's rulings on the 2 open points (MODULE: C2M)
+- m3: version numbers stay as today (a deleted version's number is given again).
+- m6: a product that follows another keeps its own old approved recipes; never deleted while it follows. Built in recipeRemove with a check line naming the product it follows.
+Files changed: c2m-routes.js, tests/routes-184.test.js, docs 06, 09, 12, this entry. Not pushed.

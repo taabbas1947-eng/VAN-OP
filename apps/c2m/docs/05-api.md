@@ -466,3 +466,8 @@ No route added or removed.
 ## 5.30 Push 10l (21 Nov 2026; owner: Tahir; D-183)
 No route added or removed.
 - GET /api/c2m/state: builtAt is no longer in the answer; header X-C2M-Built (milliseconds since 1970, the server's clock when the answer was built) instead. Cache-Control: private, no-cache; Vary: Authorization. With If-None-Match equal to the ETag of the same answer: 304 and no body (X-C2M-Built still sent).
+
+## 5.31 Remove a recipe (23 Nov 2026; owner: Tahir; D-184)
+No route added or removed.
+- GET /api/c2m/uses/recipe/:id: open to anyone with recipe.start, recipe.step.review, recipe.step.endorse or recipe.step.cost, or the administrator (was recipe.start). Answer adds action (delete, close, none), checks [{ok, t}], fix (default or null), recipe {id, state, productId, brand, rname, version, defaultName}; uses holds why it stays.
+- POST /api/c2m/delete with kind recipe: allowed when that answer is delete for this person: a draft, an approved recipe that passes the 4 checks, or a closed version (doc 09, B-80); 409 otherwise, with the reason. The change record (c2m_audit, action delete) keeps productId, version, state, name, note, lines and steps. Adds a notice to the production role when the deleter did not write it.

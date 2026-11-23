@@ -310,3 +310,7 @@ No new action: each list uses the right that adds to it. Delete, Take out of use
 - In the window the QC Head and the Plant Manager have no step on any recipe the Production Manager sends; it goes to the CFO. No action or right changed.
 
 - 20 Nov 2026 (D-172, C-07): a Price list viewer (pricedoc.granted) may download the latest issued document of a list or white label client granted to him, whoever issued it (before: only documents he made); not an older one, and not one that has ended (Tahir, 20 Nov 2026); he may issue only the first document of a list. The MRP printing list stays with pricedoc.all only.
+
+## 11.32 23 Nov 2026: Remove a recipe (D-184)
+- No action added or removed. Who may do what with Remove: a draft, recipe.start (the Production Manager, the CFO, the administrator); the person who sent a draft back and has no recipe.start closes it; a version at a step, the right of that step; an approved recipe that passes the 4 checks, or a closed version, recipe.step.cost (the CFO) or the administrator. Nobody deletes the Default, a recipe ever used for cost or ever made the Default, or an old version.
+- The check behind the button (GET /api/c2m/uses/recipe/:id) is open to every recipe right, so the QC Head and the Plant Manager read why a recipe stays.

@@ -1259,3 +1259,11 @@ Files changed: apps/c2m/c2m-routes.js, c2m.js, c2m.css, docs 01, 03, 05, 06, 07,
 - m3: version numbers stay as today (a deleted version's number is given again).
 - m6: a product that follows another keeps its own old approved recipes; never deleted while it follows. Built in recipeRemove with a check line naming the product it follows.
 Files changed: c2m-routes.js, tests/routes-184.test.js, docs 06, 09, 12, this entry. Not pushed.
+
+## 23 Nov 2026, 15:45: D-184 pushed and checked live (MODULE: C2M)
+- Tahir pushed at 15:24. Live check (Chrome, as Tahir): the new page loads (c2m.81e319e06a7f.js), What's changed 2026-11-23a shows, the check for recipe 67 answered delete with all 4 checks passed.
+- With Tahir's go-ahead in chat, Claude deleted "Basic - Standard Recipe - MAP, TSP & AS" version 2 (id 67, Basic, Rudolf Life Sciences) as Tahir, reason "Wrong name: meant a new version of Main". The server now says it is no longer in C2M; Basic shows only Main version 1 (Default), cost Rs 393.33 per kg on the 10 kg pack, unchanged.
+- Seen on the way: on the live site a delete plus the state reload took over 4 seconds before the toast showed; the box had already closed. No fault, but slow (same as other saves).
+- Next: push 10m as in the 21 Nov (2) entry (1 panel round with the Ask points first).
+
+Files changed: this entry only. Not pushed.

@@ -272,3 +272,20 @@ A pack takes 1 labour rate and 1 FOH rate, each the first match of these levels:
 | ID | Rule | Detail |
 |---|---|---|
 | B-80 | Remove a recipe | 1 Remove button on every recipe (its head; its row in the product's list of approved recipes). By state: draft: deleted by whoever has recipe.start (the person who sent it back and has no recipe.start closes it instead); review, endorse, cost: closed by the person with that step's right, never deleted; approved: deleted by the CFO (recipe.step.cost) or the administrator only when all 4 hold: not the Default (engine approvedVersion), no c2m_cost_version row with its id, no audit row action default on it, and, when it is the Default, no product follows it; an approved recipe of a product that itself follows another product is never deleted (Tahir, 23 Nov 2026); old: never; closed: deleted by the CFO or the administrator. A deleted version's number is given again to the next version (MAX + 1, Tahir 23 Nov 2026). Every delete needs a reason (1 of 4 reasons, Other needs a note); 1 press, no second Confirm. Lines, steps, name and state go to the change record first. When the deleter is not the writer (step written or imported), a notice goes to the production role with the reason. |
+
+## 24 Nov 2026 (D-186)
+| Rule | Subject | Text |
+|---|---|---|
+| B-81 | Below-target reason | A new price needs a below-target reason only when its GP is more than 0.05 points under the target. This is the allowance of the pack's colour (B-17): a pack shown as on target is never asked for the reason. Same test on the page (belowT) and the server. |
+| B-82 | GP target limit | A company, ambition or white label GP target is 0 or more and below 100. At 100% or more no price meets it, so it is refused. List targets were already above 0 and below 100. |
+| B-83 | Take back and drop | The sender of a list revision takes it back while it waits for the COO, or drops it after it was sent back; the proposer of a price does the same. The administrator may do it for them. An approved price or revision waiting for its date is withdrawn only by the COO, with a reason. |
+| B-84 | Empty recipe | A recipe with no lines has no materials cost; its packs are not costed and say "the recipe has no lines". |
+- B-79, added: rounding first tidies the value to 15 significant digits, so a value held just under a half (2050.42499...) rounds up to 2050.43.
+- B-59 says 6 decimals for the line signature; the code uses 8 (lineSig). The code is right; B-59 is read as 8 from this date.
+
+## 24 Nov 2026 (D-187)
+| Rule | Subject | Text |
+|---|---|---|
+| B-85 | Window close and re-approval | When the go-live window closes, each costed pack's cost that day becomes its approved cost (D-170) and every open re-approval item is closed with it. An item that names a pack not fully costed at the close stays open. |
+| B-86 | Certificate correction | A labour and FOH certificate is given once per month. It is corrected only after the COO reopened that month later than the certificate, and while the month is not locked. |
+| B-87 | Client-packed and packing bills | A product whose packing the client supplies needs no packing bill and may carry one (VAN adds a carton or a label). A bulk product carries none. |

@@ -1324,3 +1324,68 @@ New from today:
 - On the live site a save plus the reload of the state takes about 4 seconds; a check made sooner reads the old state.
 
 Files changed: this entry only. Not pushed.
+
+## 24 Nov 2026: the redesign brief, the Phase 1 audit and Tahir's rulings (D-185) (MODULE: C2M)
+Tahir gave a brief for a full redesign of C2M (4 phases: audit, design system, screen by screen, sign-off) and asked for the pending points to be put to him.
+- Phase 1 audit done, read only (3 readers: workflows, calculations, screens against the brief). Findings W1 to W13 and C1 to C10 are in docs 12 (entry of 24 Nov). No broken step in the recipe, price or monthly cost flows; the change record cannot be edited or deleted.
+- Rulings, all in D-185 (docs 06): Inter everywhere; 1 colour set (the brief's), the 4 looks dropped; the 4 conflicting layouts (top bar, Approvals desktop and phone, Guide, Costs cards) and 1 Products place ruled on a picture page; pictures first, then each push live when ready (no freeze); a new price row shows the GP change and below target, no new approval rule; the audit fixes go first as their own push. B1 neither; B3b 23.2% stays; B3c freight 0 is right; B3e no tick for Irfan; B4 the check stays; B7 above 12 rows; B8 to Setup; B10 only when newly red; B11 due on the 5th; B12 tab becomes List prices; B14 a Remind button; B15 leave.
+- Options not chosen, for the record: font (keep IBM Plex; Inter text with Plex Mono numbers); colours (new set as default keeping 4 looks; keep today's colours); layouts (the brief wins on all 4; earlier rulings stay); timing (pushes from 1 Dec; build with no pictures); B1 (mark and list; list only); B3a (clear; keep); B8 (a Later fold; keep); B11 (merge with the COO check; due on the 7th or 10th); B12 (top bar becomes Price list PDFs; keep); B14 (automatic notice; nothing more); audit fixes (mediums first; record only); price flag (a new approval rule).
+- Already in the app, so not to be rebuilt: the client page's 5 tiles, right-aligned numbers, live GP % as a price is typed, the sticky "Send n prices to the COO" bar; the fixed top bar (52 px); the Settings governance pills; the Costs boxes with the 5 month-end steps.
+- Next, in this order (Tahir chose the picture page first): (1) the picture page of the redesign (design system, top bar with Products, Approvals desktop and phone, Guide, Costs cards) for his OK; (2) live checks, read only: the 47 re-approval items (B3a), the FY sales drop of 20 Nov (B3d), the holiday box; (3) the audit fixes push (W1 to W5, C1 to C6 at least) with tests, before any design code; (4) the redesign pushes, screen by screen, each with its Guide, docs and tests. The 21 Nov (2) plan sections 3.0, 3.2 to 3.5 and 3.7 are replaced by D-185 where they differ; 3.9 and 3.10 (widths, clean-up) still stand.
+- Questions still for Tahir: W9 (correct a labour and FOH certificate after a reopen?), W12 (which change-record entries must carry a reason?).
+- Note: CLAUDE.md §3.0 names the folder E:\VAN\VAN Systems\VAN Platform\VAN-OP; on this PC the repo is at E:\VAN Systems (a PLATFORM file, not changed here).
+
+Files changed: docs/06-decisions.md (D-185), docs/12-tests-issues-assumptions.md (entry of 24 Nov), this entry. Not pushed.
+- 24 Nov, later: the picture page is published for his ruling: "C2M Redesign Pictures", claude.ai artifact Ao52vAwM7QQLoZuzwZysrP. Part 1 (design system) and part 8 (new price row) are ruled and shown for his eye; parts 2 to 7 wait for A or B (top bar, Approvals desktop, Approvals phone, 1 Products place, Guide, Costs cards), plus 2 small points (Not costed amber or red; the tab names on Approvals if A). No code before his ruling.
+- 24 Nov, live checks (Chrome, as Tahir, read only; state built 24 Nov after the 06:04 pull):
+  - Holiday box: holidaysReady is true on live (migration 017 seen); 0 holidays entered.
+  - B3a: 5 re-approval items are open, 50 pack rows, 49 different packs. Items 1 and 2 (19 Oct, cause "conversion basis changed to the Rs 20 / Rs 30 bands") hold 21 and 26 packs: these are the 47. Item 3 (24 Oct, Amino Acid Powder rate Rs 475 to Rs 480, 1 pack), items 4 and 5 (20 Nov, Genius and Orbit-K packing bill edits, 1 pack each, 0.0% move). In code, the window close (glClose0) writes the approved costs but does not close open re-approval items, so all 5 stay open after 30 Nov unless decided. Waiting for his ruling: clear 1 and 2 with one reason, or the CFO decides.
+  - B3d: cause found (figures match; the edit itself not seen field by field). The Approvals sales figure counts only costed sales. O2S name "Max Humic", 8 kg, Maxim Agri: 2 trucks (25 Sept, 7 Oct), 8,000 kg at Rs 154 = Rs 1,232,000, is unmatched since Yawar edited "Max Humic Powder for Maxim Agri" on 20 Nov 10:47 (its O2S names are now only "Max Humic Powder"; a "Max Humic Pellets" product also exists). 267.20M less 1.232M = 265.97M. It sits in Names to settle. Fix is data: settle "Max Humic" to Powder or Pellets. Today: white label FY sales Rs 281.10M in O2S rows, Rs 276.63M matched to a pack, Rs 272.11M costed (the figure shown). So Rs 4.47M is unmatched and Rs 4.52M matched but not costed. Note for B8: Names to settle moves to Setup, yet it holds Rs 4.47M of sales outside the margin figure; ask Tahir whether a count stays on Approvals.
+
+## 24 Nov 2026, later: the audit fixes push is built (D-186) (MODULE: C2M)
+Tahir said "Start the fixes" (D-185 point 6).
+- Built: W1, W2, W5; W3 and W7 in part; C1 to C6. Details in docs 06 (D-186) and docs 12 (2 entries of 24 Nov).
+- On the screen: Take back on a waiting list revision (its sender only); Drop it on a sent-back price or list revision; a withdrawn price says who withdrew it; a price within 0.05 points of target asks no below-target reason, on the New client prices grid, the price panel and the server. Guide jobs and What's changed 2026-11-24a updated.
+- Code: c2m-routes.js (new route /lists/revisions/:id/retract; price retract takes sent_back; send backs in a transaction; /products/:id/packs and /full write the re-approval item in the transaction; /full refuses an out-of-use bill; GP target below 100; reapprovePct), c2m-lib.js (round, reapprovePct), c2m-engine.js (blank setting null; a recipe with no lines), c2m.js (tpFor, belowT, lrTake, Drop it, Guide, What's changed).
+- Tests: routes-185 (36), page-185 (19); page-184 made to stand on its own. Whole suite 460 pass on this PC. No migration. No change outside apps/c2m.
+- Independent review: not ready at first (M1: the New client prices grid without the allowance), fixed with 3 minors; all checks pass after. What the checks do not prove is listed in docs 12.
+- Not checked in a browser. After the push: live check as the CFO would see it (Take back on a waiting revision; Drop it on a sent-back price) needs a real waiting item, so read only unless Tahir says.
+- Test setup on this PC: XAMPP's MySQL does not start (mysql.db index is corrupt; the same error is in its log on 15 Oct 2026, so it is old). Nothing in C:\xampp was changed. The tests ran on a separate throwaway MariaDB folder in the session scratchpad, port 3307. jsdom 31.0.1 installed with --no-save (node_modules only). Tahir's local van_platform database cannot be reached until XAMPP's MySQL is repaired: tell him.
+- Open for Tahir: W3 rest (may a client-packed product carry a packing bill?); W4 (rights of Edit this product); W9; W12; B3a (the 47 packs in re-approval items 1 and 2); the picture page rulings (parts 2 to 7).
+- Next: his rulings on the picture page, then the redesign pushes screen by screen.
+
+Files changed: c2m-routes.js, c2m-lib.js, c2m-engine.js, c2m.js, tests/routes-185.test.js (new), tests/page-185.test.js (new), tests/page-184.test.js, tests/README.md, docs 01, 03, 05, 06, 07, 08, 09, 11, 12, this entry. Not pushed. Ready to push.
+
+## 24 Nov 2026, evening: the picture page is ruled and 4 more audit points are built (D-187) (MODULE: C2M)
+- Picture page rulings (all in D-187, docs 06): top bar A (7 places, gear, no look dots); Approvals desktop A (4 figures, decisions left in tabs To approve, Stuck with others, To do; chart and news right); phone A (next move first); 1 Products place with a switch; Guide as a card grid with own jobs only; Costs cards A (progress, blocker links, Open button); Not costed amber, red when stuck. Not built.
+- Built on his rulings, in the same push as D-186: W3 (a client-packed product may carry a packing bill), W4 (Edit this product needs the matching right for a type or a bill change), W9 (correct a certificate after the COO's reopen), B3a (the window close closes open re-approval items, except one naming a pack left not costed).
+- Tests: whole suite 473 pass on this PC. Independent review of the 4 points: ready; 2 minors fixed, 2 recorded (docs 12).
+- Not checked in a browser. No migration. No change outside apps/c2m.
+- Important for 1 Dec: the window closes after 30 Nov. Push before then, or B3a does not run with the close. On 1 Dec check live which re-approval items stayed open.
+- Open for Tahir: W12 (which change-record entries must carry a reason); a new pack's bill on Edit this product (docs 12, minor 4); XAMPP's MySQL repair.
+- Next: the redesign, built in pushes on D-185 and D-187: (1) design system (Inter, colours, cards, pills, buttons; the 4 looks removed) with before and after screenshots; (2) top bar and the Products place (needs c2m-access.js navFor); (3) Approvals desktop and phone; (4) Costs cards and Guide; (5) client page, product page, Setup; then the earlier content items (B7, B8, B10, B11, B12, B14). Each with its Guide, docs and tests. Page tests 10b, 10c, 10l and 184 pin today's layout and will need their expectations moved with each push.
+
+Files changed since the last entry: c2m-routes.js, c2m.js, tests/routes-185.test.js, tests/page-185.test.js, tests/README.md, docs 01, 03, 05, 06, 08, 09, 11, 12, this entry. Not pushed. Ready to push.
+
+## 24 Nov 2026, night: redesign push 1, the design system, is built (D-188) (MODULE: C2M)
+Tahir said "Start the redesign".
+- Built: Inter; 1 colour set; cards with a soft shadow; round tags; filled blue and soft grey buttons; sentence-case headings; the 4 looks removed (top bar dots, Your look in the Guide, the browser key). No layout, word or behaviour changed. What's changed 2026-11-24b.
+- Code: c2m.html (font link), c2m.css (:root, the look rules removed, a "Design system, D-185" block at the end), c2m.js (looks removed, What's changed).
+- Tests: page-ds (23 new); whole suite 496 pass on this PC.
+- Looked at in the built-in browser on a local copy with invented data: Approvals, Costs, a client page at 1366 px; Approvals at 375 px. The rest of the screens were not looked at; nothing on the live site. No independent review of this push yet (docs 12).
+- The working tree now holds 3 things not pushed: the audit fixes (D-186), the 4 ruled points (D-187) and this push (D-188). They go live together when Tahir pushes. Push before 30 Nov for B3a.
+- How the page was previewed without a database: scratchpad mkpreview.js puts c2m.css, c2m.js and tests/fixture-state.js inside c2m.html with a stand-in for fetch, served by a small local server on port 4599 (session scratchpad, not in the repo). XAMPP's MySQL is still broken.
+- Next, in this order: (2) top bar 56 px with 7 places and the gear, and 1 Products place (c2m-access.js navFor; page tests 10b, 10f, 10l pin the bar); (3) Approvals desktop and phone; (4) Costs cards and the Guide grid; (5) client page price row, product page, Setup; (6) 1 filled button per card and the ••• menus on the 7 row clusters; then B7, B8, B10, B11, B12, B14. An independent review of push 1 first.
+
+Files changed since the last entry: c2m.html, c2m.css, c2m.js, tests/page-ds.test.js (new), tests/page-10l.test.js, tests/README.md, docs 03, 06, 07, 08, 12, this entry. Not pushed. Ready to push.
+
+## 24 Nov 2026, late night: redesign push 2, the top bar, built; push 1 reviewed and fixed (D-189) (MODULE: C2M)
+- Push 1 review: not ready at first (2 majors: an old !important rule kept card outlines; an armed 2-tap button unreadable under the pointer), fixed with the minors (docs 12).
+- Push 2 built: 56 px bar; 7 places for roles that see margin; Setup as a gear and the Guide beside the name; the person pill; Products and Reports fold under More below 1200 px, Price lists below 901 px; phone bar 4 places and More. Guide steps and Find anything no longer say More for Products, Reports, Setup. What's changed 2026-11-24b has a line for it.
+- Code: c2m-access.js (navFor), c2m.js (bar, phone4, pth, Guide words, icon gear), c2m.css (2 blocks at the end).
+- Tests: page-bar (18 new), page-ds (26); whole suite 517 pass on this PC.
+- Looked at in the built-in browser (local copy, invented data) at 5 widths. Not on live. No independent review of push 2 yet.
+- The working tree holds D-186, D-187, D-188 and D-189, not pushed. Push before 30 Nov for B3a.
+- Next: review push 2; then (3) 1 Products place with a switch (vProducts and the VAN Brands Products tab; U-18 work of 10c lives there; page-10c pins it); (4) Approvals desktop and phone; (5) Costs cards and the Guide grid; (6) client page price row, product page, Setup; (7) 1 filled button per card and the ••• menus; then B7, B8, B10, B11, B12, B14.
+
+Files changed since the last entry: c2m-access.js, c2m.js, c2m.css, tests/page-bar.test.js (new), tests/page-ds.test.js, tests/README.md, docs 03, 06, 07, 08, 11, 12, this entry. Not pushed. Ready to push.

@@ -176,3 +176,12 @@ VAN Brands, Products: press a box to see only those packs (Cannot be costed, Rec
 
 ## Remove a recipe (23 Nov 2026, D-184, change list 2026-11-23a)
 Every recipe has 1 red Remove button: under its name, and in its row in the product's list of approved recipes. It says what it will do before anything is done. A draft: Delete (the Production Manager, the CFO, the COO). A version at your step: Close, with the reason the Production Manager reads (it was Close this version). An approved recipe that is not the Default and was never used, or a closed version: Delete (the CFO, the COO). Anything else stays, and the box says why; for the Default it offers Make another recipe the Default. Pick 1 of the reasons (Other needs a note) and press Delete recipe or Close it once. Guide job: Remove a recipe.
+
+## Take back a list revision; drop what was sent back (24 Nov 2026, D-186, change list 2026-11-24a)
+Correct a mistake now has a step for list revisions: a revision waiting for the COO is taken back by the person who sent it (Clients, VAN Brands, Price lists, All 5 side by side, under List revisions). The jobs "Revise a price the COO sent back" and "Revise a list revision the COO sent back" say Revise and resend, or Drop it when it is no longer wanted. What's changed tells the CFO: Take back and Drop it; a price within 0.05 points of its target asks no below-target reason; a GP target of 100% or more is refused; Edit this product refuses a packing bill that is out of use.
+
+## A new look for C2M (24 Nov 2026, D-188, change list 2026-11-24b)
+"Your look" is gone from the Guide (line 127 above no longer holds): C2M has 1 look for everyone. What's changed tells every person once: Inter, a lighter page, white cards with a soft shadow, round colour tags, 1 blue button for the main action; nothing moved.
+
+## The top bar (24 Nov 2026, D-189, change list 2026-11-24b)
+Every Guide step that began "Open More, Products", "Open More, Reports" or "Open More, Setup" now begins with the place itself: Products and Reports are on the top bar, Setup is the gear beside the name. Find anything shows the same names. What's changed (2026-11-24b) tells the COO and the CFO.

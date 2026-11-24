@@ -909,3 +909,14 @@ flowchart TD
   B -->|"Closed"| D4["Delete: CFO, COO"]
 ```
 - Every delete and close needs a reason picked from the box; 1 press. Lines and steps stay in the change record; the Production Manager is told when someone else deletes his recipe.
+
+## 1.46 Take back a list revision; drop what was sent back (owner: Tahir rules; Claude built; D-186, 24 Nov 2026)
+- A list revision waiting for the COO: the person who sent it presses Take back (Clients, VAN Brands, Price lists, All 5 side by side, under List revisions). It becomes withdrawn; the list is free for a new revision. Until now only the COO could free the list, by sending it back.
+- A price or a list revision the COO sent back: Revise and resend as before, or Drop it when it is no longer wanted. It becomes withdrawn and its job leaves Approvals.
+- An approved revision waiting for its date is still withdrawn only by the COO, with a reason.
+- Each press writes 1 line in the change record with who and why (taken back, or dropped after it was sent back).
+
+## 1.47 Rulings of 24 Nov 2026 built with the fixes push (owner: Tahir rules; Claude built; D-187)
+- Go-live window close: after each costed pack takes its cost that day as its approved cost, every open re-approval item is closed in the same step, with a line in the change record. An item that names a pack left not costed stays open. The COO and the CFO read the count in the close notice.
+- Labour and FOH certificate: certified once per month. If it is wrong: the COO reopens the month (with a reason), then the CFO presses Correct: no change or Correct: changed in the certificate box. Once corrected it is closed again.
+- A client-packed product may carry a VAN packing bill: tick its pack on the bill in Costs, Packing cost, or pick the bill in Edit this product.

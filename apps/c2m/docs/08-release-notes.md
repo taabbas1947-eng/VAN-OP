@@ -1230,3 +1230,19 @@ To correct a mistake: a price not yet in force is withdrawn or sent back; a rate
 - At your step, Close this version is now called Remove; it still closes the version with a reason.
 - A draft is deleted with Remove (it was Delete this draft). When the CFO or the COO deletes a recipe someone else wrote, the Production Manager gets a notice with the reason.
 - Production Manager's role page: its "What you do not do" line now says an approved recipe that was never used is deleted by the CFO or the COO; the page version is unchanged, so nobody signs again (Tahir to say if he wants a new sign).
+
+## 2026-11-24a, D-186: take back a list revision; drop what was sent back; audit fixes
+- A list revision waiting for the COO can be taken back by the person who sent it: Take back, under List revisions.
+- A price or a list revision the COO sent back can be dropped with Drop it when it is no longer wanted.
+- A new price within 0.05 points of its target no longer asks for a below-target reason: it already showed as on target.
+- A GP target of 100% or more is refused in Settings.
+- Edit this product refuses a packing bill that is out of use, as Costs, Packing cost does.
+- A withdrawn price says who withdrew it.
+- Under the screen: blank settings are read as not set; rounding of some dealer net prices was 1 paisa low and is right now; a recipe with no lines is never costed; Add a pack and Edit this product save the change and its re-approval item together.
+- Added to 2026-11-24a after Tahir's rulings (D-187): a product whose packing the client supplies can carry a VAN packing bill; a labour and FOH certificate can be corrected once the COO has reopened its month; when the go-live window closes, the open re-approval items close with it; Edit this product needs the right for product types to change a type, and the right for packing to change a pack's bill.
+
+## 2026-11-24b, D-188: a new look for C2M (redesign push 1)
+- 1 look for everyone: the Inter typeface, a lighter page, white cards with a soft shadow in place of outlined boxes, round colour tags, a filled blue button for the main action and soft grey for the rest.
+- The 4 looks to choose from are gone (the dots in the top bar and Your look in the Guide).
+- Nothing moved: every screen, button and figure is where it was.
+- Added to 2026-11-24b (D-189): Products and Reports are on the top bar. Setup is the gear beside your name and the Guide is the book beside it. On a narrow screen Products and Reports sit under More; on a phone the bottom bar keeps 4 places and More.

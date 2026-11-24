@@ -64,6 +64,7 @@ setTimeout(async () => {
     h = V(14); ok(/cannot be removed/.test(h) && /<li class="no">It is the Default/.test(h) && /data-rremprod="1"/.test(h) && !/data-rremgo/.test(h), 'Default: why it stays, and Make another recipe the Default: ' + txt(h).slice(0, 300));
     E("recRem = { id: 14, where: 'list', U: window.__U3, chip: null, note: '' }; RSEQ++"); B = E('recipesBox(ST.products[0])');
     ok(/cannot be removed/.test(B) && /in the table above first/.test(B), 'from the list: points to Make default in the table');
+    w.document.getElementById('app').innerHTML = B; // 24 Nov 2026: the box is put on the page here, so the check does not lean on what an earlier press left there
     ok(E('busyNow()') === true, 'an open Remove box holds the refresh');
     E('recRem = null');
     // Guide and What's changed

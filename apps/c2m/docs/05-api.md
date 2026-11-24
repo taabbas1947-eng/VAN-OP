@@ -471,3 +471,17 @@ No route added or removed.
 No route added or removed.
 - GET /api/c2m/uses/recipe/:id: open to anyone with recipe.start, recipe.step.review, recipe.step.endorse or recipe.step.cost, or the administrator (was recipe.start). Answer adds action (delete, close, none), checks [{ok, t}], fix (default or null), recipe {id, state, productId, brand, rname, version, defaultName}; uses holds why it stays.
 - POST /api/c2m/delete with kind recipe: allowed when that answer is delete for this person: a draft, an approved recipe that passes the 4 checks, or a closed version (doc 09, B-80); 409 otherwise, with the reason. The change record (c2m_audit, action delete) keeps productId, version, state, name, note, lines and steps. Adds a notice to the production role when the deleter did not write it.
+
+## 5.32 Audit fixes (24 Nov 2026; owner: Tahir; D-186)
+- POST /api/c2m/lists/revisions/:id/retract (new; right list.revise). The sender, or the administrator, takes back a revision that is proposed or sent_back: status withdrawn; change record action "taken back" with why. 409 when it is no longer proposed or sent back; 400 for another person.
+- POST /api/c2m/prices/:id/retract now also takes a sent_back price (it was proposed only).
+- POST /api/c2m/settings refuses a GP target (budget_gp, ambition_gp, wl_budget_gp) of 100 or more: 400.
+- POST /api/c2m/prices/propose asks for the below-target reason only when GP is more than 0.05 points under the target.
+- POST /api/c2m/products/:id/full refuses a packing bill that is out of use (400), as /packing/assign does.
+
+## 5.33 Rulings of 24 Nov 2026 (owner: Tahir; D-187)
+- POST /api/c2m/golive with close, and the timed close: also dismisses open re-approval items (see doc 03, 3.65). The answer is unchanged; the notice text carries the count.
+- POST /api/c2m/checks, kind lf_cert: a certified month answers 400 "the COO reopens the month first" unless a reopen later than the certificate exists; then it saves again.
+- POST /api/c2m/packing/bill and /packing/assign: a client-packed product's pack is accepted; a bulk product's is still refused.
+- POST /api/c2m/products/:id/full: 403 when the product type changes without product.classify, or an existing pack's packing bill changes without packing.manage (the administrator exempt). Nothing is saved.
+- GET /api/c2m/state: checks[] rows of kind lf_cert may carry redo: true.

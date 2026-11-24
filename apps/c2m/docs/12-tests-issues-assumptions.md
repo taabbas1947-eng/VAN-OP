@@ -897,3 +897,71 @@ Assumptions and points for Tahir (Not confirmed):
 - Open: the live delete of Basic version 2 (id 67) is done by Yawar or Tahir after the push, with the reason "Wrong name: meant a new version of Main".
 - Independent review (23 Nov 2026), not ready at first: Major M1, an open Remove box held the 2 minute refresh after the person left the page (fixed: the box is cleared on every move away, and the refresh is held only while a box is on screen). Minors fixed: m1 the administrator is offered Close only with that step ticked, as the close route checks; m2 only the CFO or the administrator deleting someone else's recipe tells the Production Manager, and the writer falls back to created_by; m4 the 3rd check now reads "Never made the Default with Make default" (the cost check covers a recipe that set cost); m5 a new version copies its lines from a locked read inside the transaction, so a delete at the same moment gives a clear error, not an empty draft; m7 docs 07 and 01 and a code comment brought in line. Nits fixed: closeBox and its handlers removed; Cancel's focus prefers the panel; Close with Other needs a few words before sending; after a refusal the box checks again.
 - m3 ruled by Tahir (23 Nov): version numbers stay as today; a deleted version's number is given again (MAX + 1). m6 ruled: a product that follows another keeps its own old approved recipes; built: recipeRemove blocks them with "It follows <product>: its own recipes are kept" (routes-184 checks it).
+
+## 24 Nov 2026, Phase 1 audit for the redesign (D-185): workflows, calculations, screens
+Read only, by 3 independent readers of the code (c2m-routes.js, c2m-engine.js, c2m-lib.js, c2m-pricecheck.js, c2m-o2s.js, c2m.js, c2m.css) against docs 06, 09 and this file. Tests not run; no browser; no live data. "Checked" = re-checked by hand on 24 Nov. Line numbers as of commit eb78e80. Owner of every row: Claude, to fix in the audit fixes push (D-185 point 6) unless said.
+
+| ID | What | Where | Severity | State |
+|---|---|---|---|---|
+| W1 | A list revision waiting for the COO cannot be taken back by its sender (a price can: /prices/:id/retract). A wrong one blocks the list until the COO sends it back. Checked. | c2m-routes.js 3219 to 3254 | medium | open |
+| W2 | A sent-back price or list revision has no exit except proposing again. | c2m-routes.js 2023 | medium | open |
+| W3 | A pack's packing bill has 3 write paths with different rules: /packing/assign and /packing/bill refuse client-packed products; /products/:id/full allows them, skips the out-of-use bill check and needs only client.add. | c2m-routes.js 1507, 1537, 3980 | medium | open |
+| W4 | Product type has 2 routes with different rights: /products/:id/type (product.classify) and /products/:id/full (client.add). | c2m-routes.js 1610, 3973 | medium | open |
+| W5 | The re-approval item is written after the commit in /products/:id/full and /products/:id/packs; a failure leaves a changed cost with no item. | c2m-routes.js 1768, 3988 | medium | open |
+| W6 | The CFO seed has recipe.start but not recipe.edit or recipe.step.draft: a draft he starts cannot be edited or sent by him and blocks the product. Live role ticks: Not confirmed. | c2m-access.js 75 to 78 | low | open |
+| W7 | The record is written outside the transaction on: price send back, list send back, pending "later", urgent approve, holidays, grants. | c2m-routes.js 2041, 3302, 2545, 2538, 964, 2558 | low | open |
+| W8 | Import "correct" saves the rate before it claims the item; 2 presses can save twice. | c2m-routes.js 2124 | low | open |
+| W9 | The labour and FOH certificate is once only; a wrong one cannot be corrected, even after a reopen. | c2m-routes.js 2627 | low | open; question for Tahir: allow a correction after a reopen? |
+| W10 | Deleting a product deletes its decided target requests without keeping them in the change record. | c2m-routes.js 3844 | low | open |
+| W11 | A VAN pack with no list price shows a status but makes no job (white label packs do). | c2m.js 3393, 3823 | low | open |
+| W12 | "Why" is empty in the change record on: bill save, pack bill move, freight, labour and FOH pick, product type, direct settings, actuals and checks, pending drop, price approval, target refusal. | c2m-routes.js 1523, 1543, 2456, 2519, 1617, 2058, 2532 | low | open; question for Tahir: which of these must carry a reason? |
+| W13 | A dated-ahead freight row is checked only within 7 days of its date. | c2m-routes.js 904 | low | open |
+| C1 | A blank or non-numeric c2m_setting value reads as 0 (Number(r.v)): blank reapprove_pct sends every cost move to re-approval, blank budget_gp gives target 0, blank fed_pct gives FED 0% in the state while the list re-work reads 5%. Only a hand edit of the table reaches it; the save route refuses blanks. Checked. | c2m-engine.js 14 | low to medium | open |
+| C2 | The company GP target has no upper limit (the save checks 0 or more only); 100 gives Infinity in the page's price for target. | c2m-routes.js 2056; c2m.js 173 | low | open |
+| C3 | Below-target test differs by 0.05 points: the page shows green down to target minus 0.05 (B-17), the server asks for a below-target reason at any GP under target. | c2m-routes.js 1954; c2m.js 151, 2812 | low | open |
+| C4 | lib.round is 1 paisa low on some values: NSV 2103 at 2.5% gives 2050.42, B-79 says 2050.43. Checked. | c2m-lib.js 10 | low | open |
+| C5 | A recipe with 0 lines costs as Rs 0 materials and counts as costed; only the send step stops it. | c2m-engine.js 158 | low | open |
+| C6 | Price for target is written in 9 places in c2m.js; only 1 guards a 100% target. To 1 shared helper. | c2m.js 173, 540, 619, 2812, 2933, 3396, 3457, 4891 | low | open |
+| C7 | Silent fallbacks: packs per outer 0 becomes 1; a NaN cost part becomes 0; a NaN PO price reads "below list". Routes validate first. | c2m-lib.js 53, 143; c2m-pricecheck.js 136 | low | open |
+| C8 | FED mode is matched exactly as Inclusive in lib and in any letter case in the price check. What O2S writes: Not confirmed. | c2m-lib.js 170; c2m-pricecheck.js 113 | low | open |
+| C9 | Possible double freight on Dealer or Farmer channel products (freight in cost, and list freight on the sale). Not confirmed; no freight rates are loaded (D-185: 0 is right for now). | c2m-engine.js 189; c2m.js 334 | low | Not confirmed |
+| C10 | B-59 says 6 decimals, lineSig uses 8; docs 09 names c2m.html where the code is in c2m.js. | c2m-lib.js 229; docs 09 | low | open (docs) |
+
+Screens (for the redesign pushes, not the fixes push): 54 tables in a sideways-scroll box; 3 capped boxes that scroll inside the page (VAN Brands Products, VAN prices grid, the go-live review box); prose before the first action on Products and variants, the product Cost tab (10 note paragraphs) and the Guide; 7 row clusters of 3 or more buttons (Setup Clients row, Products and variants row, product page action bar, saved reports, target request, price and list revision panels, packing bill row); no confirm on Remove holiday and Remove its tag; the nutrient table has no minimum width (clipping: Not confirmed).
+Closed by D-185: A-11, A-28 (neither). Ruled, not built: U-11, U-12, A-35, A-36, U-38, A-32. The 4 looks and IBM Plex go (D-185).
+
+## 24 Nov 2026, the audit fixes push (D-186): state of the 24 Nov findings, tests, review
+State after the push (not pushed yet):
+| ID | State |
+|---|---|
+| W1, W2, W5 | fixed |
+| W3 | in part: the out-of-use bill check is in Edit this product. Open, question for Tahir: may a client-packed product carry a packing bill (the Edit form and the cost engine allow it; Costs, Packing cost refuses it)? |
+| W4 | open, question for Tahir: should Edit this product need product.classify to change a product type and packing.manage to change a bill, as the routes on Costs do? |
+| W7 | in part: price and list revision send back. Still outside a transaction: pending "later", urgent approve, holidays, grants. |
+| W6, W8 to W13 | open |
+| C1 to C6 | fixed |
+| C7 to C10 | open (C10: docs 09 now reads 8 decimals) |
+
+Tests: routes-185.test.js (36 checks) and page-185.test.js (19 checks); the whole suite is 460 checks, all pass on MariaDB 10.4.32 and jsdom 31.0.1, Node 24.21, on Tahir's PC (a throwaway database on port 3307; XAMPP's own MySQL does not start, see the handoff). The new route checks were also run against the routes file before the change: 13 of them fail there, as they should.
+What the new checks do not prove (review m4): that the re-approval item of Add a pack and Edit this product is in the same transaction (the test product has no approved recipe, so no item is written); that a send back and its record roll back together (no failure is forced); the server's 0.05 allowance on /prices/propose (no costed pack in the test data; the page's helper is tested); the gap text "the recipe has no lines" through packCost.
+page-184: its check "an open Remove box holds the refresh" failed here before any change (it leaned on what an earlier press left on the page); it now puts the box on the page itself.
+Independent review (24 Nov): not ready at first. M1: the New client prices grid still asked the below-target reason without the 0.05 allowance (5 places): fixed with 1 helper, belowT. m1: a re-approval message could read "within null%": fixed. m2: a taken-back or dropped price read "Withdrawn by the COO": fixed, it says who. m3: the COO's card coloured without the allowance: fixed. Nit: rounding of values above 1e11 kept as before. Left as they are: "Drop it" shows the Take back message; the COO gets no notice when a waiting revision is taken back (the same as a price).
+Not checked in a browser: Take back and Drop it were tested in jsdom and through the routes, not clicked on a running copy.
+
+## 24 Nov 2026, the rulings of D-187 built: state, tests, review
+- W3 fixed (allowed everywhere). W4 fixed for a product type change and an existing pack's bill. W9 fixed. B3a built.
+- Tests: routes-185 is now 47 checks, page-185 is 21; the whole suite is 473, all pass (MariaDB 10.4.32, jsdom 31.0.1, Node 24.21, a throwaway database on port 3307).
+- Not proven by a check: the 403 of W4 (the test people have no role with client.add and without the other 2 rights; read in code by the reviewer); the timed close (the checks close the window with the button).
+- Independent review of the 4 points: ready. Minor 1, fixed: an item naming a pack left not costed at the close stays open. Minor 2, fixed: the redo flag is off when the month is locked again. Minor 3, open: in Edit this product, changing who packs to Bulk clears the packs' bills without packing.manage. Minor 4, open, question for Tahir: a new pack added on Edit this product may carry a bill with client.add alone, as Add a pack does (Guide job "Add a pack to a client product"); keep, or ask for packing.manage? Nits: the close answer does not carry the count of items closed (the notice does); the certificate box shows only last month, so an older reopened month cannot be corrected from the page; the form hint for client-packed now says a bill can be added.
+- Live, 24 Nov 2026 (read only): re-approval items 1 and 2 hold the 47 packs. At the close on 1 Dec each is closed unless it names a pack that is not fully costed that day; such an item stays open with all its packs. Check on 1 Dec which of the 5 open items stayed.
+
+## 24 Nov 2026, redesign push 1, the design system (D-188): tests, what was looked at, open points
+- Tests: page-ds.test.js (23 checks: Inter, each colour, no rule or code of the 4 looks, an old look cleared, tags, buttons, the shadow). page-10l check 8 now changes the person's name where it changed the look. Whole suite 496, all pass (MariaDB 10.4.32, jsdom 31.0.1, Node 24.21).
+- Looked at in the built-in browser, on a local copy of the page with the tests' invented data (no server, no live data): Approvals, Costs and a client page at 1366 px, and Approvals at 375 px. Inter loaded in 4 weights; no sideways scroll at 375 px. Not looked at: Margin, Price lists, Products, Setup, Guide, Reports, the product page, panels and forms, print pages, and every screen with real data. Not looked at on the live site.
+- Open: (1) no independent review of this push yet (CSS and the removal of the looks; the earlier pushes of the day were reviewed). (2) The print rules and the document preview (.doc, .doc-tb) keep their own colours; the .doc box now has the card shape on screen: check a price list preview. (3) 23 places set font-family var(--mono); they now show Inter, as ruled. (4) The 314 inline styles in c2m.js and the 11 corner sizes are untouched (handoff 21 Nov (2), 3.10): some inner boxes keep 3 to 8 px corners.
+
+## 24 Nov 2026, redesign push 2, the top bar (D-189), and the review of push 1
+- Independent review of push 1 (the design system): not ready at first. Major 1: an older rule with !important kept a 1 px outline on most cards and greyed the state edge of some boxes: removed. Major 2: an armed 2-tap button turned unreadable under the pointer (white on light grey): it stays green now. Minors fixed: White Label tags took the old colours; some headings stayed in capitals; pale fills inside white cards were invisible (now the soft grey); the What's changed box lost its lift; the Find line curled; rows poked out of rounded cards; 2 plain boxes kept an outline. All colour pairs computed by the reviewer pass 4.5 to 1. Left as they are: tags are 1 px taller in dense rows; documents under Read more show in Inter; chips, the Help button and fields keep their outline.
+- Tests: page-ds is 26 checks, page-bar is 18 (new); whole suite 517, all pass (MariaDB 10.4.32, jsdom 31.0.1, Node 24.21).
+- Looked at in the built-in browser, local copy with invented data: the bar at 1366, 1200, 1024, 800 and 375 px (places shown, More, the sheet, no sideways scroll), and Approvals at 1366 px after the review fixes. No console errors. Not looked at: the other screens, real data, the live site.
+- Open: (1) no independent review of push 2 yet. (2) At 761 to 900 px the bar was measured before Price lists was folded; not measured again after. (3) The Find button shows only its icon below 1501 px; Ctrl K still works. (4) Find anything and the Guide still describe 2 product lists until the Products push.

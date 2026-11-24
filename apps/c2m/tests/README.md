@@ -36,7 +36,7 @@ Each file can also run alone, for example `node apps/c2m/tests/page-10g.test.js`
 `<name>: <n> pass, <m> fail`; run.js adds them up, shows why a file gave no result, and ends with exit code 1 if any
 check failed.
 
-## What they check (23 Nov 2026: 407 checks)
+## What they check (24 Nov 2026: 517 checks)
 
 | File | Checks | What |
 |---|---|---|
@@ -47,10 +47,14 @@ check failed.
 | page-10e.test.js | 35 | The audit Minors: rounding, blank settings, FED, toasts and more (push 10e) |
 | page-10f.test.js | 25 | Focus, open folds and scroll kept after each press; lists worked out once per draw (push 10f) |
 | page-10g.test.js | 27 | The page reads its data again when shown, every 2 minutes and on a new day, never while someone is busy (push 10g) |
-| page-184.test.js | 27 | Remove a recipe: where it shows per role, its box, the 4 reasons, 1 press (D-184, 23 Nov 2026) |
+| page-bar.test.js | 18 | The top bar of 24 Nov: 7 places, the gear and the Guide beside the name, what folds under More, the phone bar, the Guide's wording (D-189) |
+| page-ds.test.js | 26 | The design system of 24 Nov: Inter, the 1 colour set, round tags, the buttons, the card shadow, and nothing left of the 4 looks (D-188) |
+| page-185.test.js | 21 | Audit fixes of 24 Nov: price for target in 1 place, the 0.05 point allowance everywhere, Take back and Drop it on list revisions (D-186); the certificate's Correct buttons, client-packed packs on a bill (D-187) |
+| page-184.test.js | 25 | Remove a recipe: where it shows per role, its box, the 4 reasons, 1 press (D-184, 23 Nov 2026) |
 | page-10l.test.js | 22 | A redraw writes only what changed; typed text, changes by code and armed buttons still get a full redraw; folds and sorted tables stay (push 10l) |
 | page-idle.test.js | 18 | On every screen, nothing counts as "in progress" after a draw, so the refresh can run |
 | page-render.test.js | 3 | Approvals, Costs and the go-live review panel draw |
+| routes-185.test.js | 47 | Audit fixes of 24 Nov: take back and drop for prices and list revisions, send back with its record, blank settings, GP target limit, rounding, Edit this product and an out-of-use bill (D-186); a bill on a client-packed pack, correcting a certificate after a reopen, the window close closing re-approval items (D-187) |
 | routes-184.test.js | 44 | Remove a recipe: who may delete or close each state, the 4 checks, the notice, the change record (D-184) |
 | routes-10a.test.js | 21 | Price list downloads for viewers and the COO, notices (push 10a) |
 | routes-10e.test.js | 22 | Price list numbers from the counter, the FED setting, holidays (push 10e) |

@@ -11,7 +11,7 @@ const today = () => lib.pkToday();
 
 async function loadSettings(q) {
   const [rows] = await q('SELECT k, v, label, needs_approval FROM c2m_setting');
-  const s = {}; rows.forEach(r => { s[r.k] = Number(r.v); if (r.k === 'budget_gp') r.needs_approval = 1; }); // 1.0.0: the company GP target is every untargeted product's target (D-75), so it waits for Tahir like a product target (review 19 Oct)
+  const s = {}; rows.forEach(r => { s[r.k] = r.v == null || String(r.v).trim() === '' || !isFinite(Number(r.v)) ? null : Number(r.v); /* C1, 24 Nov 2026: a blank or non-numeric value is 'not set' (null), never 0; each reader has its own default */ if (r.k === 'budget_gp') r.needs_approval = 1; }); // 1.0.0: the company GP target is every untargeted product's target (D-75), so it waits for Tahir like a product target (review 19 Oct)
   return { values: s, rows };
 }
 
@@ -156,6 +156,7 @@ function priceRecipe(D, ver, rateOverride) {
   const lines = ver.lines.map(l => { const g = D.rates.get(l.gradeId) || {}; const rate = rateOverride && rateOverride.gradeId === l.gradeId ? rateOverride.rate : g.rate;
     return { gradeId: l.gradeId, name: g.name || '?', grade: g.grade, qty: l.qty, rate, date: g.date, cost: rate == null ? null : l.qty * rate, nutrients: g.nutrients || {}, fields: g.fields || [], role: g.role || 'unclassified', type: g.type, checked: g.checked, notEntered: !!g.notEntered, nutMeasure: g.nutMeasure || {}, density: g.density ? g.density.kgPerL : null, unit: g.unit || 'kg' }; });
   const missing = lines.some(l => l.rate == null || !(Number(l.rate) > 0)); // a Rs 0 rate is a missing rate (review of 0.6.0)
+  if (!lines.length) return { lines, materials: null, kgTotal: 0, missingRate: false, noLines: true }; // C5, 24 Nov 2026: a recipe with no lines has no materials cost; it is never Rs 0
   return { lines, materials: missing ? null : lib.materialCost(lines), kgTotal: lib.recipeTotal(lines), missingRate: missing };
 }
 
@@ -232,6 +233,7 @@ function packCost(D, pack, opts = {}) {
   const priced = priceRecipe(D, ver, opts.rateOverride);
   const gaps = [];
   if (!ver) gaps.push('no approved recipe');
+  else if (priced && priced.noLines) gaps.push('the recipe has no lines');
   else if (!priced || priced.materials == null) gaps.push('a material has no rate');
   let packing = 0;
   if (cp.packing_mode !== 'bulk') {

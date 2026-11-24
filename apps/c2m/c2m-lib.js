@@ -10,7 +10,8 @@
 function round(x, n = 2) {
   if (x == null || !isFinite(x)) return null;
   const f = Math.pow(10, n);
-  return Math.sign(x) * Math.round(Math.abs(x) * f) / f;
+  const a = Math.abs(x) * f; // above 1e11 a double has no spare digits to tidy, so it is rounded as it is (review of 24 Nov)
+  return Math.sign(x) * Math.round(a < 1e11 ? Number(a.toPrecision(15)) : a) / f; // C4, 24 Nov 2026: 2103 x 0.975 is held as 2050.42499..., and must round to 2050.43 (B-79)
 }
 
 /**
@@ -173,9 +174,11 @@ function netPoPrice(invoicePrice, fedMode, foc, fed = 5) {
 /** Cost re-approval needed when cost moves more than pct from the last approved cost (ruling 10 Oct, 3%). */
 /** The re-approval % when the setting is missing or not a number (docs 09: reapprove_pct 3). A missing setting must never switch re-approval off (audit 3 Nov 2026, D-145). */
 const REAPPROVE_DEFAULT = 3;
+/** The re-approval % in force: the setting, or 3 when it is missing, blank or not a number (C1, 24 Nov 2026). */
+function reapprovePct(pct) { return pct == null || pct === '' || !isFinite(Number(pct)) ? REAPPROVE_DEFAULT : Number(pct); }
 function needsReapproval(approvedCost, newCost, pct) {
   if (!(approvedCost > 0) || newCost == null) return false;
-  const p = pct == null || pct === '' || !isFinite(Number(pct)) ? REAPPROVE_DEFAULT : Number(pct);
+  const p = reapprovePct(pct);
   return Math.abs(newCost - approvedCost) / approvedCost * 100 > p;
 }
 
@@ -436,6 +439,6 @@ module.exports = {
   rowNameKey, looseKey, rowSize, masterCmp, sameRegion,
   listRowIs, listRowSize, officialRow, officialPack, restoreRow,
   round, rateWarning, materialCost, recipeTotal, packingPerUnit, buyOf, buyNote, sourceText, piecePrice, printMrp, mrpIssues, mrpMissing, pickConversionRule, conversionFor, costBreakdown,
-  marginPct, targetPrice, contributionFloor, fedPct, netPoPrice, needsReapproval, exposure, flag,
+  marginPct, targetPrice, contributionFloor, fedPct, netPoPrice, needsReapproval, reapprovePct, exposure, flag,
   RECIPE_FLOW, RECIPE_FLOW_OTHER, lineSig, resendTo, RECIPE_WHO, fmtInt, fmtRs2, pkToday, pkNow, FAMILY_COLOURS, familyColour, CATS, FARMER_LINE, buyerLine, targetOr, priceCountsForPo, REAPPROVE_DEFAULT,
 };

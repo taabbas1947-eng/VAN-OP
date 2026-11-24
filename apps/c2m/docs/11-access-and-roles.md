@@ -314,3 +314,16 @@ No new action: each list uses the right that adds to it. Delete, Take out of use
 ## 11.32 23 Nov 2026: Remove a recipe (D-184)
 - No action added or removed. Who may do what with Remove: a draft, recipe.start (the Production Manager, the CFO, the administrator); the person who sent a draft back and has no recipe.start closes it; a version at a step, the right of that step; an approved recipe that passes the 4 checks, or a closed version, recipe.step.cost (the CFO) or the administrator. Nobody deletes the Default, a recipe ever used for cost or ever made the Default, or an old version.
 - The check behind the button (GET /api/c2m/uses/recipe/:id) is open to every recipe right, so the QC Head and the Plant Manager read why a recipe stays.
+
+## 11.33 24 Nov 2026: take back and drop (D-186)
+- Take back or drop a list revision: the right list.revise, and only the person who sent it (or the administrator). No new right.
+- Drop a sent-back price: the right price.propose, and only the person who proposed it (or the administrator), as Take back already was.
+- Open, for Tahir: Edit this product needs only client.add, also when it changes the product type (product.classify on Costs) or a pack's packing bill (packing.manage on Costs). The seeded CFO role has all 3, so nothing differs today; a custom role could differ.
+
+## 11.34 24 Nov 2026: Edit this product and the matching rights (D-187)
+- Edit this product (client.add) changes a product type only with product.classify, and an existing pack's packing bill only with packing.manage. The administrator is exempt. The seeded CFO has all 3, so nothing changes for him. This closes the open point of 11.33.
+- Not covered, recorded in doc 12: changing who packs to Bulk clears the packs' bills without packing.manage; a new pack added on the form may carry a bill with client.add alone (as Add a pack does).
+- Correct a labour and FOH certificate: labour.manage, after the COO's reopen.
+
+## 11.35 24 Nov 2026: the places of the COO and the CFO (D-189)
+- Bar: Approvals, Clients, Margin, Costs, Price lists (with pricedoc.all), Products, Reports. Beside the name: Setup (gear), Guide. What each role may do is unchanged; only where the places sit changed. A custom role with see.margin gets the same places.

@@ -689,3 +689,28 @@ Tahir ruled (panel, 20 Nov 2026): the 19 targeted Minors now; the 6 rebuilds (C-
 - Checks of an approved recipe: not the Default (engine approvedVersion); no approved cost ever written on it (c2m_cost_version.recipe_version_id); never made the Default (c2m_audit entity recipe, action default); no product follows it (only blocks the Default). Old versions never; closed by the CFO or the administrator.
 - The page: Remove under the recipe name (not inside the panel at your own step, where it sits with the step buttons in place of Close this version) and in each row of the product's list of approved recipes. The box opens where its button was pressed; an open box holds the 2 minute refresh. Delete recipe and Close it are 1 press after a reason is picked.
 - Replaces: Delete this draft (push 7g) and Close this version on the step buttons and on a sent-back draft (R69). The close route itself is unchanged.
+
+## 3.64 Audit fixes of 24 Nov 2026 (owner: Tahir; D-186)
+- Settings: a blank or non-numeric value in c2m_setting is read as not set (null), never 0. Each reader has its default: re-approval % 3, FED 5, company GP target none.
+- Rounding: lib.round tidies the value to 15 significant digits before it rounds, so 2103 x 0.975 (held as 2050.42499...) gives 2050.43. Values of 1e11 and above (times the decimals) round as before.
+- Price for target: the page has 1 helper, tpFor(cost, target); it gives no price for a target of 100% or more, as lib.targetPrice does on the server.
+- Below target: the page has 1 helper, belowT(gp, target): true when GP is more than 0.05 points under the target. The New client prices grid, the price panel, the COO's card and the server's reason check all use the same test.
+- A recipe with no lines has no materials cost; the pack's gap reads "the recipe has no lines".
+- The re-approval item of Add a pack and of Edit this product is written inside the same transaction as the change. A price or list revision send back writes its change-record line in the same transaction.
+- A withdrawn price says who withdrew it: taken back by its proposer, dropped after it was sent back, or withdrawn by the COO before its date.
+
+## 3.65 Rulings of 24 Nov 2026 built with the fixes push (owner: Tahir; D-187)
+- glClose0 dismisses the open c2m_reapproval rows inside the close transaction, except a row whose items name a pack left not costed. The second run of a close is stopped by golive_reset before this step, so items made after the close are never touched.
+- The state answer gives a lf_cert check the flag redo when a reopen of its month is later than the certificate and the month is not locked now. The page shows the 2 Correct buttons only then.
+- packing_mode client no longer blocks a packing bill in save_packing_bill, save_packing_assign or the page's list of packs to tick. The count of packs with no bill still leaves client-packed packs out, since a bill is optional for them.
+
+## 3.66 Redesign push 1: the design system (owner: Tahir; D-188, 24 Nov 2026)
+- c2m.html loads Inter (400, 500, 600, 700) from Google Fonts, without holding up the first paint, as before.
+- c2m.css: 1 :root set of colours (D-188); the 3 other looks' sets and every rule naming a look are removed. The last block of the file, "Design system, D-185", sets the card shape, the tags, the buttons, the fields and the headings; rules above it keep their layout. Cards that carry a state keep their coloured left edge.
+- c2m.js: SKINS, the look dots, Your look in the Guide and their press handler are removed; on open, data-skin is taken off the page and the key c2m.skin is removed from the browser.
+- Still to come (D-187): 1 filled button per card and the ••• menus (they need changes to each screen), the 56 px top bar with 7 places, the new Approvals, Products, Guide and Costs layouts.
+
+## 3.67 Redesign push 2: the top bar (owner: Tahir; D-189, 24 Nov 2026)
+- c2m-access.js navFor: a role with see.margin gets nav approvals, clients, margin, costs, pricelists (with pricedoc.all), products, reports, and more setup, guide.
+- c2m.js: the nav buttons products and reports carry the class fold and pricelists fold2; the foot draws the person pill (.pp) and 2 icon buttons (.ib) for Setup and the Guide when they are in more. phone4 gives the first 4 places whenever the role has a More list. pth() no longer writes "More".
+- c2m.css, block "Top bar, D-187 part 1": the widths above (D-189). The More button on a desktop shows only while something is folded, and its sheet then lists only the folded places.

@@ -31,7 +31,7 @@ setTimeout(async () => {
     E("pan = { k: 'tochange', only: 'price' }; render()"); await tick(); ok(!!doc.querySelector('#app > aside.panel') && M().hasAttribute('inert') && M().getAttribute('aria-hidden') === 'true', 'a panel is drawn and main is inert behind it');
     E('pan = null; render()'); await tick(); ok(!doc.querySelector('#app > aside.panel') && !M().hasAttribute('inert') && !M().hasAttribute('aria-hidden'), 'closing it takes the panel away and main is live again');
     // 8. the side bar: a new skin writes the side bar, not main
-    k0 = firstKid(); h0 = H(); E("skin = skin === 'silver' ? 'slate' : 'silver'; render()"); await tick(); ok(H() !== h0 && firstKid() === k0, 'a change only in the side bar writes only the side bar');
+    k0 = firstKid(); h0 = H(); E("ST.me.name = ST.me.name === 'Zed' ? 'Tahir' : 'Zed'; render()"); /* the 4 looks are gone (D-185): the person's name changes the bar instead */ await tick(); ok(H() !== h0 && firstKid() === k0, 'a change only in the side bar writes only the side bar');
     // 9. the same HTML as a full redraw: what shows equals a page written from nothing
     const keep = M().innerHTML; E('PAINT.app = null; render()'); await tick(); ok(M().innerHTML === keep, 'what shows equals a full redraw');
     // 10. More and Find open and close

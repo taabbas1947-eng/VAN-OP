@@ -44,6 +44,12 @@
         "All files",
         "133",
         ""
+       ],
+       [
+        "qains1126a.test.js",
+        "2026-11-26a: Inspections on file lists the newest first (an inspection stored near the end is in the newest 40; same date keeps the stored order; a back-dated one sorts by its actual date; the stored list is not reordered); the find box finds by PO, base batch, inspector and several words, and finds an old inspection beyond the newest 40; the card no longer takes the first 40 stored, has the box and Clear, escapes the typed text, keeps Withdraw for the same people and stays on the Cleared tab; Guide rule R-055, My job note, change log, build id, D-379",
+        "R-055",
+        "26 passed, 0 failed (26 Nov 2026)"
        ]
       ]
      }

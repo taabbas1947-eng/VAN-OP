@@ -3662,6 +3662,52 @@
      }
     }
    ]
+  },
+  {
+   "id": "LG-47",
+   "title": "How Inspections on file is listed and searched (2026-11-26a)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-055"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn qaInsHay, qaInsList, qaInsFind, screenQA (qaInsCard)",
+    "D-379"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Part",
+       "Rule",
+       "From"
+      ],
+      "rows": [
+       [
+        "Order",
+        "Newest first by actualDate, else date; on the same date the order in state.inspections is kept (a new inspection is stored first). The stored list is not changed",
+        "state.inspections"
+       ],
+       [
+        "Rows shown",
+        "The first 40 (QA_INS_SHOW) of the sorted or found list; the heading says newest 40 of N, or N found",
+        "qaInsList"
+       ],
+       [
+        "Find",
+        "The box text split on spaces; every word must appear in PO, product, inspector, record id or the batch, brand and brand batch of each batch on the inspection (case ignored). Enter or leaving the box applies it; Clear empties it",
+        "qaInsHay"
+       ],
+       [
+        "Withdraw",
+        "Unchanged: offered on a passed inspection that is not withdrawn, to the roles in CORRECT_ENTITY.inspection.supersede (QA Inspector, Plant Manager, COO)",
+        "correctAllowed"
+       ]
+      ]
+     }
+    }
+   ]
   }
  ]
 }

@@ -59,6 +59,13 @@ setTimeout(async () => {
     E("ST.me = window.__STF.me; ST.me.actions = (ST.me.actions || []).concat(['packing.manage']); ST.packingItems = [{ id: 8, name: 'Bag & liner', kind: 'Bag', price: 5, date: '2026-10-13', source: 'x' }]; scr = 'costs'; cpart = 'packing'; renderPage()");
     { const s = main().querySelector('table[data-lft="pitems"] details.dots summary'); ok(s && s.getAttribute('aria-label') === 'More actions for Bag & liner', 'review 5: the ••• label is escaped once: ' + (s && s.getAttribute('aria-label'))); }
     ok(/main th:not\(\.doc \*\)/.test(css) && /main td:not\(\.doc \*\)/.test(css), 'review 7: the price list preview keeps the look of the PDF');
+    // 9. D-196b, after the live check: Today with nothing to do and items with others
+    E("ST.me = Object.assign({}, window.__STF.me, { role: 'qc', admin: false, label: 'QC Head', actions: ['recipe.step.review', 'see.products', 'see.materials'], nav: ['today', 'recipes', 'inputs', 'guide'], more: [], user: 'himayat' }); scr = 'today'; renderPage()");
+    { const em = main().querySelector('.endmark'); ok(!em || !/Nothing needs you today/.test(em.textContent), 'D-196b: the end line does not repeat "Nothing needs you today."'); }
+    { const src = fs.readFileSync(path.join(__dirname, '..', 'c2m.js'), 'utf8'); const ln = src.split('\n').find(l => l.includes('class="ans endmark"')) || ''; ok(ln && !/Nothing needs you today/.test(ln) && /with others; none needs you now/.test(ln), 'D-196b: the end line is built without the repeat, and still counts the items with others'); }
+    ok(!/details\.box:not\(\.form\)>summary\{[^}]*display:flex/.test(css), 'D-196b review: a folding line flows as text, so no gap opens before a comma');
+    ok(/main details\.box:not\(\.form\)>summary\{padding:8px 12px;min-height:var\(--h\)/.test(css), 'D-196b: a folding box opens from a full-height row');
+    ok(/2026-11-26d/.test(E('JSON.stringify(CHANGELOG)')), "What's changed has 2026-11-26d");
     // 7. Guide, What's changed and docs moved with it
     ok(/2026-11-26c/.test(E('JSON.stringify(CHANGELOG)')), "What's changed has the new look (2026-11-26c)");
     ok(/D-196/.test(fs.readFileSync(path.join(__dirname, '..', 'docs', '06-decisions.md'), 'utf8')), 'docs 06 records D-196');

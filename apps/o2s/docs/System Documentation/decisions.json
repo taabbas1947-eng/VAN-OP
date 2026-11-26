@@ -21331,6 +21331,26 @@
      }
     }
    ]
+  },
+  {
+   "id": "D-379",
+   "title": "Inspections on file: newest first, and a find box (2026-11-26a)",
+   "owner": "Tahir (ruling)",
+   "rules": [
+    "R-055",
+    "R-052"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir, 26 Nov 2026: Fahim (Plant Manager) and Tahir could not find the Withdraw button for the 25 Nov inspection of PO 23214 (420 Kg Max Sulfur, 1 Kg packs entered on the 10 Kg line). Panel answer: \"Newest first + search by PO\"; build: \"YES\"",
+    "Live check 26 Nov 2026: 363 inspections stored; that inspection was at index 357, so it never showed in the first 40",
+    "o2s.html qaInsQ, QA_INS_SHOW, qaInsHay, qaInsList, qaInsFind, screenQA (qaInsCard), guideRules, guideMyJob, SYSDOC_RULE_IDS"
+   ],
+   "blocks": [
+    {
+     "p": "QA → Cleared → Inspections on file lists the newest 40 inspections first (by the inspection date: actualDate, else date; on the same date the stored order is kept). A box above it finds any inspection by PO, product, batch, inspector or record id; every typed word must match. The card stays on the Cleared tab. Who may withdraw is unchanged (QA Inspector, Plant Manager, COO)."
+    }
+   ]
   }
  ]
 }

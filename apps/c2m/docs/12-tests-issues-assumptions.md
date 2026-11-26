@@ -1064,3 +1064,9 @@ Tahir asked to look at the new website's design and colours: van.com.pk/new/, pr
 - 1 reviewer, the diff and the new test. Fixed: (1) the CFO with 1 job saw the next move and under it a list saying "Nothing needs you today": now the next move alone; (2) the 5 lists side by side lost their sideways scroll on a narrow screen: kept; (3) the grey of column heads and hints was 3.6 to 3.9:1: now #5F645B, 5.5:1 or more; (4) the count in the top bar, link hover and the focus ring were amber at 2.7 to 3:1: now dark amber #855610 (6.3:1 with white; 5.7:1 on the page); (5) a ••• label escaped twice ("Bag &amp;amp; liner"); (6) the facts line in the page head may wrap on a phone; (7) the price list preview took the new table heads: it keeps the PDF's look; (8) "above: check" kept a look of its own (ink, bold); (9) buttons on a phone stay 40 px; (10) an empty column head takes no width.
 - Kept: VAN Brands with 1 list open has no page head, so its switch stays first there (as before D-196).
 - page-196 now has the checks of the review. Whole suite: see the handoff.
+
+## 26 Nov 2026, evening: live check of D-196 (commit 135a4a0)
+- Read only, as Tahir, in Claude's own tab; the 4 roles set in the page (their seed rights), nothing saved. Live serves c2m.43694eb94c7d.css with Fraunces titles and the warm page.
+- Every place for the COO, Yawar, Majid, Himayat and Fahim: the title at the same left edge (Costs parts 26 px lower, under their breadcrumb, as designed); no list with its own scroll bar; no row with 3 buttons; no sideways page scroll; buttons 32 or 36 px apart from tab strips (39 px, with a count), card buttons and text links.
+- Found and fixed (D-196b): Today with nothing to do said "Nothing needs you today." twice (QC Head); the With others and Read notices lines were 21 px with no padding.
+- Not checked live: the phone width; the real accounts of the 4 people (their sessions are theirs).

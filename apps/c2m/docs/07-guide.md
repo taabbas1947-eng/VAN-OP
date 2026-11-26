@@ -214,3 +214,6 @@ Every Guide step that began "Open More, Products", "Open More, Reports" or "Open
 
 ## 26 Nov 2026 (change list 2026-11-26c, D-196)
 - See what waits for you, step 3: "Then the rest of your list, under **Then**." The next move is no longer listed twice. No other step changed: the look changed, not the places or the buttons.
+
+## 26 Nov 2026 (change list 2026-11-26d, D-196b)
+- No Guide step changed: Today with nothing to do says so once; the steps already say "End of your list" means you are done.

@@ -50,3 +50,6 @@ R-049	After a line is closed short
 R-050	Who sets your access
 R-051	A KAM sees only his own clients
 R-052	Correct a record is by area
+R-053	When the Plant Manager or the CFO is away
+R-054	Why is this waiting? (after 7 days)
+R-055	Withdrawing a QA inspection

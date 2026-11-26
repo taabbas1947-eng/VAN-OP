@@ -1277,3 +1277,6 @@ To correct a mistake: a price not yet in force is withdrawn or sent back; a rate
 ## 2026-11-26c: C2M in the VAN look (D-196)
 - The colours and type of the new VAN website; 1 height for buttons and boxes; tables with text and buttons on 1 line; no list with its own scroll bar; the name in full in the top bar.
 - Clients' switch under the title; dates beside Help; Packing cost rows with •••; Inputs values without the repeated state; Today shows the next move once.
+
+## 2026-11-26d: Today when nothing needs you (D-196b)
+- Today says "Nothing needs you today." once. The With others and Read notices lines open from a full-height row.

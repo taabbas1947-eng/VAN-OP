@@ -1547,3 +1547,11 @@ Files changed since the last entry: c2m.js, c2m.css, tests/page-193.test.js, doc
 - Next: Tahir pushes; Claude checks live, read only, as each role where possible. Then Tahir's own feedback. On 1 Dec: B3a.
 
 Files changed since the last entry: c2m.css, c2m.html (fonts), c2m.js, tests/page-196.test.js (new), tests/page-ds.test.js, tests/page-10b.test.js, tests/README.md, docs 03, 06, 07, 08, 12, this entry. Not pushed. Ready to push (with the 3 entries above).
+
+## 26 Nov 2026, evening (4): D-196 live check; D-196b (MODULE: C2M)
+- Tahir pushed D-196 as 135a4a0 ("major changes"; it also carried apps/o2s/OP-HANDOFF-O2S.md, his own). Render served it at once.
+- Live check, read only (docs 12): every place for the COO and the 4 roles (set in Claude's own tab) has the same title edge, no inner scroll, no 3-button rows, no sideways scroll. Margin and Today seen by eye.
+- Found on live as the QC Head, fixed as D-196b: "Nothing needs you today." twice on Today; the With others and Read notices lines without padding. What's changed 2026-11-26d. Tests: page-196 now 45; whole suite 788 pass on the throwaway database. Independent review: 1 bug (a gap before a comma in a folding line), fixed; the end-line test made stronger.
+- Next: Tahir pushes D-196b; then his own feedback. On 1 Dec: B3a. Still waiting for a ruling: 1 Save on the material card, its help beside the form, a recipe from Recipes lighting Products.
+
+Files changed since the last entry: c2m.css, c2m.js, tests/page-196.test.js, tests/README.md, docs 03, 06, 07, 08, 12, this entry. Not pushed. Ready to push.

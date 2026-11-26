@@ -690,3 +690,9 @@ main .phmeta{white-space:normal}
 .p-blue{background:var(--soft);color:var(--ink)}.ag.above{color:var(--ink);font-weight:600}
 main th:empty{min-width:0}
 @media (max-width:760px){.btn,button.btn,a.btn,summary.btn,.helpb,main td .btn,main .jrow .btn{min-height:40px!important}}
+/* D-196b (26 Nov 2026, live check): a folding box's line has room, like a table row */
+main details.box:not(.form)>summary{padding:8px 12px;min-height:var(--h);display:block;line-height:20px;cursor:pointer;list-style:none}
+main details.box:not(.form)>summary::-webkit-details-marker{display:none}
+main details.box:not(.form)>summary::before{content:'\25B8';color:var(--faint);display:inline-block;width:14px}
+main details.box:not(.form)[open]>summary::before{content:'\25BE'}
+main details.box:not(.form)[open]>summary{border-bottom:1px solid var(--line)}

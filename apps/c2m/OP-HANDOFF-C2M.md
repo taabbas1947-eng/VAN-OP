@@ -1591,3 +1591,48 @@ Files changed since the last entry: c2m.css, c2m.js, tests/page-197.test.js (new
 - Next: Tahir's own feedback. On 1 Dec: B3a. Nothing from the D-196 pictures is left open.
 
 Files changed since the last entry: docs 12, this entry. Not pushed. Ready to push.
+
+## RESUME HERE (26 Nov 2026, late evening): state, what is due, every open question (MODULE: C2M)
+Start the next chat by reading this entry. It replaces the RESUME HERE of 26 Nov 2026, night (line "RESUME HERE (26 Nov 2026, night)"); its open questions and audit items are carried here unchanged where still open. The detail of each push is in the dated entries above (evening (4) to (9)), docs 06 (D-196 to D-197) and docs 12.
+
+### A. Where things stand
+- Live and pushed: everything up to commit f4145c1 (26 Nov 2026), each push checked live, read only, as Tahir (other roles set in the page in Claude's own tab, nothing saved). After it, 71bf7ad carried docs 12 (live check of D-197) and the entry "evening (9)"; only this entry is unpushed.
+- Pushes of this session, all live:
+  - 135a4a0, D-196: C2M in the VAN look (website colours and fonts, 1 set of sizes, light top bar, tables on 1 line, no inner scroll, the same left edge, Clients' switch under the title, facts line beside Help, Today without repeats, Packing cost •••, Inputs values alone, Required on the label line).
+  - 25040f9, D-196b: Today says "Nothing needs you today." once; folding lines (With others, Read notices) are full-height rows.
+  - ff4f36b, D-196c: With others counts each role once ("with the CFO" everywhere). Also an older fault fixed: What's changed ran out of order since 24 Nov, so the login box never showed 24c to 26e; CHANGELOG is now sorted by version on load. 26c and 26e reach every role.
+  - f4145c1, D-197: the material card has 1 Save (density first, then nutrients; a new source or date alone saves; "1.20" against 1.2 is no change); its help sits beside the density box and Save; a recipe opened from Recipes keeps Recipes lit and "All recipes" leads back (Back and Forward keep it; another product opened from there lights Products).
+- Nothing from the D-196 pictures is left open. Phone width checked live (375 px frame): every place for the COO and the 4 roles has a 16 px edge, no sideways scroll, buttons 40 or 44 px.
+- What people will see: at their next visit each person gets the What's changed box once, with the newest 5 updates for their job (the rest in the Guide). Tahir's own box is still unanswered: Claude never pressed Got it.
+- Tests: apps/c2m/tests, 816 checks, all pass (page-196: 51, page-197: 22 are new this session). Run: `node apps/c2m/tests/run.js` with C2M_TEST_DB=throwaway and C2M_TEST_DATABASE_URL=mysql://root:@127.0.0.1:3307/c2m_test, against a throwaway MariaDB on port 3307 started from the XAMPP binaries with its own data folder and my.ini. The one used this session sat in the session scratchpad (testdb/), which a new session does not have: make a new one. Wait until `mysqladmin -uroot -P3307 -h127.0.0.1 ping` answers before running; started too early, every routes-* test fails at once (seen this session). jsdom 31.0.1 installed with --no-save. XAMPP's own MySQL still does not start (mysql.db index corrupt since 15 Oct 2026); nothing in C:\xampp was changed.
+- No migration is waiting: D-196 to D-197 need none.
+- Go-live window: ends 30 Nov 2026.
+
+### B. Due
+- 1 Dec 2026, Claude, read only: B3a. Check on live which re-approval items stayed open after the window closed (the rule of D-187: every open item is closed with a line in the change record, except one that names a pack left not costed). Report the list to Tahir.
+- Next live visit of each person: the What's changed box shows once (expected, D-196c). If anyone reports it showing every time, check localStorage key c2m_changelog_seen_<user> against the last CHANGELOG ver.
+
+### C. Open questions for Tahir (none blocks anything; ask in 1 round when he wants)
+1. Products (D-190): keep the list by client and the pack table, or build the flat table of the picture (Product, Owner, Packs, Cost today, State)?
+2. Approvals (D-191): the topic chips sit above the 3 tabs. Keep both, or tabs only?
+3. Names to settle (D-193): a name with open O2S orders but no truck yet stays on Approvals (built so, because the orders will ship with no cost). Right?
+4. Clients, White Label (D-193): the brand column is narrower with the After the change column. Fine?
+5. W12: which change-record entries must carry a reason (bill save, pack bill move, freight, labour and FOH pick, product type, direct settings, actuals and checks, pending drop, price approval, target refusal)?
+6. Edit this product: may a person with client.add alone add a new pack with a packing bill (docs 12, minor 4 of the review of 24 Nov)?
+
+### D. Open items, all low (none blocks a release)
+- From the audit of 24 Nov (docs 12): W6 the CFO seed has recipe.start but not recipe.edit or recipe.step.draft (live role ticks: Not confirmed). W7 in part (pending "later", urgent approve, holidays, grants write the record outside the transaction). W8 import "correct": 2 presses can save twice. W10 deleting a product drops its decided target requests from the record. W11 a VAN pack with no list price makes no job. W13 a dated-ahead freight row is checked only within 7 days. C7 silent fallbacks (packs per outer 0 to 1; NaN cost part to 0). C8 FED mode letter case (Not confirmed). C9 possible double freight on Dealer or Farmer products (Not confirmed; freight rates are 0 for now). C10 docs only.
+- Left from earlier reviews: 2 Remind presses at the same moment could both send (D-195); a Guide card opened mid-row leaves space beside it (D-192); the tabs of Approvals have no arrow keys (D-191).
+- Seen this session, kept on purpose: tab strips are 39 px (with their count), not 36; Costs parts sit 26 px lower under their breadcrumb; VAN Brands with 1 list open has no page head, so its switch stays first (D-196 review 10a). The With others summary is checked in the tests by its code, not drawn (docs 12, review of D-196c).
+
+### E. Outside C2M (needs a declared MODULE: PLATFORM session)
+- CLAUDE.md §3.0 still describes the state of 28 Sept and mentions PD; it could point to this entry for C2M.
+- docs/SECURITY-REGISTER.md: nothing new from this session.
+- The working tree showed changes to apps/o2s/OP-HANDOFF-O2S.md and apps/o2s/tests/batch1119d.test.js during this session that were not from it; not touched. 135a4a0 and ff4f36b carried O2S files that Tahir committed himself.
+
+### F. How to work here (what held this session)
+- Pictures first, Tahir's ruling, then code. Every push: Guide (GUIDE_JOBS and docs 07), What's changed (CHANGELOG, newest by version; order in the file no longer matters), docs 03, 06, 08, 12 in the same change; a page or route test; an independent review before "ready to push" (every review this session found at least 1 real bug); Claude never pushes. This file is append only: re-read it from disk before writing, never rebuild it.
+- Live checks are read only as Tahir. Other roles: set ST.me in the page in Claude's own tab (rights from the seed in c2m-access.js), never save. Never press Got it on What's changed, Remind, or Open margin from the red job. Phone width: a 375 px iframe of /c2m in the same tab (the page's globals are reached with contentWindow.eval).
+- Local preview: scratchpad mkpreview.js builds a page from the repo files with the test fixture (`node mkpreview.js <apps/c2m> <out.html>`); the fixture has no materials or recipes, so set them in the page.
+
+Files changed since the last entry: this entry. Not pushed. Ready to push.

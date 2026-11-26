@@ -1267,3 +1267,6 @@ To correct a mistake: a price not yet in force is withdrawn or sent back; a rate
 - Approvals: Remind on a stuck recipe sends that person a notice in C2M, once a day at most. Red white label clients are a job only when a client newly turns red. The Find box shows above 12 rows.
 - The monthly rate check is due on the 5th; after it, overdue in working days.
 - Clients, VAN Brands: the tab Price lists is now List prices. The top bar keeps Price lists.
+
+## 2026-11-26a: wide lists fit the screen
+- Setup, Products and variants and Costs, Material cost fit a laptop screen; a long O2S spelling wraps.

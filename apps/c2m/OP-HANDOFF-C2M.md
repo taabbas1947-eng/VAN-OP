@@ -1465,3 +1465,21 @@ Correction to the entry above: its last line said "Not pushed". Tahir pushed it 
 - What's changed opened on its own and still shows the entries since 24 Nov: left open, Got it not pressed.
 - Not looked at on live: a phone, another person, pressing Remind, Open margin from the job, a ••• menu.
 - Next: the Phase 4 sign-off table. On 1 Dec: B3a check.
+
+## 26 Nov 2026, evening: Phase 4 sign-off done; 1 layout fix (MODULE: C2M)
+- Tahir: "Yes, go on". The release and readiness sign-off of the brief, table in docs 12 (entry of 26 Nov, Phase 4).
+- Maths: pass (server formulas untouched by the redesign; page and server formulas equal on 20,000 cases; cost rollup proven).
+- Workflows: pass with 2 gaps (rate change to re-approval item; placing an O2S name: not run end to end). New end-to-end test routes-p4 (35).
+- Layout: live at 1262 px, 30 views: no sideways page, no clipped text, bar fixed 56 px, tabular figures. 2 lists scrolled inside their box (Material cost 37 px, Products and variants 51 px): fixed in c2m.css (checked on live data in Claude's own tab, nothing saved). Local copy at 375 px: clean.
+- Code: c2m.css (1 block), c2m.js (What's changed 2026-11-26a only). Tests: routes-p4 (new), page-194 (+1). Whole suite 719 pass.
+- Next: on 1 Dec, B3a (which re-approval items stayed open after the window closed). The 2 workflow gaps could get their own end-to-end tests.
+- Open for Tahir: a name with open orders but no truck stays on Approvals (built so); flat Products table or not; topic chips with the tabs or tabs only; W12; a new pack on Edit this product with client.add alone.
+
+Files changed since the last entry: c2m.css, c2m.js, tests/routes-p4.test.js (new), tests/page-194.test.js, tests/README.md, docs 03, 07, 08, 12, this entry (and the live check entry above, not pushed). Not pushed. Ready to push.
+
+## 26 Nov 2026, late: the 2 workflow gaps closed (MODULE: C2M)
+- Tahir: "Yes, add them". routes-p4 gains section 5 (a rate change through urgent approval to a re-approval item, decided, new cost Rs 132) and section 6 (an unmatched O2S name settled, its trucks costed). 58 checks; whole suite 742 pass.
+- No app code changed. Found: the CFO decides re-approvals (by the access model), so the test says so.
+- Next: on 1 Dec, B3a.
+
+Files changed since the last entry: tests/routes-p4.test.js, tests/README.md, docs 12, this entry. Not pushed. Ready to push (with the entries above).

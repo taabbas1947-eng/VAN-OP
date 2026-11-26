@@ -205,3 +205,6 @@ Every Guide step that began "Open More, Products", "Open More, Reports" or "Open
 ## Remind, newly red, the rate check's due date, List prices (26 Nov 2026, D-195, change list 2026-11-25d)
 - The job "See a recipe that is stuck": step 4 is now "Press Remind: that person gets a notice in C2M asking them to move it on today", with a note that it works once a day and nothing is sent on its own.
 - Every Guide step that said Clients, VAN Brands, Price lists now says List prices.
+
+## 26 Nov 2026 (change list 2026-11-26a)
+- No Guide step changed: a layout fix only.

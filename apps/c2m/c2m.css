@@ -531,3 +531,6 @@ td .dots>.dm,.wrapx .dots>.dm{position:static;min-width:0;margin-top:4px;box-sha
 .next>.pba{display:inline-flex;flex-wrap:wrap;gap:6px;align-items:center;margin-left:auto}
 @media (max-width:760px){.dots>summary{min-height:44px!important;min-width:48px}.dots>.dm .btn{min-height:44px!important}}
 .jrow .jrm{align-self:center;white-space:nowrap}
+/* Phase 4 sign-off (26 Nov 2026): a row whose extra actions sit under ••• no longer reserves 200 px; long O2S spellings wrap */
+.acts:has(> details.dots),.acts:has(> details.rowmenu){min-width:0}
+#pntab td[data-l="O2S spellings"] .pill{white-space:normal;overflow-wrap:anywhere}

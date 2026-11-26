@@ -51,6 +51,7 @@ setTimeout(() => {
     ok(/\.dots>\.dm\{position:absolute/.test(css) && /td \.dots>\.dm,\.wrapx \.dots>\.dm\{position:static/.test(css), 'the menu floats, but opens in place inside a table (no cut-off in a sideways-scroll box)');
     ok(/@media \(max-width:760px\)\{\.dots>summary\{min-height:44px!important/.test(css) && /\.dots>\.dm \.btn\.danger\{color:var\(--over\)\}/.test(css), '44 px on a phone; Delete red');
     ok(!/^\.acts\{/m.test(css), 'no new rule for every .acts row');
+    ok(/\.acts:has\(> details\.dots\),\.acts:has\(> details\.rowmenu\)\{min-width:0\}/.test(css) && /#pntab td\[data-l="O2S spellings"\] \.pill\{white-space:normal/.test(css), 'Phase 4: a row with its actions folded reserves no 200 px; long O2S spellings wrap');
     { const g = E('JSON.stringify(GUIDE_JOBS())'); ok(/beside \*\*Open\*\* in its row, then \*\*Edit\*\*/.test(g) && /holds \*\*Rename\*\* and \*\*Delete\*\*/.test(g) && /\*\*•••\*\*, then \*\*Edit this product\*\* or \*\*Delete\*\*/.test(g), 'review M2: the Guide names the ••• menu'); }
     { const md = fs.readFileSync(path.join(__dirname, '..', 'docs', '07-guide.md'), 'utf8'); ok(/beside \*\*Open\*\* in its row, then \*\*Edit\*\*/.test(md) && /holds \*\*Rename\*\* and \*\*Delete\*\*/.test(md), 'and docs 07 says the same'); }
   } catch (e) { fail++; console.log('ERROR', e && e.stack); }

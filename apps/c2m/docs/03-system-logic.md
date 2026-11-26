@@ -748,3 +748,6 @@ Tahir ruled (panel, 20 Nov 2026): the 19 targeted Minors now; the 6 rebuilds (C-
 - B11: rcDue() is the 5th of this month; the job carries due; after it kind red and since = the 5th. age() in homeGrid, st() on Today and the next move read due first: "Due d Mon" or "Overdue n working days".
 - B14: remindBtn(j) on a stuck row and in a folded group (administrator, pan rec); data-remind is handled by the early click listener (no 2-step confirm: a reminder removes nothing). POST /api/c2m/recipes/:id/remind: administrator only; the role from lib.RECIPE_WHO[state] (draft, review, endorse, cost; any other state is refused); 1 a day per recipe (c2m_audit entity recipe_remind since 00:00 Pakistan time); notice() to that role; state.remindedToday lists today's.
 - B12: the tab label, the line on Clients, VAN Brands, the crumbs, GOTO titles, Guide steps and 5 server messages say List prices.
+
+## 3.74 Phase 4 layout fix (26 Nov 2026)
+- c2m.css, last block: `.acts:has(> details.dots),.acts:has(> details.rowmenu){min-width:0}` (the 200 px kept by .acts was for rows of 3 or more buttons, which now fold); `#pntab td[data-l="O2S spellings"] .pill` wraps.

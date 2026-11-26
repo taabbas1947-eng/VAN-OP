@@ -1824,6 +1824,8 @@ const CHANGELOG = [
  { t: 'A list revision waiting for the COO can now be taken back by the person who sent it: Take back, under List revisions. A price or a list revision the COO sent back can be dropped with Drop it when it is no longer wanted.', for: ['price.propose', 'list.revise'], guide: 'Correct a mistake' },
  { t: 'A new price within 0.05 points of its target no longer asks for a below-target reason: it already showed as on target.', for: ['price.propose'], guide: 'Change a client price or a target GP' },
  { t: 'A GP target of 100% or more is refused in Settings. Edit this product refuses a packing bill that is out of use, as Costs, Packing cost does.', for: ['settings.edit', 'client.add'], guide: null }] },
+  { ver: '2026-11-26a', date: '2026-11-26', title: 'Wide lists fit the screen', items: [
+ { t: 'Setup, Products and variants and Costs, Material cost now fit a laptop screen: no sideways scroll inside the list. A long O2S spelling wraps onto 2 lines.', for: ['see.margin', 'rate.save', 'lists.link'], guide: null }] },
   { ver: '2026-11-25d', date: '2026-11-25', title: 'Smaller things you asked for', items: [
  { t: 'Approvals: a recipe stuck with someone has a Remind button. It sends that person a notice in C2M, once a day at most; nothing is sent on its own. White label clients red on margin are a job only when a client newly turns red; Open margin marks them as seen. The Find box on your list shows only when the list has more than 12 rows.', for: ['admin'], guide: null },
  { t: 'The monthly rate check is due on the 5th of the month. Until then your list says when it is due; after it, how many working days it is overdue.', for: ['actuals.ratecheck'], guide: null },

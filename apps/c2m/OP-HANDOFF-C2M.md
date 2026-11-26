@@ -1585,3 +1585,9 @@ Files changed since the last entry: docs 12, this entry. Not pushed. Ready to pu
 - Next: Tahir pushes; Claude checks live, read only. Then Tahir's own feedback. On 1 Dec: B3a.
 
 Files changed since the last entry: c2m.css, c2m.js, tests/page-197.test.js (new), tests/README.md, docs 03, 06, 07, 08, 12, this entry. Not pushed. Ready to push.
+
+## 26 Nov 2026, evening (9): D-197 live (MODULE: C2M)
+- Tahir pushed D-197 as f4145c1. Live check, read only (docs 12): Recipes stays lit for a recipe opened from Recipes and "All recipes" leads back; the material card (DAP) has 1 Save and its help beside the density box. Nothing saved; Got it left for Tahir.
+- Next: Tahir's own feedback. On 1 Dec: B3a. Nothing from the D-196 pictures is left open.
+
+Files changed since the last entry: docs 12, this entry. Not pushed. Ready to push.

@@ -1087,3 +1087,8 @@ Tahir asked to look at the new website's design and colours: van.com.pk/new/, pr
 - Phone width checked live, read only (Claude's own tab, a 375 px frame): every place for the COO and the 4 roles has a 16 px edge, no sideways scroll, buttons 40 or 44 px.
 - D-197 checked in the local copy at 1280 px and 375 px: first layout (help beside the whole card) squeezed the nutrient table into a sideways scroll; changed so the help sits beside the density box and Save. Recipes lit: checked in page-197 only (the local copy has no recipes).
 - Review: 1 bug fixed (Recipes stayed lit after opening another product from that page, a panel or Find); Back and Forward now keep it; "1.20" against a saved 1.2 no longer re-saves. page-197: 22 checks; whole suite 816 pass on the throwaway database.
+
+## 26 Nov 2026, evening: live check of D-197 (commit f4145c1)
+- Read only, in Claude's own tab, nothing saved, Got it not pressed (the box opens with "The material card saves once; Recipes stays lit").
+- Production Manager rights set in the page: a recipe opened from Recipes (Fruitlish for Arysta) opens its product page with Recipes lit and the crumb "All recipes"; that link leads back to Recipes, still lit.
+- QC Head rights set in the page, material DAP: 1 Save, no Save density; the help beside the density box; the nutrient table full width, no sideways scroll at 1262 px.

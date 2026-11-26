@@ -1483,3 +1483,44 @@ Files changed since the last entry: c2m.css, c2m.js, tests/routes-p4.test.js (ne
 - Next: on 1 Dec, B3a.
 
 Files changed since the last entry: tests/routes-p4.test.js, tests/README.md, docs 12, this entry. Not pushed. Ready to push (with the entries above).
+
+## 26 Nov 2026, night: Tahir pushed 275113f; live check (MODULE: C2M)
+Correction to the 3 entries above: they said "Not pushed". Tahir pushed them as 275113f.
+- Live, read only, as Tahir, 1262 px: c2m.css carries the Phase 4 fix and c2m.js the change list 2026-11-26a. Costs, Material cost fits (1111 of 1111 px); Setup, Products and variants fits (all 3 boxes); no sideways page.
+- Next: on 1 Dec, B3a (which re-approval items stayed open after the go-live window closed). Open for Tahir: a name with open orders but no truck stays on Approvals (built so); flat Products table or not; topic chips with the tabs or tabs only; W12; a new pack on Edit this product with client.add alone.
+
+## RESUME HERE (26 Nov 2026, night): state, what is due, every open question (MODULE: C2M)
+Start the next chat by reading this entry. It replaces the RESUME HERE of 23 Nov 2026 (most of its questions are ruled: D-185, D-187). The detail of each push is in the dated entries above and in docs 06 (D-185 to D-195) and docs 12.
+
+### A. Where things stand
+- Live and pushed: everything up to commit 275113f (26 Nov 2026), checked live, read only, as Tahir. After it, only this entry and the 1 above are unpushed.
+- The redesign of the brief of 23 Nov 2026 is complete and live: design system (D-188), top bar (D-189), 1 Products place (D-190), Approvals (D-191), Costs cards and Guide cards (D-192), new price row and Names to settle in Setup (D-193), the ••• menu and 1 filled button per card (D-194), B7, B10, B11, B12, B14 (D-195).
+- Phase 4 sign-off: done; the table is in docs 12 (entries of 26 Nov). Maths: pass. Workflows: pass, no gap left (routes-p4, 58 checks). Layout: pass after 1 fix (live at 1262 px, 30 views; local copy at 375 px).
+- Tests: apps/c2m/tests, 742 checks, all pass on this PC (Node 24.21, jsdom 31.0.1 installed with --no-save, MariaDB 10.4.32). Run: `node apps/c2m/tests/run.js` with C2M_TEST_DB=throwaway and C2M_TEST_DATABASE_URL=mysql://root:@127.0.0.1:3307/c2m_test, against a throwaway MariaDB started from the XAMPP binaries on port 3307 with its own data folder (the session scratchpad held it; a new session must make a new one). XAMPP's own MySQL does not start (mysql.db index corrupt since 15 Oct 2026); nothing in C:\xampp was changed.
+- No migration is waiting: D-186 to D-195 need none. The 2 routes of D-195 use c2m_audit and c2m_notice.
+- Go-live window: ends 30 Nov 2026.
+
+### B. Due
+- 1 Dec 2026, Claude, read only: B3a. Check on live which re-approval items stayed open after the window closed (the rule of D-187: every open item is closed with a line in the change record, except one that names a pack left not costed). Report the list to Tahir.
+- First day after this push: the COO's Approvals shows "6 white label clients newly red" once (nothing was marked seen before; Claude's assumption, docs 12). Open margin from that job marks them seen.
+
+### C. Open questions for Tahir (ask in 1 panel round when he wants; none blocks anything)
+1. Products (D-190): keep the list by client and the pack table, or build the flat table of the picture (Product, Owner, Packs, Cost today, State)?
+2. Approvals (D-191): the topic chips sit above the 3 tabs. Keep both, or tabs only?
+3. Names to settle (D-193): a name with open O2S orders but no truck yet stays on Approvals (built so, because the orders will ship with no cost). Right?
+4. Clients, White Label (D-193): the brand column is narrower with the new After the change column (131 px at 1262 px). Fine?
+5. W12: which change-record entries must carry a reason (bill save, pack bill move, freight, labour and FOH pick, product type, direct settings, actuals and checks, pending drop, price approval, target refusal)?
+6. Edit this product: may a person with client.add alone add a new pack with a packing bill (docs 12, minor 4 of the review of 24 Nov)?
+
+### D. Open audit items, all low (docs 12, entries of 24 Nov; none blocks a release)
+- W6 the CFO seed has recipe.start but not recipe.edit or recipe.step.draft (live role ticks: Not confirmed). W7 in part (pending "later", urgent approve, holidays, grants write the record outside the transaction). W8 import "correct": 2 presses can save twice. W10 deleting a product drops its decided target requests from the record. W11 a VAN pack with no list price makes no job. W13 a dated-ahead freight row is checked only within 7 days.
+- C7 silent fallbacks (packs per outer 0 to 1; NaN cost part to 0). C8 FED mode letter case (what O2S writes: Not confirmed). C9 possible double freight on Dealer or Farmer products (Not confirmed; freight rates are 0 for now). C10 docs only.
+- Left from the reviews of this session: 2 Remind presses at the same moment could both send (D-195); a Guide card opened mid-row leaves space beside it (D-192); the tabs of Approvals have no arrow keys (D-191).
+
+### E. Outside C2M (needs a declared MODULE: PLATFORM session, not C2M)
+- CLAUDE.md §3.0 still describes the state of 28 Sept and mentions PD; it could point to this entry for C2M.
+- docs/SECURITY-REGISTER.md: nothing new from this session.
+
+### F. How to work here (what held this session)
+- Pictures first, Tahir's ruling, then code. Every push: Guide, What's changed and docs 01 to 12 in the same change; a page or route test; an independent review before "ready to push"; Claude never pushes. This file is append only: re-read it from disk before writing, never rebuild it.
+- Live checks are read only as Tahir. Never press Got it on What's changed, Remind, or Open margin from the red job; never save.

@@ -1555,3 +1555,19 @@ Files changed since the last entry: c2m.css, c2m.html (fonts), c2m.js, tests/pag
 - Next: Tahir pushes D-196b; then his own feedback. On 1 Dec: B3a. Still waiting for a ruling: 1 Save on the material card, its help beside the form, a recipe from Recipes lighting Products.
 
 Files changed since the last entry: c2m.css, c2m.js, tests/page-196.test.js, tests/README.md, docs 03, 06, 07, 08, 12, this entry. Not pushed. Ready to push.
+
+## 26 Nov 2026, evening (5): D-196b live (MODULE: C2M)
+- Tahir pushed D-196b as 25040f9. Live check, read only: Today for the QC Head says "Nothing needs you today." once; the With others line is a full row. Details in docs 12.
+- Open, small: the COO's With others line says "the CFO" and "CFO" for 1 role. Not built.
+- The working tree also shows apps/o2s/tests/batch1119d.test.js changed; not from this session, not touched.
+- Next: Tahir's own feedback. On 1 Dec: B3a. Still waiting for a ruling: 1 Save on the material card, its help beside the form, a recipe from Recipes lighting Products.
+
+Files changed since the last entry: docs 12, this entry. Not pushed. Ready to push.
+
+## 26 Nov 2026, evening (6): D-196c, With others counts each role once; What's changed back in order (MODULE: C2M)
+- Tahir: "Yes, fix it" (the COO's With others line said "5 with the CFO, 1 with CFO"). Recipe lines now say "with the <role>", like every other line. What's changed 2026-11-26e.
+- Independent review found an older fault, fixed in the same change: What's changed must run newest last, but since 24c entries were added at the top, so the login box never showed 24c to 26e to anyone who had pressed Got it on 24b. CHANGELOG is now sorted by version when the page loads. Expect: at their next visit each person sees the box once, the newest 5 entries for their job. Also: 26c and 26e now reach every role (were administrator only); "version 2 is with the QC Head".
+- Tests: page-196 now 51; whole suite 794 pass on the throwaway database. Docs 03, 06, 07, 08, 12.
+- Next: Tahir pushes; Claude checks live, read only (the With others line; the login box shows once). Then Tahir's feedback. On 1 Dec: B3a.
+
+Files changed since the last entry: c2m.js, tests/page-196.test.js, tests/README.md, docs 03, 06, 07, 08, 12, this entry. Not pushed. Ready to push.

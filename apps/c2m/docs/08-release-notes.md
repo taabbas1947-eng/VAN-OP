@@ -1280,3 +1280,6 @@ To correct a mistake: a price not yet in force is withdrawn or sent back; a rate
 
 ## 2026-11-26d: Today when nothing needs you (D-196b)
 - Today says "Nothing needs you today." once. The With others and Read notices lines open from a full-height row.
+
+## 2026-11-26e: With others counts each role once (D-196c)
+- A recipe waiting on a role says "with the CFO" (the Plant Manager, the QC Head), like every other line; the summary no longer shows 1 role twice.

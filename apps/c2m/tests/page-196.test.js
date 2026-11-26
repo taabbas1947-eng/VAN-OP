@@ -66,6 +66,13 @@ setTimeout(async () => {
     ok(!/details\.box:not\(\.form\)>summary\{[^}]*display:flex/.test(css), 'D-196b review: a folding line flows as text, so no gap opens before a comma');
     ok(/main details\.box:not\(\.form\)>summary\{padding:8px 12px;min-height:var\(--h\)/.test(css), 'D-196b: a folding box opens from a full-height row');
     ok(/2026-11-26d/.test(E('JSON.stringify(CHANGELOG)')), "What's changed has 2026-11-26d");
+    // 10. D-196c: a recipe with others names its role with "the", like every other line, so the summary counts 1 role once
+    { const src = fs.readFileSync(path.join(__dirname, '..', 'c2m.js'), 'utf8'); ok(/w: `with the \$\{ROLE_NAME\[STEP_ROLE\[v\.state\]\]\}/.test(src), 'D-196c: a recipe with others reads "with the CFO", not "with CFO"'); ok(!/w: `with \$\{ROLE_NAME/.test(src), 'D-196c: no line with others names a role without "the"'); }
+    ok(/2026-11-26e/.test(E('JSON.stringify(CHANGELOG)')), "What's changed has 2026-11-26e");
+    { const v = E('CHANGELOG.map(c => c.ver)'); ok(v.every((x, i) => !i || v[i - 1] < x) && v[v.length - 1] === [...v].sort().pop(), 'D-196c review: What\'s changed runs oldest to newest, so the login box knows the newest: ' + v[v.length - 1]); }
+    E("ST.me = Object.assign({}, window.__STF.me, { role: 'plant', admin: false, label: 'Plant Manager', actions: ['recipe.step.endorse', 'see.products', 'see.cost'], user: 'fahim' })");
+    ok(E("wnLines(CHANGELOG.find(c => c.ver === '2026-11-26c')).length") >= 2 && E("wnLines(CHANGELOG.find(c => c.ver === '2026-11-26e')).length") === 1, 'D-196c review: the Plant Manager is shown the new look and the With others change');
+    ok(!/is with \$\{ROLE_NAME/.test(fs.readFileSync(path.join(__dirname, '..', 'c2m.js'), 'utf8')), 'D-196c review: "version 2 is with the QC Head", with "the"');
     // 7. Guide, What's changed and docs moved with it
     ok(/2026-11-26c/.test(E('JSON.stringify(CHANGELOG)')), "What's changed has the new look (2026-11-26c)");
     ok(/D-196/.test(fs.readFileSync(path.join(__dirname, '..', 'docs', '06-decisions.md'), 'utf8')), 'docs 06 records D-196');

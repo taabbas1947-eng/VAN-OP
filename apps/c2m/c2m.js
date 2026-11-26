@@ -297,7 +297,7 @@ function nextMove(J) {
 const waitingOn = memo(waitingOn0); // push 10f (C-22)
 function waitingOn0() {
   const R = ST.me.role, W = [];
-  if (CAN('see.products')) (ST.recipes || []).filter(v => STEP_ROLE[v.state] && !myStep(v)).forEach(v => { const ls = lastStep(v); if (R === 'coo' && ls && isStuck(ls.at)) return; W.push({ t: `${v.brand} for ${v.customer}`, w: `with ${ROLE_NAME[STEP_ROLE[v.state]]}, ${MYJOB[v.state].split(' ')[0].toLowerCase()}`, since: ls ? ls.at : null, open: { rec: v.id } }); });
+  if (CAN('see.products')) (ST.recipes || []).filter(v => STEP_ROLE[v.state] && !myStep(v)).forEach(v => { const ls = lastStep(v); if (R === 'coo' && ls && isStuck(ls.at)) return; W.push({ t: `${v.brand} for ${v.customer}`, w: `with the ${ROLE_NAME[STEP_ROLE[v.state]]}, ${MYJOB[v.state].split(' ')[0].toLowerCase()}` /* D-196c: "the", as on every other line with others, so 1 role is counted once */, since: ls ? ls.at : null, open: { rec: v.id } }); });
   if (CAN('price.propose') && !ADM()) {
     (ST.proposals || []).filter(p => p.status === 'proposed').forEach(p => W.push({ t: `${packName(p.packId)}, Rs ${n2(p.price)}`, w: 'with the COO, approve', since: p.at, open: { panprop: p.id } }));
     (ST.listRevisions || []).filter(r => r.status === 'proposed').forEach(r => W.push({ t: `${LISTNAME[r.list_name]}, ${pl(r.items.length, 'price', 'prices')}`, w: 'with the COO, approve', since: r.proposed_at, open: { panlrev: r.id } }));
@@ -1829,11 +1829,13 @@ const CHANGELOG = [
  { t: 'A list revision waiting for the COO can now be taken back by the person who sent it: Take back, under List revisions. A price or a list revision the COO sent back can be dropped with Drop it when it is no longer wanted.', for: ['price.propose', 'list.revise'], guide: 'Correct a mistake' },
  { t: 'A new price within 0.05 points of its target no longer asks for a below-target reason: it already showed as on target.', for: ['price.propose'], guide: 'Change a client price or a target GP' },
  { t: 'A GP target of 100% or more is refused in Settings. Edit this product refuses a packing bill that is out of use, as Costs, Packing cost does.', for: ['settings.edit', 'client.add'], guide: null }] },
+  { ver: '2026-11-26e', date: '2026-11-26', title: 'With others counts each role once', items: [
+ { t: 'With others: a recipe waiting on a role now says "with the CFO" (or the Plant Manager, the QC Head), like every other line, so the summary counts each role once: "6 with the CFO", not "5 with the CFO, 1 with CFO".', for: ['all'], guide: null }] },
   { ver: '2026-11-26d', date: '2026-11-26', title: 'Today, when nothing needs you', items: [
  { t: 'Today, when nothing needs you: the page says so once, then how many items are with others. The With others line and the Read notices line open from a full-height row.', for: ['recipe.step.draft', 'recipe.step.review', 'recipe.step.endorse'], guide: 'See what waits for you' }] },
   { ver: '2026-11-26c', date: '2026-11-26', title: 'C2M in the VAN look', items: [
- { t: 'C2M now wears the colours and type of the new VAN website: a warm page, ink text, amber for what needs you, green for on target, titles in Fraunces and everything else in Public Sans. The top bar is light; the place you are on is underlined in amber. Your name in the top bar shows in full.', for: [], guide: null },
- { t: 'Every button and box has 1 height, every table keeps text and buttons on 1 line with figures on the right, and no list has its own scroll bar any more: the page scrolls.', for: [], guide: null },
+ { t: 'C2M now wears the colours and type of the new VAN website: a warm page, ink text, amber for what needs you, green for on target, titles in Fraunces and everything else in Public Sans. The top bar is light; the place you are on is underlined in amber. Your name in the top bar shows in full.', for: ['all'], guide: null },
+ { t: 'Every button and box has 1 height, every table keeps text and buttons on 1 line with figures on the right, and no list has its own scroll bar any more: the page scrolls.', for: ['all'], guide: null },
  { t: 'Clients: White Label and VAN Brands sit under the page title. Margin and other places show the date and the O2S time beside Help. Packing cost: Change price, and Edit and Delete under •••. Inputs, Materials: the values column no longer repeats the State.', for: ['see.margin', 'see.materials'], guide: null },
  { t: 'Today: your next move shows once, with the rest of your list under it; the Your day card is gone.', for: ['recipe.step.draft', 'recipe.step.review', 'recipe.step.endorse'], guide: 'See what waits for you' }] },
   { ver: '2026-11-26b', date: '2026-11-26', title: 'A dash in an empty After the change', items: [
@@ -1859,6 +1861,7 @@ const CHANGELOG = [
  { t: 'Products and Reports are on the top bar now. Setup is the gear beside your name, and the Guide is the book beside it. On a narrow screen Products and Reports sit under More; on a phone the bottom bar keeps 4 places and More.', for: ['see.margin'], guide: null },
  { t: 'C2M has 1 look for everyone now: the Inter typeface, a lighter page, white cards with a soft shadow in place of outlined boxes, round colour tags and 1 blue button for the main action. The 4 looks to choose from are gone. Nothing moved: every screen, button and figure is where it was.', for: ['all'], guide: null }] }
 ];
+CHANGELOG.sort((a, b) => a.ver < b.ver ? -1 : a.ver > b.ver ? 1 : 0); /* D-196c (review): newest last, whatever order entries were typed in. Since 24c they were added at the top, so the last entry stayed 2026-11-24b and the login box never showed 24c to 26e. */
 let _wnShown = false, wnGuide = null;
 /* ---------- Push 7e (Tahir, 10 Nov 2026, D-166): the role page, read and signed once per version before C2M opens ----------
    1 page per role (6). The page fills the screen and nothing behind it takes a click until it is signed. The COO does not sign; he
@@ -3048,7 +3051,7 @@ function vProduct(p) {
   const sel = vers.find(v => v.id === recSel) || inProg || appr || vers[0];
   const k0 = p.packs.find(k => k.cost && k.price != null) || p.packs.find(k => k.cost) || p.packs[0];
   let ans;
-  if (!appr && !(p.followsId && p.approvedVersionId)) ans = `No approved recipe yet${inProg ? `: version ${inProg.version} is with ${ROLE_NAME[STEP_ROLE[inProg.state]]}` : ''}.`;
+  if (!appr && !(p.followsId && p.approvedVersionId)) ans = `No approved recipe yet${inProg ? `: version ${inProg.version} is with the ${ROLE_NAME[STEP_ROLE[inProg.state]]}` : ''}.`;
   else if (!k0 || !k0.cost) ans = `Not costed: ${((k0 && k0.costGaps) || ['no pack']).join(', ')}.`;
   else { const gp = k0.price != null ? (k0.price - k0.cost.total) / k0.price * 100 : null; ans = `Cost ${rs2(k0.cost.total)} per ${p.soldPer} on the ${k0.size} ${p.soldPer} pack${!CAN('see.price') ? '' : '; '}${!CAN('see.price') ? '' : p.channel === 'VAN brand' ? 'priced in the VAN brand lists' : `price ${k0.price != null ? rs2(k0.price) : 'none'}; ${gp == null ? 'no GP without a price' : `GP ${pc(gp)}`}${p.target > 0 ? ` against a ${pc(p.target)} target` : ', no target set'}`}.`; }
   if (ptab === 'price') ptab = 'cost';

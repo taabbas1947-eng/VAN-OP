@@ -238,6 +238,6 @@ ok('F14 (2nd review): the Guide names the lab and dispatch days from Lead times 
 ok('change log 2026-11-19d says it', /ver:'2026-11-19d'/.test(html) && /Why is this waiting\?/.test(html) && /replaces the daily comment on a Ship job/.test(html));
 ok('the Guide rule has its number', /'Why is this waiting\? \(after 7 days\)':'R-054'/.test(html) && /<h3>Why is this waiting\? \(after 7 days\)<\/h3>/.test(html));
 ok('the Guide notes for each role', /var _n19d=/.test(grab('guideMyJob')) && /New on 19 Nov \(2026-11-19d\)/.test(grab('guideMyJob')));
-ok('BUILD_ID is 2026-11-19d and SYSDOC_VER follows', /var BUILD_ID='2026-11-19d';/.test(html) && /var SYSDOC_VER='2026-11-19d'/.test(html));
+ok('BUILD_ID of the build form (2026-11-19d since part B3; 2026-11-26a since Inspections on file) and SYSDOC_VER follows', (function(){ var m=html.match(/var BUILD_ID='(2026-\d\d-\d\d[a-z])';/); return !!m && m[1]>='2026-11-19d' && html.indexOf("var SYSDOC_VER='"+m[1]+"'")>=0; })());
 ok('the System Documentation carries D-378 and SC-50', /"id":"D-378"/.test(html) && /"id":"SC-50"/.test(html));
 report('2026-11-19d batch 1, part B3: Why is this waiting? after 7 days');

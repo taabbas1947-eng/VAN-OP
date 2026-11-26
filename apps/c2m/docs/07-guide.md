@@ -217,3 +217,6 @@ Every Guide step that began "Open More, Products", "Open More, Reports" or "Open
 
 ## 26 Nov 2026 (change list 2026-11-26d, D-196b)
 - No Guide step changed: Today with nothing to do says so once; the steps already say "End of your list" means you are done.
+
+## 26 Nov 2026 (change list 2026-11-26e, D-196c)
+- No Guide step changed: With others counts each role once.

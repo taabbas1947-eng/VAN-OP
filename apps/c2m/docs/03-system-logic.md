@@ -762,3 +762,7 @@ Tahir ruled (panel, 20 Nov 2026): the 19 targeted Minors now; the 6 rebuilds (C-
 
 ## 3.77 Today's end line (D-196b, 26 Nov 2026)
 - vToday's end line says "End of your list." only when there are jobs; with none, it gives only the count with others (the page head already says "Nothing needs you today."). c2m.css: main details.box:not(.form)>summary has padding, 36 px and an arrow.
+
+## 3.78 Lines with others name the role with "the" (D-196c, 26 Nov 2026)
+- The list of items waiting on others (W) writes w as "with the <role>, <verb>" for every kind: recipes (ROLE_NAME of the step's role), prices, list revisions, settings and targets (the COO), re-approvals (the CFO). The With others summary counts by the text before the comma.
+- CHANGELOG is sorted by ver (YYYY-MM-DD plus a letter) right after it is declared, so checkWhatsNew and wnRemember always take the newest as the last, whatever order the entries are typed in.

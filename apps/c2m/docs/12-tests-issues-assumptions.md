@@ -1070,3 +1070,11 @@ Tahir asked to look at the new website's design and colours: van.com.pk/new/, pr
 - Every place for the COO, Yawar, Majid, Himayat and Fahim: the title at the same left edge (Costs parts 26 px lower, under their breadcrumb, as designed); no list with its own scroll bar; no row with 3 buttons; no sideways page scroll; buttons 32 or 36 px apart from tab strips (39 px, with a count), card buttons and text links.
 - Found and fixed (D-196b): Today with nothing to do said "Nothing needs you today." twice (QC Head); the With others and Read notices lines were 21 px with no padding.
 - Not checked live: the phone width; the real accounts of the 4 people (their sessions are theirs).
+
+## 26 Nov 2026, evening: live check of D-196b (commit 25040f9)
+- Read only, in Claude's own tab, QC Head rights set in the page: Today says "Nothing needs you today." once; the end line reads "3 items are with others; none needs you now."; the With others line is 36 px with its arrow. What's changed holds 2026-11-26d.
+- Seen, not changed (older than D-196): the COO's With others line reads "5 with the CFO, 1 with CFO", 2 spellings of 1 role. Not confirmed which waiting items write "CFO" without "the".
+
+## 26 Nov 2026, evening: independent review of D-196c
+- Fixed: What's changed was out of order since 24c (the login box never showed 24c to 26e; see docs 06, D-196c); 26c and 26e reached only the administrator; "is with QC Head" without "the" on a product's recipe line; a test line that set data and checked nothing (removed; real checks of the order and of who is shown 26c and 26e added).
+- Kept: the 2 checks of the "with the" wording read the code; the With others summary itself is not drawn in a test.

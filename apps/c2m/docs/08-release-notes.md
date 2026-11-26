@@ -1246,3 +1246,24 @@ To correct a mistake: a price not yet in force is withdrawn or sent back; a rate
 - The 4 looks to choose from are gone (the dots in the top bar and Your look in the Guide).
 - Nothing moved: every screen, button and figure is where it was.
 - Added to 2026-11-24b (D-189): Products and Reports are on the top bar. Setup is the gear beside your name and the Guide is the book beside it. On a narrow screen Products and Reports sit under More; on a phone the bottom bar keeps 4 places and More.
+
+## 2026-11-24c, D-190 and D-191: 1 place for every product; a new Approvals
+- Products is 1 place with a switch: All, VAN Brands, White label. VAN Brands shows every pack with its cost and state. Clients, VAN Brands holds the price lists only, with a link to the products.
+- Approvals (the administrator): 4 figures on top, your list in 3 tabs (To approve, Stuck with others, To do), the GP chart and For your information on the right. Find looks through all 3 tabs. On a phone the next move comes first.
+- Top bar, after its review: More puts the cursor on a button that shows; no empty name pill on a narrow bar; a long name is cut with dots.
+
+## 2026-11-25a, D-192: Costs cards and Guide cards
+- Costs: each card shows what is wrong as its own line in colour; pressing it goes straight there. Month end shows its progress as a bar. Open at the foot of a card shows the whole list.
+- Guide: your jobs as cards, each with its place and number of steps; press a card for its steps, Start opens the first screen.
+
+## 2026-11-25b, D-193: a new price shows its effect; Names to settle in Setup
+- Clients, White Label: the column After the change shows the new GP %, the points it moves and "below target: reason needed". Every price still goes to the COO.
+- An O2S name with nothing waiting on it leaves your Approvals list; it waits in Setup, Products and variants, with its count on the tab.
+
+## 2026-11-25c, D-194: fewer buttons in a row
+- A row with 3 or more buttons shows its main button and a ••• menu with the rest. Delete is in the menu, in red, and still asks before it acts. Revise a list opens a menu of the 3 lists.
+
+## 2026-11-25d, D-195: Remind, newly red clients, the rate check's due date, List prices
+- Approvals: Remind on a stuck recipe sends that person a notice in C2M, once a day at most. Red white label clients are a job only when a client newly turns red. The Find box shows above 12 rows.
+- The monthly rate check is due on the 5th; after it, overdue in working days.
+- Clients, VAN Brands: the tab Price lists is now List prices. The top bar keeps Price lists.

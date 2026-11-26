@@ -30,33 +30,33 @@ setTimeout(() => {
     // Costs
     E('scr = "costs"; cpart = null'); const c = doc.createElement('div'); c.innerHTML = E('vCosts()'); const ct = c.textContent.replace(/\s+/g, ' ');
     ok(/need attention: .*Month end/.test(ct) && /Freight cost/.test(ct.match(/need attention: [^.]*\./)[0]), 'answer names them: ' + ct.match(/\d of \d need attention: [^.]*\./));
-    const boxes = [...c.querySelectorAll('.cb2 .cbox')]; ok(boxes.length === 6 && boxes.every(b => b.tagName === 'BUTTON' && b.dataset.cpart), 'whole boxes are buttons');
-    ok(!/>Open</.test(c.querySelector('.cb2').innerHTML), 'no Open buttons');
-    const order = boxes.map(b => b.dataset.cpart); ok(order.indexOf('month') < order.indexOf('materials') && order.indexOf('freight') < order.indexOf('materials'), 'attention first: ' + order.join(','));
-    const fr = boxes.find(b => b.dataset.cpart === 'freight'); ok(/Not set up/.test(fr.textContent), 'freight not set up');
-    const mo = boxes.find(b => b.dataset.cpart === 'month'); ok(/0 of 5 steps done · next: actuals/.test(mo.textContent) && mo.querySelectorAll('.csteps span').length === 5, 'month end steps: ' + mo.textContent.replace(/\s+/g, ' '));
-    const pa = boxes.find(b => b.dataset.cpart === 'packing'); ok(/Last change 18 Nov/.test(pa.textContent), 'packing last change from the bill: ' + pa.textContent.replace(/\s+/g, ' '));
-    const la = boxes.find(b => b.dataset.cpart === 'labour'); ok(/Low Rs 5\.00 · High Rs 7\.50 per kg or L|High Rs 7\.50 · Low Rs 5\.00 per kg or L|Low Rs 5\.00 · High Rs 7\.50/.test(la.textContent) && /per kg or L/.test(la.textContent), 'labour with unit: ' + la.textContent.replace(/\s+/g, ' '));
+    const boxes = [...c.querySelectorAll('.cb2 .cbox')]; ok(boxes.length === 6 && boxes.every(b => b.dataset.cbox && b.querySelector('.cf button[data-cpart="' + b.dataset.cbox + '"]')), 'D-192: every card has its own Open button');
+    ok(boxes.every(b => b.tagName === 'DIV') && boxes.filter(b => !/s-ok/.test(b.className)).every(b => b.querySelector('.cbl .cgo[data-cpart]')), 'D-192: a card is not 1 button; a card with something to settle has a link for it');
+    const order = boxes.map(b => b.dataset.cbox); ok(order.indexOf('month') < order.indexOf('materials') && order.indexOf('freight') < order.indexOf('materials'), 'attention first: ' + order.join(','));
+    const fr = boxes.find(b => b.dataset.cbox === 'freight'); ok(/Not set up/.test(fr.textContent), 'freight not set up');
+    const mo = boxes.find(b => b.dataset.cbox === 'month'); ok(/0 of 5 steps done/.test(mo.textContent) && mo.querySelector('.cprog i') && /Next: actuals/.test(mo.querySelector('.cgo[data-cpart="month"]').textContent), 'D-192: month end progress bar and a link to the next step: ' + mo.textContent.replace(/\s+/g, ' '));
+    const pa = boxes.find(b => b.dataset.cbox === 'packing'); ok(/Last change 18 Nov/.test(pa.textContent), 'packing last change from the bill: ' + pa.textContent.replace(/\s+/g, ' '));
+    const la = boxes.find(b => b.dataset.cbox === 'labour'); ok(/Low Rs 5\.00 · High Rs 7\.50 per kg or L|High Rs 7\.50 · Low Rs 5\.00 per kg or L|Low Rs 5\.00 · High Rs 7\.50/.test(la.textContent) && /per kg or L/.test(la.textContent), 'labour with unit: ' + la.textContent.replace(/\s+/g, ' '));
     ok(/data-glclose/.test(c.innerHTML) && /What the window does/.test(c.innerHTML), 'go-live 1 line with controls and fold');
     ok(/Last change 17 Nov/.test(la.textContent), 'labour last change: ' + la.textContent.replace(/\s+/g, ' '));
-    ok(mo.querySelector('.csteps').textContent.replace(/✓ /g, '').replace(/\s+/g, '') === 'ActualsChargedonkgmadeTietothebooksCOOcheckLock', 'month steps match Month end: ' + mo.querySelector('.csteps').textContent);
+    ok(/Left: Actuals, Charged on kg made, Tie to the books, COO check, Lock\./.test(mo.querySelector('.cprog').getAttribute('aria-label')), 'month steps match Month end: ' + mo.querySelector('.cprog').getAttribute('aria-label'));
     ok(boxes.every(b => /\bs-(bad|warn|off|wait|ok)\b/.test(b.className)), 'every box has a state class');
     ok(/\.cboxes\.cb2 \.cbox\.s-bad\{border-left-color:var\(--over\)!important\}/.test(html) && /\.cboxes\.cb2 \.cbox\.s-ok\{border-left-color:var\(--ok\)!important\}/.test(html), 'edge colour beats the shared border rule');
-    ok(boxes.every(b => /Open .*: /.test(b.getAttribute('aria-label'))), 'aria-label');
+    ok(boxes.every(b => /Open .*: /.test(b.querySelector('.cf button').getAttribute('aria-label'))), 'aria-label on Open');
     // waiting is not attention: a freight rate that starts later only
     E("ST.freight = [{ segment: 'A', region: 'Lahore', valid_from: '2026-11-17', rs_per_kg: 2 }, { segment: 'A', region: 'Lahore', valid_from: '2026-11-24', rs_per_kg: 3 }]");
-    const c2 = doc.createElement('div'); c2.innerHTML = E('vCosts()'); const fr2 = c2.querySelector('[data-cpart="freight"]');
+    const c2 = doc.createElement('div'); c2.innerHTML = E('vCosts()'); const fr2 = c2.querySelector('[data-cbox="freight"]');
     ok(/Waiting/.test(fr2.textContent) && /s-wait/.test(fr2.className) && /Last change 17 Nov/.test(fr2.textContent) && !/Freight cost/.test((c2.textContent.match(/need attention: [^.]*\./) || [''])[0]), 'freight later-dated waits: ' + fr2.textContent.replace(/\s+/g, ' '));
     E("ST.freight = [{ segment: 'A', region: 'Lahore', valid_from: '2026-11-24', rs_per_kg: 3 }]");
-    const c3 = doc.createElement('div'); c3.innerHTML = E('vCosts()'); const fr3 = c3.querySelector('[data-cpart="freight"]');
+    const c3 = doc.createElement('div'); c3.innerHTML = E('vCosts()'); const fr3 = c3.querySelector('[data-cbox="freight"]');
     ok(/Not set up/.test(fr3.textContent) && /starts later/.test(fr3.textContent) && /Freight cost/.test((c3.textContent.match(/need attention: [^.]*\./) || [''])[0]), 'no rate today is Not set up even with a later one: ' + fr3.textContent.replace(/\s+/g, ' '));
     E("ST.freight = []; ST.pending = [{ id: 1, status: 'waiting', kind: 'rate' }]");
-    const c4 = doc.createElement('div'); c4.innerHTML = E('vCosts()'); const ma4 = c4.querySelector('[data-cpart="materials"]');
+    const c4 = doc.createElement('div'); c4.innerHTML = E('vCosts()'); const ma4 = c4.querySelector('[data-cbox="materials"]');
     ok(/To do/.test(ma4.textContent) && /save it again or drop it/.test(ma4.textContent), 'in the window a Monday wait is To do: ' + ma4.textContent.replace(/\s+/g, ' '));
-    E("ST.golive = { on: false }"); const c5 = doc.createElement('div'); c5.innerHTML = E('vCosts()'); const ma5 = c5.querySelector('[data-cpart="materials"]');
+    E("ST.golive = { on: false }"); const c5 = doc.createElement('div'); c5.innerHTML = E('vCosts()'); const ma5 = c5.querySelector('[data-cbox="materials"]');
     ok(/Waiting/.test(ma5.textContent) && /s-wait/.test(ma5.className), 'outside the window a Monday wait is Waiting: ' + ma5.textContent.replace(/\s+/g, ' '));
     E("ST.golive = { on: true, until: '2026-11-30' }; ST.pending = []");
-    ok(/\.cb2 \.s-wait \.cwhy\{color:var\(--blue\)\}/.test(html), 'waiting reason in blue');
+    ok(/\.cb2 \.cgo\.g-wait\{color:var\(--blue\)\}/.test(html), 'waiting line in blue');
     // a follower with no cost is not Costed
     E("ST.products.push({ id: 6, brand: 'Zeta', customer: 'VAN brand', soldPer: 'kg', channel: 'VAN brand', packs: [{ id: 61, size: 10, cost: null, approvedCost: null, costGaps: ['no packing bill'] }], followsId: 1, followsBrand: 'VL-Potash', recipeState: null, active: true }); _pi = null; scr = 'clients'");
     d = V(); const z = [...d.querySelectorAll('tbody tr.go')].find(r => /Zeta/.test(r.textContent)); ok(z && /Cost missing/.test(z.textContent) && /no packing bill/.test(z.textContent), 'follower with no cost: ' + (z && z.textContent.replace(/\s+/g, ' ')));

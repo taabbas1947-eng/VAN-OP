@@ -1389,3 +1389,68 @@ Files changed since the last entry: c2m.html, c2m.css, c2m.js, tests/page-ds.tes
 - Next: review push 2; then (3) 1 Products place with a switch (vProducts and the VAN Brands Products tab; U-18 work of 10c lives there; page-10c pins it); (4) Approvals desktop and phone; (5) Costs cards and the Guide grid; (6) client page price row, product page, Setup; (7) 1 filled button per card and the ••• menus; then B7, B8, B10, B11, B12, B14.
 
 Files changed since the last entry: c2m-access.js, c2m.js, c2m.css, tests/page-bar.test.js (new), tests/page-ds.test.js, tests/README.md, docs 03, 06, 07, 08, 11, 12, this entry. Not pushed. Ready to push.
+
+## 24 Nov 2026, last entry of the day: Tahir pushed a4d09b2; push 2 reviewed; pushes 3 (1 Products place) and 4 (Approvals) built and reviewed (D-190, D-191) (MODULE: C2M)
+Correction to the entry above: its last line said "Not pushed". Tahir pushed it after that entry, as commit a4d09b2 "CODE CLAUDE PUSH" (D-186 to D-189 together). Live check done, read only: the new bar and look are on the live site (docs 12).
+- Push 2 review: ready, 4 minors fixed (More focus, empty pill, "the gear" on a phone, long name).
+- Push 3 built (D-190): Products has a switch All, VAN Brands, White label. VAN Brands is the pack table that was under Clients, VAN Brands (needs see.cost). Clients, VAN Brands holds the price lists only, with a link. A role with no Products place keeps the old tab. Not as the picture: no flat table (open point for Tahir).
+- Push 4 built (D-191): Approvals for the administrator: 4 figures, the next move, the list in 3 tabs on the wide side, the GP chart and For your information (scrolls in its card) on the narrow side; phone: next move first, GP as 1 line. Other roles unchanged.
+- Review of 3 and 4: not ready at first (1 major: a form asked for on Products, VAN Brands did not draw), fixed with 7 minors (docs 12).
+- Code: c2m.js (prodKind, prodSwitch, vProducts, vVanProducts, vanTabs, vClients, GOTO.vprod and vtab, navSnap, navBase, navHash, the restore; vToday, homeGrid, jtab, lfApply for the key jobs; What's changed 2026-11-24c), c2m.css (3 blocks at the end).
+- Tests: page-prod (24, new), page-appr (21, new), page-bar (21); whole suite 565 pass on this PC.
+- Looked at in the built-in browser on the local copy with invented data (docs 12 lists what was and was not looked at). Pushes 3 and 4 are not on live.
+- Next: (5) Costs cards (progress, blocker links, Open) and the Guide card grid; (6) client page price row (GP change, below target: reason needed), product page, Setup; (7) 1 filled button per card and the ••• menus; then B7, B8, B10, B11, B12, B14; the Phase 4 sign-off table. On 1 Dec: check which re-approval items stayed open after the window closed (B3a).
+- Open for Tahir: flat Products table or not; topic chips with the tabs or tabs only; W12; a new pack on Edit this product with client.add alone.
+
+Files changed since the last entry: c2m.js, c2m.css, tests/page-prod.test.js (new), tests/page-appr.test.js (new), tests/page-bar.test.js, tests/README.md, docs 01, 03, 06, 07, 08, 11, 12, this entry. Not pushed. Ready to push.
+
+## 25 Nov 2026: redesign push 5, the Costs cards and the Guide grid, built and reviewed (D-192) (MODULE: C2M)
+- Tahir: "Yes, go on". Built ruling D-187 parts 5 and 6.
+- Costs: each card has a line in colour per blocker that opens the part on it (materials with no cost, packs with no packing bill, the next Month end step, changes waiting for Monday), a progress bar on Month end, and its own Open button. Replaces the whole-box button of push 10c.
+- Guide: own jobs as cards (place, who, number of steps, Start); a pressed card opens its steps across the row. Place headings gone.
+- Review: not ready at first (3 majors), all fixed with 7 minors; 1 minor accepted (docs 12).
+- Code: c2m.js (vCosts, costBoxes, noBillPacks, noBillBox, cFocus, the cpart handler, navSnap, navBase, navRestore, goPlace, matTable's Waiting for a rate, vMonthEnd's step anchor, gjRow, gjGroups, vGuide, the Guide job "Update a material, packing, labour or FOH cost", What's changed 2026-11-25a), c2m.css (1 block at the end).
+- Tests: page-192 (32, new), page-10c updated; whole suite 597 pass on this PC.
+- Pushes 3, 4 and 5 are not on live.
+- Next: (6) client page price row (GP change, below target: reason needed), product page, Setup; (7) 1 filled button per card and the ••• menus; then B7, B8, B10, B11, B12, B14; the Phase 4 sign-off table. On 1 Dec: B3a check.
+- Open for Tahir: flat Products table or not; topic chips with the tabs or tabs only; W12; a new pack on Edit this product with client.add alone.
+
+Files changed since the last entry: c2m.js, c2m.css, tests/page-192.test.js (new), tests/page-10c.test.js, tests/README.md, docs 01, 03, 06, 07, 08, 11, 12, this entry. Not pushed. Ready to push.
+
+## 25 Nov 2026, later: redesign push 6, the new price row and Names to settle in Setup, built and reviewed (D-193) (MODULE: C2M)
+- Tahir: "Yes, go on". Built D-185 part 5 and B8.
+- Clients, White Label: columns New price, Rs and After the change: new GP %, the points it moves, "below target: reason needed" (the send bar's rule and rows). Every price still goes to the COO.
+- B8: an O2S name with nothing waiting (no sales without cost, no open order) is no longer a job on Approvals; it waits in Setup, Products and variants, count on the tab.
+- Product page and Setup looked at for the new look: nothing to change.
+- Review: not ready at first (2 majors), fixed with 7 minors (docs 12).
+- Code: c2m.js (inCh, r1, ngpAfter, srSay, wlClient, vPrices2's old table, the ncpNp input handler, the phone fold, jobs0 Names to settle, vSetup2 tab count, Guide jobs "Change a client price or a target GP" and "Rename a product or settle an O2S name", What's changed 2026-11-25b), c2m.css (1 block at the end).
+- Tests: page-193 (25, new); whole suite 622 pass on this PC.
+- Pushes 3 to 6 are not on live.
+- Next: (7) 1 filled button per card and the ••• menus on the 7 row clusters; then B7, B10, B11, B12, B14; the Phase 4 sign-off table. On 1 Dec: B3a check.
+- Open for Tahir: a name with open orders but no truck stays on Approvals (built so); flat Products table or not; topic chips with the tabs or tabs only; W12; a new pack on Edit this product with client.add alone.
+
+Files changed since the last entry: c2m.js, c2m.css, tests/page-193.test.js (new), tests/README.md, docs 01, 03, 06, 07, 08, 11, 12, this entry. Not pushed. Ready to push.
+
+## 25 Nov 2026, evening: redesign push 7, the ••• menu and 1 filled button per card, built and reviewed (D-194) (MODULE: C2M)
+- Tahir: "Yes, go on". Built the ruled design rule for buttons (D-185 part 1).
+- Rows with 3 or more buttons (and any row with Delete beside another button): main button plus a ••• menu; Delete red inside, still asks. Applied to Setup Clients, Products and variants, the product page bar, saved reports, packing bills, and Revise a list (1 menu for the 3 lists). Approval panels left (2 buttons each).
+- Review: not ready at first (2 majors: the fold memory reopened menus; Guide steps), fixed with 3 minors (docs 12).
+- Code: c2m.js (acts, dotsMenu, btnCls, isFilled, isDel, toGhost, rowBtnL; the 6 rows; 3 listeners at the end; 6 Guide jobs; What's changed 2026-11-25c), c2m.css (1 block at the end).
+- Tests: page-194 (23, new); whole suite 645 pass on this PC.
+- Pushes 3 to 7 are not on live.
+- Next: B7, B10, B11, B12, B14; the Phase 4 sign-off table. On 1 Dec: B3a check.
+- Open for Tahir: a name with open orders but no truck stays on Approvals (built so); flat Products table or not; topic chips with the tabs or tabs only; W12; a new pack on Edit this product with client.add alone.
+
+Files changed since the last entry: c2m.js, c2m.css, tests/page-194.test.js (new), tests/README.md, docs 01, 03, 06, 07, 08, 11, 12, this entry. Not pushed. Ready to push.
+
+## 26 Nov 2026: B7, B10, B11, B12, B14 built and reviewed (D-195) (MODULE: C2M)
+- Tahir: "Yes, go on". Built the 5 remaining content rulings of D-185.
+- B7 Find on Approvals above 12 rows. B10 red clients only when newly red (seen list on the server, pruned when a client recovers). B11 rate check due on the 5th, then overdue. B12 Clients, VAN Brands tab is List prices; top bar keeps Price lists. B14 Remind on a stuck recipe: a notice to that step's role, once a day, in the change record.
+- Server: 2 new routes in c2m-routes.js (POST /api/c2m/redseen, POST /api/c2m/recipes/:id/remind); state gains redSeen and remindedToday for the administrator. No migration: both use c2m_audit and c2m_notice.
+- Review: first reviewer stalled; second: not ready at first (2 majors), fixed with 5 minors; 1 left (docs 12).
+- Tests: page-195 (23, new), routes-195 (14, new), page-10b and page-appr moved; whole suite 683 pass on this PC.
+- Pushes 3 to 8 are not on live.
+- Next: the Phase 4 sign-off table. On 1 Dec: B3a check.
+- Open for Tahir: a name with open orders but no truck stays on Approvals (built so); flat Products table or not; topic chips with the tabs or tabs only; W12; a new pack on Edit this product with client.add alone.
+
+Files changed since the last entry: c2m.js, c2m-routes.js, c2m.css, tests/page-195.test.js (new), tests/routes-195.test.js (new), tests/page-10b.test.js, tests/page-appr.test.js, tests/README.md, docs 01, 03, 04, 05, 06, 07, 08, 11, 12, this entry. Not pushed. Ready to push.

@@ -856,3 +856,7 @@ File: apps/c2m/migrations/017_c2m_pl_numbers_holidays.sql and .PRODUCTION.sql. S
 - c2m_holiday (new): day DATE PRIMARY KEY, name VARCHAR(80), added_by VARCHAR(64), added_at DATETIME. Kept by the COO.
 - c2m_setting rows pl_seq_<year> (written by the code, no migration): the last VAN/PL number used that year.
 Local first (van_platform); production later by hand (Tahir, 23 Sept 2026 rule). Until 017 runs, the counter still works; the holiday list says it is not switched on.
+
+## D-195, 26 Nov 2026: 2 new kinds of change record row, no new table
+- c2m_audit entity red_seen: by_user = the administrator; new_value = {"clients": [names]}; the last row per person is the list of red clients seen. Not shown in the change record.
+- c2m_audit entity recipe_remind: entity_id = the recipe version id; new_value = {"state", "role"}; shown in the change record.

@@ -27,9 +27,12 @@ setTimeout(() => {
     E("scr = 'setup'; renderPage()"); ok(doc.querySelector('.hdr .foot .ib[data-scr="setup"]').getAttribute('aria-current') === 'true', 'the gear is marked when Setup is open');
     E("scr = 'products'; renderPage()"); ok(doc.querySelector('.hdr nav button[data-scr="products"]').getAttribute('aria-current') === 'true' && doc.querySelector('.hdr .more').getAttribute('aria-current') === 'true', 'Products is marked on the bar, and on More for when it is folded');
     E("moreOpen = true; renderPage()"); const sh = [...doc.querySelectorAll('.sheet button[data-scr]')];
+    ok(sh.map(b => b.className).join('|') === 'far fold2|far fold|far fold||', 'the sheet buttons carry the classes the widths depend on: ' + sh.map(b => b.className).join('|'));
+    { const a = access.navFor(access.SEED.coo.actions.filter(k => k !== 'pricedoc.all')); ok(a.nav.join() === 'approvals,clients,margin,costs,products,reports' && a.more.join() === 'setup,guide', 'without the price list right: 6 places'); }
+    ok(/\.find\(x => x\.offsetParent !== null\)/.test(js) && /max-width:900px\)\{\.hdr \.foot \.pp\{display:none\}/.test(css), 'More focuses a button that shows; no empty pill on a narrow bar');
     ok(sh.map(b => b.dataset.scr).join() === 'pricelists,products,reports,setup,guide', 'the More sheet lists what the phone bar leaves out: ' + sh.map(b => b.dataset.scr).join());
     E("moreOpen = false; scr = 'approvals'; renderPage()");
-    ok(E("pth('products')") === 'Products' && E("pth('setup')") === 'Setup (the gear)', 'the Guide names the places without "More"');
+    ok(E("pth('products')") === 'Products' && E("pth('setup')") === 'Setup (the gear; on a phone, under More)', 'the Guide names the places, and where Setup is on a phone');
     ok(!/\*\*More\*\*, \*\*(Products|Reports|Setup)\*\*/.test(js) && !/More, (Products|Reports|Setup)/.test(js), 'no Guide step sends anyone to More for Products, Reports or Setup');
     // the styles
     ok(/\.hdr\{height:56px\}/.test(css) && /\.shell\{padding-top:56px\}/.test(css), 'the bar is 56 px and the page starts under it');

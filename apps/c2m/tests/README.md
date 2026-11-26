@@ -36,7 +36,7 @@ Each file can also run alone, for example `node apps/c2m/tests/page-10g.test.js`
 `<name>: <n> pass, <m> fail`; run.js adds them up, shows why a file gave no result, and ends with exit code 1 if any
 check failed.
 
-## What they check (24 Nov 2026: 517 checks)
+## What they check (26 Nov 2026: 683 checks)
 
 | File | Checks | What |
 |---|---|---|
@@ -47,7 +47,14 @@ check failed.
 | page-10e.test.js | 35 | The audit Minors: rounding, blank settings, FED, toasts and more (push 10e) |
 | page-10f.test.js | 25 | Focus, open folds and scroll kept after each press; lists worked out once per draw (push 10f) |
 | page-10g.test.js | 27 | The page reads its data again when shown, every 2 minutes and on a new day, never while someone is busy (push 10g) |
-| page-bar.test.js | 18 | The top bar of 24 Nov: 7 places, the gear and the Guide beside the name, what folds under More, the phone bar, the Guide's wording (D-189) |
+| page-prod.test.js | 24 | 1 Products place: the switch All, VAN Brands, White label; Clients, VAN Brands with price lists only; Find anything, Back and the address (D-190) |
+| page-appr.test.js | 21 | Approvals for the administrator: 4 figures, 3 tabs, Find through all tabs, chart and news on the narrow side, the phone order (D-191) |
+| page-192.test.js | 32 | Costs cards: a link per blocker that opens the part on it, Open on each card, Month end progress; the Guide's own jobs as cards (D-192) |
+| page-193.test.js | 25 | The new price row: new GP, points, below target: reason needed, the same rows as the send bar; Names to settle with nothing waiting in Setup (D-193) |
+| page-194.test.js | 23 | The ••• menu: main button and menu, 1 filled button, Delete in the menu, 1 open at a time, Escape and a click outside, never reopened by a redraw, the Guide's words (D-194) |
+| page-195.test.js | 23 | B7 Find above 12 rows; B10 newly red only, seen list kept and pruned; B11 due on the 5th, overdue; B12 List prices; B14 Remind (D-195) |
+| routes-195.test.js | 14 | The 2 routes of D-195: Remind (COO only, the step's role, once a day, change record) and red clients seen (COO only, bounded, not in the change record) |
+| page-bar.test.js | 21 | The top bar of 24 Nov: 7 places, the gear and the Guide beside the name, what folds under More, the phone bar, the Guide's wording (D-189) |
 | page-ds.test.js | 26 | The design system of 24 Nov: Inter, the 1 colour set, round tags, the buttons, the card shadow, and nothing left of the 4 looks (D-188) |
 | page-185.test.js | 21 | Audit fixes of 24 Nov: price for target in 1 place, the 0.05 point allowance everywhere, Take back and Drop it on list revisions (D-186); the certificate's Correct buttons, client-packed packs on a bill (D-187) |
 | page-184.test.js | 25 | Remove a recipe: where it shows per role, its box, the 4 reasons, 1 press (D-184, 23 Nov 2026) |

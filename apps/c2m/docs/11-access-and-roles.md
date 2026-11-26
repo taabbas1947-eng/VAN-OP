@@ -327,3 +327,20 @@ No new action: each list uses the right that adds to it. Delete, Take out of use
 
 ## 11.35 24 Nov 2026: the places of the COO and the CFO (D-189)
 - Bar: Approvals, Clients, Margin, Costs, Price lists (with pricedoc.all), Products, Reports. Beside the name: Setup (gear), Guide. What each role may do is unchanged; only where the places sit changed. A custom role with see.margin gets the same places.
+
+## 11.36 24 Nov 2026: who sees what in Products and Approvals (D-190, D-191)
+- Products, VAN Brands, the pack table with costs: needs see.cost. Without it the person sees the VAN brand products in the list by client, with no cost table.
+- The Products tab under Clients, VAN Brands: only for a role with Clients and without the Products place (no built-in role today).
+- The new Approvals layout: the administrator only. No right changed.
+
+## 11.37 25 Nov 2026: Costs cards and Guide cards (D-192)
+- No right changed. A link on a pack with no packing bill opens its product only for a person with the Products place; others see the pack's name only. The Guide still shows each person only the jobs of their role that they have the right to do.
+
+## 11.38 25 Nov 2026: the new price row and Names to settle (D-193)
+- No right changed. After the change shows to a person with price.propose (the New price box). The count on Setup, Products and variants shows to a person with lists.link, as the job did.
+
+## 11.39 25 Nov 2026: the ••• menu (D-194)
+- No right changed. A menu holds only the buttons the person could already see; with none, no ••• is drawn.
+
+## 11.40 26 Nov 2026: Remind and red clients seen (D-195)
+- Remind and the red clients seen: the administrator only (the routes refuse anyone else). The person reminded reads the notice as any other notice of their step.

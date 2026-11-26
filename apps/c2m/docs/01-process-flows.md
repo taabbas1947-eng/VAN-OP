@@ -920,3 +920,30 @@ flowchart TD
 - Go-live window close: after each costed pack takes its cost that day as its approved cost, every open re-approval item is closed in the same step, with a line in the change record. An item that names a pack left not costed stays open. The COO and the CFO read the count in the close notice.
 - Labour and FOH certificate: certified once per month. If it is wrong: the COO reopens the month (with a reason), then the CFO presses Correct: no change or Correct: changed in the certificate box. Once corrected it is closed again.
 - A client-packed product may carry a VAN packing bill: tick its pack on the bill in Costs, Packing cost, or pick the bill in Edit this product.
+
+## 1.48 Where a product is found, and how the COO reads Approvals (owner: Tahir rules; Claude built; D-190, D-191, 24 Nov 2026)
+1. Any person with the Products place opens Products and picks a side of the switch: All, VAN Brands or White label.
+2. VAN Brands lists every pack with its cost today and its state; a row opens the product page. All and White label list the products by client.
+3. The price lists of the VAN brands stay under Clients, VAN Brands. A link there opens Products, VAN Brands.
+4. The COO opens Approvals: reads the 4 figures, acts on the next move, then works the tabs To approve, Stuck with others, To do. The news is read in its card on the right and marked as read there.
+
+## 1.49 Settling a cost from its card; finding a job in the Guide (owner: Tahir rules; Claude built; D-192, 25 Nov 2026)
+1. The CFO opens Costs. Cards with something to settle come first.
+2. On a card, each line in colour is 1 thing to settle. Pressing it opens the part on that thing: the materials with no cost, the packs with no packing bill, the next step of Month end, the changes waiting for Monday.
+3. Open at the foot of a card opens the part with its whole list.
+4. In the Guide a person sees only their own jobs, as cards. Pressing a card shows the steps; Start opens the first screen.
+
+## 1.50 A new client price, and an O2S name to settle (owner: Tahir rules; Claude built; D-193, 25 Nov 2026)
+1. The CFO opens Clients, White Label, picks the client, and types a new price in its row.
+2. After the change shows the new GP %, the change in points and, when below target, "reason needed".
+3. The CFO writes the reason the client reads (and why below target, when asked) and presses Send to the COO. The COO approves as before.
+4. An O2S name with no product: when sales or open orders wait on it, it is a job on Approvals; otherwise it waits in Setup, Products and variants, where the COO or the CFO places it.
+
+## 1.51 Finding a less used action (owner: Tahir rules; Claude built; D-194, 25 Nov 2026)
+1. A row shows its main action as a button. Its other actions (Edit, Rename, Take out of use, Delete) are under ••• beside it.
+2. Pressing ••• opens a short menu; pressing an item acts as the button did; Delete still asks first.
+
+## 1.52 Reminding, red clients and the rate check (owner: Tahir rules; Claude built; D-195, 26 Nov 2026)
+1. The COO sees a recipe stuck with someone on Approvals, Stuck with others, and presses Remind. That person finds the notice in C2M. Once a day at most.
+2. When a white label client turns red on margin, the COO gets 1 job naming it. Open margin shows the red clients and marks them as seen.
+3. The rate check of last month is due on the 5th; after the 5th it shows as overdue on the list of the person who does it.

@@ -506,6 +506,9 @@ module.exports = function mountC2mRoutes(app, deps) {
     const noticeKeys = acc.admin ? [role] : [...new Set([role, ...(has('recipe.edit') || has('recipe.step.draft') ? ['production'] : []), ...(has('recipe.step.review') ? ['qc'] : []), ...(has('recipe.step.endorse') ? ['plant'] : []), ...(has('recipe.step.cost') && has('see.margin') ? ['cfo'] : [])])]; // cfo notices also carry prices and lists: only a finance role reads them (review 7f, 1)
     const eSigned = earlySoft("SELECT entity_id, new_value FROM c2m_audit WHERE entity='signoff' AND LOWER(by_user)=LOWER(?)", [user]);
     const eReadUpto = earlySoft("SELECT new_value FROM c2m_audit WHERE entity='notices_read' AND LOWER(by_user)=LOWER(?) ORDER BY id DESC LIMIT 1", [user]);
+    /* B10 and B14 (D-185; D-195): the white label clients the administrator has already seen red, and the recipes reminded today */
+    const eRedSeen = acc.admin ? earlySoft("SELECT new_value FROM c2m_audit WHERE entity='red_seen' AND LOWER(by_user)=LOWER(?) ORDER BY id DESC LIMIT 1", [user]) : null;
+    const eReminded = acc.admin ? earlySoft("SELECT entity_id, at FROM c2m_audit WHERE entity='recipe_remind' AND at >= ?", [today() + ' 00:00:00']) : null;
     const eSignAll = acc.admin ? earlySoft("SELECT by_user, entity_id, new_value, at FROM c2m_audit WHERE entity='signoff' ORDER BY id", []) : null;
     const ePeople = acc.admin ? earlySoft("SELECT r.username, a.name, r.role FROM user_module_roles r LEFT JOIN auth_users a ON a.username=r.username WHERE r.module='c2m' AND (a.active IS NULL OR a.active=1) ORDER BY r.username", []) : null;
     const eGrants = !has('see.products') && has('see.granted_lists') ? earlyQ('SELECT grant_kind, grant_value FROM c2m_list_grant WHERE username=?', [user]) : null;
@@ -631,6 +634,8 @@ module.exports = function mountC2mRoutes(app, deps) {
     /* Push 7f (Tahir, 10 Nov 2026, D-167): a notice reaches every role holding the right of its step (a role made on the launcher too), and
        each person marks the notices they have read; read ones fold away. */
     { const [ns] = await eReadUpto; let up = 0; try { up = Number(JSON.parse((ns && ns[0] && ns[0].new_value) || '{}').upto) || 0; } catch (_) {} out.noticesReadUpto = up; }
+    if (eRedSeen) { const [rs] = await eRedSeen; let L = null; try { L = JSON.parse((rs && rs[0] && rs[0].new_value) || 'null'); } catch (_) {} out.redSeen = L && Array.isArray(L.clients) ? L.clients : null; }
+    if (eReminded) { const [rm] = await eReminded; out.remindedToday = [...new Set((rm || []).map(r => Number(r.entity_id)))]; }
     out.issuer = PL.ISSUER; // push 7g: the price list preview names the issuer from the same place as the PDF
     if (!has('see.margin') && noticeKeys.some(k => ['production', 'qc', 'plant', 'cfo'].includes(k))) { const [nt] = await eNoticesRole; out.notices = (nt || []).map(n => has('see.cost') ? n : { ...n, text: lib.noRs(n.text) }); } // push 7b (R65), 7f: by the step rights held
     { try { const [hd] = await eHol; out.holidays = hd.map(h => ({ day: String(h.day).slice(0, 10), name: h.name })); out.holidaysReady = true; } catch (e) { if (e && e.code !== 'ER_NO_SUCH_TABLE') throw e; out.holidays = []; out.holidaysReady = false; } } /* push 10e (C-35): public holidays, kept by the COO; every role counts working days without them */
@@ -1759,7 +1764,7 @@ module.exports = function mountC2mRoutes(app, deps) {
   app.post('/api/c2m/products/:id/packs', can('client.add'), wrap(async (req, res) => {
     await needVariants();
     const [[cp]] = await q('SELECT * FROM c2m_client_product WHERE id=?', [req.params.id]); if (!cp) throw bad('This product is no longer in C2M. Press Refresh; if it is still missing, it was deleted.');
-    if (cp.channel !== 'White label') throw bad('A pack of a VAN brand product is added through a price list revision (Clients, VAN Brands, Price lists).');
+    if (cp.channel !== 'White label') throw bad('A pack of a VAN brand product is added through a price list revision (Clients, VAN Brands, List prices).');
     const packs = await readPacks([req.body || {}], cp.packing_mode);
     let re = 0;
     await tx(async () => {
@@ -2703,6 +2708,19 @@ module.exports = function mountC2mRoutes(app, deps) {
   app.post('/api/c2m/notices/read', wrap(async (req, res) => { const up0 = Number((req.body || {}).upto); if (!(Number.isSafeInteger(up0) && up0 > 0)) throw bad('Nothing to mark as read. Press Refresh.');
     const [ns] = await softQ("SELECT new_value FROM c2m_audit WHERE entity='notices_read' AND LOWER(by_user)=LOWER(?) ORDER BY id DESC LIMIT 1", [req.c2m.user]); let was = 0; try { was = Number(JSON.parse((ns && ns[0] && ns[0].new_value) || '{}').upto) || 0; } catch (_) {}
     const up = Math.max(was, up0); if (up > was) await audit(req.c2m.user, 'notices_read', req.c2m.user, 'read', was ? { upto: was } : null, { upto: up }, null); res.json({ ok: true, upto: up }); })); // never goes back (review 7f, 3)
+  /** B10 (D-185, A-36; D-195): the administrator has seen these white label clients red; the job comes back only when another one turns red. */
+  app.post('/api/c2m/redseen', wrap(async (req, res) => { if (!req.c2m.admin) throw Object.assign(new Error('Only the COO marks red clients as seen.'), { status: 403 });
+    const L = (req.body || {}).clients; if (!Array.isArray(L) || L.length > 300) throw bad('Nothing to mark. Press Refresh.');
+    const clients = [...new Set(L.map(x => String(x || '').trim().slice(0, 120)).filter(Boolean))]; if (JSON.stringify({ clients }).length > 60000) throw bad('Too many clients to mark at once.');
+    await audit(req.c2m.user, 'red_seen', req.c2m.user, 'seen', null, { clients }, null); res.json({ ok: true, clients }); }));
+  /** B14 (D-185, A-02, I-01 in part; D-195): the COO reminds the person who holds a stuck recipe: a notice in C2M to that step's role. Nothing
+   *  is sent on its own; at most 1 reminder a day for each recipe; every reminder is in the change record. */
+  app.post('/api/c2m/recipes/:id/remind', wrap(async (req, res) => { if (!req.c2m.admin) throw Object.assign(new Error('Only the COO sends a reminder.'), { status: 403 });
+    const v = await getVersion(req.params.id); const role = lib.RECIPE_WHO[v.state]; if (!role) throw bad('This recipe is not waiting on anyone now. Press Refresh.');
+    const [[r0]] = await q("SELECT COUNT(*) n FROM c2m_audit WHERE entity='recipe_remind' AND entity_id=? AND at >= ?", [String(v.id), today() + ' 00:00:00']); if (r0.n) throw bad('A reminder for this recipe was already sent today.');
+    const D = await engine.loadAll(q); const rw = recipeWords(D, v.id);
+    await notice(role, `Reminder from ${whoW(req.c2m)}: ${rw} waits for you (step: ${String(v.state).replace('_', ' ')}). Please move it on today.`, req.c2m.user);
+    await audit(req.c2m.user, 'recipe_remind', v.id, 'remind', null, { state: v.state, role }, null); res.json({ ok: true, role }); }));
   app.post('/api/c2m/notices/seen', can('notices.see'), wrap(async (req, res) => { await q('UPDATE c2m_notice SET seen=1 WHERE for_role=?', [req.c2m.role]); res.json({ ok: true }); }));
 
   /* ---------- VAN brand list price revisions: Yawar proposes, Tahir approves or sends back (ruled 16 Oct) ---------- */
@@ -2945,7 +2963,7 @@ module.exports = function mountC2mRoutes(app, deps) {
       if (!inUse) {
         { const [fl] = await softQ('SELECT p.brand FROM c2m_product_ext e JOIN c2m_client_product p ON p.id=e.client_product_id WHERE e.follows_product_id=? AND p.active=1', [id]); if (fl.length) throw bad(`${cp.brand} is followed by ${fl.slice(0, 3).map(x => x.brand).join(', ')}: they take its recipe. Stop them following it first (their product page).`); }
         const [rows] = await q("SELECT list_name, data_json FROM c2m_list_price WHERE list_name IN ('dist','dealer','farmer')"); const on = rows.map(r => ({ l: r.list_name, d: JSON.parse(r.data_json) })).filter(x => packIds.includes(Number(x.d.packId)));
-        if (on.length) throw bad(`${cp.brand} is on ${on.length} price list ${on.length === 1 ? 'row' : 'rows'} (${on.slice(0, 3).map(x => x.d.p + (x.d.pack ? ' ' + x.d.pack : '')).join('; ')}). ${(await masterOn()) ? `Take ${on.length === 1 ? 'it' : 'them'} off the ${on.length === 1 ? 'list' : 'lists'} first (Clients, VAN Brands, Price lists, See all 5 side by side, Take off a list), or move ${on.length === 1 ? 'that price' : 'those prices'} to another pack` : `Take ${on.length === 1 ? 'that row' : 'those rows'} off the list, link ${on.length === 1 ? 'it' : 'them'} to the right pack, or unlink, first`}: a list row cannot point to a product out of use.`);
+        if (on.length) throw bad(`${cp.brand} is on ${on.length} price list ${on.length === 1 ? 'row' : 'rows'} (${on.slice(0, 3).map(x => x.d.p + (x.d.pack ? ' ' + x.d.pack : '')).join('; ')}). ${(await masterOn()) ? `Take ${on.length === 1 ? 'it' : 'them'} off the ${on.length === 1 ? 'list' : 'lists'} first (Clients, VAN Brands, List prices, See all 5 side by side, Take off a list), or move ${on.length === 1 ? 'that price' : 'those prices'} to another pack` : `Take ${on.length === 1 ? 'that row' : 'those rows'} off the list, link ${on.length === 1 ? 'it' : 'them'} to the right pack, or unlink, first`}: a list row cannot point to a product out of use.`);
         const [pend] = await q("SELECT items_json FROM c2m_list_revision WHERE status='proposed' OR (status='approved' AND applied=0)"); if (pend.some(r => JSON.parse(r.items_json).some(it => it.id == null && it.added && packIds.includes(Number(it.packId))))) throw bad(`A list revision adds a pack of ${cp.brand}: take it out of use after the revision is decided or takes effect.`);
         { const [[rv]] = await q("SELECT version_no FROM c2m_recipe_version WHERE client_product_id=? AND state IN ('draft','review','endorse','cost') LIMIT 1", [id]); if (rv) throw bad(`${cp.brand} has recipe version ${rv.version_no} in the workflow (production, QC or cost). Take it out of use once that version is approved: out of use, it could not be approved.`); } // review 1.0.2 re-check 2, A1
         if (packIds.length) { const [[pw]] = await q(`SELECT COUNT(*) n FROM c2m_price WHERE status='proposed' AND client_pack_id IN (${qs(packIds)})`, packIds); if (Number(pw.n)) throw bad(`A price for ${cp.brand} waits for the COO: decide it first.`); }
@@ -3126,10 +3144,10 @@ module.exports = function mountC2mRoutes(app, deps) {
         await audit(by, 'list_price', String(lv.id), 'left_list', { list: r.list_name, prices: lv.prices }, r.list_name + '_old', `${r.list_name}: ${lv.name} left the printed list at the carry-over into the master: ${lv.why}`.slice(0, 400)); } // the prices kept in the change record too (review 1.0.3, code finding 3)
       /* a revision Tahir sent back is closed: its rows may have moved or left; Yawar types the prices again in the grid (review 1.0.3, workflow finding 12) */
       for (const r of sb) { await q("UPDATE c2m_list_revision SET status='replaced' WHERE id=? AND status='sent_back'", [r.id]); await audit(by, 'list_revision', r.id, 'replaced', 'sent_back', 'replaced', 'Closed at the carry-over into the master: type its prices again in the grid'); }
-      if (sb.length) await notice('cfo', `The carry-over into the master closed ${sb.length} list revision(s) the COO had sent back (${sb.map(r => LIST_WORD[r.list_name]).join('; ')}). Their prices are listed under Clients, VAN Brands, Price lists, "Closed at the carry-over": type them again in the grid.`, by); // the prices stay on a screen, not in a capped notice (review 1.0.3, third check, finding 2)
+      if (sb.length) await notice('cfo', `The carry-over into the master closed ${sb.length} list revision(s) the COO had sent back (${sb.map(r => LIST_WORD[r.list_name]).join('; ')}). Their prices are listed under Clients, VAN Brands, List prices, "Closed at the carry-over": type them again in the grid.`, by); // the prices stay on a screen, not in a capped notice (review 1.0.3, third check, finding 2)
       const D2 = await engine.loadAll(q); const rn = await renameRows(D2, by, D2.cps.filter(c => engine.isVanBrand(c)).map(c => c.id), 'official name, at the carry-over into the master');
       await audit(by, 'list_master', 'lists', 'carried', null, { carried: P.links.length, linked: P.counts.linked, left: P.leave.length }, `Price lists carried into the master: ${P.links.length} rows carried, ${P.counts.linked} already linked, ${P.leave.length} left the printed lists`);
-      await notice(req.c2m.role === 'cfo' ? 'coo' : 'cfo', `${req.c2m.name || by} carried the price lists into the master: ${P.links.length} rows carried, ${P.counts.linked} already linked kept, ${P.leave.length} left the printed lists (Clients, VAN Brands, Price lists, Off the lists).`, by); // the other person is told (review 1.0.3, workflow finding 11)
+      await notice(req.c2m.role === 'cfo' ? 'coo' : 'cfo', `${req.c2m.name || by} carried the price lists into the master: ${P.links.length} rows carried, ${P.counts.linked} already linked kept, ${P.leave.length} left the printed lists (Clients, VAN Brands, List prices, Off the lists).`, by); // the other person is told (review 1.0.3, workflow finding 11)
       return { ok: true, carried: P.links.length, linked: P.counts.linked, left: P.leave.length, renamed: rn.n, closed: sb.length };
     });
     res.json(out);
@@ -3193,7 +3211,7 @@ module.exports = function mountC2mRoutes(app, deps) {
     const seenP = new Map(); for (const r of rows) { const pp = JSON.parse(r.data_json).packId; if (pp != null) seenP.set(Number(pp), (seenP.get(Number(pp)) || 0) + 1); }
     const dupN = [...seenP.values()].filter(n => n > 1).length;
     if (D0 && dupN) throw bad(`${dupN} ${dupN === 1 ? 'pack has' : 'packs have'} more than 1 row linked on this list. Correct those links first (More, Reports, VAN brand list margin), so no pack is entered twice.`);
-    if (D0 && unlinked) throw bad(`${unlinked} ${unlinked === 1 ? 'row' : 'rows'} of this list ${unlinked === 1 ? 'is' : 'are'} not in the master yet. Carry the price lists into the master first (Clients, VAN Brands, Price lists, See all 5 side by side): then every row has its pack and no pack is entered twice.`);
+    if (D0 && unlinked) throw bad(`${unlinked} ${unlinked === 1 ? 'row' : 'rows'} of this list ${unlinked === 1 ? 'is' : 'are'} not in the master yet. Carry the price lists into the master first (Clients, VAN Brands, List prices, See all 5 side by side): then every row has its pack and no pack is entered twice.`);
     for (const it of items) {
       if (it && it.id == null && it.packId != null) {
         const pid = Number(it.packId); const pk = D0.packs.find(k => Number(k.id) === pid); const cp = pk ? D0.cpById.get(pk.client_product_id) : null;
@@ -3628,7 +3646,7 @@ module.exports = function mountC2mRoutes(app, deps) {
   app.get('/api/c2m/audit', can('see.margin'), wrap(async (req, res) => {
     const Q = req.query || {}; const dt = v => /^\d{4}-\d{2}-\d{2}$/.test(String(v || '')) ? String(v) : null;
     const from = dt(Q.from), to = dt(Q.to), who = String(Q.who || '').trim().slice(0, 64), kind = has0(AUDIT_KIND, String(Q.kind || '')) ? String(Q.kind) : '', text = String(Q.q || '').trim().slice(0, 80);
-    const W = ["entity <> 'notices_read'"], P = []; // a notice marked read is not a change (review 7f, 4)
+    const W = ["entity <> 'notices_read'", "entity <> 'red_seen'"], P = []; // B10: a red client marked as seen is not a change either // a notice marked read is not a change (review 7f, 4)
     if (from) { W.push('at >= ?'); P.push(from + ' 00:00:00'); } if (to) { W.push('at <= ?'); P.push(to + ' 23:59:59'); }
     if (who) { W.push('by_user = ?'); P.push(who); }
     if (kind) { const k = auditKindSql(kind); W.push(k.sql); P.push(...k.P); }

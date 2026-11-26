@@ -37,7 +37,7 @@ setTimeout(() => {
     const tp = E(`[jobTopic({ t: 'Re-approve cost: X', pan: { k: 'reapp' } }), jobTopic({ t: 'Not costed: 3 packs cannot be priced until', pan: { k: 'notcosted' } }), jobTopic({ t: 'Fill Labour rate Low', go: 1 }), jobTopic({ t: 'Approve target: A for B', pan: { k: 'treq' } }), jobTopic({ t: 'Recipe stuck 3 working days: X', pan: { k: 'rec' } }), jobTopic({ t: '5 white label clients flagged red on margin, FY to date' }), jobTopic({ t: 'Names to settle: 1 O2S name', pan: { k: 'names' } })]`);
     ok(JSON.stringify(tp) === JSON.stringify(['Costs and month end', 'Costs and month end', 'Costs and month end', 'Prices and targets', 'Recipes', 'Margin', 'Setup']), 'topics: ' + JSON.stringify(tp));
     // M3: Find hides empty group headers and opens a matching folded group
-    E('scr = "approvals"; renderPage()'); const inp = doc.querySelector('[data-lf="jobs"]'); inp.value = 'zzz'; E("LFQ.jobs = 'zzz'; lfApply('jobs')");
+    E('scr = "approvals"; LFQ.jobs = "zzz"; renderPage()'); /* B7 (D-195): the Find box shows above 12 rows, or while it holds text */ const inp = doc.querySelector('[data-lf="jobs"]'); inp.value = 'zzz'; E("LFQ.jobs = 'zzz'; lfApply('jobs')");
     ok([...doc.querySelectorAll('.jl .jgh')].every(h => h.classList.contains('lfh')), 'no group header over an empty list');
     E("LFQ.jobs = 'tornado'; lfApply('jobs')"); const sub = doc.querySelector('.jsub'); ok(sub && !sub.hidden, 'a match inside a folded group opens it');
     E("LFQ.jobs = ''; lfApply('jobs')"); const lfc = doc.querySelector('[data-lfc="jobs"]'); ok(!lfc || /^5 in the list/.test(lfc.textContent), 'count counts folded items: ' + (lfc && lfc.textContent));

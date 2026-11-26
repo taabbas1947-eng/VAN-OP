@@ -485,3 +485,8 @@ No route added or removed.
 - POST /api/c2m/packing/bill and /packing/assign: a client-packed product's pack is accepted; a bulk product's is still refused.
 - POST /api/c2m/products/:id/full: 403 when the product type changes without product.classify, or an existing pack's packing bill changes without packing.manage (the administrator exempt). Nothing is saved.
 - GET /api/c2m/state: checks[] rows of kind lf_cert may carry redo: true.
+
+## D-195, 26 Nov 2026
+- POST /api/c2m/redseen {clients: [names]}: administrator only; at most 300 names; saves the list of red white label clients seen. Answers {ok, clients}.
+- POST /api/c2m/recipes/:id/remind: administrator only; the recipe must be waiting at a step; once a day per recipe. Writes a notice to that step's role and a change record row. Answers {ok, role}.
+- GET /api/c2m/state: for the administrator also redSeen (list or null) and remindedToday (recipe version ids).

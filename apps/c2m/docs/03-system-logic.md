@@ -751,3 +751,11 @@ Tahir ruled (panel, 20 Nov 2026): the 19 targeted Minors now; the 6 rebuilds (C-
 
 ## 3.74 Phase 4 layout fix (26 Nov 2026)
 - c2m.css, last block: `.acts:has(> details.dots),.acts:has(> details.rowmenu){min-width:0}` (the 200 px kept by .acts was for rows of 3 or more buttons, which now fold); `#pntab td[data-l="O2S spellings"] .pill` wraps.
+
+## 3.75 An empty After the change (26 Nov 2026)
+- Clients, client price table: aftCell(r) shows ngpAfter(r), or a muted dash (.wldash) when it is empty (no price typed, the price in force typed again, a row waiting for the COO, no cost). On a phone the dash cell folds away like other cells without a new GP.
+
+## 3.76 The VAN look (D-196, 26 Nov 2026)
+- c2m.css, last blocks ("The VAN look, D-196"): the tokens (--bg, --surface, --ink, --muted, --line, --amber, --ok, --late, --over, --serif, --sans, --h 36 px, --hrow 32 px) and the rules that snap every older size to the 5 type sizes and 2 heights. Older blocks stay; this one comes last and wins. --blue now holds ink (the main button and the focus of a box), so older rules that said blue draw ink.
+- c2m.html loads Fraunces and Public Sans (Google Fonts), no longer Inter.
+- c2m.js: underHead(x, f) puts a place's tabs right after the first page head f draws (Clients); head() takes the facts line meta() set (MT) into its right side; c2m.css hides the old line above the title when a page head follows; renderPage0 clears MT and AFH on every draw. homeGrid for the roles that are not the administrator: no Your day card unless there is margin to show, the list leaves out the next move, and no list card when nothing is left. nutLine(m, true): values only. Packing items rows use acts().

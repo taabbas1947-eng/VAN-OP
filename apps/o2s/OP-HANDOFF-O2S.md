@@ -7870,3 +7870,15 @@ Audit doc (Claude Docs F2A2V6Q2zLnbrWgxgJigvR) U1 corrected: 84 of 198 productio
 Open: is each packing in-charge always on the same packing line on the floor? (Majid's point 4.)
 Majid is asked to confirm 8 points: teams start and stop at different times; each in-charge's team is 1 shift; at most 1 production and 1 packing shift open per in-charge; each packing in-charge on the same floor line; next-day shift dated the day it ends; Jawad, Ali and Majid can tap; 16 hours to pick a shift; open shift to Majid on Today after 24 hours.
 NEXT: on Majid's reply, record his answers on the F17 design page (version 4) and settle the packing line point; Tahir's final agreement; then build F17 under the safe-edit sequence with tests, docs and independent review. After F17: batch 2 (medium), batch 3 (large), then labour tracking.
+
+---
+
+## 26 Nov 2026 — live data one-off: Max Sulfur 10Kg stock moved 21301 → 23215 (Maxim) · MODULE: O2S
+
+**No code changed. Not a push.** Done in the live app by Claude, signed in as tahir (COO), on Tahir's rulings this session.
+
+- **Why:** Shoaib Sabir (Senior Warehouse Officer) asked for 1,000 Kg Max Sulfur 10Kg on closed-short PO 21301 to go to new PO 23215 (ERP SO SAL-ORD-2026-00337) so a DC can be made; 930 Kg (93 bags) left for Maxim on 25 Nov on a manual gate pass. 21301 stayed on his Ready to ship list because a short close keeps packed stock on the line (PO-SHORT-CLOSE.md rule 2), so it was not a bug.
+- **Move MV7132-d2b2:** 1,000 Kg of pack batch MAXS10449 (base GS10449), lot PK1689-7sfp → new lot PKMV7132-d2b2-0 on 23215 line O81_5837-hs4rL0 (15,000 Kg, 10 Kg pack). It was applied with O2S's own `pmvApply`, asked and approved by the COO. On a COO ruling it skipped 2 `pmvWhyNot` checks: the price (21301 PKR 351.75 vs 23215 PKR 494; Tahir ruled the bags bill at 494 on 23215) and 21301 being closed short (it stays closed; nothing more to make). The skipped checks are stored on the move as `override`. scCheck job for Supply Chain: 23215's purchase request (15,000) now needs 1,000 less made.
+- **Result (server rev 21250):** 21301 packed 1,000 = delivered 1,000, so it is off Ready to ship. 23215 packed 1,000, QA cleared 1,000, and a Ship job is open.
+- **Reason correction:** the 21301 · Max Sulfur short close reason changed from "Raw material never arrived" to "Ordered but never collected" (all 2,000 Kg was packed at the 26 Sep close). It is recorded in the corrections register (AMEND orderLine), with the old value kept in `shortClose.reasonCorrected`.
+- **Next:** Supply Chain plans the truck on 23215 for 930 Kg (93 bags) and makes the DC. 70 Kg (7 bags) stays ready on 23215. Open idea, not built: a COO price exception inside the move feature for bags with no printed price.

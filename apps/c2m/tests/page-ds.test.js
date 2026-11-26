@@ -7,8 +7,8 @@ const dom = new JSDOM(fs.readFileSync(PAGE, 'utf8'), { runScripts: 'dangerously'
 const w = dom.window;
 setTimeout(() => {
   try {
-    ok(/family=Inter:wght@400;500;600;700/.test(shell) && !/IBM\+Plex/.test(shell), 'the page loads Inter and no longer IBM Plex');
-    ok(/--sans:"Inter"/.test(css) && /--mono:"Inter"/.test(css) && !/IBM Plex/.test(css), 'text and figures are set in Inter');
+    ok(/family=Fraunces/.test(shell) && /family=Public\+Sans:wght@400;500;600;700/.test(shell) && !/family=Inter/.test(shell) && !/IBM\+Plex/.test(shell), 'D-196: the page loads the website fonts, Fraunces and Public Sans, not Inter');
+    { const last = css.slice(css.lastIndexOf('The VAN look, D-196')); ok(/--sans:"Public Sans"/.test(last) && /--mono:var\(--sans\)/.test(last) && /--serif:"Fraunces"/.test(last) && !/IBM Plex/.test(css), 'D-196: text and figures in Public Sans, titles in Fraunces'); }
     ok(/body\{font-variant-numeric:tabular-nums/.test(css), 'figures line up everywhere (tabular numbers on the page)');
     const root = (css.match(/:root\{--bg:[^}]*\}/) || [''])[0];
     for (const [k, v] of [['--bg', '#F8FAFC'], ['--surface', '#FFFFFF'], ['--ink', '#0F172A'], ['--muted', '#475569'], ['--line', '#E2E8F0'], ['--blue', '#2563EB'], ['--over', '#B91C1C'], ['--overbg', '#FEF2F2'], ['--late', '#B45309'], ['--latebg', '#FFFBEB'], ['--ok', '#047857'], ['--okbg', '#ECFDF5'], ['--soft', '#F1F5F9']]) ok(root.includes(k + ':' + v), 'colour ' + k + ' is ' + v);

@@ -1013,3 +1013,54 @@ Checked after pushes 3 to 8 went live (commit b60751b). Each line says how it wa
 - Gap 2, placing an O2S name: routes-p4, section 6. 2 O2S trucks of "Humi Gro" (500 kg) are unmatched in the state; a pack size the product lacks, a white label product and a person without lists.link are refused; the CFO settles the name to Humi Grow 25 kg; the product keeps its name and gains the spelling; the name leaves the unmatched list; both trucks are tied to the pack; the change record has it; settling again changes nothing.
 - The sign-off line 2 (Workflows) now reads: pass, no gap left in the paths named by the brief. routes-p4 has 58 checks. Whole suite 742, all pass.
 - Learned while writing it: the CFO, not only the COO, decides a cost re-approval. That is the access model (D-167), not a defect.
+
+## 26 Nov 2026, night: design audit through the eyes of Yawar, Majid, Himayat and Fahim (MODULE: C2M)
+Tahir: "look in the screen from yawar, majid, fahim and himayat lens ... many forms, tables, text, alignment poor and the design part is still not landed right. Audit the current system." No code changed.
+
+How: live site, read only, in Claude's own Chrome tab signed in as Tahir, 1262 px wide. The page was told it was each person's role (the seed rights of c2m-access.js: cfo, production, qc, plant); every save was blocked in the page for the whole check (none was tried). 21 screens measured by a script, about 25 looked at by eye. Not proven: the live role ticks (the roles list needs the service key); the lists of notices and the data each person really receives (the page held Tahir's data); phone width; dark mode.
+
+### What the numbers say (21 screens)
+- 16 font sizes (10, 11, 11.5, 12, 12.5, 13, 14, 14.5, 15, 16, 17, 18, 20, 22, 25, 34 px). A system needs about 5.
+- 12 heights for ordinary buttons (17 to 40 px; 31 px most used), 8 heights for text boxes and pick lists (28 to 38 px), 8 corner radii (2, 3, 6, 8, 10 px, round). 979 CSS rules, with separate styles per area (wl2, appr2, lcard, cbox and the older base).
+- Tables: the base rule puts cell text at the top (c2m.css line 36, vertical-align top) while buttons and boxes sit in the middle; the Clients table uses middle. So text and buttons in one row do not line up (Packing cost, Inputs, Setup).
+- 4 lists scroll inside their own box with their own scroll bar (.wrapx.tall, 72% of the screen): Recipes, Inputs Materials, Setup Clients, Packing cost. The mouse wheel scrolls the box, not the page.
+- Costs and Price lists sit 7 px to the right of every other place (content 67 px against 60 px).
+- Page heads differ: Clients puts its tabs above the title (title 74 px lower); Margin puts the date line above the title and has no Help; Price lists puts a blue button beside Help.
+- Recipes: 77 version numbers are not right aligned (Version column).
+- Guide, for the 3 non-office roles: its tab row is 408 px wider than its box and scrolls sideways.
+
+### By person
+- All 3 at the plant (Majid, Himayat, Fahim): the name chip is capped at 170 px (c2m.css .pp), so beside "Production Manager" the name shows as 1 letter ("M.."). Today repeats itself: "N things need you" twice, the next move again in the list ("Your next move, above."), and the "Your day" card leaves a large blank below it. "End of your list" has a line half the page wide.
+- Majid: opening a recipe from Recipes lands on the Products tab (the top bar lights Products, not Recipes). The new recipe form runs the full page width (a 1,100 px pick list, a 1,100 px reason box), its labels are 11 to 12 px grey, and it opens above the tabs and pushes the page down. Under the recipe table a sentence ends on a stray "New version". Products: the search box is narrower and shorter than on Recipes; the coloured squares have no key.
+- Himayat: Inputs, Materials shows the same fact twice (Nutrients column "to enter: K" and State "to enter: K"); the name sits at the top of the row and the pick list in the middle. The material card: 5 control heights in 1 form; "Add a nutrient" touches its pick list; in Density the Date label sits higher than the others and Save density floats; a 1,000 px "Where it comes from" box beside a 90 px "Kg per L" box; 2 Save buttons (Save density and Save) with a long paragraph between the form and Save; "Basis: not stated" on every row. Nutrients tab: "Shown as" and "Full name" are the same on every row (B, B); Edit and Hide butt against the Labels column.
+- Fahim: his work is 2 stuck endorsements. Today shows them well. Recipes shows the next move as a small blue button inside a callout, a different look from Today.
+- Yawar: Approvals, the left column ends after 1 screen, then the right list runs on alone; each job carries a long grey paragraph; the red "Stuck n working days" text and the button change width row by row. Clients: the table is the best one in the app (middle aligned, clear), but the pack line wraps to 3 lines and the tabs sit above the title. Packing cost: 3 buttons on every row (Change price, Edit, Delete) where the ••• rule of D-194 should fold them; kinds typed 2 ways (bag and Bag, carton and Carton: data). Setup, Clients: a 5 line grey paragraph before the list; "Add a product" on every row. Price lists: "Make the first one" 15 times as blue text at the far right. Reports: all 7 carry NEW. Margin is clean.
+
+### Verdict
+The places and the flows are right; the look is not one system. Each area was built in its own style over 2 months, and the redesign (D-188 to D-195) put a new skin on top without removing the old one. The fix is 1 set of sizes (type, button, box, gap, corner) applied to every table, form and page head, not more screen by screen patches.
+Waiting for Tahir's own feedback before any picture or code.
+
+## 26 Nov 2026, late night: the new VAN website beside C2M (read only)
+Tahir asked to look at the new website's design and colours: van.com.pk/new/, products.html, tools.html, partner/index.html. Read in Claude's own Chrome tab; nothing sent.
+- Website, main pages: background canvas #F7F4EE, clay #EBE4D8, ink #171A16 (near black, warm), ink soft #4B5148, amber #C88A2E (deep #855610, light #E7B866), emerald #2D5A3C (light #7FB08A), soil #8A6B4A, sulfur #E6BE3C, hairlines at 16% ink. Fonts: Fraunces (serif) for headings, Public Sans for text. Body 17 px. Pill buttons and chips, corners 22 px. Dark sections in #171A16 with light text.
+- Website, partner page: the same family with a navy ink #0E3550, orange amber #D2751A, green #2F7D3F, blue #00598E, teal #0F7A72, corners 24 px.
+- C2M today: cool grey and white (background #F8FAFC, ink #0F172A, blue #2563EB, lines #E2E8F0), Inter, corners 2 to 10 px. It is the stock look of many web apps and shares nothing with the website: no warm canvas, no amber or emerald, no Fraunces or Public Sans.
+- Reading: this is a large part of "the design has not landed". The audit above (16 sizes, 12 button heights) is the other part.
+- Not decided (for Tahir): which family C2M follows, the main site (warm black, amber, emerald) or the partner site (navy, orange, blue); and how far: colours and fonts only, keeping a dense table layout (Claude's suggestion: Public Sans for all text and figures, Fraunces only for page titles, the warm canvas and hairlines, amber for "needs you", emerald for "on target", corners 10 px on cards and pills on chips and buttons; not the 17 px body or the 22 px corners, too loose for tables of figures).
+
+## 26 Nov 2026, late night: Tahir's pasted brief "Precision polish and sticky header fix"
+- Built: item 3, first half: an empty After the change shows a muted dash (aftCell, .wldash; page-193 updated). Whole suite 742 pass.
+- Not built, with the reason (docs 06, entry of this date): item 1, the top bar is already fixed at top 0, 56 px, and measured clear of the content on 30 views; item 2, the Setup gear already sits beside the name (D-187); item 3, second half, "Standard" against "Needs COO": every price change goes to the COO, so it would always read the same.
+- Item 4: the test files the brief names (lib, flow, fix06, ui08, ui09, c2m100 to c2m103, U-02) do not exist in this repo; the brief seems written for another copy of the app. C2M's suite is apps/c2m/tests/run.js: 742 checks, all pass on this PC, with the throwaway database on port 3307.
+
+## 26 Nov 2026, night: D-196 built (C2M in the VAN look)
+- New test page-196 (40 checks, 6 of them from the review): the tokens and fonts, only the 5 type sizes in the new block, the 2 heights, table cells in the middle, no inner scroll, the same left edge, the light top bar and the full name; Clients' switch under the title (both sides, once); underHead and the facts line leave nothing for the next draw; Today without the Your day card or the next move twice; Packing cost with 1 button and •••; Inputs values alone; What's changed and docs 06.
+- Changed: page-ds (fonts now Fraunces and Public Sans), page-10b (the plant roles' list may be absent when the next move is the only job).
+- Measured in a local copy (invented data) at 1280 px for Yawar, Majid, Himayat and Fahim, 21 places and their tabs: every title at the same place; buttons 32 or 36 px (cards that are buttons excepted); boxes 36 or 32 px; no row with 3 buttons; no list with its own scroll bar. On live data, read only, with the new styles laid over in Claude's own tab (the page code was the pushed one): the same, apart from the code changes not yet live (Packing cost rows).
+- Phone, local copy at 375 px, the 4 roles, every place: the page never scrolls sideways; plain tables fit (cell padding 6 px and no minimum column width on a phone); only the rows of filter chips scroll sideways, as built before. C2M has no dark mode (the round icon in the top bar is the Setup gear).
+- Not proven: printing; the phone on live. Chart labels inside the charts keep their own small size.
+
+## 26 Nov 2026, night: independent review of D-196
+- 1 reviewer, the diff and the new test. Fixed: (1) the CFO with 1 job saw the next move and under it a list saying "Nothing needs you today": now the next move alone; (2) the 5 lists side by side lost their sideways scroll on a narrow screen: kept; (3) the grey of column heads and hints was 3.6 to 3.9:1: now #5F645B, 5.5:1 or more; (4) the count in the top bar, link hover and the focus ring were amber at 2.7 to 3:1: now dark amber #855610 (6.3:1 with white; 5.7:1 on the page); (5) a ••• label escaped twice ("Bag &amp;amp; liner"); (6) the facts line in the page head may wrap on a phone; (7) the price list preview took the new table heads: it keeps the PDF's look; (8) "above: check" kept a look of its own (ink, bold); (9) buttons on a phone stay 40 px; (10) an empty column head takes no width.
+- Kept: VAN Brands with 1 list open has no page head, so its switch stays first there (as before D-196).
+- page-196 now has the checks of the review. Whole suite: see the handoff.

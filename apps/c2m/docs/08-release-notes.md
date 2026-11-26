@@ -1270,3 +1270,10 @@ To correct a mistake: a price not yet in force is withdrawn or sent back; a rate
 
 ## 2026-11-26a: wide lists fit the screen
 - Setup, Products and variants and Costs, Material cost fit a laptop screen; a long O2S spelling wraps.
+
+## 2026-11-26b: a dash in an empty After the change
+- Clients: a row with no new price shows a grey dash under After the change.
+
+## 2026-11-26c: C2M in the VAN look (D-196)
+- The colours and type of the new VAN website; 1 height for buttons and boxes; tables with text and buttons on 1 line; no list with its own scroll bar; the name in full in the top bar.
+- Clients' switch under the title; dates beside Help; Packing cost rows with •••; Inputs values without the repeated state; Today shows the next move once.

@@ -517,7 +517,7 @@ html .verdict,html .wl2 .wlk,html .wl2 .wltab,html .wl2 .wlrec{border-color:tran
 @media (max-width:900px){.gjl{grid-template-columns:repeat(2,minmax(0,1fr))}}@media (max-width:560px){.gjl{grid-template-columns:minmax(0,1fr)}}
 /* ===== A new price shows its effect, D-193 (25 Nov 2026) ===== */
 .ngpa{display:inline-flex;flex-wrap:wrap;align-items:center;gap:4px 6px;font-variant-numeric:tabular-nums}.ngpa b{font-size:14px}.ngpa .pill{white-space:nowrap}
-.wl2 td.wlaft{min-width:150px;vertical-align:middle}
+.wl2 td.wlaft{min-width:150px;vertical-align:middle}.wldash{color:var(--muted);opacity:.7}
 /* ===== The ••• menu and 1 filled button per card, D-194 (25 Nov 2026) ===== */
 .dots{position:relative;display:inline-block;vertical-align:middle}
 .dots>summary{list-style:none;min-width:40px;text-align:center;letter-spacing:1px;font-weight:700}.dots>summary::-webkit-details-marker{display:none}.dots.dlist>summary::after{content:" ▾";font-weight:400}
@@ -534,3 +534,159 @@ td .dots>.dm,.wrapx .dots>.dm{position:static;min-width:0;margin-top:4px;box-sha
 /* Phase 4 sign-off (26 Nov 2026): a row whose extra actions sit under ••• no longer reserves 200 px; long O2S spellings wrap */
 .acts:has(> details.dots),.acts:has(> details.rowmenu){min-width:0}
 #pntab td[data-l="O2S spellings"] .pill{white-space:normal;overflow-wrap:anywhere}
+/* ===== The VAN look, D-196 (Tahir, 26 Nov 2026): the colours and fonts of the new website (main pages, van.com.pk/new),
+   1 set of sizes for the whole app. Type 12, 14, 16, 22, 30 px; buttons and boxes 36 px, 32 px inside a table row;
+   corners 8 px boxes, 10 px cards, round pills. This block comes last on purpose: it wins over every older look. ===== */
+:root{--bg:#F7F4EE;--surface:#FFFDF9;--ink:#171A16;--muted:#4B5148;--faint:#5F645B;--line:#E3DDD2;--line2:#D6CFC2;--soft:#EFEAE1;
+ --blue:#171A16;--blueh:#000000;--bluebg:#EFEAE1;--ok:#2D5A3C;--okbg:#E2ECE3;--late:#855610;--latebg:#F6EAD3;--over:#A3402B;--overbg:#F5E1DA;
+ --amber:#C88A2E;--clay:#EBE4D8;--kraft:#855610;
+ --sans:"Public Sans",system-ui,-apple-system,"Segoe UI",Arial,sans-serif;--mono:var(--sans);--serif:"Fraunces","Iowan Old Style",Georgia,serif;
+ --railbg:#FFFDF9;--railink:#4B5148;--tabbg:#EFEAE1;--tabline:#D6CFC2;--wbcost:#171A16;
+ --sh:0 0 0 1px rgba(23,26,22,.09);--h:36px;--hrow:32px}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px}
+::selection{background:#F1D9AE}
+/* Type: 5 sizes. Page titles in Fraunces. */
+main h1,main h1.topic{font-family:var(--serif);font-weight:400;font-size:30px;line-height:1.15;letter-spacing:-.005em;margin:0 0 4px}
+main h2{font-size:16px;font-weight:600;color:var(--ink)}
+main .answer,main .ans{color:var(--muted);font-size:14px}
+main small,main .mute,main .muted,.phr,.phmeta,main .d,main .clast{font-size:12px}
+main :is(p,li,td,th,label,span,div,a,b,button,input,select,textarea,summary){font-family:var(--sans)}
+main :is([style*="font-size:11"],[style*="font-size: 11"]){font-size:12px!important}
+main :is(.pill,.stuckp,.wltag){font-size:12px}
+/* Links: ink with an amber underline */
+a,.lnk,main a[href]{color:var(--ink);text-decoration:underline;text-decoration-color:var(--amber);text-underline-offset:3px}
+a:hover,.lnk:hover{color:var(--amber)}
+.lnk{font-size:inherit}
+/* Focus */
+:focus-visible,.btn:focus-visible,button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* Cards: hairline, no shadow, 10 px */
+.box,.tile,.fig,.card,.ocard,.lcard,.verdict,.md,.kam,.notebox,.plpub,.q1,.mstep,.jl,.gjl,.cr,.cl,.owb,.helpx,.vpb,.infol,
+html .verdict,html .wl2 .wlk,html .wl2 .wltab,html .wl2 .wlrec{background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:none}
+.next,.nextmove,.item,.rcard,.cbox,.pli,.lfonly{background:var(--surface);border-top:1px solid var(--line);border-right:1px solid var(--line);border-bottom:1px solid var(--line);border-radius:10px;box-shadow:none}
+.next,.nextmove{border-left-color:var(--amber)}
+.wn{border-radius:12px}
+
+/* Buttons: 1 shape (pill), 1 height (36 px; 32 px in a table row). Filled = ink; the rest outlined. */
+.btn,button.btn,a.btn,summary.btn,.helpb{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:var(--h);height:auto;padding:0 16px;border-radius:9999px;font:600 14px/1.2 var(--sans);white-space:nowrap;text-decoration:none}
+.btn{background:var(--ink);color:var(--bg);border:1px solid var(--ink)}
+.btn:hover:not(:disabled){background:#000;color:var(--bg)}
+.btn.ghost,.helpb{background:var(--surface);color:var(--ink);border:1px solid var(--line2)}
+.btn.ghost:hover:not(:disabled),.helpb:hover{background:var(--soft);color:var(--ink)}
+.btn.ghost.danger,.btn.danger{background:var(--surface);color:var(--over);border:1px solid color-mix(in srgb,var(--over) 35%,transparent)}
+.btn.ghost.danger:hover:not(:disabled),.btn.danger:hover:not(:disabled){background:var(--overbg)}
+.btn.warn{background:var(--over);border-color:var(--over);color:#fff}
+.btn.armed,.btn.ghost.armed,.btn.armed:hover:not(:disabled){background:var(--ok)!important;border-color:var(--ok)!important;color:#fff!important}
+main td .btn,main td summary.btn,main .jrow .btn,main .job .btn{min-height:var(--hrow);padding:0 12px;font-size:14px}
+.btn.sm,.wl2 .btn.sm{min-height:28px;padding:0 10px;font-size:12px}
+.dots>summary.btn{min-width:var(--hrow);padding:0 10px;letter-spacing:1px}
+
+/* Boxes: 36 px, 8 px corners, hairline */
+main input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]),main select,aside.panel input:not([type=checkbox]):not([type=radio]),aside.panel select,.wl2 .wlin,.wl2 .wlh select{
+ min-height:var(--h);height:var(--h);padding:0 10px;border:1px solid var(--line2);border-radius:8px;background-color:var(--surface);color:var(--ink);font:14px var(--sans);box-sizing:border-box}
+main textarea,aside.panel textarea{border:1px solid var(--line2);border-radius:8px;background:var(--surface);font:14px/1.45 var(--sans);padding:8px 10px}
+main td input:not([type=checkbox]):not([type=radio]),main td select{min-height:var(--hrow);height:var(--hrow)}
+main input::placeholder,main textarea::placeholder{color:var(--faint)}
+main input[type=date]{padding-right:6px}
+main input:focus,main select:focus,main textarea:focus{border-color:var(--ink);outline:none;box-shadow:0 0 0 3px color-mix(in srgb,var(--amber) 30%,transparent)}
+/* Labels above their box, 12 px, 600 */
+.form label,main form label,.holadd label,.corr label,.sendbar label{font-size:12px;font-weight:600;color:var(--muted)}
+.form .q1 label{font-weight:400;color:var(--ink);font-size:14px}
+
+/* Pills: round, 12 px, 600, no border */
+.pill,.stuckp,.wltag,.wl2 .wltag,.verdict .st{border:0;border-radius:9999px;padding:2px 10px;font:600 12px/1.4 var(--sans)}
+.p-red,.wltag.t-bad,.wl2 .wltag.t-bad{background:var(--overbg);color:var(--over)}
+.p-amber,.wltag.t-warn,.wl2 .wltag.t-warn{background:var(--latebg);color:var(--late)}
+.p-green,.wltag.t-good,.wl2 .wltag.t-good{background:var(--okbg);color:var(--ok)}
+.p-none,.p-grey,.p-blue,.wltag.t-info,.wl2 .wltag.t-info,.wltag,.wl2 .wltag{background:var(--clay);color:var(--muted)}
+
+/* Tables: text and buttons on 1 line, heads in small spaced capitals, figures right, no box with its own scroll bar */
+main table:not(.doc *){font-size:14px}
+main th:not(.doc *){font:600 12px/1.3 var(--sans);letter-spacing:.06em;text-transform:uppercase;color:var(--faint);background:transparent;padding:10px 12px;border-bottom:1px solid var(--line2);vertical-align:bottom}
+main td:not(.doc *){padding:8px 12px;vertical-align:middle;border-bottom:1px solid var(--line)}
+.wl2 th{background:transparent;color:var(--faint)}.wl2 td{padding:10px 12px}
+main tbody tr:hover>td,.wl2 tbody tr:hover td{background:#FBF7F0}
+main td.r,main th.r,main td.num,main th.num{text-align:right}
+.wrapx.tall,.appr2 .afyi{max-height:none;overflow:visible}.vgrid{max-height:none}
+.wrapx.tall{overflow-x:auto}
+.wrapx.tall thead th{position:static}
+
+/* Chips and tabs */
+.chips button,.chip,.lfc button{border-radius:9999px}
+.chips button[aria-pressed="true"],.chips button.on,.chip.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.subnav button[aria-current="true"],.subnav button[aria-selected="true"],.subnav button.on{box-shadow:inset 0 -2px 0 var(--amber);color:var(--ink)}
+.subnav{overflow-x:auto;scrollbar-width:none}.subnav::-webkit-scrollbar{display:none}
+.subnav{flex-wrap:wrap}
+
+/* Top bar: light, as the website. The open place has an amber line. */
+.hdr{background:var(--surface);color:var(--muted)}
+.hdr .brand,.hdr .brand b{color:var(--ink)}
+.hdr .brand small{color:var(--faint)}
+.hdr .brand i{background-color:transparent}
+.hdr nav button{color:var(--muted)}
+.hdr nav button:hover{background:var(--soft);color:var(--ink)}
+.hdr nav button[aria-current="true"]{background:transparent;color:var(--ink);font-weight:600;box-shadow:inset 0 -2px 0 var(--amber)}
+.hdr .n{background:var(--amber);color:#fff;font-family:var(--sans);font-weight:600}
+.hdr .findbtn{border-color:var(--line2);color:var(--muted);border-radius:9999px}
+.hdr .findbtn:hover{border-color:var(--ink);color:var(--ink)}
+.hdr .foot,.hdr .foot a{color:var(--muted)}
+.hdr .foot a:hover{color:var(--ink)}
+.hdr .foot b{color:var(--ink)}
+.hdr :focus-visible{outline-color:var(--amber)}
+.hdr .more.desk{color:var(--muted)}
+@media (min-width:761px){
+ .hdr{box-shadow:none;border-bottom:1px solid var(--line)}
+ .hdr .foot{border-left-color:var(--line)}
+ .hdr .foot .pp{background:var(--soft);color:var(--ink);max-width:none}
+ .hdr .foot .pp b{flex:none;overflow:visible}
+ .hdr .foot .pp .who2{color:var(--muted);opacity:1}
+ .hdr .foot .ib{color:var(--muted)}
+ .hdr .foot .ib:hover,.hdr .foot .ib[aria-current="true"]{background:var(--soft);color:var(--ink)}
+}
+@media (max-width:760px){
+ .hdr{border-bottom:1px solid var(--line)}
+ .hdr nav button[aria-current="true"]{box-shadow:none;border-top-color:var(--amber)}
+}
+/* Page width: 1 left edge on every place */
+main{max-width:1160px;padding-left:16px;padding-right:16px}
+/* D-196: every older size snapped to the 5 (12, 14, 16, 22, 30 px) */
+main :is(.gjw,.gjp,.gjx,.chev,.rcard span,.mt,.mv,.mcol .l,.sub2,.k,.vk,.sw,.grpc span,.wlk .s,.osub,.ag,.wlhint,.wl2 .wlgpv small,.wl2 td small,.form p,.gh .c,em,.fig .l,.d,.cbox .clast,.phr){font-size:12px}
+main :is(.gjn,.rcard b,div.t,.kam-h b,.jrow .t){font-size:16px}
+main :is(.form b,.cbox .cn,.cgo span,.wlbar span,.subnav button,details.glx,.how summary,.wl2 .wlgp b,.job .t){font-size:14px}
+main :is(.fig .v,.verdict .vbig,.tile .v,.wl2 .wlk .v,.lcard .k b){font-size:22px;line-height:1.2}
+main .wl2 .wlgp b{font-weight:600}
+main td .btn,main td summary.btn,main .jrow .btn,main .job .btn,main .dm .btn{font-size:14px}
+.chips button,.lfc button{min-height:32px;padding:0 12px;font-size:14px}
+/* 1 left edge: the page keeps room for the scroll bar, so a short page does not sit 7 px to the right */
+html{scrollbar-gutter:stable}
+/* D-196: the facts line sits in the page head; the old line above the title only shows where no page head follows */
+main .kick.meta:has(+ .phd){display:none}
+.home.one{grid-template-columns:minmax(0,1fr)}
+main .endmark{max-width:none}
+/* D-196: the last older sizes, where an older rule is more specific */
+main :is(.wl2 .wlk .s,.req,.crumb,.crumb button,.cbox .cpt,.tcm,.plnote div,.lcard .st,.kick){font-size:12px!important}
+main :is(.cbox .cn,.cokl span,.owland p.ans,.cbox .ct){font-size:14px!important}
+main :is(.lcard .t,.cbox h2.ct){font-size:16px!important}
+/* Column heads may take 2 lines, so a wide table fits the page */
+main th,main th.r,.wl2 th{white-space:normal}
+main th{min-width:56px}
+/* D-196: "Required" sits on the label line, so every box in a form row lines up */
+main label:has(> .req){display:flex;flex-wrap:wrap;align-items:baseline;column-gap:4px;row-gap:3px}
+main label:has(> .req) > :is(input,select,textarea){flex:1 0 100%;width:100%}
+main .row:has(> label){align-items:flex-end}
+/* D-196, found on live data: the last older sizes and row buttons */
+main :is(.how div,.dw,.mstep i,.mstep span){font-size:12px!important}
+main :is(.seg button,.mstep b){font-size:14px!important}
+main :is(.wl2 .wlh2,.msec h3.tl,h3.tl){font-size:16px!important}
+main :is(td,.acts,.dm,.rowmenu,.jrow,.job) :is(.btn,summary.btn){padding-top:0!important;padding-bottom:0!important;min-height:var(--hrow);line-height:1.2}
+.btn.sm,main .btn.sm{min-height:var(--hrow);font-size:14px}
+/* D-196 on a phone: narrower cell padding, no minimum column width, so a plain table fits 375 px */
+@media (max-width:760px){main th{min-width:0;padding:8px 6px}main td{padding:8px 6px}}
+/* After the independent review of D-196 (26 Nov 2026) */
+.hdr .n{background:#855610}
+a:hover,.lnk:hover{color:#855610}
+:focus-visible,.btn:focus-visible,button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,.hdr :focus-visible{outline-color:#855610}
+main .phmeta{white-space:normal}
+.p-blue{background:var(--soft);color:var(--ink)}.ag.above{color:var(--ink);font-weight:600}
+main th:empty{min-width:0}
+@media (max-width:760px){.btn,button.btn,a.btn,summary.btn,.helpb,main td .btn,main .jrow .btn{min-height:40px!important}}

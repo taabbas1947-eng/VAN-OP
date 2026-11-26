@@ -46,7 +46,8 @@ setTimeout(() => {
     ok(/red/.test(ag) && /Act now/.test(ag), 'red job not yet stuck is red: ' + ag);
     // m12: other roles keep their list
     E("ST.me = { role: 'production', admin: false, label: 'Production Manager', actions: ['recipe.start'], nav: ['today'], more: [], user: 'majid' }; scr = 'today'; renderPage()");
-    ok(!doc.querySelector('.jl .jgh') && /Then|Needs you/.test(doc.querySelector('.jl h2').textContent), 'production keeps the old list');
+    { const jl = doc.querySelector('.jl'); ok(!doc.querySelector('.jl .jgh') && (!jl || /Then|Needs you/.test(jl.querySelector('h2').textContent)), 'production keeps the old list, with no group headers');
+      ok(!/Your next move, above\./.test(doc.querySelector('main').textContent) && !/Your day/.test(doc.querySelector('main').textContent), 'D-196: the next move shows once; no Your day card'); }
     E("ST.me = window.__ST.me; ST.me = { role: 'coo', admin: true, label: 'COO', actions: ['see.cost', 'see.margin', 'see.products', 'see.price', 'price.approve', 'targets.approve', 'actuals.ratecheck'], nav: ['approvals', 'clients', 'margin', 'costs', 'pricelists'], more: [], user: 'tahir', name: 'Tahir' }");
     // other screens still render with the new head
     for (const s of ['costs', 'margin', 'pricelists', 'clients']) { let e = null; try { E(`scr = "${s}"; renderPage()`); } catch (x) { e = x.message; } ok(!e && doc.querySelector('main h1.topic'), 'renders ' + s + ' ' + (e || '')); }

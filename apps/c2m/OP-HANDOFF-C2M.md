@@ -1524,3 +1524,26 @@ Start the next chat by reading this entry. It replaces the RESUME HERE of 23 Nov
 ### F. How to work here (what held this session)
 - Pictures first, Tahir's ruling, then code. Every push: Guide, What's changed and docs 01 to 12 in the same change; a page or route test; an independent review before "ready to push"; Claude never pushes. This file is append only: re-read it from disk before writing, never rebuild it.
 - Live checks are read only as Tahir. Never press Got it on What's changed, Remind, or Open margin from the red job; never save.
+
+## 26 Nov 2026, late night: design audit as Yawar, Majid, Himayat and Fahim (MODULE: C2M)
+- Tahir asked for an audit of forms, tables, text, alignment and design through the 4 people's eyes. Done read only on live (role set in the page, every save blocked). Findings in docs 12, entry of this date.
+- Short: 16 font sizes, 12 button heights, 8 box heights, 8 corner radii; table text top while buttons middle; 4 lists scroll inside their box; Costs and Price lists 7 px off; name chip shows 1 letter for the plant roles; Today repeats itself; material card form uneven.
+- No code changed. Next: Tahir gives more feedback, then pictures of 1 set of sizes for every table, form and page head, then his OK, then code.
+
+Files changed: docs 12, this entry. Not pushed. Ready to push.
+
+## 26 Nov 2026, late night (2): the website's look; a dash in After the change (MODULE: C2M)
+- Website read (4 pages): warm canvas #F7F4EE, ink #171A16 (partner page navy #0E3550), amber #C88A2E, emerald #2D5A3C, Fraunces headings, Public Sans text, pill buttons. C2M uses none of it (cool grey, blue #2563EB, Inter). Detail and the open choice in docs 12.
+- Tahir's pasted brief: built the dash in an empty After the change (2026-11-26b). Not built: the sticky bar and the Setup gear (both already there), "Standard" against "Needs COO" (every price goes to the COO). The test names in the brief do not exist here. Suite 742 pass.
+- Next: Tahir's feedback, then pictures of C2M in the website's colours and fonts with 1 set of sizes, then his OK, then code.
+
+Files changed since the last entry: c2m.js, c2m.css, tests/page-193.test.js, docs 03, 06, 07, 08, 12, this entry. Not pushed. Ready to push.
+
+## 26 Nov 2026, night (3): D-196 built, C2M in the VAN look (MODULE: C2M)
+- Tahir: "Main site look", then "Yes, build it" on the pictures (C2M in the VAN look; scratchpad prev/look.html, not in the repo).
+- Built: the website's colours (canvas #F7F4EE, ink #171A16, amber, emerald, brick) and fonts (Fraunces titles, Public Sans text); 1 set of sizes (type 12, 14, 16, 22, 30; buttons and boxes 36 px, 32 px in rows; 40 px on a phone); light top bar with the open place underlined, the name in full; table text in the middle of the row, heads in small capitals; no list with its own scroll bar; the same left edge everywhere; Clients' switch under the title; the facts line beside Help; Today for the 3 plant roles and the CFO without repeats; Packing cost rows with •••; Inputs values without the repeated state; Required on the label line. What's changed 2026-11-26c; Guide step "See what waits for you" 3.
+- Not built (docs 06, D-196): 1 Save on the material card; the help beside that form; a recipe from Recipes lighting Products. The COO's Approvals list unchanged.
+- Checks: local copy at 1280 px and 375 px for Yawar, Majid, Himayat, Fahim (role set in the page); on live data, read only, the new styles laid over in Claude's own tab. Independent review: 10 points, all fixed or noted (docs 12). Tests: page-196 (new, 40), page-ds, page-10b, page-193 changed; whole suite 783 pass on the throwaway database.
+- Next: Tahir pushes; Claude checks live, read only, as each role where possible. Then Tahir's own feedback. On 1 Dec: B3a.
+
+Files changed since the last entry: c2m.css, c2m.html (fonts), c2m.js, tests/page-196.test.js (new), tests/page-ds.test.js, tests/page-10b.test.js, tests/README.md, docs 03, 06, 07, 08, 12, this entry. Not pushed. Ready to push (with the 3 entries above).

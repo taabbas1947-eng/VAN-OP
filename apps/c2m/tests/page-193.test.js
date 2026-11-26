@@ -33,7 +33,7 @@ setTimeout(() => {
     E(`ncp.np[${r.k.id}] = String(${r.tp}); renderPage()`);
     cell = main().querySelector(`#ncp-${r.k.id}`).closest('tr').querySelector('td.wlaft'); ok(!/reason needed/.test(cell.textContent) === !E(`belowT((${r.tp} - ${r.c}) / ${r.tp} * 100, ${r.t})`), 'the pill follows belowT exactly');
     // empty box: nothing shown
-    E(`ncp.np = {}; renderPage()`); ok(main().querySelector(`#ncp-${r.k.id}`).closest('tr').querySelector('td.wlaft').textContent.trim() === '', 'nothing typed, nothing shown');
+    E(`ncp.np = {}; renderPage()`); ok(main().querySelector(`#ncp-${r.k.id}`).closest('tr').querySelector('td.wlaft').textContent.trim() === '\u2014', 'nothing typed: a muted dash (26 Nov 2026)');
     // the helper on its own
     ok(/first price/.test(E("ngpAfter({ ngp: 30, gp: null, pr: 0, np: 100, c: 70, t: 25 })")), 'a pack with no price yet says first price');
     ok(/no change/.test(E("ngpAfter({ ngp: 30.02, gp: 30, pr: 100, np: 101, c: 70, t: 25 })")), 'under 0.05 points says no change');

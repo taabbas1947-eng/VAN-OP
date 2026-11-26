@@ -766,3 +766,7 @@ Tahir ruled (panel, 20 Nov 2026): the 19 targeted Minors now; the 6 rebuilds (C-
 ## 3.78 Lines with others name the role with "the" (D-196c, 26 Nov 2026)
 - The list of items waiting on others (W) writes w as "with the <role>, <verb>" for every kind: recipes (ROLE_NAME of the step's role), prices, list revisions, settings and targets (the COO), re-approvals (the CFO). The With others summary counts by the text before the comma.
 - CHANGELOG is sorted by ver (YYYY-MM-DD plus a letter) right after it is declared, so checkWhatsNew and wnRemember always take the newest as the last, whatever order the entries are typed in.
+
+## 3.79 Material card and the lit place (D-197, 26 Nov 2026)
+- matCard: for an editor, the nutrient table spans the card; under it a grid (.mcgrid): the density box (denBox, no button) and Save | Cancel on the left, the help (.mchelp) on the right at 900 px and over. The Save handler (n7mcsave) posts /api/c2m/density when the kg per L, or with a density saved, its source or date changed; then the nutrients.
+- recFrom: set by goRec when a recipe is opened from Recipes by a role with Products and Recipes; the top bar lights Recipes while it is set; the product page's crumb reads "All recipes" and its handler (prodback) returns to Recipes. renderPage0 clears it when the place is not a product page.

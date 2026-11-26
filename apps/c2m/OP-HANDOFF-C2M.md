@@ -1571,3 +1571,17 @@ Files changed since the last entry: docs 12, this entry. Not pushed. Ready to pu
 - Next: Tahir pushes; Claude checks live, read only (the With others line; the login box shows once). Then Tahir's feedback. On 1 Dec: B3a.
 
 Files changed since the last entry: c2m.js, tests/page-196.test.js, tests/README.md, docs 03, 06, 07, 08, 12, this entry. Not pushed. Ready to push.
+
+## 26 Nov 2026, evening (7): D-196c live (MODULE: C2M)
+- Tahir pushed D-196c as ff4f36b ("O2S+C2M"). Live check, read only (docs 12): "6 with the CFO" on the COO's Approvals; the What's changed box now shows the newest 5 of 10 updates (Tahir's browser had last seen 24b). Got it left for Tahir.
+- Next: Tahir's own feedback. On 1 Dec: B3a. Still waiting for a ruling: 1 Save on the material card, its help beside the form, a recipe from Recipes lighting Products. Phone width not checked live.
+
+Files changed since the last entry: docs 12, this entry. Not pushed. Ready to push.
+
+## 26 Nov 2026, evening (8): phone checked live; D-197, the material card saves once, Recipes stays lit (MODULE: C2M)
+- Phone width checked live, read only (a 375 px frame in Claude's own tab): every place for the COO and the 4 roles has a 16 px edge, no sideways scroll, buttons 40 or 44 px.
+- Tahir: "lets solve this" on the 3 changes held from D-196. Built as D-197: (1) the material card has 1 Save (density first, then nutrients; a new source or date alone saves; "1.20" against 1.2 is no change); (2) its help beside the density box and Save, the nutrient table full width (help beside the whole card squeezed the table at 1280 px); (3) a recipe opened from Recipes keeps Recipes lit, "All recipes" leads back; Back and Forward keep it; another product opened from there lights Products. What's changed 2026-11-26f; Guide "Enter the density of a material", step 5.
+- Checks: local copy at 1280 px and 375 px (material card); Recipes lit in page-197 only. Independent review: 1 bug (Recipes stayed lit after opening another product) and 2 small points, fixed. Tests: page-197 (new, 22); whole suite 816 pass on the throwaway database.
+- Next: Tahir pushes; Claude checks live, read only. Then Tahir's own feedback. On 1 Dec: B3a.
+
+Files changed since the last entry: c2m.css, c2m.js, tests/page-197.test.js (new), tests/README.md, docs 03, 06, 07, 08, 12, this entry. Not pushed. Ready to push.

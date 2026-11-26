@@ -1283,3 +1283,7 @@ To correct a mistake: a price not yet in force is withdrawn or sent back; a rate
 
 ## 2026-11-26e: With others counts each role once (D-196c)
 - A recipe waiting on a role says "with the CFO" (the Plant Manager, the QC Head), like every other line; the summary no longer shows 1 role twice.
+
+## 2026-11-26f: the material card saves once; Recipes stays lit (D-197)
+- 1 Save on a material card for the nutrients and the density; its help beside the form.
+- A recipe opened from Recipes keeps Recipes lit; "All recipes" leads back.

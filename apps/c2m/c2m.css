@@ -696,3 +696,9 @@ main details.box:not(.form)>summary::-webkit-details-marker{display:none}
 main details.box:not(.form)>summary::before{content:'\25B8';color:var(--faint);display:inline-block;width:14px}
 main details.box:not(.form)[open]>summary::before{content:'\25BE'}
 main details.box:not(.form)[open]>summary{border-bottom:1px solid var(--line)}
+/* D-197 (26 Nov 2026): the material card, 1 Save and the help beside the density box and Save (the nutrient table keeps the full width) */
+.mcgrid{display:grid;gap:16px}
+.mchelp{background:var(--soft);border-radius:10px;padding:12px 14px}
+.mchelp .ans{margin:0 0 8px;font-size:14px}.mchelp .ans:last-child{margin:0}
+.mcact{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+@media (min-width:900px){.mcgrid{grid-template-columns:minmax(0,1fr) 320px;align-items:start}}

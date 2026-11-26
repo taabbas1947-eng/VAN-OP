@@ -36,7 +36,7 @@ Each file can also run alone, for example `node apps/c2m/tests/page-10g.test.js`
 `<name>: <n> pass, <m> fail`; run.js adds them up, shows why a file gave no result, and ends with exit code 1 if any
 check failed.
 
-## What they check (26 Nov 2026: 794 checks)
+## What they check (26 Nov 2026: 816 checks)
 
 | File | Checks | What |
 |---|---|---|
@@ -52,6 +52,7 @@ check failed.
 | page-192.test.js | 32 | Costs cards: a link per blocker that opens the part on it, Open on each card, Month end progress; the Guide's own jobs as cards (D-192) |
 | page-193.test.js | 25 | The new price row: new GP, points, below target: reason needed, the same rows as the send bar; Names to settle with nothing waiting in Setup (D-193) |
 | page-194.test.js | 24 | The ••• menu: main button and menu, 1 filled button, Delete in the menu, 1 open at a time, Escape and a click outside, never reopened by a redraw, the Guide's words (D-194) |
+| page-197.test.js | 22 | D-197: the material card has 1 Save (density, then nutrients; a new source alone saves), its help beside the form; a recipe opened from Recipes keeps Recipes lit and leads back to Recipes |
 | page-196.test.js | 51 | D-196, the VAN look: tokens and fonts, 5 type sizes, 2 heights, table rows, no inner scroll, the top bar, Clients' switch under the title, the facts line in the page head, Today without repeats, Packing cost •••, Inputs values alone |
 | page-195.test.js | 23 | B7 Find above 12 rows; B10 newly red only, seen list kept and pruned; B11 due on the 5th, overdue; B12 List prices; B14 Remind (D-195) |
 | routes-195.test.js | 14 | The 2 routes of D-195: Remind (COO only, the step's role, once a day, change record) and red clients seen (COO only, bounded, not in the change record) |

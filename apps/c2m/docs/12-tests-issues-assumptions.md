@@ -1078,3 +1078,12 @@ Tahir asked to look at the new website's design and colours: van.com.pk/new/, pr
 ## 26 Nov 2026, evening: independent review of D-196c
 - Fixed: What's changed was out of order since 24c (the login box never showed 24c to 26e; see docs 06, D-196c); 26c and 26e reached only the administrator; "is with QC Head" without "the" on a product's recipe line; a test line that set data and checked nothing (removed; real checks of the order and of who is shown 26c and 26e added).
 - Kept: the 2 checks of the "with the" wording read the code; the With others summary itself is not drawn in a test.
+
+## 26 Nov 2026, evening: live check of D-196c (commit ff4f36b)
+- Read only, in Claude's own tab; Got it not pressed. What's changed runs 2026-10-29a to 2026-11-26e in order. Tahir's browser had last seen 2026-11-24b (the fault): the box now shows "The newest 5 of 10 updates for your job", 26e first.
+- COO's Approvals: "With others: 6. 6 with the CFO". QC Head (rights set in the page): "With others: 3. 2 with the Plant Manager, 1 with the CFO"; the QC Head is shown 26c, 26d and 26e.
+
+## 26 Nov 2026, evening: D-197 and its independent review
+- Phone width checked live, read only (Claude's own tab, a 375 px frame): every place for the COO and the 4 roles has a 16 px edge, no sideways scroll, buttons 40 or 44 px.
+- D-197 checked in the local copy at 1280 px and 375 px: first layout (help beside the whole card) squeezed the nutrient table into a sideways scroll; changed so the help sits beside the density box and Save. Recipes lit: checked in page-197 only (the local copy has no recipes).
+- Review: 1 bug fixed (Recipes stayed lit after opening another product from that page, a panel or Find); Back and Forward now keep it; "1.20" against a saved 1.2 no longer re-saves. page-197: 22 checks; whole suite 816 pass on the throwaway database.

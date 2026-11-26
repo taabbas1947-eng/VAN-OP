@@ -1454,3 +1454,14 @@ Files changed since the last entry: c2m.js, c2m.css, tests/page-194.test.js (new
 - Open for Tahir: a name with open orders but no truck stays on Approvals (built so); flat Products table or not; topic chips with the tabs or tabs only; W12; a new pack on Edit this product with client.add alone.
 
 Files changed since the last entry: c2m.js, c2m-routes.js, c2m.css, tests/page-195.test.js (new), tests/routes-195.test.js (new), tests/page-10b.test.js, tests/page-appr.test.js, tests/README.md, docs 01, 03, 04, 05, 06, 07, 08, 11, 12, this entry. Not pushed. Ready to push.
+
+## 26 Nov 2026, later: Tahir pushed redesign pushes 3 to 8; live check (MODULE: C2M)
+Correction to the entry above: its last line said "Not pushed". Tahir pushed it after that entry.
+- Live check, read only, as Tahir, Chrome, 1262 px: the live c2m.js carries D-190 to D-195; the state answers redSeen (null) and remindedToday ([]), so the 2 new routes are deployed. No console errors.
+- Approvals: 4 figures (White label GP 18.9% against 21.5%; sales Rs 276.95M; GP Rs 52.34M; 2 recipes stuck, oldest 7 working days); tabs To approve 6, Stuck with others 2, To do 5; chart and news on the right; 13 rows, so the Find box shows. 2 Remind buttons (both recipes with the Plant Manager). Not pressed.
+- B10: the job reads "6 white label clients newly red on margin" (all red ones count as new on the first day, as expected). Open margin was not pressed from it, so nothing was marked seen.
+- B11: "Check Oct 2026 rates against the purchase register": Overdue 18 working days.
+- Products: switch All 80, VAN Brands 29, White label 51; VAN Brands pack table 49 rows. Costs: 3 of 6 need attention (Packing: 5 packs have no packing bill; Month end: next actuals; Freight: not set up). Guide: 38 job cards. Clients, White Label: columns New price, Rs and After the change. Clients, VAN Brands: "List prices of the VAN brands".
+- What's changed opened on its own and still shows the entries since 24 Nov: left open, Got it not pressed.
+- Not looked at on live: a phone, another person, pressing Remind, Open margin from the job, a ••• menu.
+- Next: the Phase 4 sign-off table. On 1 Dec: B3a check.

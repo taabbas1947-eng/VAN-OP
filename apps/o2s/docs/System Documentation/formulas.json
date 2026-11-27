@@ -452,7 +452,7 @@
   },
   {
    "id": "FO-11",
-   "title": "F-011 · A packing entry above the limit is cut, not refused",
+   "title": "F-011 · A packing entry above the limit: refused on a pack-size line, cut on a line with no pack size",
    "owner": "Production",
    "rules": [
     "R-004",
@@ -466,7 +466,7 @@
    ],
    "blocks": [
     {
-     "p": "Kg saved = min(typed, batch packable, PO line ordered - packed). The cut is shown with the packs for the real figure. A divert above what the pool holds is refused instead. The 2 correction screens never cut; their own checks refuse."
+     "p": "From 2026-11-26b (D-380): on a PO line with a pack size, a packing entry above the batch packable Kg, the PO line's need (ordered - packed) or a divert pool is refused with the number of whole packs that fit (floor(limit / pack size)); nothing is cut, tolerance 0.001. On a line with no pack size the older rule stands: Kg saved = min(typed, batch packable, PO line ordered - packed), the cut is shown, and a divert above the pool is refused. The 2 correction screens never cut; their own checks refuse (exact on a pack-size line)."
     },
     {
      "table": {
@@ -480,16 +480,16 @@
       "rows": [
        [
         "Kg/L",
-        "a divert is rounded to a whole number first",
-        "packEntryCalc",
-        "15 Oct 2026 (15a; the picture said refused, the build cuts)",
-        "tests/packs.test.js"
+        "with a pack size, no rounding (whole packs x pack size); with none, a divert is rounded to a whole number first",
+        "packEntryCalc, packConfirmGate, submitDivert, dfSubmitPacking, lineFixRecord",
+        "15 Oct 2026 (15a), changed 26 Nov 2026 (2026-11-26b, D-380)",
+        "tests/packs.test.js, tests/pack1126b.test.js"
        ]
       ]
      }
     },
     {
-     "p": "Worked example: typed 30,000 on a line that needs 20,000 with 30,000 packable: 20,000 is packed = 800 packs of 25."
+     "p": "Worked example: 1 Kg packs, a line that needs 1,000 Kg, 1,500 packs typed: refused, 'Only 1,000 whole packs can be packed here'. No pack size, 30,000 typed on a line that needs 20,000: 20,000 is packed and the cut is shown."
     }
    ]
   },

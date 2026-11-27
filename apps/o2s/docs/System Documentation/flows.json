@@ -891,7 +891,7 @@
        },
        {
         "role": "Production",
-        "text": "On the Pack sheet: the PO line (no packing without a PO), the date, the Shift and the In-charge of the packing run (both start empty), the brand batch #, the price on the pack, and the Mfg month printed on the bags, read off a bag (the box starts empty). Type Kg/L. A Night shift may be dated tomorrow, the day it ends.",
+        "text": "On the Pack sheet: the PO line (no packing without a PO), the date, the Shift and the In-charge of the packing run (both start empty), the brand batch #, the price on the pack, and the Mfg month printed on the bags, read off a bag (the box starts empty). Type the number of whole packs where the line has a pack size (O2S works out the Kg/L, 2026-11-26b); Kg/L where it has none. A Night shift may be dated tomorrow, the day it ends.",
         "kind": "task",
         "rule": "R-004"
        },

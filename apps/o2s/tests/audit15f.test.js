@@ -244,7 +244,7 @@ const { ok, eq, report, grab, grabTopVar, html } = H;
   box.acEscalation = x => (x.esc ? { to: 'Warehouse' } : null); box.labCoverSees = () => false;
   const jobs = box.ypJobsFor({ username: 'shoaib', name: 'Shoaib', role: 'Warehouse' }, [{ role: 'Warehouse' }, { role: 'Supply Chain', esc: true }, { role: 'Supply Chain' }, { role: 'Warehouse', who: 'zain' }]);
   eq('Your people counts the role’s jobs and those handed on to the role, not jobs for someone else', jobs.length, 2);
-  ok('Your people says how many are shared, with whom', /' shared with '/.test(grab('tdYourPeople')) && !/\(shared\)'/.test(grab('tdYourPeople')));
+  ok('Your people says how many are shared, with whom (2026-11-27f: in the list a tap opens)', /' shared with '/.test(grab('openPersonList')) && !/\(shared\)'/.test(grab('tdYourPeople')+grab('openPersonList')));
   ok('the shared tag has its own colour', /\.tdtag\.shared\{border-color:#6B4FA0;background:#EEE9F7;color:#5A3E8C\}/.test(html));
 }
 

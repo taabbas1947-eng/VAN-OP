@@ -21486,6 +21486,30 @@
      "p": "Left out, and why: z-index 1000 would put the header over sheets (320), the COA view (300), search (200) and the drawer (51); a fixed 56 px height would cut the words on screens under 900 px; no parent of the header has an overflow that breaks sticky; the gap under the header is already 19 px. The header stays sticky at z-index 30. No job, rule, right, screen or saved data changes. Test: header1127e.test.js."
     }
    ]
+  },
+  {
+   "id": "D-386",
+   "title": "Your people as a compact grid, late work first (2026-11-27f)",
+   "owner": "Tahir (ruling)",
+   "rules": [],
+   "status": "confirmed",
+   "src": [
+    "Tahir, 27 Nov 2026: phase E brief checked (artifact O2S phase E check); his scope ruling: only 3 items, this is item 1",
+    "Measured live 27 Nov 2026 (COO view): Your people was 20 full-width cards, 116 to 145 px each, about 2,870 px from the section head to Done by you today",
+    "Tahir, 27 Nov 2026, panel answers on the design page O2S Your people, phase E1: open on Needs attention (red and amber), All one tap away; worst first (red, amber, green, oldest job first); the card keeps name, title, jobs waiting and oldest job, % current and shared names move to the tapped list; 2 to a row on a phone",
+    "o2s.html ypInfo, ypMode, ypSetMode, ypTodayLog, tdYourPeople, openPersonList, CSS .yp-grid, guideHow, guideRules (Shared jobs)"
+   ],
+   "blocks": [
+    {
+     "p": "Your people on Today shows the same people with the same counts as before (ypJobsFor, tdGroups, the shared-job rule, the 07h colours: amber 1 to 6 days, red from 7), now as small cards 3 to a row (2 under 600 px). Order: red, amber, green; inside each, the oldest job first, then the name. It opens on Needs attention (red and amber); All shows everyone; the choice is kept in the browser (localStorage o2s_yp_mode) and never saved to O2S. Done today was also on the big card; with % current and the shared names it moves to the list openPersonList shows, as ruled (the card keeps 2 numbers). The department's own % current stays at the top."
+    },
+    {
+     "p": "Review fixes, 27 Nov 2026 (independent reviewer): the tapped list now hides complaint jobs from the same people as the card count, so the 2 numbers match; its % current keeps its colour (green 90 or more, amber 70 or more, red below); the 2 chips are 40 px tall for a thumb."
+    },
+    {
+     "p": "Nothing is saved: ypSetMode only redraws. No job, rule, right, count or saved field changes. Test: yp1127f.test.js."
+    }
+   ]
   }
  ]
 }

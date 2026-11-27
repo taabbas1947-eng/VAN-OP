@@ -351,7 +351,7 @@ const prod = (id, received) => ({ id, po: 'P' + id, client: 'Maxim Co', received
   const tally = grab('tdTallyHTML'); ok('the Today tally does not read the comments', !/dayComments|dcMissing|dcState/.test(tally));
   const ai = grab('actionItems'); ok('actionItems does not read the comments (no job, no alert)', !/dayComments|dcMissing|dcState/.test(ai));
   const ac = grab('tdItems'); ok('tdItems does not read the comments', !/dayComments|dcMissing|dcState/.test(ac));
-  ok('the Today done lists, Your people, the done count and Morning team activity leave the daily comment out', (html.match(/String\(e\.what\)\.indexOf\('Daily comment'\)!==0/g) || []).length === 4);
+  ok('the Today done lists, Your people, the done count and Morning team activity leave the daily comment out', (html.match(/String\(e\.what\)\.indexOf\('Daily comment'\)!==0/g) || []).length === 5 && /String\(e\.what\)\.indexOf\('Daily comment'\)!==0/.test(grab('ypTodayLog')));   /* 2026-11-27f: the 5th is ypTodayLog, the tapped Your people list */
   /* no new right, no new role */
   ok('the only right the comment checks is shipment.plan', (html.match(/may\('([a-z._]+)'\)/g) || []).length > 0 && !/may\('daily/.test(html));
   const wr = FNS.filter(f => /^(openDayComment|dcSave|dcSameAsYesterday|dcBtnHTML|dcDueHTML)$/.test(f)).map(grab).join('\n');

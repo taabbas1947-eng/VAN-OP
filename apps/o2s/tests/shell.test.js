@@ -184,7 +184,7 @@ ok("BUILD_ID is 2026-09-23t or later", /var BUILD_ID='2026-(09-(2(3[t-z]|4[a-z])
   const yp = grab('tdYourPeople'), ev = grab('evAllStamps');
   ok('a lead\'s Today ends with Your people, before done-today', /tdYourPeople\(\);\n  h\+=tdDoneToday\(\);/.test(grab('screenToday')));
   ok('only the lead\'s own departments (TD_LEADS); the COO sees all', /TD_LEADS\[state\.role\]/.test(yp) && /state\.role==='COO'\?null/.test(yp));
-  ok('each person: waiting on their role, oldest, done today, current %', /waiting on /.test(yp) && /oldest waiting/.test(yp) && /done today/.test(yp) && /% current/.test(yp));
+  ok('each person: waiting on their role, oldest, done today, current % (2026-11-27f: the card shows waiting and oldest; done today and % current are in the list a tap opens)', / waiting<\/span>/.test(yp) && /'on hold':'today'/.test(yp) && /done today/.test(grab('openPersonList')) && /% current/.test(grab('openPersonList')));
   ok('current comes from the app\'s own entry stamps: recordedBy, actualDate, recordedAt, enteredLate', /x\.recordedAt&&x\.recordedBy&&x\.actualDate/.test(ev) && /enteredLate/.test(ev));
   ok('the walk never reads the action log, audit, corrections or masters as stamps', /k==='actionLog'\|\|k==='audit'\|\|k==='corrections'\|\|k==='masters'/.test(ev));
   ok('one honest number for the department, over 7 days', /deptCur=ppCurrent\(/.test(yp) && /7\)/.test(yp) && /one number/.test(yp));

@@ -30,7 +30,7 @@ const op = grab('openPersonList');
 ok('the person card lists the shared job and hides it from whoever made the truck (15f: via ypJobsFor)', /ypJobsFor\(\{role:role,username:_pu,name:name\}/.test(op) && /itOwnedBy\(it,u\.role\)&&\(!it\.who\|\|it\.who===u\.username\)&&!itBarred\(it,u\.username,u\.role\)/.test(grab('ypJobsFor')) && /u\.name===name/.test(op));
 const yp = grab('tdYourPeople');
 ok('Your people counts a shared job for every role it is addressed to, once each', /\[it\.role\]\.concat\(it\.alsoRoles\|\|\[\]\)\.filter\(function\(r,i,a\)\{ return r && a\.indexOf\(r\)===i; \}\)/.test(yp));
-ok('Your people hides it from the person who made the truck', /ypJobsFor\(u,all\)/.test(yp) && /!itBarred\(it,u\.username,u\.role\)/.test(grab('ypJobsFor')));
+ok('Your people hides it from the person who made the truck', /ypInfo\(u,all,log,stamps\)/.test(yp) && /ypJobsFor\(u,all\)/.test(grab('ypInfo')) && /!itBarred\(it,u\.username,u\.role\)/.test(grab('ypJobsFor')));   /* 2026-11-27f: through ypInfo */
 ok('Today is unchanged (still tdVisible with notWho)', /x\.notWho&&_me&&x\.notWho\.indexOf\(_me\)>-1&&role!=='COO'/.test(grab('tdItems')));
 ok('the 13g changelog entry exists', /ver:'2026-10-13g'/.test(html));
 report();

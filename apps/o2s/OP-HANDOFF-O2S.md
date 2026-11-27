@@ -8002,3 +8002,28 @@ Tahir pushed build 2026-11-27c (commit 64282f8 on main, working tree clean, in s
 - Tests: header1127e new (39); search1127a regex allows the Launcher before the magnifier; preflight marker; full suite 16,647 passed, the same 2 known date failures (audit17c) and 1 crash (truckback17a); preflight verify ok.
 - Files: apps/o2s/o2s.html, tests (header1127e new; search1127a, preflight), System Documentation (decisions D-385, tests), this file. NOT pushed.
 - NEXT: Tahir pushes 27d and 27e together; live check read only, without tab changes (BUILD_ID 2026-11-27e; Launcher button; phone row; older sheet notes in colour). Then phase E (look) only when Tahir asks.
+
+## 27 Nov 2026 (18) - 2026-11-27d and 27e pushed (commit 4c33598) and checked live; RESUME HERE · MODULE: O2S
+- Live check, read only, no tab changes, Tahir signed in, nothing saved: /o2s serves BUILD_ID 2026-11-27e, byte for byte the pushed file. At 1,024 px: header sticky, z-index 30; Launcher icon (href "/") before the magnifier, word hidden below 1,161 px; title hidden (900 to 1,299 px rule works); name button aria-label "Tahir Abbas, COO"; 169 px between the mark and the words; no sideways page scroll. A .note.sg.warn inside the sheet shows amber (27d). At 375 px: header 96 px, words 1 row (583/351, slides), Today in view, name shown as initials, clock on screen.
+- Seen, not changed: right after a fresh load on a phone the fade class is not set on the very first draw (the page is not yet visible); it appears within about 3 seconds on the next draw. The row slides either way.
+- Working tree clean, in sync with origin.
+- NEXT: phase E (look) only when Tahir asks, design page and panel rulings first. Still open: Majid's answer on VU26196 (25 Nov).
+
+## 27 Nov 2026 (19) - phase E brief checked; Tahir's scope rulings (nothing built) · MODULE: O2S
+- Brief: "Phase E: Role-Centered Experience, Plant Floor Clarity and Executive Visibility" (pasted by Tahir). Checked against live 27e (COO view, nothing saved), the code, System Documentation and his rulings; check page artifact "O2S phase E check".
+- Of 19 asks: 10 already in O2S (search; pulse on Morning view; sales hero, sales rhythm, late money, calls, watching; pack size and PO note on picks; 44 px buttons; Shared badge; 5% price band and ERP SO checks; Waiting for client on Plant; Departments grid; Backups and resets in a red COO-only box); 3 worth doing; 4 need a ruling (Today 2 columns, Today urgency order, Morning view 2 columns, money in the pulse, which conflicts with phase B); 2 would harm (a top bar per role; the #F8FAFC/Inter look).
+- Brief errors found: cites R-001 to R-055, AC-01 to AC-06, F-001 to F-052 (O2S has R-058, AC-17, FO- 53); R-024, R-029, R-030 point to other rules; Plant Manager named Muhammad Faheem Asghar (O2S shows Fahim Asghar); "Asif" not found (wrong: corrected below); "22" people (O2S shows 20).
+- Tahir's rulings: phase E is only the 3: (1) Your people on Today as a compact grid with a Needs attention filter (today 20 full-width cards, about 2,870 px); (2) names of who drafted, reviewed and packed each lot on Lab and QA cards, if missing; (3) time left on the 2-hour Review truck. Each gets its own design page and his rulings first. A top bar per role: design it later on its own page, tried with 1 role first. The look stays Queue Shell (23 Sep and 28 Sep rulings).
+- NEXT: design page for (1) Your people.
+- Correction (27 Nov, same session): "Asif" in the brief is right: Muhammad Asif, QA Officer, is on Your people. The check page was corrected.
+
+## 27 Nov 2026 (20) - build 2026-11-27f: Your people as a compact grid, phase E item 1 (D-386); READY TO PUSH (not pushed) · MODULE: O2S
+
+- What: Your people on Today is now small cards, 3 to a row (2 on a phone), red then amber then green, oldest job first. Opens on Needs attention; All is 1 tap and is remembered in the browser only (localStorage o2s_yp_mode), never saved to O2S. Card: name, title, jobs waiting, oldest job. % current, done today and shared names moved to the list a tap opens. Counts and colours unchanged (amber 1 to 6 days, red from 7).
+- Tahir's rulings (panel, 27 Nov): Needs attention first; worst first; name, title, 2 numbers; 2 to a row on a phone.
+- Independent review fixes, same day: the tapped list hides complaint jobs from the same people as the card count (so the numbers match); % current in the tapped list keeps its colour (90+ green, 70+ amber, below red); chips 40 px tall.
+- Files: o2s.html (ypInfo, ypMode, ypSetMode, ypTodayLog, tdYourPeople, openPersonList, CSS .yp-*, guideHow Your people, guideRules Shared jobs, changelog, BUILD_ID and SYSDOC_VER 2026-11-27f); docs/System Documentation decisions.json (D-386), tests.json; tests: new yp1127f.test.js (32 passed), updated shell, audit15f, trucklists, dailycomment29a, preflight.js markers.
+- Tests: 148 files; only the 2 known baseline failures (audit17c date checks, truckback17a crash), same as before. Preflight ok.
+- Checked in the browser (build code, redraw only, nothing saved): 13 cards in 359 px; Done by you today moved up from 3,803 px to 1,503 px; All = 20 cards in 505 px; phone 2 per row, nothing cut.
+- Pushed: NO. The handoff entries 18 and 19 go in the same push.
+- NEXT: phase E item 2 (lot drafted, reviewed and packed names on Lab and QA cards, check first whether they are missing), then item 3 (time left on the 2-hour Review truck); each gets a design page and Tahir's rulings first. Later: top bar per role. Open: Majid's answer on VU26196.

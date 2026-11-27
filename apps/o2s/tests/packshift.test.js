@@ -17,7 +17,7 @@ function base(extra) {
       orders: [{ id: 'O', po: 'P1', lines: [{ id: 'L', brand: 'Enrich', base: 'Potassium Humate', ordered: 1000, packed: 0, produced: 0 }] }] } }, extra);
   vm.createContext(sb); return sb; }
 function moved(sb) { return sb.state.batches[0].packedKg + sb.state.orders[0].lines[0].packed + sb.state.packingLog.length; }
-const GATE = ['packShiftIncGate', 'packFmt', 'packEntryCalc', 'packConfirmGate', 'packShiftTotal', 'packRowExtras'].map(grab).join('\n') + '\n' + H.bagSrc();
+const GATE = ['packShiftIncGate', 'packFmt', 'packSizeOf', 'packEntryCalc', 'packConfirmGate', 'packShiftTotal', 'packRowExtras'].map(grab).join('\n') + '\n' + H.bagSrc();
 
 /* the gate itself */
 { const sb = base({}); vm.runInContext(GATE, sb);

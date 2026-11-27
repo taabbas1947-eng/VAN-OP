@@ -51,6 +51,6 @@ ok('Guide rule: Withdrawing a QA inspection, numbered R-055', /<h3>Withdrawing a
 ok('the rule says where and who', /QA inspection \\u2192 Cleared/.test(grab('guideRules')) && /The QA Inspector, the Plant Manager and the COO may withdraw/.test(grab('guideRules')));
 ok('My job note for the QA Inspector, the Plant Manager and the COO', /New on 26 Nov \(2026-11-26a\)/.test(grab('guideMyJob')) && /\['QA Inspector','Plant Manager','COO'\]\.indexOf\(role\)>-1/.test(grab('guideMyJob')));
 ok('change log 2026-11-26a says it', /ver:'2026-11-26a'/.test(html) && /Inspections on file: newest first/.test(html));
-ok('BUILD_ID is 2026-11-26a and SYSDOC_VER follows', /var BUILD_ID='2026-11-26a';/.test(html) && /var SYSDOC_VER='2026-11-26a'/.test(html));
+ok('BUILD_ID of the build form (2026-11-26a or later) and SYSDOC_VER follows', (function(){ var m=html.match(/var BUILD_ID='(2026-\d\d-\d\d[a-z])';/); return !!m && m[1]>='2026-11-26a' && html.indexOf("var SYSDOC_VER='"+m[1]+"'")>=0; })());
 ok('documentation carries D-379 and R-055', /"D-379"/.test(html) && /R-055/.test(html));
 report('2026-11-26a: Inspections on file, newest first, with a find box');

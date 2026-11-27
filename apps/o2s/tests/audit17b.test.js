@@ -18,13 +18,13 @@ const TODAY = '2026-10-12';
 const consts = (html.match(/var PL_STUCK_NO_OUTPUT_DAYS=[^;]+;/) || [''])[0];
 const FNS = ['calDays','lineShortClosed','_plPackedOf','plBatchMove','_plDay','plBatchFacts','_plLineOf','plLineWantsBase','plOpenLines','plOpenDemandKg','lineShortRequested','batchClearedKg','plBaseLabKg','plShareKey','plBaseShare','_plFirstOk','_plM','plBaseReady','_plBaseReady0','plClientPOs','lineWaitMark','lineWaitClient','lineWaitOver','plLinePack','packLineOwes','_plCarrier','plBatchClass','_plRow','plStuckBatches','plHeldBatches','_plOpenBtn',
   'npMay','npAddDays','batchNpLast','batchNpMark','npShort','npLong','npClients','npLinkHTML','openNpMark','_npRow','saveNpMark','endNpMark','plNpBatches','itemWaiting','batchLinesWaiting',
-  'npTimes','packBasePickable','openPackBase','packBaseList','packPickBase','packBaseField','packPickPO','openPackFromBase',
+  'npTimes','packBasePickable','openPackBase','packBaseList','packPickBase','packBaseField','packPickPO','packQtyReset','packSizeOf','openPackFromBase',
   'tdReadyMay','tdReadyBatches','tdReadyLoose','tdReadyCount','tdReadyHTML','tdReadyCard','_tdEsc'];
 const SRC = consts + '\nvar NP_PROCESS_DAYS=7; var npForm=null; var packForm=null; var TD_READY_KEY=\'Cleared by the lab, ready to pack\';\n' + FNS.map(n => H.grab(n)).join('\n') + '\nvar _plMemo=null; function poReturnOpen(){ return false; }';
 
 function make(role, state) {
   const s = { console, Date, Math, JSON, Object, Array, String, isNaN, toasts: [], logs: [], saved: 0,
-    fmt: n => Math.round(n).toLocaleString('en-US'), bpEsc: x => String(x == null ? '' : x), _pe: x => String(x == null ? '' : x), _av: x => String(x == null ? '' : x),
+    seedPackForBrand: () => 0, fmt: n => Math.round(n).toLocaleString('en-US'), bpEsc: x => String(x == null ? '' : x), _pe: x => String(x == null ? '' : x), _av: x => String(x == null ? '' : x),
     localDateOf: d => String(d).slice(0, 10), evToday: () => TODAY, shortClient: c => c, unitOf: () => 'Kg/L', batchPOsLabel: b => (b.allocations || []).map(a => a.po).join(', '),
     lineBucket: (o, l) => (l.delivered >= l.ordered - 0.5 ? 'Delivered' : 'Production'),
     batchStage: b => b._stage || 'pack',

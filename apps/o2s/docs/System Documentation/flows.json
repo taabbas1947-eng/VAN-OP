@@ -897,7 +897,7 @@
        },
        {
         "role": "Production",
-        "text": "Checks pass? Kg over what the batch has left or the line needs: cut, the screen says which limit; packs shown and ticked where the line has a pack size; brand batch # used by another brand or as a base batch this year: refused; 1 character from one already used for the brand: asked once more; more than 1 day late: reason asked.",
+        "text": "Checks pass? where the line has a pack size the packer types whole packs (2026-11-26b, D-380): a part pack, or more than the batch has left or the line needs, is refused with the whole packs that fit; with no pack size, Kg over the limit is cut and the screen says which limit; brand batch # used by another brand or as a base batch this year: refused; 1 character from one already used for the brand: asked once more; more than 1 day late: reason asked.",
         "kind": "decision",
         "rule": "R-012"
        },

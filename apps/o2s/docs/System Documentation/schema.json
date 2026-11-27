@@ -2344,7 +2344,7 @@
         "number",
         "yes when the line has a pack size",
         "",
-        "packs = kg / pack size, ticked by the person entering.",
+        "packs = kg / pack size; from 2026-11-26b the person types whole packs (D-380).",
         "packRowExtras"
        ],
        [

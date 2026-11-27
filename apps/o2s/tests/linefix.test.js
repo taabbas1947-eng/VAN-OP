@@ -13,7 +13,7 @@ const { ok, eq, report, grab, html } = H;
 
 /* ---- the holes are shut (source) ---- */
 ok('allocateStock refuses before touching packed', /function allocateStock\(oid,lid\)\{ toast\([^)]*\); return;/.test(html));
-ok('Correct a record: packing refused above what the line still needs', /if\(q>_need\+0\.5\) return toast\('That is more than the line still needs/.test(grab('dfSubmitPacking')));
+ok('Correct a record: packing refused above what the line still needs', /if\(q>_need\+\(\(packSizeOf\(l\)>0\)\?0\.001:0\.5\)\) return toast\('That is more than the line still needs/.test(grab('dfSubmitPacking')));
 { const src = html.slice(html.indexOf("/* 25b, the invariant"), html.indexOf("/* 25b, the invariant") + 900);
   ok('Correct values no longer writes packed, dispatched or delivered', !/\['packed',/.test(src) && !/\['dispatched',/.test(src) && !/\['delivered',/.test(src) && !/\['ordered',/.test(src) && /\['produced','Produced/.test(src)); }
 ok('ordered is locked too (25c)', /id="cl_ordered_\$\{l\.id\}"[^>]*readonly disabled/.test(html));
@@ -50,7 +50,7 @@ const sb = { console, toasts: [], saved: 0, corr: [],
     shipments: [{ po: 'P-VMG', lid: 'L1', brand: 'V-Mg', kg: 150, dispCounted: true, stage: 'delivered', delivered: '2026-08-02' },
                 { po: 'P-UND', lid: 'L4', brand: 'NPK', kg: 50, dispCounted: true, stage: 'delivered', delivered: '2026-07-20' }] } };
 vm.createContext(sb);
-vm.runInContext(['lineFixBases', 'lotsFor', 'saleLeft', 'lineFacts', 'lineLostKg', '_movedInMapBuild', '_movedInMap', 'lineOverUsed', 'lineIssues', 'lineFixRows', 'lineHistory', 'lineCause', 'lineFixOpen', '_lfCtx', '_lfGuard', 'lineFixRecord', 'lineFixCut', 'lineFixDate', 'lineFixList', 'packShiftIncGate', 'packConfirmGate', 'packEntryCalc', 'packFmt', 'packShiftTotal', 'packRowExtras', 'packShiftIncBlock', 'packConfirmBlock', 'packConfirmInner', 'packFormOf'].map(grab).join('\n') + '\n' + H.bagSrc() + '\n' + H.dfSrc() + '\nvar PACK_FLAG_KG=10000; var lfForm={};', sb);
+vm.runInContext(['lineFixBases', 'lotsFor', 'saleLeft', 'lineFacts', 'lineLostKg', '_movedInMapBuild', '_movedInMap', 'lineOverUsed', 'lineIssues', 'lineFixRows', 'lineHistory', 'lineCause', 'lineFixOpen', '_lfCtx', '_lfGuard', 'lineFixRecord', 'lineFixCut', 'lineFixDate', 'lineFixList', 'packShiftIncGate', 'packConfirmGate', 'packEntryCalc', 'packFmt', 'packShiftTotal', 'packRowExtras', 'packShiftIncBlock', 'packConfirmBlock', 'packConfirmInner', 'packFormOf', 'packQtyHTML', 'packSetPacks', 'packSizeOf', 'packSizeTxt', '_av'].map(grab).join('\n') + '\n' + H.bagSrc() + '\n' + H.dfSrc() + '\nvar PACK_FLAG_KG=10000; var lfForm={};', sb);
 const O = po => sb.state.orders.find(o => o.po === po), L = po => O(po).lines[0];
 eq('a reversed lot is not counted as packing', sb.lineFacts(O('P-OVER'), L('P-OVER')).logged, 300);
 eq('the list finds the 3 packing lines', sb.lineFixRows('packing').map(r => r.o.po).join(','), 'P-VMG,P-OVER,P-MAX');

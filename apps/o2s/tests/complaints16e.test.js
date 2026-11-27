@@ -296,7 +296,7 @@ function investigated(s, c) {
   const mk = (role, user, signs) => { const x = { console, JSON, Object, Array, String, RegExp, Math, Date, localStorage: { getItem: () => null, setItem() {} }, state: { role, currentUser: { name: user, username: user }, orders: [{ po: 'P1' }], readSigns: signs || [] } }; vm.createContext(x); vm.runInContext(SRC, x); return x; };
   const s1 = { id: 'a', brief: '2026-10-13-15', user: 'asif', role: 'QA Inspector' };
   const q = mk('QA Inspector', 'asif', [s1]); ok('QA signed 13-15 Oct: the Complaints brief is next', q.rsPending() && q.RS_BRIEF === '2026-10-16e' && q.rsParts('QA Inspector').map(p => p.id).join() === 'c1,c2,c3');
-  const pr = mk('Production', 'ali', [{ id: 'b', brief: '2026-10-13-15', user: 'ali', role: 'Production' }]); ok('Production is not asked to read the Complaints brief', !pr.rsPending() && pr.RS_BRIEF === '2026-10-13-15');
+  const pr = mk('Production', 'ali', [{ id: 'b', brief: '2026-10-13-15', user: 'ali', role: 'Production' }]); ok('Production is not asked to read the Complaints brief (from 2026-11-26b the packing brief is next)', pr.rsPending() && pr.RS_BRIEF === '2026-11-26b');
   const wh = mk('Warehouse', 'shoaib', [{ id: 'c', brief: '2026-10-13-15', user: 'shoaib', role: 'Warehouse' }, { id: 'd', brief: '2026-10-16e', user: 'shoaib', role: 'Warehouse' }]); ok('both signed: nothing pending', !wh.rsPending());
   const nw = mk('KAM', 'kam1', []); ok('a new KAM reads 13-15 Oct first', nw.rsPending() && nw.RS_BRIEF === '2026-10-13-15');
   ok('the brief reaches the 7 roles ruled (the Production Manager added 16 Oct)', mk('COO', 't').RS_BRIEFS[1].roles.join() === 'QA Inspector,QCM,Supply Chain,Warehouse,KAM,Plant Manager,Production Manager');

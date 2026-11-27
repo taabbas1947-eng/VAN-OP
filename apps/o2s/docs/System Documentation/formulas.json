@@ -423,7 +423,7 @@
    ],
    "blocks": [
     {
-     "p": "Packs = round2(Kg packed / pack size). Pack size = the PO line's pack, else the product catalogue's pack. Whole when |packs - round(packs)| < 0.001. The person ticks that the packs match; the tick is tied to Kg and pack size, so changing either clears it. No pack size: the entry saves without packs and no tick."
+     "p": "Packs = round2(Kg packed / pack size). Pack size = the PO line's pack, else the product catalogue's pack. Whole when |packs - round(packs)| < 0.001. From 2026-11-26b (D-380) the person types whole packs and Kg = packs x pack size; a part pack is refused, and so is any excess over the batch, PO line or pool limit (the tick is retired). No pack size: Kg/L is typed and the entry saves without packs."
     },
     {
      "table": {

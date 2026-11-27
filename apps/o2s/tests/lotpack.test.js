@@ -229,10 +229,14 @@ const B = c => run(c, 'state.batches[state.batches.length-1]');
     run(c2, 'openPack("B-AP26012"); packForm.brand=' + JSON.stringify(brand) + ';'
           + ' packForm.oid="O-T1"; packForm.lid="L-T1"; packForm.kg=2020; packForm.shift="Morning"; packForm.incharge="Faisal Nadeem"; packForm.printedMfg=bagMonthOf(packForm.packDate); packConfirmTick("pack",true);'
           + ' packForm.price=100; packForm.priceOk=true; toasts=[]; doPack();');
+    /* 2026-11-26b (3A, D-380): more packs than the batch has left are refused with the number that fits, never cut */
+    const said0 = run(c2, 'toasts').join(' | ');
+    ok('2026-11-26b: asking for more than the lab certified is refused, nothing packed', B(c2).packedKg === 0 && /whole packs can be packed here \(the batch has only 1,010/.test(said0), said0);
+    run(c2, 'packForm.kg=1010; toasts=[]; doPack();');
     const b = B(c2);
     const said = run(c2, 'toasts').join(' | ');
     if (b.packedKg > 0) {
-      eq('asking for 2,020 packs only the 1,010 the lab certified', b.packedKg, 1010);
+      eq('...then packing the 1,010 the lab certified packs 1,010', b.packedKg, 1010);
       eq('...and there is nothing left to pack', c2.batchPackableKg(b), 0);
       eq('...so the Pack offer goes away', c2.batchPackNow(b), false);
     } else {

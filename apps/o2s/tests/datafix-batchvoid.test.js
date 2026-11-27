@@ -49,12 +49,12 @@ const FNS = ['lotMoveLock', 'dfSubmitPacking', 'dfSubmitVoid', 'dfBatchSelect', 
              '_batchApprovedDate', 'batchLabApproved', 'batchPackableKg',
              'packDates', 'packMfgFor', 'batchProdDate', 'addMonthsISO',
              'recordBackfill', 'recordCorrection', 'correctTypeLabel', 'correctReasonText',
-             'packShiftIncGate', 'packConfirmGate', 'packEntryCalc', 'packFmt', 'packShiftTotal', 'packRowExtras'];
+             'packShiftIncGate', 'packConfirmGate', 'packEntryCalc', 'packFmt', 'packSizeOf', 'packShiftTotal', 'packRowExtras'];
 const src = FNS.map(H.grab).join('\n\n') + '\n' + H.dfSrc()
   + H.grabObj('CORRECT_ENTITY') + '\n'
   + H.grabObj('CORRECT_TYPE_LABEL') + '\n'
   + H.grabObj('CORRECT_REASONS') + '\n'
-  + 'var SHELF_DEFAULT_MONTHS=24, SHELF_MAX_MONTHS=36, PACK_FLAG_KG=10000;\n' + H.bagSrc() + '\n';
+  + 'var SHELF_DEFAULT_MONTHS=24, SHELF_MAX_MONTHS=36, PACK_FLAG_KG=10000;\nfunction unitOf(){ return "Kg"; }\n' + H.bagSrc() + '\n';
 
 function box(state, dfForm) {
   const b = {
@@ -250,12 +250,12 @@ ok('GUARD: the placeholder card’s dead onclick is gone',
 }
 {
   const st = baseState(); st.orders[0].lines[0].pack = 25;
-  const b = box(st, { oid: 'O43', lid: 'O43L0', qty: '2500', date: '2026-08-26', reason: 'backfilled', bid: 'B2193' });
+  const b = box(st, { oid: 'O43', lid: 'O43L0', qty: '2490', date: '2026-08-26', reason: 'backfilled', bid: 'B2193' });
   b.dfSubmitPacking();
-  eq('a line with a pack size and no tick -> nothing written', st.packingLog.length, 0); ok('...and says to check the packs', b.toasts.some(t => /Check the number of packs \(100\)/.test(t)), JSON.stringify(b.toasts));
-  const b2 = box(st, { oid: 'O43', lid: 'O43L0', qty: '2500', date: '2026-08-26', reason: 'backfilled', bid: 'B2193', packsOkKg: 2500, packsOkSize: 25 });
+  eq('2026-11-26b (3A): a part pack on a line with a pack size -> nothing written', st.packingLog.length, 0); ok('...and says packs are counted whole', b.toasts.some(t => /Packs are counted whole: 99\.6 packs of 25 Kg/.test(t)), JSON.stringify(b.toasts));
+  const b2 = box(st, { oid: 'O43', lid: 'O43L0', qty: '2500', date: '2026-08-26', reason: 'backfilled', bid: 'B2193' });
   b2.dfSubmitPacking(); const p = st.packingLog[0];
-  ok('ticked: written with shift, in-charge, packs and the typist\'s name', st.packingLog.length === 1 && p.shift === 'Morning' && p.incharge === 'Faisal Nadeem' && p.packs === 100 && p.packSize === 25 && p.by === 'tahir' && p.recon === true, JSON.stringify(p));
+  ok('whole packs (no tick any more): written with shift, in-charge, packs and the typist\'s name', st.packingLog.length === 1 && p.shift === 'Morning' && p.incharge === 'Faisal Nadeem' && p.packs === 100 && p.packSize === 25 && p.by === 'tahir' && p.recon === true, JSON.stringify(p));
 }
 console.log('\nBatch # + Void an entry (packing): ' + pass + ' passed, ' + fail + ' failed');
 fails.forEach(f => console.log('  FAIL  ' + f));

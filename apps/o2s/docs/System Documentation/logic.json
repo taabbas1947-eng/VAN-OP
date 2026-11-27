@@ -3708,6 +3708,57 @@
      }
     }
    ]
+  },
+  {
+   "id": "LG-48",
+   "title": "How a packing entry takes whole packs (2026-11-26b)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-004"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn packQtyHTML, packSetPacks, packEntryCalc, packConfirmInner, packConfirmGate, packLineLabel, packPoOptions",
+    "D-380"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Part",
+       "Rule",
+       "From"
+      ],
+      "rows": [
+       [
+        "Pack size",
+        "l.pack, else the catalogue's seedPackForBrand; 0 means none",
+        "packSizeOf"
+       ],
+       [
+        "The box",
+        "With a pack size: 'Packs packed (N Kg pack)', whole numbers; typing sets the form's Kg/L field to packs x size. With none: the Kg/L box as before",
+        "packQtyHTML, packSetPacks"
+       ],
+       [
+        "Whole",
+        "typed Kg/L / size must be a whole number (0.001 tolerance), else refused: Packs are counted whole",
+        "packConfirmGate"
+       ],
+       [
+        "Limit",
+        "Pack: the base batch's packable Kg and the PO line's need; run sheet: pqMax; Divert: the PO line's need, and the pool is refused as before. Above it: refused with floor(limit / size) whole packs, never cut",
+        "packEntryCalc, packConfirmGate"
+       ],
+       [
+        "PO list",
+        "PO, customer, pack size, the note (40 characters), needs Kg/L = packs; grouped by size (bigger first) when the list holds more than 1 size",
+        "packLineLabel, packPoOptions"
+       ]
+      ]
+     }
+    }
+   ]
   }
  ]
 }

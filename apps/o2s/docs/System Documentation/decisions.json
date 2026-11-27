@@ -21351,6 +21351,27 @@
      "p": "QA → Cleared → Inspections on file lists the newest 40 inspections first (by the inspection date: actualDate, else date; on the same date the stored order is kept). A box above it finds any inspection by PO, product, batch, inspector or record id; every typed word must match. The card stays on the Cleared tab. Who may withdraw is unchanged (QA Inspector, Plant Manager, COO)."
     }
    ]
+  },
+  {
+   "id": "D-380",
+   "title": "Pack size on every pick, the PO note, whole packs only (2026-11-26b)",
+   "owner": "Tahir (ruling)",
+   "rules": [
+    "R-004"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir, 26 Nov 2026, panel answers on the design page O2S pack size and site: 1A \"Size on every line\", 2A \"Show the note\", 3A \"Type packs, whole only\"; build: \"go ahead\"",
+    "Abdul Majid (Production Manager), 26 Nov 2026: the packer, QA officer and Supply Chain officer count packed product at shift end; loose product left at the end is not counted in packing; entries are in Kg/L because the item is Kg/L",
+    "Cause: 25 Nov 2026, runs PK7035 (225 Kg) and PK7066 (195 Kg) of Max Sulfur 1 Kg packs entered on the 10 Kg line of PO 23214 and cleared by QA",
+    "o2s.html packSizeOf, packSizeTxt, packNoteTxt, packLineLabel, packPoOptions, packQtyHTML, packSetPacks, packConfirmInner, packConfirmGate, renderPackModal, renderDivert, renderProdQty, dfPOSelect, dfLineSelect, lineFixOpen, plLineBaseItems, screenQA, renderPackInspect, guideRules, guideMyJob, guideHow",
+    "Tahir, 27 Nov 2026: Write the packing record (Reconcile) stays whole packs only (\"Whole packs only\"); a new read-and-sign brief 2026-11-26b for Production, Production Manager, Plant Manager, QA Inspector and COO, text approved (\"yes\"), including: if the packs on the floor are not the line's pack size, QA does not pass it and tells the Production Manager; the 15 Oct brief text is kept as signed"
+   ],
+   "blocks": [
+    {
+     "p": "Every PO line in the Pack, Divert and Add missing packing lists shows its pack size and the first 40 characters of the PO's instruction note, with the Kg/L and packs it still needs; lines of more than 1 pack size are grouped. The pack size also shows on the Today Pack from base card and on QA (Awaiting, Cleared, the row and the inspection sheet). Where the line has a pack size, the 5 packing entries (Pack, run sheet, Divert, Add missing packing, Write the packing record) take the number of whole packs and store Kg/L = packs x pack size; a part pack, or more packs than the batch, PO line or pool allows, is refused with the number that fits, never cut. The tick box is retired. Lines with no pack size keep the Kg/L box. Records saved before are not changed. Supersedes the 15 Oct 2026 rule that a quantity over the limit is cut and the packs are ticked."
+    }
+   ]
   }
  ]
 }

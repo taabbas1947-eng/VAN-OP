@@ -246,8 +246,8 @@ const WM = (until, extra) => Object.assign({ id: 'WC' + until, kind: 'wait', unt
 
 /* 7. Today: the base jobs of one line, run for real (plLineBaseItems) */
 {
-  const SRC = PL_SRC + '\n' + ['rmAllows', 'baseLastOutput', 'baseStallStart', 'plLineBaseItems'].map(n => H.grab(n)).join('\n');
-  const mk = (st) => { const s = plBox(st); vm.runInContext(['rmAllows', 'baseLastOutput', 'baseStallStart', 'plStuckJob', 'plLineOwnReady', 'plLineOwnStuck', 'plLineBaseItems'].map(n => H.grab(n)).join('\n') + "\nfunction unitOf(){ return 'Kg'; }\n" + (html.match(/var STUCK_JOB_SINCE='[^']+';/) || [''])[0], s); return s; };
+  const SRC = PL_SRC + '\n' + ['rmAllows', 'baseLastOutput', 'baseStallStart', 'plLineBaseItems', 'packFmt', 'packSizeOf', 'packSizeTxt'].map(n => H.grab(n)).join('\n');
+  const mk = (st) => { const s = plBox(st); vm.runInContext(['rmAllows', 'baseLastOutput', 'baseStallStart', 'plStuckJob', 'plLineOwnReady', 'plLineOwnStuck', 'plLineBaseItems', 'packFmt', 'packSizeOf', 'packSizeTxt'].map(n => H.grab(n)).join('\n') + "\nfunction unitOf(){ return 'Kg'; }\nfunction seedPackForBrand(){ return 0; }\n" + (html.match(/var STUCK_JOB_SINCE='[^']+';/) || [''])[0], s); return s; };
   const lot = (q, st) => ({ qty: q, coa: st ? { status: st, approvedDate: '2026-08-01' } : null });
   const base = (kg, extra) => B(Object.assign({ producedKg: kg, plannedKg: kg, status: 'closed', stockKept: true, lots: [lot(kg, 'approved')] }, extra || {}));
   const L1 = (x) => line('L1', 'Enroot', Object.assign({ rmReady: '2026-08-01' }, x || {}));
@@ -306,7 +306,7 @@ const WM = (until, extra) => Object.assign({ id: 'WC' + until, kind: 'wait', unt
 
 /* 7b. second review */
 {
-  const mk = (st) => { const s = plBox(st); vm.runInContext(['rmAllows', 'baseLastOutput', 'baseStallStart', 'plStuckJob', 'plLineOwnReady', 'plLineOwnStuck', 'plLineBaseItems'].map(n => H.grab(n)).join('\n') + "\nfunction unitOf(){ return 'Kg'; }\n" + (html.match(/var STUCK_JOB_SINCE='[^']+';/) || [''])[0], s); return s; };
+  const mk = (st) => { const s = plBox(st); vm.runInContext(['rmAllows', 'baseLastOutput', 'baseStallStart', 'plStuckJob', 'plLineOwnReady', 'plLineOwnStuck', 'plLineBaseItems', 'packFmt', 'packSizeOf', 'packSizeTxt'].map(n => H.grab(n)).join('\n') + "\nfunction unitOf(){ return 'Kg'; }\nfunction seedPackForBrand(){ return 0; }\n" + (html.match(/var STUCK_JOB_SINCE='[^']+';/) || [''])[0], s); return s; };
   const labs = (a) => a === null ? 'null' : a.map(x => x.label + (x.restKg != null ? ':' + Math.round(x.restKg) : '')).join(', ');
   const lab = B({ id: 'BL', batchNo: 'XL', producedKg: 500, plannedKg: 500, status: 'closed', lots: [{ qty: 500, coa: null }] });
   const o = ord('P1', 'C', [line('L1', 'Enroot', { ordered: 500, rmReady: '2026-08-01' })]);
@@ -348,7 +348,7 @@ const WM = (until, extra) => Object.assign({ id: 'WC' + until, kind: 'wait', unt
 
 /* 7c. third review: Tahir's rulings */
 {
-  const mk = (st) => { const s = plBox(st); vm.runInContext(['rmAllows', 'baseLastOutput', 'baseStallStart', 'plStuckJob', 'plLineOwnReady', 'plLineOwnStuck', 'batchLinesWaiting', 'plLineBaseItems'].map(n => H.grab(n)).join('\n') + "\nfunction unitOf(){ return 'Kg'; }\n" + (html.match(/var STUCK_JOB_SINCE='[^']+';/) || [''])[0], s); return s; };
+  const mk = (st) => { const s = plBox(st); vm.runInContext(['rmAllows', 'baseLastOutput', 'baseStallStart', 'plStuckJob', 'plLineOwnReady', 'plLineOwnStuck', 'batchLinesWaiting', 'plLineBaseItems', 'packFmt', 'packSizeOf', 'packSizeTxt'].map(n => H.grab(n)).join('\n') + "\nfunction unitOf(){ return 'Kg'; }\nfunction seedPackForBrand(){ return 0; }\n" + (html.match(/var STUCK_JOB_SINCE='[^']+';/) || [''])[0], s); return s; };
   const base = (kg) => B({ producedKg: kg, plannedKg: kg, status: 'closed', stockKept: true, lots: [{ qty: kg, coa: { status: 'approved', approvedDate: '2026-08-01' } }] });
   /* a moving long PO: its run card is calm */
   let s = mk({ batches: [base(3000)], orders: [ord('659', 'Syngenta', [line('L1', 'Enrich', { rmReady: '2026-08-01' })])], packingLog: [{ po: '659', lid: 'L1', brand: 'Enrich', date: '2026-10-13', kg: 1 }] });

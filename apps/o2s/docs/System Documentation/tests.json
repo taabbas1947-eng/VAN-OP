@@ -50,6 +50,12 @@
         "2026-11-26a: Inspections on file lists the newest first (an inspection stored near the end is in the newest 40; same date keeps the stored order; a back-dated one sorts by its actual date; the stored list is not reordered); the find box finds by PO, base batch, inspector and several words, and finds an old inspection beyond the newest 40; the card no longer takes the first 40 stored, has the box and Clear, escapes the typed text, keeps Withdraw for the same people and stays on the Cleared tab; Guide rule R-055, My job note, change log, build id, D-379",
         "R-055",
         "26 passed, 0 failed (26 Nov 2026)"
+       ],
+       [
+        "pack1126b.test.js",
+        "2026-11-26b: the PO line label (pack size, note, need in Kg and packs; a long note cut; no size, no packs), grouping by size and escaping; the packs box and its Kg; 22.5 packs refused and shown; more than the line or the batch refused with the whole packs that fit; no line or no pack size keeps the Kg box; Write the packing record default in packs; wiring on Pack, Divert, run sheet, Add missing packing, Write the packing record, Today, QA and the inspection sheet; Guide R-004, My job, change log, build id, D-380. packs.test.js, datafix-batchvoid.test.js and lotpack.test.js rewritten from the tick to whole packs; review fixes (no-size lines keep their figure, pool, Add missing packing and Write the packing record refuse any excess); the read-and-sign brief 2026-11-26b",
+        "R-004",
+        "58 passed, 0 failed (27 Nov 2026)"
        ]
       ]
      }
@@ -425,7 +431,7 @@
        ],
        [
         "packs.test.js",
-        "Packs shown and confirmed with a tick; a cut over the batch or PO limit is shown; an entry over 10,000 Kg/L (or a shift and in-charge total over it) is flagged to the Production Manager, never stopped.",
+        "Packs typed whole (from 2026-11-26b; the tick and the cut are retired, D-380); an entry over 10,000 Kg/L (or a shift and in-charge total over it) is flagged to the Production Manager, never stopped.",
         "R-004",
         "134 passed, 0 failed; widened for 30d (30 Oct 2026)"
        ],

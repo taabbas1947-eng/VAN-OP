@@ -6,8 +6,8 @@ const { ok, eq, report, grab, grabTopVar } = H;
 const sb = { console, toasts: [], toast: m => sb.toasts.push(m), fmt: n => String(Math.round(n)), save: () => {}, dfBack: () => {}, recordBackfill: () => {}, logAction: () => {},
   screenEditOK: () => true, dfReasonOk: () => true, packDates: () => ({}), batchLabApproved: () => true, TODAY: new Date('2026-10-07T06:00:00Z') };
 vm.createContext(sb);
-vm.runInContext(['_uid', 'nid', '_arrId', '_eq', 'merge3', 'lotBaseNo', 'lotBrandNo', 'lotsFor', '_releaseShip', 'batchPackableKg', 'lineOnTruckKg', 'dfSubmitShipment', 'dfSubmitPacking', 'dfSubmitProduction', 'mergeDupNumbers'].map(f => { try { return grab(f); } catch (e) { return ''; } }).join('\n')
-  + '\nvar dfForm={};\n' + H.dfSrc(), sb);
+vm.runInContext(['_uid', 'nid', '_arrId', '_eq', 'merge3', 'lotBaseNo', 'lotBrandNo', 'lotsFor', '_releaseShip', 'batchPackableKg', 'lineOnTruckKg', 'dfSubmitShipment', 'dfSubmitPacking', 'packSizeOf', 'dfSubmitProduction', 'mergeDupNumbers'].map(f => { try { return grab(f); } catch (e) { return ''; } }).join('\n')
+  + '\nvar dfForm={};\nfunction seedPackForBrand(){ return 0; }\n' + H.dfSrc(), sb);
 
 /* A1 - after 2 audits: no adding in the merge (it double-counted); a lost pack is caught */
 ok('A1: the merge is back to "mine wins" (no counter adding, no save queue)', !/MERGE_COUNTERS|_mergeCounter|_saveInFlight/.test(H.html.replace(/\/\*[\s\S]*?\*\//g, '')));

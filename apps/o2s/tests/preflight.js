@@ -203,7 +203,8 @@ const MARKERS = [
   ['function jrMarkLine(',                  1, 'a client reason follows the marks it wrote (2026-11-19d, D-378)'],
   ['function jrLastMove(',                  1, 'a production run that is being made is moving (2026-11-19d, D-378)'],
   ['function jrCardItems(',                 1, '1 answer covers the base (2026-11-19d, D-378)'],
-  ['x._escalated || x.role===\'COO\' || x._cover', 1, 'the COO sees an away role\'s jobs (2026-11-19c, D-377)'],  ['function qaInsList(',                 1, 'Inspections on file newest first, with a find box (2026-11-26a, D-379)'],
+  ['x._escalated || x.role===\'COO\' || x._cover', 1, 'the COO sees an away role\'s jobs (2026-11-19c, D-377)'],  ['function qaInsList(',                 1, 'Inspections on file newest first, with a find box (2026-11-26a, D-379)'],  ['function packQtyHTML(',               1, 'whole packs on every packing entry (2026-11-26b, D-380)'],
+  ['function packPoOptions(',              1, 'pack size and note on every PO line (2026-11-26b, D-380)'],
 ];
 
 const [, , mode, freshPath, otherPath] = process.argv;

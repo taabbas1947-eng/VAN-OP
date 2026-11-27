@@ -206,6 +206,8 @@ const MARKERS = [
   ['x._escalated || x.role===\'COO\' || x._cover', 1, 'the COO sees an away role\'s jobs (2026-11-19c, D-377)'],  ['function qaInsList(',                 1, 'Inspections on file newest first, with a find box (2026-11-26a, D-379)'],  ['function packQtyHTML(',               1, 'whole packs on every packing entry (2026-11-26b, D-380)'],
   ['function packPoOptions(',              1, 'pack size and note on every PO line (2026-11-26b, D-380)'],
   ['function cmdkProducts(',               1, 'search shows where a product stands (2026-11-27a, D-381)'],
+  ['function plsHTML(',                    1, 'plant pulse (2026-11-27b, D-382)'],
+  ['function plsStrip(',                   1, 'plant pulse strip on the Morning view (2026-11-27b)'],
   ['<a class="qs-find" href="#" onclick="openCmdK();return false"', 1, 'search opens from the magnifier in the header (2026-11-27a, Tahir 27 Nov)'],
   ['kamRun(function(){ return cmdkItems(q); })', 1, 'search runs inside the KAM filter, R-051 (2026-11-27a)'],
 ];

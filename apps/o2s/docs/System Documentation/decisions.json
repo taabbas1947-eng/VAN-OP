@@ -21393,6 +21393,29 @@
      "p": "Search opens from a magnifier at the top right of the header, beside the person's name, on every screen and phone (with a Close button and Escape to shut it), or Ctrl K on a laptop; the search box had been hidden since the Queue Shell of 23 Sep 2026, and this revises that ruling for the search only (the sidebar stays hidden). Under each product, customer, PO and batch it shows 1 line with where it stands, and a card inside the box on tap or Enter; a 2nd Enter, or the link on the card, opens the full screen or report. Product: open lines and POs, left to ship, cleared and ready, packed and waiting for QA, on hold, and for a bulk base its packable stock and batches in production, with each open line and its pack size (up to 15); the link opens the Open orders report. Customer: open POs and lines, left to ship, ready, late lines; the link opens the One customer report. PO: stage and each line's ordered, packed, shipped and left; the link opens the PO sheet itself. Batch: produced, packed, shipped and the brands it went into; the link opens Batch trace with the batch picked. Read only: no new sum; left to ship and ready are worked out as in Open orders, on hold and waiting for QA as in the Morning view, late as in the Order tracker, a batch as in Batch trace. No price or value for any role. At most 12 results: up to 3 screens, up to 3 products, up to 3 customers, then POs (open ones first), batches (up to 6) and trucks (up to 6) share what is left. Every role has it; a link shows only where the role may open that screen or report, and a truck only to those who may open Shipments. The list is built inside the KAM filter, so a KAM sees only his own clients in Search (before this build the hidden search ran outside it); for a batch a KAM sees what was packed for his clients, without the whole batch's production."
     }
    ]
+  },
+  {
+   "id": "D-382",
+   "title": "Plant pulse: made, packed and sent out on 1 page (2026-11-27b)",
+   "owner": "Tahir (ruling)",
+   "rules": [
+    "R-057",
+    "R-018"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir, 27 Nov 2026: phase B of the 5-phase split of the Master Execution Prompt review (\"B: a daily plant pulse\")",
+    "Tahir, 27 Nov 2026, panel answers on the design page O2S plant pulse, phase B (live figures of 25 Nov): Reports + Morning view strip; the 7 record roles plus Supply Chain Officer and QCM; no money; mark entries that look doubled; Today, Yesterday, Last 7 days, a date; build: \"Build it\"",
+    "Live check 27 Nov 2026: over 160 days the production and packing record and the Morning view's made and packed agree to the Kg on every day",
+    "o2s.html plsWindow, plsData, plsDoubles, plsHTML, plsStrip, plsToRecord, plsOpen, mvHero, RP_CATALOGUE, RP_GROUPS, rpOpen, rpReportHTML, guideRules, guideHow",
+    "Tahir, 27 Nov 2026, after the independent reviews (panels): the full strip only on pages that do not already show the figures (Fahim, Majid, Saad and the Warehouse page get a link line); the Morning view counts made like the record (voided batches out, Add missing production in); an entry that looks doubled stays in the total with its mark",
+    "Independent reviews 2 and 3, 27 Nov 2026: Add missing production counts as a logged shift in the pulse too; an entry with no shift is not a logged shift; open groups remembered per column; the COO and CFO strips leave out left the gate"
+   ],
+   "blocks": [
+    {
+     "p": "Reports → Production → Plant pulse shows produced, packed and left the gate side by side for Today, Yesterday, the last 7 days or a picked date (opens on Yesterday; from a Morning view page, on that page's day). Each column opens to its products and each product to its entries: produced with batch, shift and in-charge; packed with packs, batch on the bag, PO, shift and in-charge; trucks by client with DC, vehicle and product. The last 7 days add 1 total a day. On a single day already over, a shift that has been running (logged on 3 or more different days in the 14 days to that day, the Morning view's rule) and logged nothing that day is named. An entry with the same kind, date, batch, batch on the bag, PO, shift, in-charge and Kg as another typed within 5 minutes is marked as looking doubled and stays in the total as typed; nothing is changed. Produced and packed are the counted rows of the production and packing record by the shift date; left the gate is the trucks counted as a sale (saleLeft, R-018) by the day they left (mvShipDate). No price or value. Open to Production, Production Manager, Plant Manager, COO, CFO, Warehouse, Supply Chain, Supply Chain Officer and QCM; the same 3 figures sit at the top of their Morning view page with a link to the pulse, except on pages that already show made and packed or trucks out (Plant Manager, Production Manager, Supply Chain, Warehouse), which get the link only; the COO's and CFO's pages, which already show what left the gate on their Sold on tile, show produced and packed. The Morning view's made now counts like the record: shift entries on a voided batch are left out and Add missing production is counted. A packing run moved to another PO is no longer counted as a second pack run on the Morning view."
+    }
+   ]
   }
  ]
 }

@@ -3835,6 +3835,72 @@
      }
     }
    ]
+  },
+  {
+   "id": "LG-50",
+   "title": "How the plant pulse counts (2026-11-27b)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-057"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn plsWindow, plsData, plsDoubles, plsStrip",
+    "D-382"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Figure",
+       "Rule",
+       "From"
+      ],
+      "rows": [
+       [
+        "Period",
+        "Today; Yesterday (today minus 1); Last 7 days (today and the 6 days before); a picked date",
+        "plsWindow, evToday"
+       ],
+       [
+        "Produced",
+        "counted Produced rows of the production and packing record dated in the period (shift entries of batches not voided, and Add missing production, marked as a correction)",
+        "ppRows"
+       ],
+       [
+        "Packed",
+        "counted Packed rows dated in the period; reversed and voided runs are not counted; Kg moved to another PO is counted once, on the entry typed",
+        "ppRows"
+       ],
+       [
+        "Left the gate",
+        "trucks that count as a sale, dated by the day they left (approved date, else dispatch, else delivered); trucks = distinct DCs",
+        "saleLeft, mvShipDate"
+       ],
+       [
+        "Looks doubled",
+        "the later of 2 entries with the same kind, date, batch, batch on the bag, PO, shift, in-charge and Kg typed within 300 seconds; a mark only; it stays in the total as typed",
+        "plsDoubles"
+       ],
+       [
+        "Nothing logged",
+        "on a single day already over, each shift that has been running (entries on 3 or more different days in the 14 days to that day, or on the day) with no entry that day",
+        "plsActiveShifts, plsMissing"
+       ],
+       [
+        "Unit",
+        "Kg or L from the product; Kg/L where both are added",
+        "mvUnit"
+       ],
+       [
+        "Morning view made",
+        "shift entries not on a voided batch, plus Add missing production (productionLog recon rows), by the shift date: the same as the record",
+        "mvModel M.shifts"
+       ]
+      ]
+     }
+    }
+   ]
   }
  ]
 }

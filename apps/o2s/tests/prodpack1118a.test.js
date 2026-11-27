@@ -162,7 +162,7 @@ ok('the report writes nothing into state', !/state\.[A-Za-z]+\s*=[^=]/.test(['pp
 
 /* ---- wiring in the app ---- */
 ok('the report is in the catalogue for the 7 roles of Production by shift', /\{id:'prodpack', kind:'prodpack'[^\n]*roles:\['Production','Production Manager','Plant Manager','COO','CFO','Warehouse','Supply Chain'\]\}/.test(html));
-ok('it sits in the Production group beside Production by shift', html.indexOf("ids:['prodshift','prodpack','batches','batchtrace','rm']") > -1);
+ok('it sits in the Production group beside Production by shift', html.indexOf("ids:['prodshift','prodpack','batches','batchtrace','rm','pulse']") > -1);
 ok('rpOpen opens it on This month, By batch', /c\.kind==='prodpack'\)\{ prpPer=\{mode:'This month'\}; prpView='batch'/.test(grab('rpOpen')));
 ok('rpReportHTML draws it', grab('rpReportHTML').indexOf("if(c.kind==='prodpack') return h+ppHTML()") > -1);
 ok('Today: More under Done by you today for Production', /state\.role==='Production'&&ppMay\(\)\)\?ppMoreLink\(\)/.test(grab('tdDoneToday')));

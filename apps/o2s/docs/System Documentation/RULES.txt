@@ -54,3 +54,4 @@ R-053	When the Plant Manager or the CFO is away
 R-054	Why is this waiting? (after 7 days)
 R-055	Withdrawing a QA inspection
 R-056	What Search shows
+R-057	The plant pulse

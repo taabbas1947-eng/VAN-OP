@@ -213,6 +213,8 @@ const MARKERS = [
   ['function plsStrip(',                   1, 'plant pulse strip on the Morning view (2026-11-27b)'],
   ['<a class="qs-find" href="#" onclick="openCmdK();return false"', 1, 'search opens from the magnifier in the header (2026-11-27a, Tahir 27 Nov)'],
   ['kamRun(function(){ return cmdkItems(q); })', 1, 'search runs inside the KAM filter, R-051 (2026-11-27a)'],
+  ['id="kamNote" class="note sg warn"',    1, 'older sheet notes show their colour (2026-11-27d, D-384)'],
+  ['<a class="qs-launch" href="/"',        1, 'Launcher button in the header (2026-11-27e, D-385)'],
 ];
 
 const [, , mode, freshPath, otherPath] = process.argv;

@@ -699,7 +699,7 @@ function confirmWorld(fresh) { const b = world({ line: tinyLine }); b.tinyFresh 
       const fin = world({ role: 'Finance', rights: ['po.shortclose_small'] }); fin.l.shortClose = { approvedAt: 'a', reopenedAt: '2026-10-05T00:00:00Z', reopenedBy: 'Tahir Abbas', reopenedWhy: 'm' };
       const fw = fin.tinyWhyNot(fin.o, fin.l);
       ok('Finance, who cannot ask, is told to tell Supply Chain and still sees who reopened it', /reopened by Tahir Abbas/.test(fw) && /Tell Supply Chain/.test(fw));
-      ok('both the Ask window and the Plant Manager approval window carry the note', (html.match(/scReopenNote\(l\)\?\('<div class="note"/g) || []).length === 2);
+      ok('both the Ask window and the Plant Manager approval window carry the note', (html.match(/scReopenNote\(l\)\?\('<div class="note sg warn"/g) || []).length === 2);   /* 2026-11-27d: the note shows amber (D-384) */
       const rm = world({}); rm.l.rmPR = { qty: 40, closed: false };
       ok('the raw material refusal names who can settle the request', /Ask Supply Chain or the CFO to settle that request first/.test(rm.tinyRefusal(rm.o, rm.l))); }
     /* the old route is unchanged: no reason given still works (existing tests call it with two arguments) */

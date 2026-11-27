@@ -74,6 +74,18 @@
         "2026-11-27c: shift output room (115% of plan, the PO when smaller, none with no plan) and the over-limit line; a second run found once shift and in-charge are picked, with Kg, who and when, and its note box; a note for another entry not shown; Save needs the note tied to the same batch, day, shift and in-charge, no second press, the note kept as secondRun; whole packs that fit on Pack (limited by the base batch), the run sheet (the batch), Divert (the PO), none without a base batch or a pack size, not on the correction sheets; every brand batch # case (blank, base number, base batch number, another brand, same brand adds, 1 letter different, next number in a series not look-alike, new); escaping; Pack keeps its own checks; Guide R-058 and R-033, change log, build id, D-383. lotpack.test.js: the second press without a note writes nothing; a note for another entry does not count; with its note the second run is logged and kept. similarno.test.js: the field checks as it is typed; review fixes: the exact room (1,151.15 on a plan of 1,001), a 0 Kg entry not a run on the sheet and at Save, Divert limited by the pool, a capitals-only difference named, a second run with its note not marked doubled, the note shown in the record and the pulse",
         "R-058, R-033",
         "54 passed, 0 failed (27 Nov 2026)"
+       ],
+       [
+        "notes1127d.test.js",
+        "2026-11-27d: no note sets its own border colour; the note colour classes come after the page note rule; the short close, look-alike number, KAM, complaint hold, held stock, role, PR late move, Pack confirm, ERP SO # and packing-run-missing notes carry amber or red; no plain note sets its own text colour; build id, change log, D-384",
+        "D-384",
+        "23 passed, 0 failed (27 Nov 2026)"
+       ],
+       [
+        "header1127e.test.js",
+        "2026-11-27e: the Launcher button first in the right group, the magnifier beside the name, the word from 1,161 px; the header sticky at z-index 30 with no fixed height and no z-index 1000; the 1,280 px header box from 1,300 px; the guard (no shrinking, names shortened at 140 and 100 px); the phone row that slides, the fade and initials under 600 px; qsNavFit run in a sandbox (from either side, under the fade, on resize, after a scroll to the end); the title hidden from 900 to 1,299 px with no inline style; the name button's aria-label; 6 px word padding from 1,300 px; no header on print; role checks unchanged; Guide, build id, change log, D-385",
+        "D-385",
+        "39 passed, 0 failed (27 Nov 2026)"
        ]
       ]
      }

@@ -21439,6 +21439,53 @@
      "p": "Log shift output shows, beside planned and made, the most that can still be logged: 115% of plan less what is made, and for a batch made for a PO no more than the PO still needs (the smaller, named); typing more shows the same refusal Save gives. When the batch, day, shift and in-charge already have an entry, the sheet says so as soon as the shift and in-charge are picked, with the Kg/L, who typed it and when; Save then needs a short note (3 characters or more) on why it is a second run, kept on the entry as secondRun; a note written for another batch, day, shift or in-charge does not count. This replaces the second press of Save (ruled 26 Aug 2026), which did not stop the 25 Nov double. Pack, Pack from base, the run sheet and Divert show, on a line with a pack size, how many whole packs fit and what limits them (the base batch, the batch, or what the PO still needs), from the same figure Save uses. Pack shows every brand batch # check as it is typed: blank (the base number), the base number, a base batch number this year (Pack refuses), another brand's number this year (Pack refuses), already on this brand (adds to it), 1 character different (Pack asks once), or new. No limit or rule changes; the base batch list stays as it is; truck safeguards and the prompt's cut-off strip are not in this build. After the independent review (27 Nov): the second-run note shows on the entry in the production and packing record (a mark) and in the plant pulse, where a second run with its note is not marked as looking doubled; an earlier 0 Kg/L entry (nothing made) is not a run and asks for no note, on the sheet and at Save; the room is the exact ceiling Save uses (to 0.001); Divert's fit also counts what the pool holds; a brand batch # that differs from one used only in capitals or spaces is named (Pack still keeps it as a separate batch, as before). Browser review fixes (27 Nov): the sheets open outside the area where notes are styled, so the new notes showed no colour; they now carry their own (over-limit red, second run amber, brand batch # in the colour of what it says, fits neutral). The 4th tile no longer sits alone on a second row (4 tiles in 1 row, 2 by 2 on a phone). The over-limit line is 2 plain sentences; the fits line gives the PO need its unit and the run sheet names its batch; the second-run date reads like the pulse (Thu 26 Nov 2026). Known, not changed: older notes on other sheets (for example the look-alike note, short close notes) set a colour that never shows; a colleague's entry saved while the sheet is open is seen only when the sheet is redrawn."
     }
    ]
+  },
+  {
+   "id": "D-384",
+   "title": "Older sheet notes show their colour (2026-11-27d)",
+   "owner": "Tahir (ruling)",
+   "rules": [],
+   "status": "confirmed",
+   "src": [
+    "Tahir, 27 Nov 2026, panel answer on the next O2S work: \"fix roder sheet note and then phase d\"",
+    "Finding left open in build 2026-11-27c (D-383 and OP-HANDOFF-O2S entry 14): older notes on other sheets set a border colour that never shows",
+    "o2s.html CSS .qs .note and .note.sg; renderShortClose, openShortCloseReview, renderTinyClose, latePackNoteHTML, renderReopenClose, kamNoteIfUnknown, packConfirmInner, packBaseField, packSimilarNote, openReworkLot, lineFixOpen, openPoReturn, renderPRSheet, openPRRefused, openCustReturn, openDcRejected, tsSheetHTML, renderTruckSign, renderMoveStock, roleDeptHTML, renderClosePO, renderStartLoading, cbRenderDecide, smpRenderOpen, bfxFollowOpen, bfxRender, bfxReview, erpSoWarnHTML"
+   ],
+   "blocks": [
+    {
+     "p": "A plain note is styled only on the pages (.qs). On the sheets it has no border, so a note that set only its border colour (amber or red) showed as plain text, and a note that set its left border showed a line with no box. The 35 notes that set a colour by hand, and the Pack confirm note, now use the note colour classes from 2026-11-27c: amber (.note.sg.warn) for --amber and --late, red (.note.sg.bad) for --red and --over. Red text is kept where the note had it. Notes with no colour are not touched. The independent review found 2 more notes that set only a text colour; they carry the class too: the ERP SO # warnings on New order (amber) and the packing run no longer in the records on a batch number correction (red, red text kept)."
+    },
+    {
+     "p": "Only the look changes (colour, box and spacing; the class sets 12.5px text and 8 by 11px padding): no words, checks, limits or rules change, and nothing is saved differently. Test: notes1127d.test.js."
+    }
+   ]
+  },
+  {
+   "id": "D-385",
+   "title": "Header, phase D: Launcher button, 1 sliding row of words on a phone, the clock guard (2026-11-27e)",
+   "owner": "Tahir (ruling)",
+   "rules": [],
+   "status": "confirmed",
+   "src": [
+    "Tahir, 27 Nov 2026: phase D brief (O2S Top Header and Layout Fix): header floats mid-page and covers headings; clock and name badge clip on the right; no Launcher button",
+    "Measured on live build 2026-11-27c, 27 Nov 2026 (6 pages, 375 to 1,300 px, a long test name): the header stayed sticky at 0 px on scroll and nothing clipped; the mid-page header is how a full-page screenshot draws a sticky header",
+    "Tahir, 27 Nov 2026, panel answers on the design page O2S header, phase D: Launcher button beside search (icon only on a phone and 1,061 to 1,160 px); 1 sliding row of words on a phone; add the guard; leave out z-index 1000, a fixed 56 px height, overflow removal and the 24 px padding",
+    "o2s.html header markup (qs-launch), CSS block 2026-11-27e, renderTopNav, qsNavFit, guideHow"
+   ],
+   "blocks": [
+    {
+     "p": "A Launcher button (link to /) sits first in the header's right group, before the magnifier; it shows the word Launcher from 1,161 px and the 4-square icon below. From 1,300 px the header box is 1,280 px wide (was 1,180) so the O2S subtitle, the 6 words and the button fit; page content (680 to 860 px) is unchanged. Under 900 px the words are 1 row that slides sideways (header 96 px on a 375 px phone, was 136 px); qsNavFit brings the current word into view and adds a fade while more words are off to the right. Under 600 px the name shows as initials; the menu is unchanged."
+    },
+    {
+     "p": "Guard: the clock, magnifier and Launcher never shrink; the name and title shorten with ... (140 px, 100 px from 900 to 1,060 px). Checked in the browser on the live page with the same CSS at 375, 599, 600, 820, 900, 1,060, 1,062, 1,161, 1,299, 1,300, 1,366 and 1,920 px, with Tahir's name and a long test name: nothing overlaps or leaves the screen."
+    },
+    {
+     "p": "Independent review (27 Nov, a separate agent, not the builder), all fixed in this build: (1) with a long title the words could run over the O2S mark near 900 and 1,300 px, because the older rule (comment 07h) that hides the title from 900 to 1,299 px never worked (an inline display:block on the name and title beat it); the inline style is removed and display:block moves into the .qs-me .nm and .qs-me .tt rules, so the title hides there as meant, and from 1,300 px the words take 6 px side padding (was 8). (2) qsNavFit now measures the current word from the nav itself, brings it into view from either side (also when it sits under the fade) and runs again on resize. (3) @media print hides .qs-top, so a printed report has no header. (4) the name button carries the name and title as aria-label and title, since under 600 px only the initials show. Re-measured in the browser with the build's own CSS, Tahir's name and a long name with the title Chief Operating Officer, at 375, 900, 1,024, 1,061, 1,161, 1,300, 1,366, 1,440 and 1,920 px: the words stay at least 5 px clear of the mark and 12 px clear of the Launcher button, and the clock stays on screen. Not changed (older, noted): the header words are links without href, so the keyboard cannot reach them."
+    },
+    {
+     "p": "Left out, and why: z-index 1000 would put the header over sheets (320), the COA view (300), search (200) and the drawer (51); a fixed 56 px height would cut the words on screens under 900 px; no parent of the header has an overflow that breaks sticky; the gap under the header is already 19 px. The header stays sticky at z-index 30. No job, rule, right, screen or saved data changes. Test: header1127e.test.js."
+    }
+   ]
   }
  ]
 }

@@ -187,7 +187,7 @@ ok('names are escaped in lines and cards', x.cmdkItems('bad').concat(x.cmdkItems
 /* wiring in the page */
 ok('Enter on an open card follows its link, and does nothing more where there is none', /if\(it&&it\.card&&_cmdkOpen===sel\)\{ if\(it\.go\) cmdkGo\(sel\); return; \}/.test(html));
 ok('the search runs inside kamRun', /kamRun\(function\(\)\{ return cmdkItems\(q\); \}\)/.test(grab('cmdkRender')));
-ok('the box opens from a magnifier at the top right of the header, beside the name, reachable by Tab (ruling of 27 Nov)', /<div class="qs-right"><a class="qs-find" href="#" onclick="openCmdK\(\);return false"[^>]*aria-label="Search">/.test(html));
+ok('the box opens from a magnifier at the top right of the header, beside the name, reachable by Tab (ruling of 27 Nov)', /<div class="qs-right">(<a class="qs-launch"[^>]*>[\s\S]*?<\/a>)?<a class="qs-find" href="#" onclick="openCmdK\(\);return false"[^>]*aria-label="Search">[\s\S]*?<\/a><div id="qsMe">/.test(html));   /* 2026-11-27e: the Launcher button may come before it; the magnifier stays beside the name */
 ok('no rule hides the search box for good (it was hidden from 23 Sep to 27 Nov)', !/[,{]\s*\.cmdk\s*[,{][^}]*display:none!important/.test(html.replace(/\/\*[\s\S]*?\*\//g,'')) && /\.cmdk\{display:none\}\.cmdk\.open\{display:flex/.test(html));
 ok('the box has a Close button, and Escape closes it from anywhere', /<button class="cmdk-x" type="button" onclick="closeCmdK\(\)">Close<\/button>/.test(html) && /else if\(e\.key==='Escape'\)\{ var c=\$\('cmdk'\); if\(c&&c\.classList\.contains\('open'\)/.test(html));
 ok('closing the box lets go of the typing focus', /i\.blur\(\)/.test(grab('closeCmdK')));

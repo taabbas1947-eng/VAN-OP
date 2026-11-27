@@ -42,7 +42,7 @@ const st = () => ({ orders: [JSON.parse(JSON.stringify(O14)), JSON.parse(JSON.st
   c.packForm.lid = 'C'; c.packSetPacks('pack', 'kg', '22'); eq('22 packs of 10 Kg store 220 Kg', c.packForm.kg, '220');
   c.packForm.kg = '225'; ok('225 Kg on the 10 Kg line (22.5 packs) is refused', /Packs are counted whole: 22\.5 packs of 10 Kg/.test(c.packConfirmGate(c.packForm, 'pack')));
   h = c.packQtyHTML('pack', 'packForm', 'kg', 'Q', '3', ''); ok('...and the box shows 22.5 so the fault is seen', /value="22\.5"/.test(h));
-  ok('...and the packs line says it in red', /border-color:var\(--red\)/.test(c.packConfirmInner(c.packForm, 'pack')) && /Packs are counted whole/.test(c.packConfirmInner(c.packForm, 'pack')));
+  ok('...and the packs line says it in red', /class="note sg bad"/.test(c.packConfirmInner(c.packForm, 'pack')) && /Packs are counted whole/.test(c.packConfirmInner(c.packForm, 'pack')));   /* 2026-11-27d: red by class, not border-color (D-384) */
   c.packForm.lid = 'D'; c.packForm.kg = '1500'; ok('more packs than the line needs are refused with the number that fits', /Only 1,000 whole packs can be packed here \(the PO line needs only 1,000 Kg more\)/.test(c.packConfirmGate(c.packForm, 'pack')));
   c.state.batches[0].left = 305; c.packForm.lid = 'C'; c.packForm.kg = '310'; ok('more than the batch has left: refused, with the whole packs that fit', /Only 30 whole packs can be packed here \(the batch has only 305 Kg left\)/.test(c.packConfirmGate(c.packForm, 'pack')));
   c.packForm.lid = ''; h = c.packQtyHTML('pack', 'packForm', 'kg', '3 · Qty (Kg/L)', '3', 'max 5,000'); ok('with no line picked the Kg box shows as before', /3 · Qty \(Kg\/L\)/.test(h) && /packForm\.kg=this\.value/.test(h) && /placeholder="max 5,000"/.test(h));

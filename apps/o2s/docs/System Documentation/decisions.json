@@ -21510,6 +21510,30 @@
      "p": "Nothing is saved: ypSetMode only redraws. No job, rule, right, count or saved field changes. Test: yp1127f.test.js."
     }
    ]
+  },
+  {
+   "id": "D-387",
+   "title": "Names on the lab and QA cards (2026-11-27g)",
+   "owner": "Tahir (ruling)",
+   "rules": [],
+   "status": "confirmed",
+   "src": [
+    "Tahir, 27 Nov 2026: phase E scope ruling, item 2 of 3",
+    "Checked 27 Nov 2026 (read only): the Review, Approve and Pack QC cards on Today named nobody; the names were only inside the opened certificate",
+    "Tahir, 27 Nov 2026, panel answers and the design page O2S names on lab and QA cards, phase E2: Review shows the analyst; Approve shows analyst and reviewer; Pack QC shows shift and in-charge; he approved the page's 3 choices (2 analysts both named; latest entry with +N more; no line for entries without shift or in-charge)",
+    "o2s.html tdNameLine, tdCardHTML, guideHow, changelog 2026-11-27g"
+   ],
+   "blocks": [
+    {
+     "p": "Today's job card gets 1 more line under the title. Review (certificate analysed): Drafted by [coa.analyst.name]. Approve (certificate reviewed): Drafted by [analyst] · reviewed by [coa.reviewer.name]. Pack QC: Packed: [shift] shift, in-charge [incharge] of the latest packing entry on that order line still to inspect (lotsFor, lotAvail more than 0.5), and +N more when older entries also wait. A missing, (historical), opening or reconcile value gives no line. The UNFIT lot job, also labelled Review, gets no line."
+    },
+    {
+     "p": "Review fixes, 27 Nov 2026 (independent reviewer, nothing blocking): the Pack QC line counts only entries with a batch number, the same entries the Pack QC job counts; on one day it names the newest keyed entry (packingLog order), not the one whose id sorts last; a lot id that no longer exists gives no line."
+    },
+    {
+     "p": "Display only: who gets the job, who may sign, the check that nobody reviews their own draft, the days, the colours and saved data do not change. Names are escaped. Test: names1127g.test.js."
+    }
+   ]
   }
  ]
 }

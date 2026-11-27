@@ -92,6 +92,12 @@
         "2026-11-27f: Your people run in a sandbox: opens on Needs attention, red then amber, oldest first; All by name for green; chip counts; the card keeps jobs waiting and oldest; on hold and none as before; the choice kept on the device and never saved; storage blocked still works; names escaped; the tapped list carries % current, done today, shared names; colour rule unchanged; 3 and 2 to a row; Guide, build id, change log, D-386",
         "D-386",
         "32 passed, 0 failed (27 Nov 2026)"
+       ],
+       [
+        "names1127g.test.js",
+        "2026-11-27g: the name line run in a sandbox: Review drafted by; Approve drafted by and reviewed by; 2 analysts both named; batch with no lots; UNFIT job and empty names give no line; escaped; Pack QC latest waiting entry with +N more, inspected, other PO, held and old entries left out; wiring display only; Guide, build, changelog and D-387",
+        "D-387",
+        "23 passed, 0 failed (27 Nov 2026)"
        ]
       ]
      }

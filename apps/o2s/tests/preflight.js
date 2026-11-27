@@ -216,6 +216,7 @@ const MARKERS = [
   ['id="kamNote" class="note sg warn"',    1, 'older sheet notes show their colour (2026-11-27d, D-384)'],
   ['<a class="qs-launch" href="/"',        1, 'Launcher button in the header (2026-11-27e, D-385)'],
   ['function ypInfo(',                     1, 'Your people as a compact grid (2026-11-27f, D-386)'],
+  ['function tdNameLine(',                 1, 'Names on the lab and QA cards (2026-11-27g, D-387)'],
 ];
 
 const [, , mode, freshPath, otherPath] = process.argv;

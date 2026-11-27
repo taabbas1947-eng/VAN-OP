@@ -8027,3 +8027,21 @@ Tahir pushed build 2026-11-27c (commit 64282f8 on main, working tree clean, in s
 - Checked in the browser (build code, redraw only, nothing saved): 13 cards in 359 px; Done by you today moved up from 3,803 px to 1,503 px; All = 20 cards in 505 px; phone 2 per row, nothing cut.
 - Pushed: NO. The handoff entries 18 and 19 go in the same push.
 - NEXT: phase E item 2 (lot drafted, reviewed and packed names on Lab and QA cards, check first whether they are missing), then item 3 (time left on the 2-hour Review truck); each gets a design page and Tahir's rulings first. Later: top bar per role. Open: Majid's answer on VU26196.
+
+## 27 Nov 2026 (21) - 2026-11-27f pushed (commit 7032953) and checked live; RESUME HERE · MODULE: O2S
+
+- Tahir pushed 27f on 27 Nov 2026 (commit 7032953, main = origin/main). Live check: van-control-tower.onrender.com/o2s serves BUILD_ID 2026-11-27f and is byte for byte the same as apps/o2s/o2s.html; ypInfo, the 40 px chips, the % current colour and the D-386 review note are all present.
+- Phase E item 2 check (read only): the Today cards for Review ("Review COA - item lot") and Approve ("Approve COA - item lot") name no analyst and no reviewer; the Pack QC card ("Inspect packed brand - PO") names nobody who packed. The data exists: coa.analyst, coa.reviewer, coa.draftedBy on the certificate; shift, incharge and by on production lots (line ~10147) and packing entries. The names show only inside the opened certificate and its printed form.
+- NEXT: design page for item 2 and Tahir's rulings, then build.
+
+## 27 Nov 2026 (22) - build 2026-11-27g: names on the lab and QA cards, phase E item 2 (D-387); READY TO PUSH (not pushed) · MODULE: O2S
+
+- Tahir approved the design page "O2S names on lab and QA cards, phase E2" (27 Nov, "yes right"), with its 3 choices.
+- What: tdNameLine adds 1 line on Today cards. Review: Drafted by [analyst]. Approve: Drafted by [analyst] · reviewed by [reviewer]. Pack QC: Packed: [shift] shift, in-charge [name] of the newest entry still to inspect, +N more. No line when the values are missing or (historical). Display only.
+- Independent review: nothing blocking; 3 small fixes applied (count only entries with a batch number; newest keyed on the same day; a lot id that is gone gives no line).
+- Files: o2s.html (tdNameLine, tdCardHTML 1 line, guideHow, changelog, BUILD_ID and SYSDOC_VER 2026-11-27g); decisions.json D-387; tests.json; tests/names1127g.test.js (new, 23 passed); preflight.js marker.
+- Tests: 149 files; only the 2 known baseline failures (audit17c, truckback17a). Preflight ok.
+- Pushed: NO.
+- FOC change asked by Tahir 27 Nov (not built yet): 2 sample types, Commercial (existing path) and Lab grade. His rulings: lab grade is granted by the Plant Manager (not the COO); then a QCM job, closed by the QCM recording what was sent (no DC, no gate pass, no QA check, no Saad review, no PM release); after close, only the 30-day feedback job for the requester (no 'did it arrive'); the Plant Manager gets a Today card plus a push alert; "make sure the notice on Today has an end-completed path".
+- NEXT: FOC design page, Tahir's approval, then build. Then phase E item 3.
+- FOC design page published ("O2S FOC samples: commercial and lab grade") and approved by Tahir 27 Nov ("Yes, build it"). Further rulings: no stock change for a lab grade sample (quantity and batch are information only); quantity in grams or ml by product form; the same people who ask for commercial samples may ask for lab grade. The Plant Manager's notice is the Grant or Refuse job (Today card plus alert), so it always ends with his tap. Build after 27g is pushed.

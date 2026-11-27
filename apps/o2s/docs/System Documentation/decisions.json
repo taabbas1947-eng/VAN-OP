@@ -21372,6 +21372,27 @@
      "p": "Every PO line in the Pack, Divert and Add missing packing lists shows its pack size and the first 40 characters of the PO's instruction note, with the Kg/L and packs it still needs; lines of more than 1 pack size are grouped. The pack size also shows on the Today Pack from base card and on QA (Awaiting, Cleared, the row and the inspection sheet). Where the line has a pack size, the 5 packing entries (Pack, run sheet, Divert, Add missing packing, Write the packing record) take the number of whole packs and store Kg/L = packs x pack size; a part pack, or more packs than the batch, PO line or pool allows, is refused with the number that fits, never cut. The tick box is retired. Lines with no pack size keep the Kg/L box. Records saved before are not changed. Supersedes the 15 Oct 2026 rule that a quantity over the limit is cut and the packs are ticked."
     }
    ]
+  },
+  {
+   "id": "D-381",
+   "title": "Search shows where a product, customer, PO or batch stands (2026-11-27a)",
+   "owner": "Tahir (ruling)",
+   "rules": [
+    "R-056",
+    "R-051"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir, 27 Nov 2026: phase A of the split he chose for the Master Execution Prompt review (\"A. Search Ctrl K: add the product, PO and batch status views. yes show me before you build it\")",
+    "Tahir, 27 Nov 2026, panel answers on the design page O2S search, phase A: \"PO sheet itself\", \"No money for anyone\", \"Keep 12\", \"Every role\"; build: \"go ahead\"; then, after the design review found the search box hidden in the Queue Shell since 23 Sep (\"no search box\"): \"Search icon in header\" (27 Nov 2026)",
+    "o2s.html cmdkItems, cmdkProducts, cmdkCustomers, cmdkPO, cmdkBatch, cmdkBrandBatch, cmdkFit, cmdkRender, cmdkTap, cmdkGo, cmdkKey, guideRules, guideHow",
+    "Independent reviews of 27 Nov 2026 (code, design, data safety): fixes made before release, listed in OP-HANDOFF-O2S.md 27 Nov"
+   ],
+   "blocks": [
+    {
+     "p": "Search opens from a magnifier at the top right of the header, beside the person's name, on every screen and phone (with a Close button and Escape to shut it), or Ctrl K on a laptop; the search box had been hidden since the Queue Shell of 23 Sep 2026, and this revises that ruling for the search only (the sidebar stays hidden). Under each product, customer, PO and batch it shows 1 line with where it stands, and a card inside the box on tap or Enter; a 2nd Enter, or the link on the card, opens the full screen or report. Product: open lines and POs, left to ship, cleared and ready, packed and waiting for QA, on hold, and for a bulk base its packable stock and batches in production, with each open line and its pack size (up to 15); the link opens the Open orders report. Customer: open POs and lines, left to ship, ready, late lines; the link opens the One customer report. PO: stage and each line's ordered, packed, shipped and left; the link opens the PO sheet itself. Batch: produced, packed, shipped and the brands it went into; the link opens Batch trace with the batch picked. Read only: no new sum; left to ship and ready are worked out as in Open orders, on hold and waiting for QA as in the Morning view, late as in the Order tracker, a batch as in Batch trace. No price or value for any role. At most 12 results: up to 3 screens, up to 3 products, up to 3 customers, then POs (open ones first), batches (up to 6) and trucks (up to 6) share what is left. Every role has it; a link shows only where the role may open that screen or report, and a truck only to those who may open Shipments. The list is built inside the KAM filter, so a KAM sees only his own clients in Search (before this build the hidden search ran outside it); for a batch a KAM sees what was packed for his clients, without the whole batch's production."
+    }
+   ]
   }
  ]
 }

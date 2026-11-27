@@ -12,7 +12,7 @@ const { ok, eq, report, grab, html } = H;
 /* ================= 1. THE SHELL ================= */
 ok('the Queue Shell stylesheet is in the file', /<style id="qs-shell">/.test(html));
 ok('IBM Plex is loaded', /fonts\.googleapis\.com\/css2\?family=IBM\+Plex\+Mono/.test(html));
-ok('the sidebar, the menu button and the search box never show', /\.side,\.navbackdrop,\.navtoggle,#densityBtn,\.livepill,\.helpbar,\.cmdk,#sidefoot,\.tbspace\{display:none!important\}/.test(html));
+ok('the sidebar and the menu button never show; the search box shows only when opened (Tahir, 27 Nov: search icon in header, 2026-11-27a)', /\.side,\.navbackdrop,\.navtoggle,#densityBtn,\.livepill,\.helpbar,#sidefoot,\.tbspace\{display:none!important\}/.test(html) && /\.cmdk\{display:none\}\.cmdk\.open\{display:flex/.test(html));
 ok('the header carries the 4 words and the person', /<header class="qs-top" id="qsTop">/.test(html) && /<nav class="qs-nav" id="qsNav"/.test(html) && /<div id="qsMe">/.test(html) && /id="qsClock"/.test(html));
 const nav = (() => { const m = /\nconst NAV_GROUPS=\[/.exec(html); return m ? H.matchBlock(m.index + 1, 'NAV_GROUPS', '[') : ''; })();
 eq('25h/25o: 6 groups - How are we doing and Samples join the header, each for its own people', (nav.match(/label:'/g) || []).length, 6);

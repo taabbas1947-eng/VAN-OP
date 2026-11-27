@@ -262,6 +262,11 @@ If C2M's role lookup fails (e.g. the database is down), `c2mAuth` passes the err
 which prints a stack trace with file paths, because `NODE_ENV` is not set to `production` on Render. Also a
 platform point: setting `NODE_ENV=production` in Render hides stack traces for every app.
 
+### S-18 · A KAM's client limit is on screen only · MODULE: O2S
+**Severity: medium · Confirmed from the code · Raised 2026-11-27**
+
+R-051 (a KAM sees only his own clients) is applied in the browser: `kamRun` narrows the lists before a screen is drawn. The browser of a KAM still receives the whole O2S dataset from `GET /api/state` (all clients, orders and prices), as every login does (S-01). Until build 2026-11-27a the Ctrl K search also ran outside `kamRun` and listed every client's POs to a KAM; that screen gap is closed in that build. What it allows: a KAM who opens the browser's developer tools, or calls `/api/state`, can read other KAMs' clients and their prices. Suggested handling: same as S-01, S-05 and S-15: the server sends a KAM only his own clients' records.
+
 ## Closed items
 
 _None yet._
@@ -282,3 +287,4 @@ _None yet._
 | 2026-10-16 | S-12 to S-14 raised by the independent review of O2S 16c (alerts); S-14 fixed before release. |
 | 2026-10-16 | S-15 raised by the independent audit of the complaint design: cost and responsibility hidden on screen only (ruled), still in /api/state. |
 | 2026-10-17 | S-16 and S-17 raised by the independent reviews of the C2M platform change (C2M CFO/COO self-grant closed in that change). |
+| 2026-11-27 | S-18 raised while building O2S 2026-11-27a (search): the KAM client limit is applied on screen only; the search gap itself is closed in that build. |

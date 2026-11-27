@@ -3759,6 +3759,82 @@
      }
     }
    ]
+  },
+  {
+   "id": "LG-49",
+   "title": "Where each figure in Search comes from (2026-11-27a)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-056"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn cmdkSplit, cmdkSum, cmdkProducts, cmdkCustomers, cmdkPO, cmdkBatch, cmdkBrandBatch, cmdkFit, cmdkRender",
+    "D-381"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Figure",
+       "Rule",
+       "From"
+      ],
+      "rows": [
+       [
+        "Open line",
+        "a PO line with left to ship above 0.5; a closed PO or a line closed short has none",
+        "rbShipLeftOf"
+       ],
+       [
+        "Left to ship",
+        "ordered minus shipped, on open lines",
+        "rbShipLeftOf (Open orders)"
+       ],
+       [
+        "Cleared, ready / On hold / Waiting for QA",
+        "of packed and not shipped, up to left to ship: ready = cleared by QA; on hold = held, up to what is left; waiting for QA = the rest",
+        "lineCleared, lineHeld: ready as Open orders (rbReadyOf), on hold and waiting for QA as the Morning view (mvWhStock)"
+       ],
+       [
+        "Late, days late",
+        "an open line whose committed date has passed; a PO shows the most days late of its open lines",
+        "lineOverdue, isOverdue, daysOver, calDays"
+       ],
+       [
+        "Stage",
+        "the line's stage; a PO takes its least advanced line",
+        "lineStage, stageOf"
+       ],
+       [
+        "Base packable, batches in production",
+        "only for a product whose base is a bulk base",
+        "baseStockKg"
+       ],
+       [
+        "Batch produced, packed, shipped, brands",
+        "as Batch trace; a voided or pool batch is not offered; 2 batches with the same number both show; a reversed or void packing run is not counted; a KAM sees packed and shipped for his clients and no produced figure",
+        "batchTrace"
+       ],
+       [
+        "Unit",
+        "Kg or L from the product; Kg/L where a result mixes both",
+        "unitOf"
+       ],
+       [
+        "Which results",
+        "up to 3 screens; products and customers up to 3 each; then POs (open ones first), batches and trucks share what is left of 12, in turn; the status is worked out only for the results kept, 180 ms after typing stops",
+        "cmdkFit"
+       ],
+       [
+        "Whose results",
+        "built inside kamRun: a KAM sees only his clients' orders, trucks and packing; a link shows only if the role may open the screen or report; a truck only with the Shipments screen",
+        "kamRun, R-051"
+       ]
+      ]
+     }
+    }
+   ]
   }
  ]
 }

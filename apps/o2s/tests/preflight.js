@@ -205,6 +205,9 @@ const MARKERS = [
   ['function jrCardItems(',                 1, '1 answer covers the base (2026-11-19d, D-378)'],
   ['x._escalated || x.role===\'COO\' || x._cover', 1, 'the COO sees an away role\'s jobs (2026-11-19c, D-377)'],  ['function qaInsList(',                 1, 'Inspections on file newest first, with a find box (2026-11-26a, D-379)'],  ['function packQtyHTML(',               1, 'whole packs on every packing entry (2026-11-26b, D-380)'],
   ['function packPoOptions(',              1, 'pack size and note on every PO line (2026-11-26b, D-380)'],
+  ['function cmdkProducts(',               1, 'search shows where a product stands (2026-11-27a, D-381)'],
+  ['<a class="qs-find" href="#" onclick="openCmdK();return false"', 1, 'search opens from the magnifier in the header (2026-11-27a, Tahir 27 Nov)'],
+  ['kamRun(function(){ return cmdkItems(q); })', 1, 'search runs inside the KAM filter, R-051 (2026-11-27a)'],
 ];
 
 const [, , mode, freshPath, otherPath] = process.argv;

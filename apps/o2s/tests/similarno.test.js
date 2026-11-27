@@ -17,5 +17,5 @@ eq(vm.runInContext('packSimilarNos', sb)('Enrich', 'VAN6JW001', '2026-10-10'), [
 eq(vm.runInContext('packSimilarNos', sb)('Enrich', 'VAN6JE001', '2026-10-10'), [], 'the right number gives no warning');
 sb.packForm = { brand: 'Enrich', brandBatch: 'VAN6JW001', packDate: '2026-10-10' }; ok('the form shows the warning', /1 character different from <b>VAN6JE001/.test(vm.runInContext('packSimilarNote', sb)({})));
 ok('doPack asks once then lets it through', /packForm\.simAck!==brandBatchNo/.test(html) && /tap Pack again/.test(html));
-ok('the field refreshes the warning', /onchange="renderPackModal\(\)"/.test(html));
+ok('the field checks as it is typed (2026-11-27c)', /oninput="packForm\.brandBatch=this\.value;packBbCheck\(\)"/.test(html));
 report();

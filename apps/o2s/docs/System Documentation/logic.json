@@ -3901,6 +3901,57 @@
      }
     }
    ]
+  },
+  {
+   "id": "LG-51",
+   "title": "What the entry sheets show before Save (2026-11-27c)",
+   "owner": "COO (Tahir)",
+   "rules": [
+    "R-058"
+   ],
+   "status": "confirmed",
+   "src": [
+    "fn slRoom, slOverTxt, slDups, packFitHTML, packBbState",
+    "D-383"
+   ],
+   "blocks": [
+    {
+     "table": {
+      "head": [
+       "Sheet",
+       "Shows",
+       "From"
+      ],
+      "rows": [
+       [
+        "Log shift output",
+        "most you can still log = max(0, round(plan x 1.15) - made); for a PO batch the smaller of that and ordered - produced on the PO line; none when the plan is 0 and it is not a PO batch",
+        "slRoom (the check in submitShiftLog)"
+       ],
+       [
+        "Log shift output",
+        "over-limit line when the typed Kg/L is above that, with the reason",
+        "slOverTxt"
+       ],
+       [
+        "Log shift output",
+        "entries with the same batch, day, shift and in-charge, with Kg/L, who and when; Save needs a note of 3 characters or more tied to that batch, day, shift and in-charge",
+        "slDups, slSig, submitShiftLog"
+       ],
+       [
+        "Pack, Pack from base, run sheet, Divert",
+        "fits = floor(limit / pack size) whole packs; limit = the base batch's packable Kg and the PO line's need (Pack), pqMax (run sheet), the PO line's need (Divert)",
+        "packEntryCalc cap, packFitHTML"
+       ],
+       [
+        "Pack: brand batch #",
+        "blank, base number, base batch number this year (refused), another brand's number this year (refused), already on this brand (adds), 1 character different (asked once), new",
+        "packBbState (the checks in doPack)"
+       ]
+      ]
+     }
+    }
+   ]
   }
  ]
 }

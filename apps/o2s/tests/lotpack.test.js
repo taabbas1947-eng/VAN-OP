@@ -489,11 +489,18 @@ const B = c => run(c, 'state.batches[state.batches.length-1]');
   eq('...and produced does not move', B(c).producedKg, was);
   const t = run(c, 'toasts').join(' | ');
   ok('...it says what already exists', /Already logged/.test(t) && /Muhammad Imran/.test(t), t);
-  ok('...and says how to go ahead anyway', /press Save shift output again to confirm/.test(t), t);
+  ok('...and says how to go ahead anyway: write why (2026-11-27c, Tahir 27 Nov)', /write why in the box on the sheet/.test(t), t);
 
-  /* pressing again confirms it */
+  /* a second press alone no longer saves it (25 Nov: VU26196 got 2 entries 29 seconds apart that way) */
   run(c, 'toasts=[]; submitShiftLog();');
-  eq('pressing again logs the second run', B(c).lots.length, 4);
+  eq('pressing again without a note writes nothing', B(c).lots.length, 3);
+  /* a note written for a different shift does not count */
+  run(c, 'shiftForm.dupNote="other bed"; shiftForm.dupSig="x|y|z|w"; toasts=[]; submitShiftLog();');
+  eq('a note written for another entry does not count', B(c).lots.length, 3);
+  /* the note for this batch, day, shift and in-charge confirms it */
+  run(c, 'shiftForm.dupNote="second drying bed after the first run"; shiftForm.dupSig=slSig(); toasts=[]; submitShiftLog();');
+  eq('with its note the second run is logged', B(c).lots.length, 4);
+  eq('...and the note is kept on the entry', run(c, 'state.shiftEntries[0].secondRun'), 'second drying bed after the first run');
   eq('...and produced moves by exactly one shift', B(c).producedKg, was + 300);
 
   /* changing the incharge asks again rather than riding on the confirmation */

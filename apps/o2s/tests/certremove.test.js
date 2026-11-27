@@ -556,7 +556,8 @@ function multiApp(role, opts) {
     ${opts.fillB ? 'var _lb = state.orders.find(function(o){ return o.id === "O-B"; }).lines[0]; _lb.produced = _lb.ordered;' : ''}
     shiftForm = { batchId: 'B-AP26012', qty: 1010, shift: 'Morning', incharge: 'Muhammad Imran', date: '2026-08-21', dateReason: 'test fixture, back-dated on purpose', beds: [] };
     submitShiftLog();            /* first press: the duplicate warning, nothing written */
-    submitShiftLog();            /* second press: confirmed */
+    shiftForm.dupNote = 'second run, test fixture'; shiftForm.dupSig = slSig();   /* 2026-11-27c: a second run is confirmed with a note, not a second press */
+    submitShiftLog();            /* with the note: confirmed */
     state.role = ${JSON.stringify(role)};
   `);
   return c;

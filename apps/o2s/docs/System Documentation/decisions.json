@@ -21416,6 +21416,29 @@
      "p": "Reports → Production → Plant pulse shows produced, packed and left the gate side by side for Today, Yesterday, the last 7 days or a picked date (opens on Yesterday; from a Morning view page, on that page's day). Each column opens to its products and each product to its entries: produced with batch, shift and in-charge; packed with packs, batch on the bag, PO, shift and in-charge; trucks by client with DC, vehicle and product. The last 7 days add 1 total a day. On a single day already over, a shift that has been running (logged on 3 or more different days in the 14 days to that day, the Morning view's rule) and logged nothing that day is named. An entry with the same kind, date, batch, batch on the bag, PO, shift, in-charge and Kg as another typed within 5 minutes is marked as looking doubled and stays in the total as typed; nothing is changed. Produced and packed are the counted rows of the production and packing record by the shift date; left the gate is the trucks counted as a sale (saleLeft, R-018) by the day they left (mvShipDate). No price or value. Open to Production, Production Manager, Plant Manager, COO, CFO, Warehouse, Supply Chain, Supply Chain Officer and QCM; the same 3 figures sit at the top of their Morning view page with a link to the pulse, except on pages that already show made and packed or trucks out (Plant Manager, Production Manager, Supply Chain, Warehouse), which get the link only; the COO's and CFO's pages, which already show what left the gate on their Sold on tile, show produced and packed. The Morning view's made now counts like the record: shift entries on a voided batch are left out and Add missing production is counted. A packing run moved to another PO is no longer counted as a second pack run on the Morning view."
     }
    ]
+  },
+  {
+   "id": "D-383",
+   "title": "Entry safeguards: the sheet tells the limit before Save (2026-11-27c)",
+   "owner": "Tahir (ruling)",
+   "rules": [
+    "R-058",
+    "R-033",
+    "R-004",
+    "R-032"
+   ],
+   "status": "confirmed",
+   "src": [
+    "Tahir, 27 Nov 2026: phase C of the 5-phase split (\"Phases C (packing and shift safeguards)\")",
+    "Tahir, 27 Nov 2026, panel answers on the design page O2S entry safeguards, phase C (live figures: VU26196 room 1,050 Kg/L; PO 23215 1 Kg line, 180 packs fit from GS10460): room left while typing; a second run shown early and needing a note; packs that fit on Pack, Pack from base, the run sheet and Divert; every brand batch # check while typing; keep the base batch list; truck safeguards and the cut-off strip left out; build: \"Build it\"",
+    "Cause for the note: 25 Nov 2026, VU26196, 2 entries of 3,500 Kg (Morning, Adnan Rasheed) typed by Jawad Naseer 29 seconds apart after the 'press Save again' message",
+    "o2s.html slRoom, slOverTxt, slCheck, slSig, slDups, slDupHTML, renderShiftLog, submitShiftLog, packFitHTML, packEntryCalc, packQtyHTML, packBbState, packBbHTML, packBbCheck, renderPackModal"
+   ],
+   "blocks": [
+    {
+     "p": "Log shift output shows, beside planned and made, the most that can still be logged: 115% of plan less what is made, and for a batch made for a PO no more than the PO still needs (the smaller, named); typing more shows the same refusal Save gives. When the batch, day, shift and in-charge already have an entry, the sheet says so as soon as the shift and in-charge are picked, with the Kg/L, who typed it and when; Save then needs a short note (3 characters or more) on why it is a second run, kept on the entry as secondRun; a note written for another batch, day, shift or in-charge does not count. This replaces the second press of Save (ruled 26 Aug 2026), which did not stop the 25 Nov double. Pack, Pack from base, the run sheet and Divert show, on a line with a pack size, how many whole packs fit and what limits them (the base batch, the batch, or what the PO still needs), from the same figure Save uses. Pack shows every brand batch # check as it is typed: blank (the base number), the base number, a base batch number this year (Pack refuses), another brand's number this year (Pack refuses), already on this brand (adds to it), 1 character different (Pack asks once), or new. No limit or rule changes; the base batch list stays as it is; truck safeguards and the prompt's cut-off strip are not in this build. After the independent review (27 Nov): the second-run note shows on the entry in the production and packing record (a mark) and in the plant pulse, where a second run with its note is not marked as looking doubled; an earlier 0 Kg/L entry (nothing made) is not a run and asks for no note, on the sheet and at Save; the room is the exact ceiling Save uses (to 0.001); Divert's fit also counts what the pool holds; a brand batch # that differs from one used only in capitals or spaces is named (Pack still keeps it as a separate batch, as before). Browser review fixes (27 Nov): the sheets open outside the area where notes are styled, so the new notes showed no colour; they now carry their own (over-limit red, second run amber, brand batch # in the colour of what it says, fits neutral). The 4th tile no longer sits alone on a second row (4 tiles in 1 row, 2 by 2 on a phone). The over-limit line is 2 plain sentences; the fits line gives the PO need its unit and the run sheet names its batch; the second-run date reads like the pulse (Thu 26 Nov 2026). Known, not changed: older notes on other sheets (for example the look-alike note, short close notes) set a colour that never shows; a colleague's entry saved while the sheet is open is seen only when the sheet is redrawn."
+    }
+   ]
   }
  ]
 }

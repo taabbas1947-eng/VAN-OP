@@ -2710,6 +2710,14 @@
         "",
         "Event stamp.",
         "evStamp shift"
+       ],
+       [
+        "secondRun",
+        "text",
+        "no",
+        "",
+        "2026-11-27c: why a second entry for the same batch, day, shift and in-charge is a separate run; required when one already exists (D-383); absent otherwise.",
+        "submitShiftLog"
        ]
       ]
      }

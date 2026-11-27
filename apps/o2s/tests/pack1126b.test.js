@@ -10,7 +10,7 @@ const box = (st) => { const c = Object.assign({ console, Math, String, Object, A
   unitOf: b => (/Liquid/.test(b) ? 'L' : 'Kg'), fmt: n => Math.round(n).toLocaleString('en-US'), qsEsc: esc, _av: x => String(x == null ? '' : x).replace(/&/g, '&amp;').replace(/"/g, '&quot;'),
   batchPackableKg: b => b.left, pqMax: () => 1e9, lineFacts: () => ({ gap: 0, ordered: 0, logged: 0 }), refreshed: 0 });
   vm.createContext(c);
-  vm.runInContext(['packFmt', 'packSizeOf', 'packSizeTxt', 'packNoteTxt', 'packLineLabel', 'packPoOptions', 'packQtyHTML', 'packSetPacks', 'packEntryCalc', 'packConfirmInner', 'packConfirmGate', 'packFormOf'].map(grab).join('\n')
+  vm.runInContext(['packFmt', 'packSizeOf', 'packSizeTxt', 'packNoteTxt', 'packLineLabel', 'packPoOptions', 'packQtyHTML', 'packSetPacks', 'packEntryCalc', 'packConfirmInner', 'packConfirmGate', 'packFormOf', 'packFitHTML'].map(grab).join('\n')
     + '\nvar packForm=null,pqForm=null,dfForm=null,lfForm=null,divForm=null; function packConfirmRefresh(){ refreshed++; }', c);
   return c; };
 const O14 = { id: 'O14', po: '23214', client: 'MAXIM AGRI (PVT) LTD', instructions: 'Order for Hyderabad', lines: [{ id: 'A', brand: 'Max Sulfur', pack: 10, ordered: 15000, packed: 420 }, { id: 'B', brand: 'Max Sulfur', pack: 1, ordered: 1000, packed: 1000 }] };
